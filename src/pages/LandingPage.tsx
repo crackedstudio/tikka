@@ -7,7 +7,7 @@ import Navbar from "../components/Navbar";
 
 const LandingPage = () => {
     return (
-        <div className="bg-[#060C23] text-white py-10 flex flex-col space-y-16">
+        <div className="bg-[#060C23] text-white flex flex-col space-y-16">
             <Navbar />
             <Hero />
             <DiscoverRaffles />

@@ -10,64 +10,144 @@ import Line from "../../assets/svg/Line";
 
 const Footer = () => {
     return (
-        <div className="bg-[#11172E] px-22 py-28 fixed-bottom">
-            <div className="flex justify-between text-[#CCCCCC] my-8">
-                <div className="space-y-8 w-[30%]">
-                    <div className="flex items-center space-x-3">
-                        <img src={logo} alt="logo" />
-                        <img src={tikka} alt="tikka" className="mt-2" />
+        <footer className="w-full bg-[#11172E]">
+            <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-12 md:py-16">
+                {/* Top grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 text-[#CCCCCC] mb-10">
+                    {/* Brand + socials */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                            <img
+                                src={logo}
+                                alt="VeriWin logo"
+                                className="h-7 w-auto"
+                            />
+                            <img
+                                src={tikka}
+                                alt="VeriWin wordmark"
+                                className="h-5 w-auto mt-1"
+                            />
+                        </div>
+
+                        <p className="text-sm">
+                            Host raffles, join raffles, and enjoy the thrill of
+                            fair play—all in one simple platform.
+                        </p>
+
+                        <p className="text-sm">Join our community</p>
+
+                        <div className="flex items-center gap-3">
+                            <a href="#" aria-label="Discord">
+                                <img
+                                    src={DiscordLogo}
+                                    alt="Discord"
+                                    className="h-6 w-6"
+                                />
+                            </a>
+                            <a href="#" aria-label="YouTube">
+                                <img
+                                    src={YoutubeLogo}
+                                    alt="YouTube"
+                                    className="h-6 w-6"
+                                />
+                            </a>
+                            <a href="#" aria-label="Twitter / X">
+                                <img
+                                    src={TwitterLogo}
+                                    alt="Twitter / X"
+                                    className="h-6 w-6"
+                                />
+                            </a>
+                            <a href="#" aria-label="Instagram">
+                                <img
+                                    src={InstagramLogo}
+                                    alt="Instagram"
+                                    className="h-6 w-6"
+                                />
+                            </a>
+                        </div>
                     </div>
-                    <p>
-                        Host raffles, join raffles, and enjoy the thrill of fair
-                        play—all in one simple platform.
-                    </p>
-                    <p>Join our community</p>
-                    <div className="flex space-x-2">
-                        <img src={DiscordLogo} alt="" />
-                        <img src={YoutubeLogo} alt="" />
-                        <img src={TwitterLogo} alt="" />
-                        <img src={InstagramLogo} alt="" />
+
+                    {/* Explore */}
+                    <nav aria-label="Explore">
+                        <h2 className="text-white text-lg md:text-[22px] font-bold mb-4">
+                            Explore
+                        </h2>
+                        <ul className="flex flex-col gap-3">
+                            <li>
+                                <a href="#" className="hover:text-white">
+                                    Marketplace
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" className="hover:text-white">
+                                    Rankings
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" className="hover:text-white">
+                                    Connect a wallet
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+
+                    {/* Resources */}
+                    <nav aria-label="Resources">
+                        <h2 className="text-white text-lg md:text-[22px] font-bold mb-4">
+                            Resources
+                        </h2>
+                        <ul className="flex flex-col gap-3">
+                            <li>
+                                <a href="#" className="hover:text-white">
+                                    Documentation
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" className="hover:text-white">
+                                    Smart Contracts
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" className="hover:text-white">
+                                    Community
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+
+                    {/* Digest */}
+                    <div className="space-y-6">
+                        <h2 className="text-white text-lg md:text-[22px] font-bold">
+                            Join Our Weekly Digest
+                        </h2>
+                        <p className="text-sm max-w-md">
+                            Get exclusive promotions & updates straight to your
+                            inbox.
+                        </p>
+                        <div className="max-w-md">
+                            <SubscribeForm />
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <h1 className="text-white text-[22px] font-bold mb-6">
-                        Explore
-                    </h1>
-                    <div className="flex flex-col space-y-5">
-                        <p>Marketplace</p>
-                        <p>Rankings</p>
-                        <p>Connect a wallet</p>
-                    </div>
-                </div>
-                <div>
-                    <h1 className="text-white text-[22px] font-bold mb-6">
-                        Resources
-                    </h1>
-                    <div className="flex flex-col space-y-5">
-                        <p>Documentation</p>
-                        <p>Smart Contracts</p>
-                        <p>Community</p>
-                    </div>
-                </div>
-                <div className="space-y-8">
-                    <h1 className="text-white text-[22px] font-bold mb-6">
-                        Join Our Weekly Digest
-                    </h1>
-                    <p className="w-[80%]">
-                        Get exclusive promotions & updates straight to your
-                        inbox.
-                    </p>
-                    <SubscribeForm />
+
+                {/* Separator */}
+                <Line />
+
+                {/* Bottom bar */}
+                <div className="mt-6 flex flex-wrap items-center gap-x-3 md:gap-x-6 gap-y-2 text-xs">
+                    <span className="text-[#5A5E6E]">Ⓒ Tikka.</span>
+                    <span className="text-[#5A5E6E]">All rights reserved.</span>
+
+                    <a href="#" className="hover:text-white">
+                        Terms of Service
+                    </a>
+                    <a href="#" className="hover:text-white">
+                        Privacy Policy
+                    </a>
                 </div>
             </div>
-            <Line />
-            <div className="flex space-x-8 mt-8">
-                <p className="text-[#5A5E6E] text-xs">Ⓒ Tikka.</p>
-                <p className="text-[#5A5E6E] text-xs">All rights reserved.</p>
-                <p className="text-xs">Terms of Service</p>
-                <p className="text-xs">Privacy Policy</p>
-            </div>
-        </div>
+        </footer>
     );
 };
 

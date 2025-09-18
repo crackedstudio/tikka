@@ -42,7 +42,7 @@ const RecentlyAddedCard: React.FC<RecentlyAddedCardProps> = ({
             <div className="flex flex-col space-y-2">
                 <p className="text-[14px] font-bold">{title}</p>
                 {/* Countdown */}
-                <div className="flex space-x-2">
+                <div className="flex space-x-2'">
                     <span className="bg-[#242B46] rounded p-1">
                         {countdown.days}d
                     </span>

@@ -38,81 +38,98 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
     onEnter,
 }) => {
     return (
-        <div className="w-full bg-[#11172E] p-4 rounded-3xl flex space-x-8 border border-[#1F263F] my-5 items-start">
-            {/* Image */}
-            <div className="w-full">
-                <img
-                    src={image}
-                    alt="Raffle"
-                    className="w-full object-cover rounded-3xl"
-                />
-            </div>
-            <div className="flex flex-col space-y-8 w-full">
-                {/* Title & Prize */}
-                <div>
-                    <p className="text-[22px] font-bold">{title}</p>
-                    <p className="text-[14px] text-[#9CA3AF] my-3">{body}</p>
+        <div className="w-full bg-[#11172E] p-4 md:p-6 lg:p-8 rounded-3xl border border-[#1F263F] my-5">
+            <div className="flex flex-col gap-6 md:flex-row md:gap-8 items-stretch">
+                {/* Image (stacks on top for mobile) */}
+                <div className="w-full md:w-1/2">
+                    <img
+                        src={image}
+                        alt={title}
+                        className="w-full h-auto rounded-2xl object-cover"
+                    />
                 </div>
-                <Line />
-                <div className="flex justify-between">
+
+                {/* Content */}
+                <div className="w-full md:w-1/2 flex flex-col space-y-6">
+                    {/* Title & Body */}
                     <div>
-                        <p className="text-[#9CA3AF] text-sm">Prize Value: </p>
-                        <p className="font-bold text-[#FFD700] text-[22px]">
-                            {prizeValue} {prizeCurrency}
+                        <p className="text-2xl md:text-3xl font-bold">
+                            {title}
+                        </p>
+                        <p className="text-sm md:text-base text-[#9CA3AF] mt-3">
+                            {body}
                         </p>
                     </div>
-                    <div>
-                        <p className="text-xs text-right text-[#9CA3AF] mb-2">
-                            Ends In
-                        </p>
-                        <div className="flex justify-center space-x-1">
-                            <span className="bg-[#242B46] rounded p-1">
-                                {countdown.days}d
-                            </span>
-                            <span className="bg-[#242B46] rounded p-1">
-                                {countdown.hours}h
-                            </span>
-                            <span className="bg-[#242B46] rounded p-1">
-                                {countdown.minutes}m
-                            </span>
-                            <span className="bg-[#242B46] rounded p-1">
-                                {countdown.seconds}s
-                            </span>
+
+                    <Line />
+
+                    {/* Prize + Countdown */}
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p className="text-[#9CA3AF] text-sm">
+                                Prize Value:
+                            </p>
+                            <p className="font-bold text-[#FFD700] text-xl md:text-2xl">
+                                {prizeValue} {prizeCurrency}
+                            </p>
+                        </div>
+
+                        <div className="sm:text-right">
+                            <p className="text-xs text-[#9CA3AF] mb-2">
+                                Ends In
+                            </p>
+                            <div className="flex justify-start sm:justify-end gap-1">
+                                <span className="bg-[#242B46] rounded px-2 py-1">
+                                    {countdown.days}d
+                                </span>
+                                <span className="bg-[#242B46] rounded px-2 py-1">
+                                    {countdown.hours}h
+                                </span>
+                                <span className="bg-[#242B46] rounded px-2 py-1">
+                                    {countdown.minutes}m
+                                </span>
+                                <span className="bg-[#242B46] rounded px-2 py-1">
+                                    {countdown.seconds}s
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <Line />
 
-                {/* Countdown */}
+                    <Line />
 
-                {/* Ticket & Entries */}
-                <div className="flex justify-between">
-                    <div>
-                        <p className="text-[#9CA3AF] text-[12px]">
-                            Ticket price
-                        </p>
-                        <p>{ticketPrice}</p>
+                    {/* Ticket & Entries */}
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <p className="text-[#9CA3AF] text-[12px]">
+                                Ticket price
+                            </p>
+                            <p className="text-sm md:text-base">
+                                {ticketPrice}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-[#9CA3AF] text-[12px]">
+                                Entries
+                            </p>
+                            <p className="text-sm md:text-base">{entries}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[#9CA3AF] text-[12px]">Entries</p>
-                        <p>{entries}</p>
-                    </div>
+
+                    {/* Progress */}
+                    <ProgressBar value={progress} />
+
+                    {/* CTA */}
+                    <button
+                        onClick={onEnter}
+                        className="w-full md:w-auto self-stretch md:self-start px-8 py-4 rounded-xl text-white font-medium transition"
+                        style={{
+                            background:
+                                "linear-gradient(100.92deg, #A259FF 13.57%, #FF6250 97.65%)",
+                        }}
+                    >
+                        {buttonText}
+                    </button>
                 </div>
-
-                {/* Progress */}
-                <ProgressBar value={progress} />
-
-                {/* CTA */}
-                <button
-                    onClick={onEnter}
-                    className="px-8 py-4 rounded-xl text-white font-medium transition"
-                    style={{
-                        background:
-                            "linear-gradient(100.92deg, #A259FF 13.57%, #FF6250 97.65%)",
-                    }}
-                >
-                    {buttonText}
-                </button>
             </div>
         </div>
     );
