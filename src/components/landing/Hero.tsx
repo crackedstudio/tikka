@@ -1,7 +1,11 @@
 import RocketLaunch from "../../assets/svg/RocketLaunch";
 import dummyImage from "../../assets/svg/dummyImage.svg";
 
-const Hero = () => {
+interface HeroProps {
+    handleStartClick: () => void;
+}
+
+const Hero = ({ handleStartClick }: HeroProps) => {
     return (
         <section className="px-6 md:px-12 lg:px-22 py-12">
             <div className="flex flex-col-reverse items-center gap-12 md:flex-row md:gap-16 mx-auto max-w-7xl px-6 md:px-12 lg:px-16">
@@ -24,7 +28,10 @@ const Hero = () => {
                     </p>
 
                     <div>
-                        <button className="bg-[#fe3796] px-10 md:px-16 py-4 rounded-xl flex items-center justify-center space-x-4 mx-auto md:mx-0">
+                        <button
+                            className="bg-[#fe3796] px-10 md:px-16 py-4 rounded-xl flex items-center justify-center space-x-4 mx-auto md:mx-0"
+                            onClick={handleStartClick}
+                        >
                             <RocketLaunch />
                             <span>Get Started</span>
                         </button>

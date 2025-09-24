@@ -2,9 +2,10 @@ import RaffleCard from "../cards/RaffleCard";
 import TrendingTab from "./TrendingTab";
 import cptpnk from "../../assets/cptpnk.png";
 import teslmdl from "../../assets/teslmdl.png";
+import { useState } from "react";
 
 const TrendingRaffles = () => {
-    const [activeTab, setActiveTab] = "All Raffles";
+    const [activeTab, setActiveTab] = useState("All Raffles");
     const raffleList = [
         {
             image: cptpnk,

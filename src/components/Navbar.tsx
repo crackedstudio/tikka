@@ -3,7 +3,7 @@ import React from "react";
 import logo from "../assets/svg/logo.svg";
 import tikka from "../assets/svg/Tikka.svg";
 
-const Navbar: React.FC = () => {
+const Navbar = ({ onStart }: { onStart: () => void }) => {
     const [open, setOpen] = React.useState(false);
 
     const navItems = [
@@ -32,12 +32,12 @@ const Navbar: React.FC = () => {
                         </a>
                     ))}
 
-                    <a
-                        href="#get-started"
+                    <button
+                        onClick={onStart}
                         className="ml-2 rounded-xl px-6 py-3 text-sm font-medium text-white transition hover:brightness-110 bg-[#FE3796]"
                     >
                         Get Started
-                    </a>
+                    </button>
                 </div>
 
                 {/* Mobile: hamburger */}
@@ -104,8 +104,10 @@ const Navbar: React.FC = () => {
                     ))}
 
                     <a
-                        href="#get-started"
-                        onClick={() => setOpen(false)}
+                        onClick={() => {
+                            setOpen(false);
+                            onStart();
+                        }}
                         className="mt-2 rounded-xl px-6 py-3 text-center text-sm font-medium text-white hover:brightness-110 bg-[#FE3796]"
                     >
                         Get Started
