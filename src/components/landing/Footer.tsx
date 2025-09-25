@@ -10,7 +10,7 @@ import Line from "../../assets/svg/Line";
 
 const Footer = () => {
     return (
-        <footer className="w-full bg-[#11172E]">
+        <footer className="w-full bg-[#11172E] fixed-bottom">
             <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-12 md:py-16">
                 {/* Top grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 text-[#CCCCCC] mb-10">

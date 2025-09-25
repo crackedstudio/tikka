@@ -1,5 +1,6 @@
 import { Eye } from "lucide-react";
 import TrendingRaffles from "./TrendingRaffles";
+import { basicRaffleList } from "../../utils/dummy";
 
 const DiscoverRaffles = () => {
     return (
@@ -27,7 +28,7 @@ const DiscoverRaffles = () => {
 
                 {/* Content */}
                 <div className="mt-8">
-                    <TrendingRaffles />
+                    <TrendingRaffles raffleList={basicRaffleList} />
                 </div>
             </div>
         </section>

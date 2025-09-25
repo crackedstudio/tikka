@@ -3,7 +3,7 @@ import React from "react";
 import logo from "../assets/svg/logo.svg";
 import tikka from "../assets/svg/Tikka.svg";
 
-const Navbar = ({ onStart }: { onStart: () => void }) => {
+const Navbar = ({ onStart }: { onStart?: () => void }) => {
     const [open, setOpen] = React.useState(false);
 
     const navItems = [
@@ -106,7 +106,7 @@ const Navbar = ({ onStart }: { onStart: () => void }) => {
                     <a
                         onClick={() => {
                             setOpen(false);
-                            onStart();
+                            if (onStart) onStart();
                         }}
                         className="mt-2 rounded-xl px-6 py-3 text-center text-sm font-medium text-white hover:brightness-110 bg-[#FE3796]"
                     >

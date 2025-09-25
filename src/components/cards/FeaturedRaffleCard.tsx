@@ -121,7 +121,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                     {/* CTA */}
                     <button
                         onClick={onEnter}
-                        className="w-full md:w-auto self-stretch md:self-start px-8 py-4 rounded-xl text-white font-medium transition"
+                        className="w-full self-stretch md:self-start px-8 py-4 rounded-xl text-white font-medium transition"
                         style={{
                             background:
                                 "linear-gradient(100.92deg, #A259FF 13.57%, #FF6250 97.65%)",

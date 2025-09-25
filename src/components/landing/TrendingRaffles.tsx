@@ -1,61 +1,15 @@
+import { basicRaffleList } from "../../utils/dummy";
 import RaffleCard from "../cards/RaffleCard";
 import TrendingTab from "./TrendingTab";
-import cptpnk from "../../assets/cptpnk.png";
-import teslmdl from "../../assets/teslmdl.png";
 import { useState } from "react";
 
-const TrendingRaffles = () => {
+interface TrendingRafflesProps {
+    raffleList: typeof basicRaffleList;
+}
+
+const TrendingRaffles = ({ raffleList }: TrendingRafflesProps) => {
     const [activeTab, setActiveTab] = useState("All Raffles");
-    const raffleList = [
-        {
-            image: cptpnk,
-            title: "Rare Crypto Punk #3842",
-            prizeValue: "12.5",
-            prizeCurrency: "ETH",
-            countdown: {
-                days: "01",
-                hours: "12",
-                minutes: "45",
-                seconds: "33",
-            },
-            ticketPrice: "0.01 ETH",
-            entries: 782,
-            progress: 70,
-            buttonText: "Enter Now",
-        },
-        {
-            image: teslmdl,
-            title: "Tesla Model 3 Givaway",
-            prizeValue: "8.3",
-            prizeCurrency: "ETH",
-            countdown: {
-                days: "00",
-                hours: "18",
-                minutes: "22",
-                seconds: "59",
-            },
-            ticketPrice: "0.02 ETH",
-            entries: 410,
-            progress: 40,
-            buttonText: "Join Raffle",
-        },
-        {
-            image: cptpnk,
-            title: "1 Bitcoin Jackpot",
-            prizeValue: "25",
-            prizeCurrency: "ETH",
-            countdown: {
-                days: "02",
-                hours: "06",
-                minutes: "12",
-                seconds: "11",
-            },
-            ticketPrice: "0.1 ETH",
-            entries: 1220,
-            progress: 85,
-            buttonText: "Enter Raffle",
-        },
-    ];
+
     return (
         <div>
             <TrendingTab
