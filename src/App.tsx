@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import LandingPage from "./pages/LandingPage";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import RaffleDetails from "./pages/RaffleDetails";
 function App() {
     return (
         <Router>
@@ -10,6 +11,7 @@ function App() {
                 <Route path="/" element={<LandingLayout />}>
                     <Route index element={<LandingPage />} />
                     <Route path="home" element={<Home />} />
+                    <Route path="details" element={<RaffleDetails />} />
                 </Route>
 
                 {/* <Route path="/game" element={<GameLayout />}>

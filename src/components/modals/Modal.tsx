@@ -89,7 +89,7 @@ export default function Modal({ open, onClose, children }: ModalProps) {
         >
             {/* Backdrop */}
             <div
-                className={`absolute inset-0 bg-black/60 transition-opacity ${
+                className={`absolute inset-0 bg-black/85 transition-opacity ${
                     open ? "opacity-100" : "opacity-0"
                 }`}
                 onMouseDown={onClose} // click outside closes
@@ -104,7 +104,7 @@ export default function Modal({ open, onClose, children }: ModalProps) {
                 // stop click from bubbling to backdrop
                 onMouseDown={(e) => e.stopPropagation()}
                 tabIndex={-1}
-                className={`relative p-6 rounded-xl w-[450px] mx-auto transform transition-all ${
+                className={`relative md:p-6 rounded-xl w-full md:w-[500px] mx-auto transform transition-all ${
                     open
                         ? "opacity-100 translate-y-0 scale-100"
                         : "opacity-0 translate-y-4 scale-95"
