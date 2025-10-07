@@ -40,14 +40,14 @@ const TicketConfirmation = ({
     };
 
     return (
-        <div className="w-full">
+        <div className="w-full max-w-[500px] mx-auto px-4 sm:px-6">
             {/* Header */}
-            <div className="flex items-start justify-between mb-6">
-                <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-white mb-2">
+            <div className="flex items-start justify-between mb-4 sm:mb-6">
+                <div className="flex-1 pr-4">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
                         Purchase a ticket
                     </h2>
-                    <p className="text-white text-sm">
+                    <p className="text-white text-xs sm:text-sm">
                         You are about to purchase a ticket for{" "}
                         <span className="font-semibold">{raffleName}</span>{" "}
                         raffle.
@@ -55,35 +55,41 @@ const TicketConfirmation = ({
                 </div>
                 <button
                     onClick={onClose}
-                    className="text-white hover:text-gray-300 transition-colors ml-4"
+                    className="text-white hover:text-gray-300 transition-colors flex-shrink-0"
                     aria-label="Close modal"
                 >
-                    <X size={24} />
+                    <X size={20} className="sm:w-6 sm:h-6" />
                 </button>
             </div>
 
             {/* Wallet Connection Section */}
-            <div className="bg-[#2A2A3E] rounded-xl p-4 mb-6">
+            <div className="bg-[#2A2A3E] rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                         {/* Metamask Icon */}
-                        <div className="rounded-full flex items-center justify-center">
-                            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                                <img src={metamask} alt="" />
+                        <div className="rounded-full flex items-center justify-center flex-shrink-0">
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center">
+                                <img
+                                    src={metamask}
+                                    alt=""
+                                    className="w-3 h-3 sm:w-4 sm:h-4"
+                                />
                             </div>
                         </div>
-                        <div>
-                            <p className="text-white font-medium">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-white font-medium text-xs sm:text-sm truncate">
                                 {walletAddress}
                             </p>
-                            <p className="text-white text-sm">Metamask</p>
+                            <p className="text-white text-xs sm:text-sm">
+                                Metamask
+                            </p>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <div className="bg-[#42A846] text-white px-3 py-1 rounded-full text-sm font-medium mb-1">
+                    <div className="text-right flex-shrink-0 ml-2">
+                        <div className="bg-[#42A846] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium mb-1">
                             Connected
                         </div>
-                        <button className="text-gray-400 text-sm hover:text-white transition-colors">
+                        <button className="text-gray-400 text-xs sm:text-sm hover:text-white transition-colors">
                             Change
                         </button>
                     </div>
@@ -91,16 +97,16 @@ const TicketConfirmation = ({
             </div>
 
             {/* Ticket Details */}
-            <div className="space-y-4 mb-6 text-[14px]">
+            <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6 text-xs sm:text-sm">
                 {/* Price Per Ticket */}
                 <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">
+                    <span className="text-gray-400 text-xs sm:text-sm">
                         Price Per Ticket
                     </span>
                     <div className="text-right">
-                        <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
-                            <span className="text-white font-medium">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
+                            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full"></div>
+                            <span className="text-white font-medium text-xs sm:text-sm">
                                 {pricePerTicket}
                             </span>
                         </div>
@@ -110,43 +116,47 @@ const TicketConfirmation = ({
 
                 {/* Number of Tickets */}
                 <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">
+                    <span className="text-gray-400 text-xs sm:text-sm">
                         Number of tickets
                     </span>
-                    <div className="flex items-center">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
                         <button
                             onClick={handleDecrease}
-                            className="w-8 h-8 bg-[#00E6CC33] text-[#00E6CC] rounded-lg flex items-center justify-center hover:brightness-95 transition-all"
+                            className="w-7 h-7 sm:w-8 sm:h-8 bg-[#00E6CC33] text-[#00E6CC] rounded-lg flex items-center justify-center hover:brightness-95 transition-all"
                             disabled={ticketCount <= 1}
                         >
-                            <Minus size={16} />
+                            <Minus size={14} className="sm:w-4 sm:h-4" />
                         </button>
-                        <span className="text-white font-medium min-w-[40px] text-center">
+                        <span className="text-white font-medium min-w-[30px] sm:min-w-[40px] text-center text-sm sm:text-base">
                             {ticketCount}
                         </span>
                         <button
                             onClick={handleIncrease}
-                            className="w-8 h-8 bg-[#00E6CC33] text-[#00E6CC] rounded-lg flex items-center justify-center hover:brightness-95 transition-all"
+                            className="w-7 h-7 sm:w-8 sm:h-8 bg-[#00E6CC33] text-[#00E6CC] rounded-lg flex items-center justify-center hover:brightness-95 transition-all"
                         >
-                            <Plus size={16} />
+                            <Plus size={14} className="sm:w-4 sm:h-4" />
                         </button>
                     </div>
                 </div>
 
                 {/* Gas Fee */}
                 <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">
+                    <span className="text-gray-400 text-xs sm:text-sm">
                         Gas fee (estimated)
                     </span>
-                    <span className="text-white font-medium">{gasFee}</span>
+                    <span className="text-white font-medium text-xs sm:text-sm">
+                        {gasFee}
+                    </span>
                 </div>
 
                 {/* Total */}
                 <div className="flex justify-between items-center pt-2 border-t border-[#1F263F]">
-                    <span className="text-gray-400 text-sm">Total</span>
-                    <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
-                        <span className="text-white font-medium">
+                    <span className="text-gray-400 text-xs sm:text-sm">
+                        Total
+                    </span>
+                    <div className="flex items-center space-x-1 sm:space-x-2">
+                        <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full"></div>
+                        <span className="text-white font-medium text-xs sm:text-sm">
                             {calculateTotal()} ETH
                         </span>
                     </div>
@@ -156,7 +166,7 @@ const TicketConfirmation = ({
             {/* Buy Tickets Button */}
             <button
                 onClick={onBuyTickets}
-                className="w-full bg-[#fe3796] hover:bg-[#fe3796]/90 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
+                className="w-full bg-[#fe3796] hover:bg-[#fe3796]/90 text-white font-semibold py-3 sm:py-4 px-4 sm:px-6 rounded-xl transition-colors text-sm sm:text-base"
             >
                 Buy Tickets
             </button>
