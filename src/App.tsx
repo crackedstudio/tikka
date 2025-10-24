@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import LandingPage from "./pages/LandingPage";
 import CreateRaffle from "./pages/CreateRaffle";
 import Leaderboard from "./pages/Leaderboard";
+import WinnerDemo from "./pages/WinnerDemo";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
@@ -16,6 +17,7 @@ function App() {
                     <Route path="details" element={<RaffleDetails />} />
                     <Route path="create" element={<CreateRaffle />} />
                     <Route path="leaderboard" element={<Leaderboard />} />
+                    <Route path="winner-demo" element={<WinnerDemo />} />
                 </Route>
 
                 {/* <Route path="/game" element={<GameLayout />}>
