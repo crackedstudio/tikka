@@ -10,7 +10,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
         { label: "Discover Raffles", href: "/home" },
         { label: "Create Raffle", href: "/create" },
         { label: "My Raffles", href: "#" },
-        { label: "Leaderboard", href: "#" },
+        { label: "Leaderboard", href: "/leaderboard" },
     ];
 
     return (
