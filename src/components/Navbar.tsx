@@ -7,8 +7,10 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
     const [open, setOpen] = React.useState(false);
 
     const navItems = [
-        { label: "Discover Raffles", href: "#" },
-        { label: "Create Raffle", href: "#" },
+        { label: "Discover Raffles", href: "/home" },
+        { label: "Create Raffle", href: "/create" },
+        { label: "My Raffles", href: "#" },
+        { label: "Leaderboard", href: "#" },
     ];
 
     return (

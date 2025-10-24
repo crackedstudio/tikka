@@ -1,5 +1,5 @@
 import RocketLaunch from "../../assets/svg/RocketLaunch";
-import dummyImage from "../../assets/svg/dummyImage.svg";
+import dummyImage from "../../assets/hero-img.png";
 
 interface HeroProps {
     handleStartClick: () => void;
