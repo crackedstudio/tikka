@@ -51,11 +51,21 @@ const RaffleCardWrapper: React.FC<{
     }
 
     if (error || !raffle) {
+        console.log("🔍 RaffleCardWrapper - Error or no raffle data:", {
+            raffleId,
+            error,
+            raffle,
+        });
         return (
             <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
                 <div className="text-red-400 text-center">
-                    Error loading raffle
+                    Error loading raffle #{raffleId}
                 </div>
+                {error && (
+                    <div className="text-gray-400 text-xs text-center">
+                        {error.message || "Unknown error"}
+                    </div>
+                )}
             </div>
         );
     }

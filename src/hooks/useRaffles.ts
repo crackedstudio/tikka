@@ -87,41 +87,149 @@ export const useRaffle = (raffleId: number) => {
     // Fetch metadata when raffle data is available
     useEffect(() => {
         if (raffleData && !isLoading) {
-            const [, , description] = raffleData as unknown as any[];
+            let description;
+
+            if (Array.isArray(raffleData) && raffleData.length >= 3) {
+                // Array structure (legacy)
+                const [, , desc] = raffleData as unknown as any[];
+                description = desc;
+            } else if (typeof raffleData === "object" && raffleData !== null) {
+                // Object structure (current)
+                description = (raffleData as any).description;
+            } else {
+                return;
+            }
 
             // Check if description is a Supabase URL
             if (
                 typeof description === "string" &&
                 description.includes("supabase")
             ) {
+                console.log("🔍 useRaffle - Found Supabase URL:", description);
                 setMetadataLoading(true);
                 setMetadataError(null);
 
-                // Extract record ID from URL
-                const urlParts = description.split("id=eq.");
-                const recordId = urlParts[1];
+                // Extract record ID from URL - handle different URL formats
+                let recordId;
+
+                // Try different URL patterns
+                if (description.includes("id=eq.")) {
+                    // Pattern: .../rest/v1/raffle_metadata?id=eq.5391fa95-9ce6-49cd-befa-e8f3839da9cd
+                    const urlParts = description.split("id=eq.");
+                    recordId = urlParts[1];
+                } else if (description.includes("/raffle_metadata/")) {
+                    // Pattern: .../rest/v1/raffle_metadata/5391fa95-9ce6-49cd-befa-e8f3839da9cd
+                    const urlParts = description.split("/raffle_metadata/");
+                    recordId = urlParts[1];
+                } else {
+                    // Try to extract UUID from URL
+                    const uuidRegex =
+                        /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+                    const match = description.match(uuidRegex);
+                    recordId = match ? match[1] : null;
+                }
+
+                console.log("🔍 useRaffle - Extracted record ID:", recordId);
 
                 if (recordId) {
+                    console.log(
+                        "🔍 useRaffle - Fetching metadata for record ID:",
+                        recordId
+                    );
                     MetadataService.getRaffleMetadata(recordId)
                         .then((fetchedMetadata) => {
+                            console.log(
+                                "🔍 useRaffle - Fetched metadata:",
+                                fetchedMetadata
+                            );
                             setMetadata(fetchedMetadata);
                         })
                         .catch((err) => {
-                            console.error("Error fetching metadata:", err);
+                            console.error(
+                                "🔍 useRaffle - Error fetching metadata:",
+                                err
+                            );
                             setMetadataError(err);
                         })
                         .finally(() => {
                             setMetadataLoading(false);
                         });
+                } else {
+                    console.log(
+                        "🔍 useRaffle - Could not extract record ID from URL"
+                    );
+                    setMetadataLoading(false);
                 }
+            } else {
+                console.log(
+                    "🔍 useRaffle - Description is not a Supabase URL:",
+                    description
+                );
             }
         }
     }, [raffleData, isLoading]);
 
     const formattedRaffle = useMemo(() => {
-        if (!raffleData) return null;
+        if (!raffleData) {
+            console.log("🔍 useRaffle - No raffle data available");
+            return null;
+        }
 
-        const [
+        console.log("🔍 useRaffle - Processing raffle data:", raffleData);
+
+        // Handle both array and object structures
+        let raffleInfo;
+        if (Array.isArray(raffleData)) {
+            // Array structure (legacy)
+            if (raffleData.length < 14) {
+                console.log(
+                    "🔍 useRaffle - Invalid array structure:",
+                    raffleData
+                );
+                return null;
+            }
+            const [
+                id,
+                creator,
+                description,
+                endTime,
+                maxTickets,
+                allowMultipleTickets,
+                ticketPrice,
+                ticketToken,
+                totalTicketsSold,
+                winner,
+                winningTicketId,
+                isActive,
+                isFinalized,
+                winningsWithdrawn,
+            ] = raffleData as unknown as any[];
+
+            raffleInfo = {
+                id,
+                creator,
+                description,
+                endTime,
+                maxTickets,
+                allowMultipleTickets,
+                ticketPrice,
+                ticketToken,
+                totalTicketsSold,
+                winner,
+                winningTicketId,
+                isActive,
+                isFinalized,
+                winningsWithdrawn,
+            };
+        } else if (typeof raffleData === "object" && raffleData !== null) {
+            // Object structure (current)
+            raffleInfo = raffleData as any;
+        } else {
+            console.log("🔍 useRaffle - Invalid data structure:", raffleData);
+            return null;
+        }
+
+        const {
             id,
             creator,
             description,
@@ -136,7 +244,7 @@ export const useRaffle = (raffleId: number) => {
             isActive,
             isFinalized,
             winningsWithdrawn,
-        ] = raffleData as unknown as any[];
+        } = raffleInfo;
 
         // Calculate time remaining
         const now = Math.floor(Date.now() / 1000);

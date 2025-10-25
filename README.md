@@ -176,6 +176,12 @@ VITE_ONCHAINKIT_API_KEY=your_onchainkit_api_key_here
 VITE_RAFFLE_CONTRACT_ADDRESS=0x60fd4f42B818b173d7252859963c7131Ed68CA6D
 VITE_CHAIN_ID=84532
 
+# RPC Configuration (for faster blockchain data fetching)
+VITE_INFURA_RPC_URL=https://base-sepolia.infura.io/v3/2DmS9CrnVeU2Caun612yGaPQ2aq
+
+# WalletConnect Configuration (optional)
+VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+
 # Supabase Configuration (for metadata)
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key

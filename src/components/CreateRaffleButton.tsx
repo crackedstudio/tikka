@@ -9,6 +9,7 @@ import { MetadataService } from "../services/metadataService";
 import type { RaffleMetadata } from "../types/types";
 import Modal from "./modals/Modal";
 import ProcessingRaffleCreation from "./modals/ProcessingRaffleCreation";
+import RaffleCreatedSuccess from "./modals/RaffleCreatedSuccess";
 
 interface CreateRaffleButtonProps {
     // Form data for metadata
@@ -57,8 +58,12 @@ const CreateRaffleButton: React.FC<CreateRaffleButtonProps> = ({
     const { writeContract, isPending, hash } = useRaffleContract();
     const [isLoading, setIsLoading] = useState(false);
     const [showProcessingModal, setShowProcessingModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [currentStep, setCurrentStep] = useState("");
     const [progress, setProgress] = useState(0);
+    const [createdRaffleId, setCreatedRaffleId] = useState<number | undefined>(
+        undefined
+    );
 
     const handleCreateRaffle = async () => {
         console.log("🚀 Starting raffle creation process...");
@@ -142,11 +147,15 @@ const CreateRaffleButton: React.FC<CreateRaffleButtonProps> = ({
 
             // Note: We can't get the raffle ID directly from the transaction
             // We would need to listen to the RaffleCreated event
-            onSuccess?.(0); // Placeholder ID
+            // For now, we'll use a placeholder ID
+            const raffleId = 0; // This should be replaced with actual raffle ID from event
+            setCreatedRaffleId(raffleId);
+            onSuccess?.(raffleId);
 
-            // Close modal after a short delay
+            // Close processing modal and show success modal
             setTimeout(() => {
                 setShowProcessingModal(false);
+                setShowSuccessModal(true);
                 setIsLoading(false);
             }, 1500);
         } catch (err: any) {
@@ -210,6 +219,24 @@ const CreateRaffleButton: React.FC<CreateRaffleButtonProps> = ({
                         if (!isLoading) {
                             setShowProcessingModal(false);
                         }
+                    }}
+                />
+            </Modal>
+
+            {/* Success Modal */}
+            <Modal
+                open={showSuccessModal}
+                onClose={() => {
+                    setShowSuccessModal(false);
+                }}
+            >
+                <RaffleCreatedSuccess
+                    isVisible={showSuccessModal}
+                    raffleId={createdRaffleId}
+                    transactionHash={hash}
+                    network="Base Sepolia"
+                    onClose={() => {
+                        setShowSuccessModal(false);
                     }}
                 />
             </Modal>

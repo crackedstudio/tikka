@@ -41,12 +41,24 @@ const EnterRaffleButton: React.FC<EnterRaffleButtonProps> = ({
         setIsLoading(true);
 
         try {
+            // Convert ETH to wei (1 ETH = 10^18 wei)
+            const ethAmount = parseFloat(
+                ticketPrice.toString().replace(" ETH", "")
+            );
+            const weiAmount = BigInt(Math.floor(ethAmount * 1e18));
+
+            console.log("🔍 EnterRaffleButton - Converting ETH to wei:", {
+                originalPrice: ticketPrice,
+                ethAmount,
+                weiAmount: weiAmount.toString(),
+            });
+
             await writeContract({
                 address: RAFFLE_CONTRACT_ADDRESS,
                 abi: RAFFLE_CONTRACT_ABI,
                 functionName: "buyTicket",
                 args: [BigInt(raffleId)],
-                value: BigInt(ticketPrice), // Assuming ticketPrice is in wei
+                value: weiAmount,
             });
 
             onSuccess?.();
