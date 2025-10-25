@@ -7,6 +7,20 @@ import {
 } from "../hooks/useRaffleContract";
 import { useRaffle } from "../hooks/useRaffles";
 
+// Helper function to safely stringify data with BigInt values
+const safeStringify = (data: any): string => {
+    if (data === null || data === undefined) {
+        return "null";
+    }
+    try {
+        return JSON.stringify(data, (_, value) =>
+            typeof value === "bigint" ? value.toString() : value
+        );
+    } catch (error) {
+        return `Error: ${error}`;
+    }
+};
+
 const MyRaffles: React.FC = () => {
     const [activeTab, setActiveTab] = useState("created");
     const { address } = useAccount();
@@ -159,59 +173,68 @@ const MyRaffles: React.FC = () => {
                     ))}
                 </div>
 
-                {/* Debug Info */}
-                <div className="mb-6 p-4 bg-gray-800 rounded-lg">
-                    <h4 className="text-white font-semibold mb-2">
-                        Debug Info:
-                    </h4>
-                    <div className="text-sm text-gray-300 space-y-1">
-                        <div>Address: {address}</div>
-                        <div>
-                            User Participation Loading:{" "}
-                            {participationLoading ? "Yes" : "No"}
-                        </div>
-                        <div>
-                            User Participation Error:{" "}
-                            {participationError?.message || "None"}
-                        </div>
-                        <div>
-                            User Participation Raw Data:{" "}
-                            {JSON.stringify(userParticipation)}
-                        </div>
-                        <div>
-                            All Raffles Loading:{" "}
-                            {allRafflesLoading ? "Yes" : "No"}
-                        </div>
-                        <div>
-                            All Raffles Error:{" "}
-                            {allRafflesError?.message || "None"}
-                        </div>
-                        <div>
-                            All Raffles Data: {JSON.stringify(allRaffleIds)}
-                        </div>
-                        <div>Processed Raffles: {myRaffles.length}</div>
-                        <div>Fallback Raffles: {fallbackRaffles.length}</div>
-                        <div>Display Raffles: {displayRaffles.length}</div>
-                        <div>
-                            Contract Address:
-                            0x60fd4f42B818b173d7252859963c7131Ed68CA6D
+                {/* Debug Info - Hidden for production */}
+                {false && (
+                    <div className="mb-6 p-4 bg-gray-800 rounded-lg">
+                        <h4 className="text-white font-semibold mb-2">
+                            Debug Info:
+                        </h4>
+                        <div className="text-sm text-gray-300 space-y-1">
+                            <div>Address: {address}</div>
+                            <div>
+                                User Participation Loading:{" "}
+                                {participationLoading ? "Yes" : "No"}
+                            </div>
+                            <div>
+                                User Participation Error:{" "}
+                                {participationError?.message || "None"}
+                            </div>
+                            <div>
+                                User Participation Raw Data:{" "}
+                                {safeStringify(userParticipation)}
+                            </div>
+                            <div>
+                                All Raffles Loading:{" "}
+                                {allRafflesLoading ? "Yes" : "No"}
+                            </div>
+                            <div>
+                                All Raffles Error:{" "}
+                                {allRafflesError?.message || "None"}
+                            </div>
+                            <div>
+                                All Raffles Data: {safeStringify(allRaffleIds)}
+                            </div>
+                            <div>Processed Raffles: {myRaffles.length}</div>
+                            <div>
+                                Fallback Raffles: {fallbackRaffles.length}
+                            </div>
+                            <div>Display Raffles: {displayRaffles.length}</div>
+                            <div>
+                                Contract Address:
+                                0x60fd4f42B818b173d7252859963c7131Ed68CA6D
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
-                {/* Test Contract Connection */}
-                <div className="mb-6 p-4 bg-blue-900 rounded-lg">
-                    <h4 className="text-white font-semibold mb-2">
-                        Contract Test:
-                    </h4>
-                    <div className="text-sm text-gray-300 space-y-1">
-                        <div>Testing contract connection...</div>
-                        <div>
-                            If you see this, the contract calls are being made.
+                {/* Test Contract Connection - Hidden for production */}
+                {false && (
+                    <div className="mb-6 p-4 bg-blue-900 rounded-lg">
+                        <h4 className="text-white font-semibold mb-2">
+                            Contract Test:
+                        </h4>
+                        <div className="text-sm text-gray-300 space-y-1">
+                            <div>Testing contract connection...</div>
+                            <div>
+                                If you see this, the contract calls are being
+                                made.
+                            </div>
+                            <div>
+                                Check the browser console for detailed logs.
+                            </div>
                         </div>
-                        <div>Check the browser console for detailed logs.</div>
                     </div>
-                </div>
+                )}
 
                 {/* Loading State */}
                 {participationLoading && (
