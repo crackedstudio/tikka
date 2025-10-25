@@ -1,7 +1,9 @@
 // Navbar.tsx
 import React from "react";
+import { Link } from "react-router-dom";
 import logo from "../assets/svg/logo.svg";
 import tikka from "../assets/svg/Tikka.svg";
+import WalletButton from "./WalletButton";
 
 const Navbar = ({ onStart }: { onStart?: () => void }) => {
     const [open, setOpen] = React.useState(false);
@@ -9,7 +11,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
     const navItems = [
         { label: "Discover Raffles", href: "/home" },
         { label: "Create Raffle", href: "/create" },
-        { label: "My Raffles", href: "#" },
+        { label: "My Raffles", href: "/my-raffles" },
         { label: "Leaderboard", href: "/leaderboard" },
     ];
 
@@ -17,29 +19,34 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
         <header className="w-full fixed-top">
             <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:px-8">
                 {/* Left: brand */}
-                <a href="#" className="flex items-center gap-3">
+                <Link to="/" className="flex items-center gap-3">
                     <img src={logo} alt="logo" className="h-7 w-auto" />
                     <img src={tikka} alt="tikka" className="h-5 w-auto mt-1" />
-                </a>
+                </Link>
 
                 {/* Desktop nav */}
                 <div className="hidden items-center gap-2 lg:flex">
-                    {navItems.map((item) => (
-                        <a
-                            key={item.label}
-                            href={item.href}
-                            className="px-4 py-2 text-sm text-white/80 hover:text-white transition"
-                        >
-                            {item.label}
-                        </a>
-                    ))}
+                    {navItems.map((item) =>
+                        item.href === "#" ? (
+                            <a
+                                key={item.label}
+                                href={item.href}
+                                className="px-4 py-2 text-sm text-white/80 hover:text-white transition"
+                            >
+                                {item.label}
+                            </a>
+                        ) : (
+                            <Link
+                                key={item.label}
+                                to={item.href}
+                                className="px-4 py-2 text-sm text-white/80 hover:text-white transition"
+                            >
+                                {item.label}
+                            </Link>
+                        )
+                    )}
 
-                    <button
-                        onClick={onStart}
-                        className="ml-2 rounded-xl px-6 py-3 text-sm font-medium text-white transition hover:brightness-110 bg-[#FE3796]"
-                    >
-                        Get Started
-                    </button>
+                    <WalletButton />
                 </div>
 
                 {/* Mobile: hamburger */}
@@ -94,16 +101,27 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                 }`}
             >
                 <div className="mx-auto flex max-w-7xl flex-col gap-1 px-6 pb-4 md:px-8">
-                    {navItems.map((item) => (
-                        <a
-                            key={item.label}
-                            href={item.href}
-                            className="rounded-lg px-3 py-3 text-sm text-white/90 hover:bg-white/5"
-                            onClick={() => setOpen(false)}
-                        >
-                            {item.label}
-                        </a>
-                    ))}
+                    {navItems.map((item) =>
+                        item.href === "#" ? (
+                            <a
+                                key={item.label}
+                                href={item.href}
+                                className="rounded-lg px-3 py-3 text-sm text-white/90 hover:bg-white/5"
+                                onClick={() => setOpen(false)}
+                            >
+                                {item.label}
+                            </a>
+                        ) : (
+                            <Link
+                                key={item.label}
+                                to={item.href}
+                                className="rounded-lg px-3 py-3 text-sm text-white/90 hover:bg-white/5"
+                                onClick={() => setOpen(false)}
+                            >
+                                {item.label}
+                            </Link>
+                        )
+                    )}
 
                     <a
                         onClick={() => {

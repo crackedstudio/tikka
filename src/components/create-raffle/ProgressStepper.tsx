@@ -20,7 +20,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                     />
                 </div>
 
-                {steps.map((step, index) => (
+                {steps.map((step) => (
                     <div
                         key={step.id}
                         className="flex flex-col items-center relative z-10"

@@ -1,19 +1,12 @@
 import React from "react";
 import type { StepComponentProps } from "../../types/types";
+import CreateRaffleButton from "../CreateRaffleButton";
 
 const ReviewStep: React.FC<StepComponentProps> = ({
     formData,
-    updateFormData,
     onNext,
     onBack,
 }) => {
-    const handlePublish = () => {
-        // Here you would typically send the data to your backend
-        console.log("Publishing raffle:", formData);
-        // For now, we'll just call onNext to complete the flow
-        onNext();
-    };
-
     const formatDuration = (days: number, hours: number) => {
         return `${days}d ${hours}h`;
     };
@@ -129,12 +122,43 @@ const ReviewStep: React.FC<StepComponentProps> = ({
                 >
                     Back
                 </button>
-                <button
-                    onClick={handlePublish}
-                    className="px-6 py-3 bg-[#FF389C] hover:bg-[#FF389C]/90 text-white rounded-lg font-medium transition-colors duration-200"
+                <CreateRaffleButton
+                    title={formData.title}
+                    description={formData.description}
+                    image={
+                        formData.image
+                            ? URL.createObjectURL(formData.image)
+                            : "/src/assets/cptpnk.png"
+                    }
+                    prizeName={formData.title}
+                    prizeValue={formData.pricePerTicket.toString()}
+                    prizeCurrency="ETH"
+                    category="General"
+                    tags={[]}
+                    endTime={
+                        Math.floor(Date.now() / 1000) +
+                        formData.duration.days * 24 * 60 * 60 +
+                        formData.duration.hours * 60 * 60
+                    }
+                    maxTickets={formData.totalTickets}
+                    allowMultipleTickets={true}
+                    ticketPrice={(
+                        parseFloat(formData.pricePerTicket.toString()) * 1e18
+                    ).toString()} // Convert to wei
+                    onSuccess={(raffleId) => {
+                        console.log(
+                            "Raffle created successfully with ID:",
+                            raffleId
+                        );
+                        onNext();
+                    }}
+                    onError={(error) => {
+                        console.error("Error creating raffle:", error);
+                        alert(error);
+                    }}
                 >
                     Publish Raffle
-                </button>
+                </CreateRaffleButton>
             </div>
         </div>
     );

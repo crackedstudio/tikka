@@ -1,8 +1,10 @@
 import { Eye } from "lucide-react";
 import TrendingRaffles from "./TrendingRaffles";
-import { basicRaffleList } from "../../utils/dummy";
+import { useActiveRaffles } from "../../hooks/useRaffles";
 
 const DiscoverRaffles = () => {
+    const { raffles, error, isLoading } = useActiveRaffles();
+
     return (
         <section className="w-full">
             <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-16">
@@ -28,7 +30,30 @@ const DiscoverRaffles = () => {
 
                 {/* Content */}
                 <div className="mt-8">
-                    <TrendingRaffles raffleList={basicRaffleList} />
+                    {isLoading ? (
+                        <div className="text-center py-12">
+                            <div className="text-white text-lg">
+                                Loading raffles from blockchain...
+                            </div>
+                        </div>
+                    ) : error ? (
+                        <div className="text-center py-12">
+                            <div className="text-red-400 text-lg">
+                                Error loading raffles: {error.message}
+                            </div>
+                        </div>
+                    ) : raffles.length === 0 ? (
+                        <div className="text-center py-12">
+                            <div className="text-white text-lg">
+                                No active raffles found
+                            </div>
+                            <div className="text-gray-400 text-sm mt-2">
+                                Be the first to create a raffle!
+                            </div>
+                        </div>
+                    ) : (
+                        <TrendingRaffles raffleIds={raffles} />
+                    )}
                 </div>
             </div>
         </section>

@@ -121,3 +121,26 @@ export interface WalletInfo {
     type: string;
     isConnected: boolean;
 }
+
+// Raffle Metadata Types
+export interface RaffleMetadata {
+    title: string;
+    description: string;
+    image: string; // IPFS URL or Supabase storage URL
+    prizeName: string;
+    prizeValue: string;
+    prizeCurrency: string;
+    category: string;
+    tags: string[];
+    createdBy: string; // Wallet address
+    createdAt: number; // Timestamp
+    updatedAt: number; // Timestamp
+}
+
+export interface SupabaseRaffleRecord {
+    id: string;
+    raffle_id: number; // Contract raffle ID
+    metadata: RaffleMetadata;
+    created_at: string;
+    updated_at: string;
+}

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import type { RaffleFormData, CreateRaffleStep } from "../types/types";
 import ProgressStepper from "../components/create-raffle/ProgressStepper";
 import DetailsStep from "../components/create-raffle/DetailsStep";
@@ -102,55 +101,9 @@ const CreateRaffle: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#120D23] text-white">
+        <div className="min-h-screen text-white">
             {/* Header */}
             <div className="w-full max-w-7xl mx-auto px-6 py-8">
-                <div className="flex items-center justify-between mb-8">
-                    <Link to="/" className="flex items-center space-x-3">
-                        <img
-                            src="/src/assets/svg/logo.svg"
-                            alt="logo"
-                            className="h-7 w-auto"
-                        />
-                        <img
-                            src="/src/assets/svg/Tikka.svg"
-                            alt="tikka"
-                            className="h-5 w-auto mt-1"
-                        />
-                    </Link>
-
-                    <div className="hidden lg:flex items-center space-x-6">
-                        <Link
-                            to="/home"
-                            className="text-white/80 hover:text-white transition"
-                        >
-                            Discover Raffles
-                        </Link>
-                        <Link
-                            to="/create"
-                            className="text-white/80 hover:text-white transition"
-                        >
-                            Create Raffle
-                        </Link>
-                        <a
-                            href="#"
-                            className="text-white/80 hover:text-white transition"
-                        >
-                            My Raffles
-                        </a>
-                        <a
-                            href="#"
-                            className="text-white/80 hover:text-white transition"
-                        >
-                            Leaderboard
-                        </a>
-                    </div>
-
-                    <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
-                        Sh4uak...ghT9
-                    </button>
-                </div>
-
                 {/* Page Title */}
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-bold text-white mb-2">

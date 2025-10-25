@@ -2,6 +2,7 @@
 import React from "react";
 import { ProgressBar } from "../ui/ProgressBar";
 import Line from "../../assets/svg/Line";
+import EnterRaffleButton from "../EnterRaffleButton";
 
 type Countdown = {
     days: string;
@@ -21,6 +22,7 @@ type RaffleCardProps = {
     progress: number; // 0–100
     buttonText?: string;
     onEnter?: () => void; // optional click handler
+    raffleId?: number; // Contract raffle ID
 };
 
 const RaffleCard: React.FC<RaffleCardProps> = ({
@@ -34,6 +36,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
     progress,
     buttonText = "Enter Raffle",
     onEnter,
+    raffleId,
 }) => {
     return (
         <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
@@ -94,12 +97,29 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
             <ProgressBar value={progress} />
 
             {/* CTA */}
-            <button
-                onClick={onEnter}
-                className="border border-[#fe3796] px-8 py-4 rounded-xl hover:bg-[#fe3796]/10 transition"
-            >
-                {buttonText}
-            </button>
+            {raffleId ? (
+                <EnterRaffleButton
+                    raffleId={raffleId}
+                    ticketPrice={ticketPrice}
+                    onSuccess={() => {
+                        console.log("Ticket purchased successfully!");
+                        onEnter?.();
+                    }}
+                    onError={(error) => {
+                        console.error("Error purchasing ticket:", error);
+                        alert(error);
+                    }}
+                >
+                    {buttonText}
+                </EnterRaffleButton>
+            ) : (
+                <button
+                    onClick={onEnter}
+                    className="border border-[#fe3796] px-8 py-4 rounded-xl hover:bg-[#fe3796]/10 transition"
+                >
+                    {buttonText}
+                </button>
+            )}
         </div>
     );
 };
