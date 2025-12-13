@@ -177,7 +177,7 @@ VITE_RAFFLE_CONTRACT_ADDRESS=0x60fd4f42B818b173d7252859963c7131Ed68CA6D
 VITE_CHAIN_ID=84532
 
 # RPC Configuration (for faster blockchain data fetching)
-VITE_INFURA_RPC_URL=https://base-sepolia.infura.io/v3/2DmS9CrnVeU2Caun612yGaPQ2aq
+VITE_INFURA_RPC_URL=
 
 # WalletConnect Configuration (optional)
 VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
