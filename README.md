@@ -14,19 +14,104 @@
 
 ---
 
-## 📖 What is Tikka?
+## Overview
 
-**Tikka** is a revolutionary decentralized raffle platform that brings transparency, fairness, and accessibility to the world of online raffles. Built entirely on the Stellar blockchain using Soroban smart contracts, Tikka eliminates the need for trusted intermediaries while ensuring provably fair outcomes.
+Tikka is a decentralized raffle and gaming platform built on the **Stellar blockchain**, using **Soroban smart contracts** to deliver transparent, trust-minimized, and globally accessible raffles.
 
-### 🎯 Core Concept
+At its core, Tikka allows anyone to **host**, **join**, and **verify** raffles entirely onchain — removing the need to trust centralized operators. Every rule, payment, and outcome is enforced by smart contracts, making fairness provable rather than promised.
 
-Tikka transforms traditional raffles by:
+This iteration of Tikka is designed specifically for Stellar’s strengths: low fees, fast finality, and composable smart contracts through Soroban.
 
--   **Eliminating intermediaries** - No central authority controls the process
--   **Ensuring transparency** - All raffle data is publicly verifiable on-chain
--   **Providing fairness** - Random number generation (TBD)
--   **Enabling global access** - Anyone with a wallet can participate
--   **Reducing costs** - No platform fees, only transaction fees
+---
+
+## The Problem
+
+Traditional online raffles and giveaways suffer from three major issues:
+
+-   **Lack of trust** — users cannot verify how winners are selected.
+-   **Centralized control** — hosts can manipulate outcomes or disappear with funds.
+-   **Limited accessibility** — high fees and complex UX prevent global participation.
+
+Even many Web3 raffles still rely on offchain logic or opaque randomness, which undermines the promise of decentralization.
+
+---
+
+## The Solution
+
+Tikka solves this by moving the entire raffle lifecycle onchain using **Soroban**:
+
+-   Raffle creation, entry, settlement, and payouts are handled by smart contracts.
+-   Funds are escrowed onchain and can only move according to predefined rules.
+-   Winner selection uses **onchain randomness**, via **PRNG mechanisms or oracle-assisted randomness**, ensuring outcomes are unpredictable and verifiable.
+
+Once deployed, a raffle runs autonomously — even the creator cannot interfere.
+
+---
+
+## How It Works (High-Level)
+
+1. A host deploys a raffle contract specifying:
+    - Prize details
+    - Ticket price
+    - Entry limits
+    - End conditions
+2. Participants enter by submitting transactions directly to the contract.
+3. When the raffle ends:
+    - A randomness source (PRNG or oracle-assisted) is invoked.
+    - The contract deterministically selects a winner.
+4. The prize is automatically transferred to the winning address.
+
+All steps are publicly auditable on the Stellar ledger.
+
+---
+
+## Randomness & Fairness
+
+Tikka prioritizes fairness as a first-class feature.
+
+-   **PRNG-based randomness** can be used for lightweight, low-cost raffles.
+-   **Oracle-assisted randomness** can be integrated for higher-stakes raffles where stronger unpredictability guarantees are required.
+
+In both cases, the randomness input and selection logic are transparent, making the outcome reproducible and verifiable by anyone.
+
+---
+
+## Why Stellar + Soroban
+
+Stellar is a strong fit for Tikka because:
+
+-   **Low transaction fees** make micro-entries viable.
+-   **Fast finality** improves user experience during live raffles.
+-   **Soroban smart contracts** enable expressive yet efficient onchain logic.
+-   **Global accessibility** aligns with Tikka’s goal of open participation.
+
+By leveraging Soroban, Tikka keeps logic simple, deterministic, and secure.
+
+---
+
+## Vision
+
+Tikka is not just a raffle app — it’s an **onchain gaming primitive**.
+
+Over time, it can evolve into:
+
+-   A foundation for community giveaways and loyalty programs
+-   A plug-and-play raffle module for DAOs and creators
+-   A fair, transparent alternative to centralized gaming mechanics
+
+By combining Soroban smart contracts with verifiable randomness, Tikka demonstrates how simple games can be rebuilt as **trustless, autonomous systems** on Stellar.
+
+---
+
+## Status
+
+This project represents an **alpha-stage build**, focused on validating:
+
+-   Core raffle mechanics on Soroban
+-   Onchain randomness strategies
+-   End-to-end usability on Stellar Testnet
+
+Future iterations will expand composability, UX, and advanced fairness guarantees.
 
 ---
 
