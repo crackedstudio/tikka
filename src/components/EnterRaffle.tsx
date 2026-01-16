@@ -13,7 +13,7 @@ const EnterRaffle = ({ handleEnterRaffle }: EnterRaffleProps) => {
                     Enter Raffle
                 </p>
                 <span className="bg-[#00E6CC33] px-3 py-1 text-[#00E6CC] text-[12px] rounded-full whitespace-nowrap">
-                    Max 100 per wallet
+                    Max 100 per entry
                 </span>
             </div>
 
@@ -77,7 +77,7 @@ const EnterRaffle = ({ handleEnterRaffle }: EnterRaffleProps) => {
             </div>
 
             <p className="text-center text-[#6B7280] text-xs">
-                Gas fees estimated at 0.002 ETH
+                Demo mode - no gas fees
             </p>
         </div>
     );

@@ -3,7 +3,6 @@ import FeaturedRaffle from "../components/landing/FeaturedRaffle";
 import TrendingRaffles from "../components/landing/TrendingRaffles";
 import VerifiedBadge from "../components/VerifiedBadge";
 import RocketLaunch from "../assets/svg/RocketLaunch";
-import ContractTest from "../components/ContractTest";
 import { useState } from "react";
 import { useActiveRaffles } from "../hooks/useRaffles";
 
@@ -11,29 +10,21 @@ const Home = () => {
     const [isLoading, setIsLoading] = useState(false);
     const { raffles, error, isLoading: rafflesLoading } = useActiveRaffles();
 
-    console.log("🔍 Home Page - Raffles:", raffles);
-    console.log("🔍 Home Page - Error:", error);
-    console.log("🔍 Home Page - Loading:", rafflesLoading);
-
     const handleLoadMore = async () => {
         setIsLoading(true);
-        // In a real app, this would load more raffles from the contract
-        // For now, we'll just simulate loading
         await new Promise((resolve) => setTimeout(resolve, 1000));
         setIsLoading(false);
-        console.log("Loading more raffles from contract...");
     };
 
     return (
         <div className="bg-[#060C23] text-white flex flex-col space-y-16">
-            <ContractTest />
             <BrowseRaffles />
             <FeaturedRaffle isSignedIn={true} />
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
                 {rafflesLoading ? (
                     <div className="text-center py-12">
                         <div className="text-white text-lg">
-                            Loading raffles from blockchain...
+                            Loading raffles...
                         </div>
                     </div>
                 ) : error ? (

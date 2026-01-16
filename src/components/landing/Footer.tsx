@@ -86,7 +86,7 @@ const Footer = () => {
                             </li>
                             <li>
                                 <a href="#" className="hover:text-white">
-                                    Connect a wallet
+                                    Demo mode
                                 </a>
                             </li>
                         </ul>
@@ -105,7 +105,7 @@ const Footer = () => {
                             </li>
                             <li>
                                 <a href="#" className="hover:text-white">
-                                    Smart Contracts
+                                    Platform updates
                                 </a>
                             </li>
                             <li>

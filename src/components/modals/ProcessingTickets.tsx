@@ -9,8 +9,8 @@ interface ProcessingTicketsProps {
 
 const ProcessingTickets = ({
     onClose,
-    transactionHash = "0x7a9d...e3f2",
-    network = "Ethereum",
+    transactionHash = "DEMO-7A9D-E3F2",
+    network = "Demo Mode",
     isVisible = true,
 }: ProcessingTicketsProps) => {
     if (!isVisible) return null;
@@ -43,18 +43,17 @@ const ProcessingTickets = ({
                     Purchasing tickets...
                 </h2>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
-                    Your transaction is being processed on the blockchain. This
-                    may take a few moments.
+                    This is a demo flow. No onchain transaction is required.
                 </p>
             </div>
 
             {/* Transaction Details */}
             <div className="bg-[#090E1F] rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
                 <div className="space-y-3">
-                    {/* Transaction Hash */}
+                    {/* Reference ID */}
                     <div className="flex justify-between items-center">
                         <span className="text-white text-xs sm:text-sm">
-                            Transaction Hash:
+                            Reference ID:
                         </span>
                         <span className="text-white font-mono text-xs sm:text-sm truncate ml-2">
                             {transactionHash}
@@ -64,10 +63,10 @@ const ProcessingTickets = ({
                     {/* Divider */}
                     <div className="border-t border-[#1F263F]"></div>
 
-                    {/* Network */}
+                    {/* Mode */}
                     <div className="flex justify-between items-center">
                         <span className="text-white text-xs sm:text-sm">
-                            Network:
+                            Mode:
                         </span>
                         <div className="flex items-center space-x-1 sm:space-x-2">
                             <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full"></div>

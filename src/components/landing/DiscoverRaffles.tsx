@@ -33,7 +33,7 @@ const DiscoverRaffles = () => {
                     {isLoading ? (
                         <div className="text-center py-12">
                             <div className="text-white text-lg">
-                                Loading raffles from blockchain...
+                                Loading raffles...
                             </div>
                         </div>
                     ) : error ? (

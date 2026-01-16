@@ -13,7 +13,7 @@ const RaffleCreatedSuccess = ({
     onClose,
     raffleId,
     transactionHash,
-    network = "Base Sepolia",
+    network = "Demo Mode",
     isVisible = true,
 }: RaffleCreatedSuccessProps) => {
     if (!isVisible) return null;
@@ -61,8 +61,8 @@ const RaffleCreatedSuccess = ({
                     Raffle Created Successfully! 🎉
                 </h2>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
-                    Your raffle has been deployed to the blockchain and is now
-                    live for participants to join.
+                    Your raffle is ready in demo mode and can be shared for UI
+                    preview.
                 </p>
             </div>
 
@@ -109,10 +109,10 @@ const RaffleCreatedSuccess = ({
                         </>
                     )}
 
-                    {/* Network */}
+                    {/* Mode */}
                     <div className="flex justify-between items-center">
                         <span className="text-white text-xs sm:text-sm">
-                            Network:
+                            Mode:
                         </span>
                         <div className="flex items-center space-x-1 sm:space-x-2">
                             <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-400 rounded-full"></div>

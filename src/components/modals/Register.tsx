@@ -36,7 +36,7 @@ const Register = ({ activeTab, changeActiveTab }: TrendingTabProps) => {
                     <div className="flex flex-col space-y-4">
                         <button className="w-full flex space-x-2 justify-center items-center py-3 border border-[#353F64] rounded-xl">
                             <WalletMinimal color="#0058F7" />
-                            <span>Continue With Wallet</span>
+                            <span>Continue in Demo</span>
                         </button>
                         <button className="w-full flex space-x-2 justify-center items-center py-3 border border-[#353F64] rounded-xl">
                             <Google />

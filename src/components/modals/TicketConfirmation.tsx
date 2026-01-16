@@ -62,11 +62,11 @@ const TicketConfirmation = ({
                 </button>
             </div>
 
-            {/* Wallet Connection Section */}
+            {/* Demo Identity Section */}
             <div className="bg-[#2A2A3E] rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-                        {/* Metamask Icon */}
+                        {/* Demo Icon */}
                         <div className="rounded-full flex items-center justify-center flex-shrink-0">
                             <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center">
                                 <img
@@ -81,7 +81,7 @@ const TicketConfirmation = ({
                                 {walletAddress}
                             </p>
                             <p className="text-white text-xs sm:text-sm">
-                                Metamask
+                                Demo profile
                             </p>
                         </div>
                     </div>

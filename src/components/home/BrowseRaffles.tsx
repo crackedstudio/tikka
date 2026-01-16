@@ -37,8 +37,7 @@ const BrowseRaffles = () => {
                             Host your raffle
                         </h2>
                         <p className="text-[#9CA3AF] text-[16px] mt-1">
-                            Join the most exciting blockchain-powered raffle
-                            platform where
+                            Join the most exciting raffle demo platform where
                         </p>
 
                         <div className="mt-5 w-full">

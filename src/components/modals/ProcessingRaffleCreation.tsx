@@ -11,8 +11,8 @@ interface ProcessingRaffleCreationProps {
 
 const ProcessingRaffleCreation = ({
     onClose,
-    transactionHash = "0x7a9d...e3f2",
-    network = "Base Sepolia",
+    transactionHash = "DEMO-7A9D-E3F2",
+    network = "Demo Mode",
     isVisible = true,
     currentStep = "Uploading metadata...",
     progress = 0,
@@ -69,9 +69,8 @@ const ProcessingRaffleCreation = ({
                     {currentStep}
                 </p>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
-                    This process involves uploading metadata and creating a
-                    blockchain transaction. Please keep this window open and
-                    approve any wallet prompts.
+                    This is a demo flow. No wallet connection or onchain
+                    transaction is required.
                 </p>
             </div>
 
@@ -79,10 +78,10 @@ const ProcessingRaffleCreation = ({
             {transactionHash && (
                 <div className="bg-[#090E1F] rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="space-y-3">
-                        {/* Transaction Hash */}
+                        {/* Reference ID */}
                         <div className="flex justify-between items-center">
                             <span className="text-white text-xs sm:text-sm">
-                                Transaction Hash:
+                                Reference ID:
                             </span>
                             <span className="text-white font-mono text-xs sm:text-sm truncate ml-2">
                                 {transactionHash}
