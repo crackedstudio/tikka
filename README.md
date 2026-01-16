@@ -3,20 +3,20 @@
 <div align="center">
   <img src="src/assets/svg/Tikka.svg" alt="Tikka Logo" width="200" height="200">
   
-  **A fully onchain raffle platform built on Base Sepolia**
+  **A fully onchain raffle platform built on Stellar**
   
   [![React](https://img.shields.io/badge/React-18.0-blue.svg)](https://reactjs.org/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
   [![Vite](https://img.shields.io/badge/Vite-7.0-purple.svg)](https://vitejs.dev/)
-  [![OnchainKit](https://img.shields.io/badge/OnchainKit-Latest-green.svg)](https://onchainkit.xyz/)
-  [![Base](https://img.shields.io/badge/Base-Sepolia-blue.svg)](https://base.org/)
+  [![Stellar](https://img.shields.io/badge/Stellar-Network-blue.svg)](https://stellar.org/)
+  [![Soroban](https://img.shields.io/badge/Soroban-Smart%20Contracts-orange.svg)](https://soroban.stellar.org/)
 </div>
 
 ---
 
 ## 📖 What is Tikka?
 
-**Tikka** is a revolutionary decentralized raffle platform that brings transparency, fairness, and accessibility to the world of online raffles. Built entirely on blockchain technology, Tikka eliminates the need for trusted intermediaries while ensuring provably fair outcomes.
+**Tikka** is a revolutionary decentralized raffle platform that brings transparency, fairness, and accessibility to the world of online raffles. Built entirely on the Stellar blockchain using Soroban smart contracts, Tikka eliminates the need for trusted intermediaries while ensuring provably fair outcomes.
 
 ### 🎯 Core Concept
 
@@ -24,9 +24,9 @@ Tikka transforms traditional raffles by:
 
 -   **Eliminating intermediaries** - No central authority controls the process
 -   **Ensuring transparency** - All raffle data is publicly verifiable on-chain
--   **Providing fairness** - Random number generation through Chainlink VRF
+-   **Providing fairness** - Random number generation (TBD)
 -   **Enabling global access** - Anyone with a wallet can participate
--   **Reducing costs** - No platform fees, only gas costs
+-   **Reducing costs** - No platform fees, only transaction fees
 
 ---
 
@@ -35,24 +35,24 @@ Tikka transforms traditional raffles by:
 ### 🎟️ **Raffle Creation & Management**
 
 -   **Easy Setup**: Create raffles with custom parameters in minutes
--   **Flexible Pricing**: Set ticket prices in ETH or ERC20 tokens
+-   **Flexible Pricing**: Set ticket prices in XLM or Stellar assets
 -   **Custom Duration**: Choose raffle end times from hours to days
 -   **Rich Metadata**: Upload images, descriptions, and prize details
 -   **Category System**: Organize raffles by type and interest
 
 ### 🎲 **Provably Fair Randomness**
 
--   **Chainlink VRF**: Industry-standard verifiable randomness
+-   **Randomness Solution**: TBD
 -   **Transparent Selection**: All randomness is publicly verifiable
 -   **Tamper-Proof**: No possibility of manipulation or bias
 -   **Instant Results**: Winners are selected automatically
 
 ### 💰 **Flexible Payment System**
 
--   **ETH Raffles**: Pay with native Ethereum
--   **Token Raffles**: Support for any ERC20 token
+-   **XLM Raffles**: Pay with native Stellar Lumens
+-   **Asset Raffles**: Support for any Stellar asset
 -   **Automatic Distribution**: Winnings distributed automatically
--   **Gas Optimization**: Efficient smart contract design
+-   **Fee Optimization**: Efficient Soroban smart contract design
 
 ### 🏆 **Comprehensive Platform**
 
@@ -65,6 +65,15 @@ Tikka transforms traditional raffles by:
 
 ## 🏗️ Technical Architecture
 
+### **Blockchain Platform**
+
+Tikka is built on the **Stellar blockchain** using **Soroban smart contracts**. Soroban is Stellar's smart contract platform that enables Turing-complete smart contracts written in Rust, providing:
+
+-   **Low Transaction Fees**: Stellar's efficient consensus mechanism
+-   **Fast Finality**: Sub-second transaction confirmation
+-   **Scalability**: High throughput for decentralized applications
+-   **Interoperability**: Native support for Stellar assets and tokens
+
 ### **Frontend Stack**
 
 ```
@@ -72,25 +81,25 @@ React 18 + TypeScript + Vite
 ├── UI Components (Tailwind CSS)
 ├── State Management (React Hooks)
 ├── Routing (React Router)
-├── Wallet Integration (OnchainKit)
-└── Contract Integration (wagmi + viem)
+├── Wallet Integration (Stellar SDK)
+└── Contract Integration (Soroban SDK)
 ```
 
 ### **Blockchain Infrastructure**
 
 ```
-Base Sepolia Network
-├── Smart Contract (Solidity)
-├── Chainlink VRF (Randomness)
+Stellar Network
+├── Smart Contracts (Soroban - Rust)
+├── Randomness (TBD)
 ├── Metadata Storage (Supabase)
-└── Wallet Integration (OnchainKit)
+└── Wallet Integration (Stellar SDK)
 ```
 
 ### **Smart Contract Features**
 
 -   **Raffle Management**: Create, join, and manage raffles
--   **Random Selection**: Chainlink VRF integration for fair winners
--   **Token Support**: ETH and ERC20 token compatibility
+-   **Random Selection**: TBD - Fair winner selection mechanism
+-   **Asset Support**: XLM and Stellar asset compatibility
 -   **Automatic Payouts**: Self-executing winner distribution
 -   **Event Logging**: Comprehensive on-chain event tracking
 
@@ -113,7 +122,7 @@ User → Sets Parameters → Uploads Metadata → Deploys to Blockchain
 ```
 Users → Connect Wallet → Buy Tickets → Automatic Entry
 ├── Browse available raffles
-├── Purchase tickets with ETH/tokens
+├── Purchase tickets with XLM/assets
 ├── Automatic entry into draw
 └── Real-time leaderboard updates
 ```
@@ -121,7 +130,7 @@ Users → Connect Wallet → Buy Tickets → Automatic Entry
 ### **3. Fair Selection**
 
 ```
-Raffle Ends → Chainlink VRF → Random Winner → Automatic Payout
+Raffle Ends → Random Selection (TBD) → Random Winner → Automatic Payout
 ├── Time-based automatic closure
 ├── Verifiable random number generation
 ├── Transparent winner selection
@@ -147,8 +156,9 @@ Winner Selected → Prize Distributed → Event Logged → Notification Sent
 -   Node.js 18+
 -   npm or yarn
 -   Git
--   Base Sepolia testnet ETH
--   OnchainKit API key
+-   Rust (for Soroban contract development)
+-   Stellar testnet tokens
+-   Stellar SDK
 
 ### **Installation**
 
@@ -169,18 +179,13 @@ npm install
    Create `.env` file in the root directory:
 
 ```env
-# OnchainKit Configuration
-VITE_ONCHAINKIT_API_KEY=your_onchainkit_api_key_here
+# Stellar Network Configuration
+VITE_STELLAR_NETWORK=testnet
+VITE_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
 
-# Contract Configuration
-VITE_RAFFLE_CONTRACT_ADDRESS=0x60fd4f42B818b173d7252859963c7131Ed68CA6D
-VITE_CHAIN_ID=84532
-
-# RPC Configuration (for faster blockchain data fetching)
-VITE_INFURA_RPC_URL=https://base-sepolia.infura.io/v3/2DmS9CrnVeU2Caun612yGaPQ2aq
-
-# WalletConnect Configuration (optional)
-VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+# Soroban Contract Configuration
+VITE_RAFFLE_CONTRACT_ADDRESS=TBD
+VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 
 # Supabase Configuration (for metadata)
 VITE_SUPABASE_URL=your_supabase_url
@@ -223,7 +228,7 @@ tikka/
 │   ├── services/            # External service integrations
 │   │   └── metadataService.ts # Supabase metadata handling
 │   ├── config/              # Configuration files
-│   │   └── contract.ts       # Smart contract ABI and address
+│   │   └── contract.ts       # Soroban contract interface and address
 │   ├── types/               # TypeScript type definitions
 │   │   └── types.ts         # Application interfaces
 │   └── assets/              # Static assets
@@ -241,40 +246,41 @@ tikka/
 ### **Contract Address**
 
 ```
-Base Sepolia: 0x60fd4f42B818b173d7252859963c7131Ed68CA6D
+Stellar (Soroban): TBD
 ```
 
 ### **Key Functions**
 
-```solidity
+```rust
 // Create a new raffle
-function createRaffle(
-    string memory description,
-    uint256 endTime,
-    uint256 maxTickets,
-    bool allowMultipleTickets,
-    uint256 ticketPrice,
-    address ticketToken
-) external
+pub fn create_raffle(
+    env: Env,
+    description: String,
+    end_time: u64,
+    max_tickets: u32,
+    allow_multiple_tickets: bool,
+    ticket_price: i128,
+    ticket_asset: Address
+) -> u32
 
 // Buy tickets for a raffle
-function buyTicket(uint256 raffleId) external payable
+pub fn buy_ticket(env: Env, raffle_id: u32, amount: i128) -> u32
 
 // Get raffle information
-function getRaffleData(uint256 raffleId) external view returns (...)
-function getActiveRaffleIds() external view returns (uint256[] memory)
-function getAllRaffleIds() external view returns (uint256[] memory)
+pub fn get_raffle_data(env: Env, raffle_id: u32) -> RaffleData
+pub fn get_active_raffle_ids(env: Env) -> Vec<u32>
+pub fn get_all_raffle_ids(env: Env) -> Vec<u32>
 
 // Get user participation
-function getUserRaffleParticipation(address user) external view returns (...)
+pub fn get_user_raffle_participation(env: Env, user: Address) -> UserParticipation
 ```
 
 ### **Events**
 
-```solidity
-event RaffleCreated(uint256 indexed raffleId, address indexed creator);
-event TicketPurchased(uint256 indexed raffleId, address indexed buyer, uint256 ticketId);
-event RaffleFinalized(uint256 indexed raffleId, address indexed winner, uint256 winningTicketId);
+```rust
+event RaffleCreated(raffle_id: u32, creator: Address);
+event TicketPurchased(raffle_id: u32, buyer: Address, ticket_id: u32);
+event RaffleFinalized(raffle_id: u32, winner: Address, winning_ticket_id: u32);
 ```
 
 ---
@@ -333,11 +339,20 @@ npm run build
 ### **Smart Contract Deployment**
 
 ```bash
-# Deploy to Base Sepolia
-npx hardhat deploy --network baseSepolia
+# Build Soroban contract
+soroban contract build
 
-# Verify contract on BaseScan
-npx hardhat verify --network baseSepolia
+# Deploy to Stellar Testnet
+soroban contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/raffle.wasm \
+  --source <your-secret-key> \
+  --network testnet
+
+# Deploy to Stellar Mainnet
+soroban contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/raffle.wasm \
+  --source <your-secret-key> \
+  --network mainnet
 ```
 
 ---
@@ -360,11 +375,11 @@ npm run test:e2e
 ### **Smart Contract Testing**
 
 ```bash
-# Run contract tests
-npx hardhat test
+# Run Soroban contract tests
+cargo test
 
-# Run gas optimization tests
-npx hardhat test --gas-report
+# Run with Soroban environment
+soroban test
 ```
 
 ---
@@ -380,7 +395,7 @@ npx hardhat test --gas-report
 
 ### **Blockchain Optimizations**
 
--   **Gas Efficiency**: Optimized contract functions
+-   **Fee Efficiency**: Optimized contract functions
 -   **Batch Operations**: Reduced transaction costs
 -   **Event Indexing**: Efficient data retrieval
 -   **Metadata Caching**: Off-chain data optimization
@@ -432,9 +447,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🎉 Acknowledgments
 
--   **Base Network** for providing the infrastructure
--   **Chainlink** for verifiable randomness
--   **OnchainKit** for seamless wallet integration
+-   **Stellar Development Foundation** for providing the infrastructure
+-   **Soroban** for powerful smart contract capabilities
 -   **React Community** for the amazing ecosystem
 -   **Open Source Contributors** for their valuable contributions
 
