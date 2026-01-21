@@ -37,3 +37,10 @@ pnpm dev
 
 - The app currently runs in demo mode with local raffle data for UI testing.
 
+### Environment Variables
+
+The following variables are required in your `.env` file for Stellar blockchain connectivity:
+
+- `VITE_STELLAR_NETWORK`: The network environment to connect to (e.g., `testnet` or `mainnet`).
+- `VITE_SOROBAN_RPC_URL`: The RPC endpoint for Soroban contract interactions.
+- `VITE_HORIZON_URL`: The Horizon API endpoint for Stellar network data.
