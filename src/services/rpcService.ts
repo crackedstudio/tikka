@@ -1,7 +1,9 @@
 import { rpc } from "@stellar/stellar-sdk";
 import { STELLAR_CONFIG } from "../config/stellar";
 
-export const sorobanRpcServer = new rpc.Server(STELLAR_CONFIG.rpcUrl);
+export const sorobanRpcServer = new rpc.Server(STELLAR_CONFIG.rpcUrl, {
+  allowHttp: true,
+});
 
 export const checkConnection = async () => {
   try {
