@@ -12,14 +12,15 @@ import { useEffect } from "react";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 function App() {
-  //   useEffect(() => {
-  //     checkConnection().then((isAlive) => {
-  //       console.log(
-  //         `Stellar Network (${STELLAR_CONFIG.network}) connected:`,
-  //         isAlive,
-  //       );
-  //     });
-  //   }, []);
+  useEffect(() => {
+    checkConnection().then((isAlive) => {
+      console.log(
+        `Stellar Network (${STELLAR_CONFIG.network}) connected:`,
+        isAlive,
+      );
+    });
+  }, []);
+
   return (
     <Router>
       <Routes>

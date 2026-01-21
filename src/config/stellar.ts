@@ -13,10 +13,10 @@ export const STELLAR_CONFIG = {
       : Networks.TESTNET,
 };
 
-// console.log("Current Network Config:", {
-//   network: import.meta.env.VITE_STELLAR_NETWORK,
-//   rpc: import.meta.env.VITE_SOROBAN_RPC_URL,
-// });
+console.log("Current Network Config:", {
+  network: import.meta.env.VITE_STELLAR_NETWORK,
+  rpc: import.meta.env.VITE_SOROBAN_RPC_URL,
+});
 
 // Simple validation to ensure we don't boot with broken config
 if (!STELLAR_CONFIG.rpcUrl) {
