@@ -261,22 +261,38 @@ npm install
 ```
 
 3. **Environment Configuration**
-   Create `.env` file in the root directory:
+   
+   Copy the example environment file and configure it:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your actual values. See [DEVELOPMENT.md](DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
+
+**Quick Start Configuration:**
 
 ```env
 # Stellar Network Configuration
 VITE_STELLAR_NETWORK=testnet
 VITE_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+VITE_STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 
 # Soroban Contract Configuration
-VITE_RAFFLE_CONTRACT_ADDRESS=TBD
 VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+VITE_RAFFLE_CONTRACT_ADDRESS=
 
 # Supabase Configuration (for metadata)
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_SUPABASE_TABLE=raffle_metadata
+
+# Development Mode
+VITE_USE_DEMO_DATA=true
+VITE_DEBUG_MODE=true
 ```
+
+> **Note:** For complete environment setup including Stellar testnet and Supabase configuration, see the [Development Guide](DEVELOPMENT.md).
 
 4. **Start development server**
 
