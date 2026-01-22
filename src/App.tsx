@@ -8,21 +8,33 @@ import WinnerDemo from "./pages/WinnerDemo";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
+import { useEffect } from "react";
+import { STELLAR_CONFIG } from "./config/stellar";
+import { checkConnection } from "./services/rpcService";
 function App() {
-    return (
-        <Router>
-            <Routes>
-                <Route path="/" element={<LandingLayout />}>
-                    <Route index element={<LandingPage />} />
-                    <Route path="home" element={<Home />} />
-                    <Route path="details" element={<RaffleDetails />} />
-                    <Route path="create" element={<CreateRaffle />} />
-                    <Route path="leaderboard" element={<Leaderboard />} />
-                    <Route path="my-raffles" element={<MyRaffles />} />
-                    <Route path="winner-demo" element={<WinnerDemo />} />
-                </Route>
+  useEffect(() => {
+    checkConnection().then((isAlive) => {
+      console.log(
+        `Stellar Network (${STELLAR_CONFIG.network}) connected:`,
+        isAlive,
+      );
+    });
+  }, []);
 
-                    {/* <Route path="/game" element={<GameLayout />}>
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingLayout />}>
+          <Route index element={<LandingPage />} />
+          <Route path="home" element={<Home />} />
+          <Route path="details" element={<RaffleDetails />} />
+          <Route path="create" element={<CreateRaffle />} />
+          <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="my-raffles" element={<MyRaffles />} />
+          <Route path="winner-demo" element={<WinnerDemo />} />
+        </Route>
+
+        {/* <Route path="/game" element={<GameLayout />}>
                         <Route
                             index
                             element={<Game />}
@@ -38,10 +50,9 @@ function App() {
                         <Route path="friends" element={<Friends />} />
                         <Route path="classic" element={<ClassicGames />} />
                     </Route> */}
-                </Routes>
-            </Routes>
-        </Router>
-    );
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
