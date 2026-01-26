@@ -426,3 +426,24 @@ Once you have the development environment running:
 
 Happy coding! 🚀
 
+### Environment Variables
+
+The following variables are required in your `.env` file for Stellar blockchain connectivity:
+
+- `VITE_STELLAR_NETWORK`: The network environment to connect to (e.g., `testnet` or `mainnet`).
+- `VITE_SOROBAN_RPC_URL`: The RPC endpoint for Soroban contract interactions.
+- `VITE_HORIZON_URL`: The Horizon API endpoint for Stellar network data.
+
+###Blockchain Infrastructure
+This project is now integrated with the Stellar Network via the following architecture:
+
+Configuration (src/config/stellar.ts): Manages network switching and passphrase selection between testnet and mainnet.
+
+RPC Service (src/services/rpcService.ts): Handles the Soroban RPC client initialization and provides a checkConnection health-check method.
+
+Environment Management: Uses Vite-prefixed variables (VITE\_) to ensure browser-side accessibility.
+
+Notes
+To test the connection, check the browser console on load for the "Successfully connected" message.
+
+For production, ensure VITE_STELLAR_NETWORK is set to mainnet.

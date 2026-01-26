@@ -11,6 +11,7 @@
     "validate-env": "node scripts/validate-env.js"
   },
   "dependencies": {
+    "@stellar/stellar-sdk": "^14.4.3",
     "@supabase/supabase-js": "^2.76.1",
     "@tailwindcss/vite": "^4.1.13",
     "lucide-react": "^0.544.0",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@types/node": "^25.0.9",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
