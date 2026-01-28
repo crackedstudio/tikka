@@ -123,6 +123,9 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                         )
                     )}
 
+                    <div className="mt-2">
+                        <WalletButton />
+                    </div>
                     <a
                         onClick={() => {
                             setOpen(false);
