@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate-env": "node scripts/validate-env.js"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.4.3",
