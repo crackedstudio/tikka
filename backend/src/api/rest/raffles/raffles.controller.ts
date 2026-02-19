@@ -6,34 +6,24 @@ import {
   Post,
   Body,
   Query,
+  UsePipes,
 } from '@nestjs/common';
 import { RafflesService } from './raffles.service';
 import { UpsertMetadataPayload } from '../../../services/metadata.service';
+import { ListRafflesQuerySchema, type ListRafflesQueryDto } from './dto';
+import { createZodPipe } from './pipes/zod-validation.pipe';
 
 @Controller('raffles')
 export class RafflesController {
   constructor(private readonly rafflesService: RafflesService) {}
 
   /**
-   * GET /raffles — List raffles with optional filters (status, category, creator, asset).
+   * GET /raffles — List raffles with optional filters and pagination.
+   * Filters: status, category, creator, asset. Pagination: limit (1–100), offset.
    */
   @Get()
-  async list(
-    @Query('status') status?: string,
-    @Query('category') category?: string,
-    @Query('creator') creator?: string,
-    @Query('asset') asset?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-  ) {
-    const filters = {
-      ...(status && { status }),
-      ...(category && { category }),
-      ...(creator && { creator }),
-      ...(asset && { asset }),
-      ...(limit != null && { limit: parseInt(limit, 10) }),
-      ...(offset != null && { offset: parseInt(offset, 10) }),
-    };
+  @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
+  async list(@Query() filters: ListRafflesQueryDto) {
     return this.rafflesService.list(filters);
   }
 
