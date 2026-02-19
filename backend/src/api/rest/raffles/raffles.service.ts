@@ -4,7 +4,12 @@ import {
   RaffleMetadata,
   UpsertMetadataPayload,
 } from '../../../services/metadata.service';
-import { IndexerService, IndexerRaffleData } from '../../../services/indexer.service';
+import {
+  IndexerService,
+  IndexerRaffleData,
+  IndexerListRafflesFilters,
+  IndexerListRafflesResponse,
+} from '../../../services/indexer.service';
 
 /** Merged raffle detail: contract data + off-chain metadata */
 export interface RaffleDetailResponse {
@@ -36,6 +41,13 @@ export class RafflesService {
     private readonly metadataService: MetadataService,
     private readonly indexerService: IndexerService,
   ) {}
+
+  /**
+   * List raffles with optional filters (status, category, creator, asset).
+   */
+  async list(filters: IndexerListRafflesFilters = {}): Promise<IndexerListRafflesResponse> {
+    return this.indexerService.listRaffles(filters);
+  }
 
   /**
    * Create or update raffle metadata (title, description, image_url, category, metadata_cid).
