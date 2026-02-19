@@ -31,13 +31,27 @@ Single raffle detail. Merges **indexer** (contract state: price, tickets, winner
 
 Create or update raffle metadata. Body: `{ title?, description?, image_url?, category?, metadata_cid? }`. **Requires JWT** (Bearer token from SIWS).
 
-## Auth (SIWS)
+## Auth (Sign In With Stellar — SIWS)
 
 Protected routes require `Authorization: Bearer <token>`.
 
-- **GET /auth/nonce?address=G...** — Get nonce for signing (public)
-- **POST /auth/verify** — Body: `{ address, signature, nonce }` → returns `{ accessToken }` (public)
-- **POST /raffles/:id/metadata** — Requires JWT
+### Flow
+
+1. **GET /auth/nonce?address=G...** — Returns `{ nonce, expiresAt, issuedAt, message }`
+2. User signs the `message` in their Stellar wallet (Freighter, xBull, etc.)
+3. **POST /auth/verify** — Body: `{ address, signature, nonce [, issuedAt] }` where `signature` is base64-encoded Ed25519
+4. Returns `{ accessToken }` — use as `Authorization: Bearer <accessToken>`
+
+### SIWS message format
+
+```
+tikka.io wants you to sign in
+Address: G...
+Nonce: abc123
+Issued At: 2025-02-19T12:00:00.000Z
+```
+
+Set `SIWS_DOMAIN` to customize the domain (default: `tikka.io`).
 
 ### Manual check: protected route returns 401 without token
 

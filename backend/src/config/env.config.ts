@@ -14,4 +14,7 @@ export const env = {
     secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
     expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   },
+  siws: {
+    domain: process.env.SIWS_DOMAIN ?? 'tikka.io',
+  },
 } as const;

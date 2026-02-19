@@ -70,19 +70,47 @@ describe('Auth (e2e)', () => {
       .expect(401);
   });
 
-  it('POST /test-auth/protected returns 200 with valid Bearer token', async () => {
-    const verifyRes = await request(app.getHttpServer())
+  it('POST /auth/verify returns 400 with invalid signature', async () => {
+    const { Keypair } = await import('@stellar/stellar-sdk');
+    const keypair = Keypair.random();
+
+    const nonceRes = await request(app.getHttpServer())
       .get('/auth/nonce')
-      .query({ address: 'GDummyAddr123456789012345678901234567890' });
-    expect(verifyRes.status).toBe(200);
-    const { nonce } = verifyRes.body;
+      .query({ address: keypair.publicKey() });
+    expect(nonceRes.status).toBe(200);
+
+    const res = await request(app.getHttpServer())
+      .post('/auth/verify')
+      .send({
+        address: keypair.publicKey(),
+        signature: Buffer.alloc(64).toString('base64'), // wrong signature
+        nonce: nonceRes.body.nonce,
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /test-auth/protected returns 200 with valid Bearer token (SIWS)', async () => {
+    const { Keypair } = await import('@stellar/stellar-sdk');
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+
+    const nonceRes = await request(app.getHttpServer())
+      .get('/auth/nonce')
+      .query({ address });
+    expect(nonceRes.status).toBe(200);
+    const { nonce, message, issuedAt } = nonceRes.body;
+
+    const messageBuffer = Buffer.from(message, 'utf8');
+    const signatureBuffer = keypair.sign(messageBuffer);
+    const signatureBase64 = signatureBuffer.toString('base64');
 
     const loginRes = await request(app.getHttpServer())
       .post('/auth/verify')
       .send({
-        address: 'GDummyAddr123456789012345678901234567890',
-        signature: 'a'.repeat(64),
+        address,
+        signature: signatureBase64,
         nonce,
+        issuedAt,
       });
     expect(loginRes.status).toBe(200);
     const { accessToken } = loginRes.body;
