@@ -27,19 +27,25 @@ export class AuthController {
 
   /**
    * POST /auth/verify — Verify wallet signature, issue JWT.
-   * Body: { address, signature, nonce }
+   * Body: { address, signature, nonce [, issuedAt] }
    */
   @Post('verify')
   async verify(
     @Body('address') address?: string,
     @Body('signature') signature?: string,
     @Body('nonce') nonce?: string,
+    @Body('issuedAt') issuedAt?: string,
   ) {
     if (!address || !signature || !nonce) {
       throw new BadRequestException('address, signature, and nonce are required');
     }
     try {
-      return await this.authService.verify(address, signature, nonce);
+      return await this.authService.verify(
+        address,
+        signature,
+        nonce,
+        issuedAt,
+      );
     } catch (err) {
       throw new BadRequestException(
         err instanceof Error ? err.message : 'Verification failed',
