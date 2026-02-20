@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { CursorManagerService } from './ingestor/cursor-manager.service';
 
 @Module({
   imports: [],
   controllers: [],
-  providers: [],
+  providers: [CursorManagerService],
 })
-export class AppModule {}
+export class AppModule { }
+
