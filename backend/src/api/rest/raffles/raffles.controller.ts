@@ -8,6 +8,7 @@ import {
   Query,
   UsePipes,
 } from '@nestjs/common';
+import { Public } from '../../../auth/decorators/public.decorator';
 import { RafflesService } from './raffles.service';
 import { UpsertMetadataPayload } from '../../../services/metadata.service';
 import { ListRafflesQuerySchema, type ListRafflesQueryDto } from './dto';
@@ -21,6 +22,7 @@ export class RafflesController {
    * GET /raffles — List raffles with optional filters and pagination.
    * Filters: status, category, creator, asset. Pagination: limit (1–100), offset.
    */
+  @Public()
   @Get()
   @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
   async list(@Query() filters: ListRafflesQueryDto) {
@@ -30,6 +32,7 @@ export class RafflesController {
   /**
    * GET /raffles/:id — Raffle detail with contract data + metadata merged.
    */
+  @Public()
   @Get(':id')
   async getById(@Param('id', ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
@@ -37,7 +40,7 @@ export class RafflesController {
 
   /**
    * POST /raffles/:raffleId/metadata — Create or update raffle metadata.
-   * Auth: optional for first version (add SIWS guard later).
+   * Requires JWT (SIWS).
    */
   @Post(':raffleId/metadata')
   async upsertMetadata(

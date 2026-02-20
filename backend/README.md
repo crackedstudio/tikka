@@ -29,7 +29,30 @@ Single raffle detail. Merges **indexer** (contract state: price, tickets, winner
 
 ### POST /raffles/:raffleId/metadata
 
-Create or update raffle metadata. Body: `{ title?, description?, image_url?, category?, metadata_cid? }`.
+Create or update raffle metadata. Body: `{ title?, description?, image_url?, category?, metadata_cid? }`. **Requires JWT** (Bearer token from SIWS).
+
+## Auth (SIWS)
+
+Protected routes require `Authorization: Bearer <token>`.
+
+- **GET /auth/nonce?address=G...** — Get nonce for signing (public)
+- **POST /auth/verify** — Body: `{ address, signature, nonce }` → returns `{ accessToken }` (public)
+- **POST /raffles/:id/metadata** — Requires JWT
+
+### Manual check: protected route returns 401 without token
+
+```bash
+curl -X POST http://localhost:3001/raffles/1/metadata \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Test"}'
+# Expected: 401 Unauthorized
+```
+
+### Run e2e test
+
+```bash
+npm run test:e2e
+```
 
 ## Structure
 

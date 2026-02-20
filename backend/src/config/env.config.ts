@@ -10,4 +10,8 @@ export const env = {
     url: process.env.INDEXER_URL ?? 'http://localhost:3002',
     timeoutMs: parseInt(process.env.INDEXER_TIMEOUT_MS ?? '5000', 10),
   },
+  jwt: {
+    secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+    expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
+  },
 } as const;
