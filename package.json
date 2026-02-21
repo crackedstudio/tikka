@@ -1,0 +1,13 @@
+{
+  "name": "tikka",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle",
+    "build": "npm run build --prefix client && npm run build --prefix sdk && npm run build --prefix backend && npm run build --prefix indexer && npm run build --prefix oracle",
+    "build:client": "npm run build --prefix client",
+    "build:sdk": "npm run build --prefix sdk",
+    "build:backend": "npm run build --prefix backend",
+    "build:indexer": "npm run build --prefix indexer",
+    "build:oracle": "npm run build --prefix oracle"
+  }
+}
