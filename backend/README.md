@@ -10,14 +10,14 @@ API layer that merges indexer data with Supabase metadata; handles auth (Sign In
 
 List raffles with optional filters and pagination. Data comes from the indexer (contract state).
 
-| Query param | Type    | Description                                      |
-|-------------|---------|--------------------------------------------------|
-| `status`    | string  | Filter by raffle status                          |
-| `category`  | string  | Filter by category                               |
-| `creator`   | string  | Filter by creator Stellar address                |
-| `asset`     | string  | Filter by asset (e.g. XLM)                       |
-| `limit`     | number  | Page size (1–100, default 20)                    |
-| `offset`    | number  | Pagination offset (default 0)                    |
+| Query param | Type   | Description                       |
+| ----------- | ------ | --------------------------------- |
+| `status`    | string | Filter by raffle status           |
+| `category`  | string | Filter by category                |
+| `creator`   | string | Filter by creator Stellar address |
+| `asset`     | string | Filter by asset (e.g. XLM)        |
+| `limit`     | number | Page size (1–100, default 20)     |
+| `offset`    | number | Pagination offset (default 0)     |
 
 **Response:** `{ raffles: RaffleListItem[], total?: number }`
 
@@ -67,6 +67,54 @@ curl -X POST http://localhost:3001/raffles/1/metadata \
 ```bash
 npm run test:e2e
 ```
+
+## Rate Limiting
+
+All endpoints are protected against abuse. Limits are **per IP address**, enforced by `@nestjs/throttler`.  
+When a limit is exceeded the API returns **HTTP 429** with a `Retry-After` value in the response body.
+
+| Tier      | Endpoints                                                       | Default limit      |
+| --------- | --------------------------------------------------------------- | ------------------ |
+| `default` | All public API (`/raffles`, `/users`, `/leaderboard`, `/stats`) | **100 req / 60 s** |
+| `nonce`   | `GET /auth/nonce`                                               | **30 req / 60 s**  |
+| `auth`    | `POST /auth/verify`                                             | **10 req / 60 s**  |
+
+### 429 response body
+
+```json
+{
+  "statusCode": 429,
+  "error": "Too Many Requests",
+  "message": "Rate limit exceeded. Please slow down and try again.",
+  "retryAfter": 42
+}
+```
+
+### Configuring limits via env vars
+
+All thresholds are overridable without code changes (see `.env.example`):
+
+```dotenv
+THROTTLE_DEFAULT_LIMIT=100   # max requests per window
+THROTTLE_DEFAULT_TTL=60      # window size in seconds
+
+THROTTLE_AUTH_LIMIT=10       # POST /auth/verify
+THROTTLE_AUTH_TTL=60
+
+THROTTLE_NONCE_LIMIT=30      # GET /auth/nonce
+THROTTLE_NONCE_TTL=60
+```
+
+### Smoke-testing the rate limit
+
+```bash
+# Hit /auth/verify 11 times — the 11th must return 429
+for i in $(seq 1 11); do
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3001/auth/verify
+done
+```
+
+---
 
 ## Structure
 
