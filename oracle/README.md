@@ -1,20 +1,126 @@
-# Tikka Oracle
+# Oracle Randomness Worker
 
-Listens for `RandomnessRequested` events from the Soroban contract, computes VRF (high-stakes) or PRNG (low-stakes), and submits `receive_randomness` back to the contract. The only service authorized to call that contract function.
+## Overview
 
-**Stack:** NestJS, Stellar SDK, Soroban SDK.
-
-## Intended structure (from spec)
-
-- `src/listener/` — event listener for RandomnessRequested (Horizon SSE)
-- `src/randomness/` — VRF service, PRNG fallback, commit-reveal
-- `src/submitter/` — build and submit reveal transaction to Soroban
-- `src/keys/` — oracle keypair management (HSM-ready)
-- `src/queue/` — Bull queue for pending randomness requests
-- `src/health/` — health check
-
-Implementation to be added.
+The randomness worker processes pending randomness requests from the queue. It determines whether to use VRF (high-stakes) or PRNG (low-stakes), computes the seed and proof, and submits the result to the Soroban contract.
 
 ## Architecture
 
-Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section 5 — tikka-oracle).
+```
+RandomnessRequested Event
+        ↓
+    Queue Job
+        ↓
+RandomnessWorker.processRequest()
+        ↓
+    ┌───┴────────────────────────┐
+    │ 1. Check idempotency       │
+    │ 2. Check contract status   │
+    │ 3. Get prize amount        │
+    │ 4. Determine VRF/PRNG      │
+    │ 5. Compute randomness      │
+    │ 6. Submit to contract      │
+    └────────────────────────────┘
+```
+
+## Processing Flow
+
+### 1. Idempotency Check
+- Maintains in-memory cache of processed request IDs
+- Skips duplicate events to prevent double-processing
+
+### 2. Contract Status Check
+- Queries contract to verify raffle not already finalized
+- Prevents unnecessary computation if randomness already submitted
+
+### 3. Prize Amount Determination
+- Uses `prizeAmount` from event payload if available
+- Falls back to `ContractService.getRaffleData()` RPC call if not
+
+### 4. Method Selection
+- **High-stakes (≥ 500 XLM)**: Uses VRF for cryptographic verifiability
+- **Low-stakes (< 500 XLM)**: Uses PRNG for instant, zero-cost randomness
+
+### 5. Randomness Computation
+- **VrfService**: Ed25519 VRF with proof generation
+- **PrngService**: SHA-256 PRNG with timestamp + entropy
+
+### 6. Transaction Submission
+- Builds `receive_randomness(raffleId, seed, proof)` transaction
+- Signs with oracle keypair
+- Submits to Soroban RPC
+- Polls for confirmation
+
+## Services
+
+### RandomnessWorker
+Main processor that orchestrates the entire flow.
+
+**Key Methods:**
+- `processRequest(job: RandomnessRequest): Promise<void>` - Processes a single job
+- `clearProcessedCache(): void` - Clears idempotency cache (testing/cleanup)
+
+### ContractService
+Interacts with Soroban contract for read operations.
+
+**Methods:**
+- `getRaffleData(raffleId): Promise<RaffleData>` - Fetches raffle details
+- `isRandomnessSubmitted(raffleId): Promise<boolean>` - Checks if already finalized
+
+### VrfService
+Generates verifiable random function output for high-stakes raffles.
+
+**Methods:**
+- `compute(requestId): Promise<RandomnessResult>` - Computes VRF seed + proof
+
+### PrngService
+Generates pseudo-random output for low-stakes raffles.
+
+**Methods:**
+- `compute(requestId): Promise<RandomnessResult>` - Computes PRNG seed
+
+### TxSubmitterService
+Submits randomness to the contract.
+
+**Methods:**
+- `submitRandomness(raffleId, randomness): Promise<SubmitResult>` - Submits transaction
+
+## Error Handling & Retries
+
+- Worker throws errors on failure to trigger queue retry mechanism
+- Idempotency ensures safe retries (won't double-submit)
+- Contract status check prevents submission to finalized raffles
+
+## Testing
+
+Run unit tests:
+```bash
+npm test
+```
+
+**Test Coverage:**
+- ✅ Low-stakes PRNG path
+- ✅ High-stakes VRF path
+- ✅ Prize amount fetching from contract
+- ✅ Duplicate request handling
+- ✅ Already-finalized raffle handling
+- ✅ Error handling and retry behavior
+
+## Implementation Status
+
+✅ Worker logic implemented  
+✅ VRF/PRNG branching  
+✅ Idempotency handling  
+✅ Unit tests with mocks  
+⏳ ContractService RPC calls need Stellar SDK integration  
+⏳ VrfService needs Ed25519 VRF library  
+⏳ TxSubmitterService needs Soroban transaction building  
+
+## Next Steps
+
+1. Integrate Stellar SDK for contract RPC calls
+2. Implement Ed25519 VRF (e.g., using `@noble/curves`)
+3. Implement Soroban transaction building and signing
+4. Add Bull queue integration for job processing
+5. Add integration tests against Stellar testnet
+6. Configure oracle keypair management (HSM/secrets)
