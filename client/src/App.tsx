@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { WalletProvider } from "./providers/WalletProvider";
+import { AuthProvider } from "./providers/AuthProvider";
 
 function App() {
     useEffect(() => {
@@ -25,8 +26,9 @@ function App() {
 
     return (
         <WalletProvider>
-            <Router>
-                <Routes>
+            <AuthProvider>
+                <Router>
+                    <Routes>
                     <Route path="/" element={<LandingLayout />}>
                         <Route index element={<LandingPage />} />
                         <Route path="home" element={<Home />} />
@@ -55,7 +57,8 @@ function App() {
                         </Route> */}
                 </Routes>
             </Router>
-        </WalletProvider>
+        </AuthProvider>
+    </WalletProvider>
     );
 }
 

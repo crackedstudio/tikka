@@ -43,7 +43,7 @@ function getSelectedWalletId(): string | null {
  */
 let kit: StellarWalletsKit | null = null;
 
-function getKit(): StellarWalletsKit {
+export function getKit(): StellarWalletsKit {
     if (!kit) {
         kit = new StellarWalletsKit({
             modules: allowAllModules(),
