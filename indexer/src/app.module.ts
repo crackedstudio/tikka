@@ -1,10 +1,11 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { CursorManagerService } from "./ingestor/cursor-manager.service";
 import { CacheModule } from "./cache/cache.module";
 import { ProcessorsModule } from "./processors/processors.module";
 import databaseConfig from "./config/database.config";
 import { DatabaseModule } from "./database/database.module";
+import { IngestorModule } from "./ingestor/ingestor.module";
+import { HealthModule } from "./health/health.module";
 
 @Module({
   imports: [
@@ -19,10 +20,13 @@ import { DatabaseModule } from "./database/database.module";
     DatabaseModule,
     // Redis cache layer
     CacheModule,
+    // Cursor management for ledger ingestion
+    IngestorModule,
     // Event processors (raffle, ticket, user, stats)
     ProcessorsModule,
+    // Health endpoint (lag, DB, Redis)
+    HealthModule,
   ],
   controllers: [],
-  providers: [CursorManagerService],
 })
 export class AppModule {}
