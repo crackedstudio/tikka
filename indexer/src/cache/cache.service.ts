@@ -22,7 +22,19 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy() {
     this.redis.disconnect();
   }
-  
+
+  /**
+   * Ping Redis to verify connectivity. Used by health checks.
+   */
+  async ping(): Promise<boolean> {
+    try {
+      const result = await this.redis.ping();
+      return result === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
   private readonly TTLS = {
     ACTIVE_RAFFLES: 30,
     RAFFLE_DETAIL: 10,

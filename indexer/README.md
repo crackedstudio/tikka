@@ -35,6 +35,12 @@ DB_SSL=false
 
 # Application port (default: 3002)
 PORT=3002
+
+# Health endpoint: Horizon URL for latest-ledger check (default: https://horizon.stellar.org)
+HORIZON_URL=https://horizon.stellar.org
+
+# Health: lag above this many ledgers is reported as degraded (default: 100)
+LAG_THRESHOLD=100
 ```
 
 ### Local Postgres with Docker
@@ -123,6 +129,43 @@ Caching logic is wired into the processors in `src/processors/` to ensure consis
 
 ---
 
+## Health Endpoint
+
+`GET /health` is intended for orchestration and monitoring. It reports indexer lag, DB connectivity, and Redis connectivity.
+
+### Response shape
+
+| Field         | Type              | Description |
+| ------------- | ----------------- | ----------- |
+| `status`      | `'ok' \| 'degraded'` | `ok` when DB and Redis are up and lag is within threshold; `degraded` otherwise. |
+| `lag_ledgers` | `number \| null`   | Current ledger (from Horizon) minus last processed ledger (cursor). `null` if Horizon is unreachable or cursor not yet set. |
+| `db`          | `'ok' \| 'error'`  | PostgreSQL connectivity. |
+| `redis`       | `'ok' \| 'error'`  | Redis connectivity (ping). |
+
+- **HTTP 200**: `status === 'ok'`.
+- **HTTP 503**: `status === 'degraded'` (e.g. lag &gt; `LAG_THRESHOLD`, or DB/Redis down).
+
+Example (200):
+
+```json
+{ "status": "ok", "lag_ledgers": 12, "db": "ok", "redis": "ok" }
+```
+
+Example (503, degraded by lag):
+
+```json
+{ "status": "degraded", "lag_ledgers": 150, "db": "ok", "redis": "ok" }
+```
+
+### Alerting recommendations
+
+- **Alert if `lag_ledgers` &gt; 100** (or your chosen threshold): indexer is falling behind; investigate ingestion pipeline or Horizon availability.
+- **Alert if `db` === `'error'`**: database unreachable; check Postgres and network.
+- **Alert if `redis` === `'error'`**: cache unreachable; optional for correctness but affects performance.
+- Use HTTP 503 as a readiness probe failure in Kubernetes/orchestration so the instance is not sent traffic when degraded.
+
+---
+
 ## Project Structure
 
 ```
@@ -135,8 +178,13 @@ src/
 ├── cache/
 │   ├── cache.module.ts
 │   └── cache.service.ts        # Redis TTL strategies per data type
+├── health/
+│   ├── health.controller.ts   # GET /health
+│   ├── health.module.ts
+│   └── health.service.ts      # DB, Redis, Horizon lag checks
 ├── ingestor/
-│   └── cursor-manager.service.ts
+│   ├── cursor-manager.service.ts
+│   └── ingestor.module.ts
 ├── processors/
 │   ├── processors.module.ts
 │   ├── raffle.processor.ts
