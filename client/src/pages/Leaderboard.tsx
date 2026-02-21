@@ -1,22 +1,28 @@
 import React, { useState } from "react";
 import type {
-    TopPlayer,
-    Player,
     PlayerStats as PlayerStatsType,
     Achievement,
 } from "../types/types";
 import LeaderboardSection from "../components/leaderboard/LeaderboardSection";
 import PlayerStats from "../components/leaderboard/PlayerStats";
+import { useLeaderboard } from "../hooks/useLeaderboard";
 
 const Leaderboard: React.FC = () => {
+    // Map existing tabs to valid 'by' parameters if applicable, e.g. "weekly" -> default or a specific query
     const [activeTab, setActiveTab] = useState("weekly");
-    // const { data: platformStats, error, isLoading } = usePlatformStatistics();
 
-    // Leaderboard data will come from contract statistics
-    // For now, showing placeholder since leaderboard functionality needs to be implemented
-    const topPlayers: TopPlayer[] = [];
+    // Convert activeTab to the expected param type for the hook
+    // For now we'll match it loosely. If the API doesn't support "weekly", we fallback.
+    const getSortBy = () => {
+        // e.g. if we have a "Wins" or "Volume" tab later, map it.
+        // Assuming default returns standard leaderboard for now.
+        return undefined;
+    };
 
-    const players: Player[] = [];
+    const { data, isLoading, error } = useLeaderboard({ by: getSortBy() });
+
+    const topPlayers = data?.topPlayers || [];
+    const players = data?.players || [];
 
     const playerStats: PlayerStatsType = {
         name: "CryptoRaffle",
@@ -40,7 +46,23 @@ const Leaderboard: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Side - Leaderboard */}
                     <div className="lg:col-span-2">
-                        {topPlayers.length === 0 && players.length === 0 ? (
+                        {isLoading ? (
+                            <div className="text-center py-12">
+                                <div className="w-12 h-12 border-4 border-gray-600 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                <h3 className="text-white text-xl font-semibold mb-2">
+                                    Loading Leaderboard...
+                                </h3>
+                            </div>
+                        ) : error ? (
+                            <div className="text-center py-12">
+                                <h3 className="text-red-400 text-xl font-semibold mb-2">
+                                    Error Loading Leaderboard
+                                </h3>
+                                <p className="text-gray-400">
+                                    Please try again later.
+                                </p>
+                            </div>
+                        ) : topPlayers.length === 0 && players.length === 0 ? (
                             <div className="text-center py-12">
                                 <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <svg
