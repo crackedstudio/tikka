@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import logo from "../assets/svg/logo.svg";
 import tikka from "../assets/svg/Tikka.svg";
 import WalletButton from "./WalletButton";
+import SignInButton from "./SignInButton";
 
 const Navbar = ({ onStart }: { onStart?: () => void }) => {
     const [open, setOpen] = React.useState(false);
@@ -47,6 +48,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                     )}
 
                     <WalletButton />
+                    <SignInButton />
                 </div>
 
                 {/* Mobile: hamburger */}
@@ -123,10 +125,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                         )
                     )}
 
-                    <div className="mt-2">
-                        <WalletButton />
-                    </div>
-                    <a
+nulla
                         onClick={() => {
                             setOpen(false);
                             if (onStart) onStart();
