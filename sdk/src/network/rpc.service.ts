@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc } from '@stellar/stellar-sdk';
 import { NetworkConfig } from './network.config';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
@@ -9,23 +9,23 @@ import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
  */
 @Injectable()
 export class RpcService {
-  private server: SorobanRpc.Server;
+  private server: rpc.Server;
 
   constructor(private readonly config: NetworkConfig) {
-    this.server = new SorobanRpc.Server(config.rpcUrl, {
+    this.server = new rpc.Server(config.rpcUrl, {
       allowHttp: config.rpcUrl.startsWith('http://'),
     });
   }
 
-  /** Underlying SorobanRpc.Server instance */
-  getServer(): SorobanRpc.Server {
+  /** Underlying rpc.Server instance */
+  getServer(): rpc.Server {
     return this.server;
   }
 
   /** Simulate a transaction (read-only or fee estimation). */
   async simulateTransaction(
     tx: any, // Transaction type from stellar-sdk
-  ): Promise<SorobanRpc.Api.SimulateTransactionResponse> {
+  ): Promise<rpc.Api.SimulateTransactionResponse> {
     try {
       return await this.server.simulateTransaction(tx);
     } catch (err: any) {
@@ -40,7 +40,7 @@ export class RpcService {
   /** Submit (send) a signed transaction. */
   async sendTransaction(
     tx: any,
-  ): Promise<SorobanRpc.Api.SendTransactionResponse> {
+  ): Promise<rpc.Api.SendTransactionResponse> {
     try {
       return await this.server.sendTransaction(tx);
     } catch (err: any) {
@@ -57,12 +57,12 @@ export class RpcService {
     hash: string,
     timeoutMs = 30_000,
     intervalMs = 2_000,
-  ): Promise<SorobanRpc.Api.GetTransactionResponse> {
+  ): Promise<rpc.Api.GetTransactionResponse> {
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() < deadline) {
       const resp = await this.server.getTransaction(hash);
-      if (resp.status !== SorobanRpc.Api.GetTransactionStatus.NOT_FOUND) {
+      if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
         return resp;
       }
       await new Promise((r) => setTimeout(r, intervalMs));

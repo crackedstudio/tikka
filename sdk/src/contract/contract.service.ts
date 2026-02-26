@@ -1,7 +1,7 @@
 import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
-  SorobanRpc,
+  rpc,
   xdr,
   Address,
   Contract,
@@ -92,14 +92,14 @@ export class ContractService {
 
     const simResponse = await this.rpc.simulateTransaction(tx);
 
-    if (SorobanRpc.Api.isSimulationError(simResponse)) {
+    if (rpc.Api.isSimulationError(simResponse)) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.SimulationFailed,
         `Read-only simulation of ${method} failed: ${(simResponse as any).error}`,
       );
     }
 
-    const successResp = simResponse as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+    const successResp = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
     if (!successResp.result) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.SimulationFailed,
@@ -156,17 +156,17 @@ export class ContractService {
     // 3. Simulate
     const simResponse = await this.rpc.simulateTransaction(tx);
 
-    if (SorobanRpc.Api.isSimulationError(simResponse)) {
+    if (rpc.Api.isSimulationError(simResponse)) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.SimulationFailed,
         `Simulation of ${method} failed: ${(simResponse as any).error}`,
       );
     }
 
-    const successSim = simResponse as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+    const successSim = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
 
     // Prepare the transaction (adds auth, footprint, resource fees)
-    const preparedTx = SorobanRpc.assembleTransaction(tx, successSim).build();
+    const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // Decode result from simulation
     const simResult = successSim.result
@@ -200,14 +200,14 @@ export class ContractService {
 
     // 7. Poll for confirmation
     const txResp = await this.rpc.getTransaction(sendResp.hash);
-    if (txResp.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+    if (txResp.status === rpc.Api.GetTransactionStatus.FAILED) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ContractError,
         `Transaction ${sendResp.hash} failed on-chain`,
       );
     }
 
-    const successTx = txResp as SorobanRpc.Api.GetSuccessfulTransactionResponse;
+    const successTx = txResp as rpc.Api.GetSuccessfulTransactionResponse;
     const returnVal = successTx.returnValue
       ? (scValToNative(successTx.returnValue) as T)
       : simResult;

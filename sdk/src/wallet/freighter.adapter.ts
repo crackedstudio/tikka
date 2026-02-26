@@ -161,7 +161,6 @@ export class FreighterAdapter extends WalletAdapter {
   private async getFreighterApi() {
     try {
       // Dynamic import — only loaded when actually needed.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       return await import('@stellar/freighter-api');
     } catch {
       // If the npm package isn't installed, fall back to the global
