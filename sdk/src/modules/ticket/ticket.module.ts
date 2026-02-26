@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TicketService } from './ticket.service';
-import { ContractService } from '../../contract/contract.service';
 
 @Module({
-  providers: [TicketService, ContractService],
+  providers: [TicketService],
   exports: [TicketService],
 })
 export class TicketModule {}
