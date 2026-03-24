@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { nativeToScVal } from '@stellar/stellar-sdk';
 import { ContractService } from '../../contract/contract.service';
+import { ContractFn } from '../../contract/bindings';
 import {
   BuyTicketParams,
   BuyTicketResult,
@@ -8,6 +8,7 @@ import {
   RefundTicketResult,
   GetUserTicketsParams,
 } from './ticket.types';
+import { assertPositiveInt } from '../../utils/validation';
 
 @Injectable()
 export class TicketService {
@@ -15,50 +16,42 @@ export class TicketService {
 
   /**
    * Purchases tickets for a raffle.
-   * Runs the full transaction lifecycle: simulate → sign → submit → poll.
+   * Requires wallet signature and submission.
    */
   async buy(params: BuyTicketParams): Promise<BuyTicketResult> {
-    const { raffleId, quantity, sourceAddress, signer } = params;
+    const { raffleId, quantity } = params;
+    assertPositiveInt(raffleId, 'raffleId');
+    assertPositiveInt(quantity, 'quantity');
 
-    const result = await this.contractService.invoke(
-      'buy_ticket',
-      [
-        nativeToScVal(raffleId, { type: 'u32' }),
-        nativeToScVal(quantity, { type: 'u32' }),
-      ],
-      sourceAddress,
-      signer,
+    const publicKey = await this.contractService['wallet']?.getPublicKey();
+    const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
+      ContractFn.BUY_TICKET,
+      [raffleId, publicKey, quantity],
     );
 
     return {
-      ticketIds: [], // TODO: parse from result.resultXdr when contract ABI is available
-      txHash: result.txHash,
-      ledger: result.ledger,
-      feePaid: '0', // TODO: derive from transaction metadata
+      ticketIds: result,
+      txHash,
+      ledger,
+      feePaid: '0', // fee is included in tx metadata
     };
   }
 
   /**
    * Refunds a ticket (when raffle is cancelled).
-   * Runs the full transaction lifecycle: simulate → sign → submit → poll.
+   * Requires wallet signature and submission.
    */
   async refund(params: RefundTicketParams): Promise<RefundTicketResult> {
-    const { raffleId, ticketId, sourceAddress, signer } = params;
+    const { raffleId, ticketId } = params;
+    assertPositiveInt(raffleId, 'raffleId');
+    assertPositiveInt(ticketId, 'ticketId');
 
-    const result = await this.contractService.invoke(
-      'refund_ticket',
-      [
-        nativeToScVal(raffleId, { type: 'u32' }),
-        nativeToScVal(ticketId, { type: 'u32' }),
-      ],
-      sourceAddress,
-      signer,
+    const { txHash, ledger } = await this.contractService.invoke(
+      ContractFn.REFUND_TICKET,
+      [raffleId, ticketId],
     );
 
-    return {
-      txHash: result.txHash,
-      ledger: result.ledger,
-    };
+    return { txHash, ledger };
   }
 
   /**
@@ -67,13 +60,11 @@ export class TicketService {
    */
   async getUserTickets(params: GetUserTicketsParams): Promise<number[]> {
     const { raffleId, userAddress } = params;
+    assertPositiveInt(raffleId, 'raffleId');
 
     return this.contractService.simulateReadOnly<number[]>(
-      'get_user_tickets',
-      [
-        nativeToScVal(raffleId, { type: 'u32' }),
-        nativeToScVal(userAddress, { type: 'address' }),
-      ],
+      ContractFn.GET_USER_TICKETS,
+      [raffleId, userAddress],
     );
   }
 }

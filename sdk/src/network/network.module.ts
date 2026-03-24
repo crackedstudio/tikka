@@ -1,18 +1,28 @@
-import { DynamicModule, Module } from '@nestjs/common';
-import { SdkNetworkConfig, SDK_NETWORK_CONFIG } from './network.config';
+import { Module, DynamicModule } from '@nestjs/common';
 import { RpcService } from './rpc.service';
+import { HorizonService } from './horizon.service';
+import { NetworkConfig, resolveNetworkConfig, TikkaNetwork } from './network.config';
 
 @Module({})
 export class NetworkModule {
-  static forRoot(config: SdkNetworkConfig): DynamicModule {
+  static forRoot(networkOrConfig: TikkaNetwork | NetworkConfig): DynamicModule {
+    const config = resolveNetworkConfig(networkOrConfig);
+
     return {
       module: NetworkModule,
       global: true,
       providers: [
-        { provide: SDK_NETWORK_CONFIG, useValue: config },
-        RpcService,
+        { provide: 'NETWORK_CONFIG', useValue: config },
+        {
+          provide: RpcService,
+          useFactory: () => new RpcService(config),
+        },
+        {
+          provide: HorizonService,
+          useFactory: () => new HorizonService(config),
+        },
       ],
-      exports: [RpcService, SDK_NETWORK_CONFIG],
+      exports: [RpcService, HorizonService, 'NETWORK_CONFIG'],
     };
   }
 }

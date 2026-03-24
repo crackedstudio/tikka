@@ -1,28 +1,76 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { rpc, Transaction } from '@stellar/stellar-sdk';
-import { SdkNetworkConfig, SDK_NETWORK_CONFIG } from './network.config';
+import { Injectable } from '@nestjs/common';
+import { rpc } from '@stellar/stellar-sdk';
+import { NetworkConfig } from './network.config';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
+/**
+ * Thin wrapper around the Soroban RPC client.
+ * Provides typed helpers for simulation, submission, and polling.
+ */
 @Injectable()
 export class RpcService {
-  private readonly server: rpc.Server;
+  private server: rpc.Server;
 
-  constructor(@Inject(SDK_NETWORK_CONFIG) config: SdkNetworkConfig) {
-    this.server = new rpc.Server(config.rpcUrl, { allowHttp: true });
+  constructor(private readonly config: NetworkConfig) {
+    this.server = new rpc.Server(config.rpcUrl, {
+      allowHttp: config.rpcUrl.startsWith('http://'),
+    });
   }
 
-  async getAccount(address: string) {
-    return this.server.getAccount(address);
+  /** Underlying rpc.Server instance */
+  getServer(): rpc.Server {
+    return this.server;
   }
 
-  async simulateTransaction(tx: Transaction) {
-    return this.server.simulateTransaction(tx);
+  /** Simulate a transaction (read-only or fee estimation). */
+  async simulateTransaction(
+    tx: any, // Transaction type from stellar-sdk
+  ): Promise<rpc.Api.SimulateTransactionResponse> {
+    try {
+      return await this.server.simulateTransaction(tx);
+    } catch (err: any) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.SimulationFailed,
+        `Simulation failed: ${err?.message ?? err}`,
+        err,
+      );
+    }
   }
 
-  async sendTransaction(tx: Transaction) {
-    return this.server.sendTransaction(tx);
+  /** Submit (send) a signed transaction. */
+  async sendTransaction(
+    tx: any,
+  ): Promise<rpc.Api.SendTransactionResponse> {
+    try {
+      return await this.server.sendTransaction(tx);
+    } catch (err: any) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.SubmissionFailed,
+        `Submission failed: ${err?.message ?? err}`,
+        err,
+      );
+    }
   }
 
-  async getTransaction(hash: string) {
-    return this.server.getTransaction(hash);
+  /** Poll until a transaction is confirmed or fails. */
+  async getTransaction(
+    hash: string,
+    timeoutMs = 30_000,
+    intervalMs = 2_000,
+  ): Promise<rpc.Api.GetTransactionResponse> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const resp = await this.server.getTransaction(hash);
+      if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
+        return resp;
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+
+    throw new TikkaSdkError(
+      TikkaSdkErrorCode.Timeout,
+      `Transaction ${hash} not confirmed within ${timeoutMs}ms`,
+    );
   }
 }

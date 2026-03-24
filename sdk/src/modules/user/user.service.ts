@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { nativeToScVal } from '@stellar/stellar-sdk';
 import { ContractService } from '../../contract/contract.service';
+import { ContractFn } from '../../contract/bindings';
 import { UserParticipation, GetParticipationParams } from './user.types';
+import { assertValidPublicKey } from '../../utils/validation';
 
 @Injectable()
 export class UserService {
@@ -9,22 +10,18 @@ export class UserService {
 
   /**
    * Retrieves user participation data from the Soroban contract.
-   * This is a read-only operation that does not require signing.
-   *
-   * @remarks
-   * Calls the contract's `get_user_participation` function via simulation.
-   * For complete historical data (timestamps, transaction details, etc.),
-   * use the backend/indexer API instead.
+   * Read-only — no signing required.
    */
   async getParticipation(params: GetParticipationParams): Promise<UserParticipation> {
     const { address } = params;
+    assertValidPublicKey(address);
 
     const contractData = await this.contractService.simulateReadOnly<{
       total_raffles_entered: number;
       total_tickets_bought: number;
       total_raffles_won: number;
       raffle_ids: number[];
-    }>('get_user_participation', [nativeToScVal(address, { type: 'address' })]);
+    }>(ContractFn.GET_USER_PARTICIPATION, [address]);
 
     return {
       address,

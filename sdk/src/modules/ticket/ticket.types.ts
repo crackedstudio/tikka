@@ -1,10 +1,6 @@
-import { TxSigner } from '../../wallet/wallet.adapter';
-
 export interface BuyTicketParams {
   raffleId: number;
   quantity: number;
-  sourceAddress: string;
-  signer: TxSigner;
 }
 
 export interface BuyTicketResult {
@@ -17,8 +13,6 @@ export interface BuyTicketResult {
 export interface RefundTicketParams {
   raffleId: number;
   ticketId: number;
-  sourceAddress: string;
-  signer: TxSigner;
 }
 
 export interface RefundTicketResult {
