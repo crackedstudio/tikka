@@ -10,27 +10,31 @@ import {
   Query,
   Req,
   UsePipes,
-} from '@nestjs/common';
-import { FastifyRequest } from 'fastify';
-import { MultipartFile } from '@fastify/multipart';
-import { Public } from '../../../auth/decorators/public.decorator';
-import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
-import { RafflesService } from './raffles.service';
-import { UpsertMetadataPayload } from '../../../services/metadata.service';
-import { ListRafflesQuerySchema, type ListRafflesQueryDto } from './dto';
-import { createZodPipe } from './pipes/zod-validation.pipe';
+} from "@nestjs/common";
+import { FastifyRequest } from "fastify";
+import { MultipartFile } from "@fastify/multipart";
+import { Public } from "../../../auth/decorators/public.decorator";
+import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
+import { RafflesService } from "./raffles.service";
+import { UpsertMetadataPayload } from "../../../services/metadata.service";
+import { ListRafflesQuerySchema, type ListRafflesQueryDto } from "./dto";
+import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
   AllowedUploadMimeType,
   MAX_UPLOAD_BYTES,
-} from '../../../config/upload.config';
-import { StorageService } from '../../../services/storage.service';
+} from "../../../config/upload.config";
+import { StorageService } from "../../../services/storage.service";
+import {
+  UpsertMetadataSchema,
+  type UpsertMetadataDto,
+} from "./metadata.schema";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
 
-@Controller('raffles')
+@Controller("raffles")
 export class RafflesController {
   constructor(
     private readonly rafflesService: RafflesService,
@@ -52,8 +56,8 @@ export class RafflesController {
    * GET /raffles/:id — Raffle detail with contract data + metadata merged.
    */
   @Public()
-  @Get(':id')
-  async getById(@Param('id', ParseIntPipe) id: number) {
+  @Get(":id")
+  async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
   }
 
@@ -61,10 +65,11 @@ export class RafflesController {
    * POST /raffles/:raffleId/metadata — Create or update raffle metadata.
    * Requires JWT (SIWS).
    */
-  @Post(':raffleId/metadata')
+  @Post(":raffleId/metadata")
   async upsertMetadata(
-    @Param('raffleId', ParseIntPipe) raffleId: number,
-    @Body() payload: UpsertMetadataPayload,
+    @Param("raffleId", ParseIntPipe) raffleId: number,
+    @Body(new (createZodPipe(UpsertMetadataSchema))())
+    payload: UpsertMetadataDto,
   ) {
     return this.rafflesService.upsertMetadata(raffleId, payload);
   }
@@ -73,20 +78,20 @@ export class RafflesController {
    * POST /raffles/upload-image — Upload raffle image to Supabase Storage.
    * Requires JWT (SIWS).
    */
-  @Post('upload-image')
+  @Post("upload-image")
   async uploadImage(
     @Req() request: FastifyRequestWithMultipart,
-    @CurrentUser('address') address?: string,
+    @CurrentUser("address") address?: string,
   ): Promise<{ url: string }> {
     const file = await request.file();
     if (!file) {
-      throw new BadRequestException('Image file is required');
+      throw new BadRequestException("Image file is required");
     }
 
     const mimeType = file.mimetype as AllowedUploadMimeType;
     if (!ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {
       throw new BadRequestException(
-        `Unsupported file type. Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(', ')}`,
+        `Unsupported file type. Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(", ")}`,
       );
     }
 
@@ -102,7 +107,7 @@ export class RafflesController {
       fileBuffer: buffer,
       mimeType,
       raffleId,
-      uploaderId: address ?? 'unknown-user',
+      uploaderId: address ?? "unknown-user",
     });
 
     return { url: upload.url };
@@ -111,11 +116,12 @@ export class RafflesController {
   private extractRaffleId(file: MultipartFile): string {
     const rawRaffleId = file.fields?.raffleId;
     const raffleId =
-      rawRaffleId && 'value' in rawRaffleId && typeof rawRaffleId.value === 'string'
+      rawRaffleId &&
+      "value" in rawRaffleId &&
+      typeof rawRaffleId.value === "string"
         ? rawRaffleId.value.trim()
-        : '';
+        : "";
 
-    return raffleId.length > 0 ? raffleId : 'draft';
+    return raffleId.length > 0 ? raffleId : "draft";
   }
 }
-

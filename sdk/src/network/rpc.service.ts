@@ -1,124 +1,127 @@
-import { Injectable, Optional } from '@nestjs/common';
-import { RpcConfig, DEFAULT_RPC_CONFIG } from './network.config';
-import { RpcError } from '../utils/errors';
+import { Injectable } from '@nestjs/common';
+import { rpc } from '@stellar/stellar-sdk';
+import { NetworkConfig, RpcConfig, DEFAULT_RPC_CONFIG } from './network.config';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
+/**
+ * RpcService
+ * Combines Stellar RPC SDK with configurable transport (timeouts, headers, failover).
+ */
 @Injectable()
 export class RpcService {
-  private config: RpcConfig;
+  private server: rpc.Server;
+  private rpcConfig: RpcConfig;
 
-  constructor(@Optional() config?: RpcConfig) {
-    this.config = { ...DEFAULT_RPC_CONFIG, ...config };
+  constructor(
+    private readonly networkConfig: NetworkConfig,
+    rpcConfig?: RpcConfig,
+  ) {
+    this.rpcConfig = { ...DEFAULT_RPC_CONFIG, ...rpcConfig };
+
+    this.server = new rpc.Server(networkConfig.rpcUrl, {
+      allowHttp: networkConfig.rpcUrl.startsWith('http://'),
+    });
   }
 
-  /**
-   * Updates the service configuration at runtime
-   */
+  /** Get underlying rpc.Server */
+  getServer(): rpc.Server {
+    return this.server;
+  }
+
+  /** Update RPC config at runtime */
   configure(config: Partial<RpcConfig>): void {
-    this.config = { ...this.config, ...config };
+    this.rpcConfig = { ...this.rpcConfig, ...config };
   }
 
-  /**
-   * Overrides the primary RPC endpoint
-   */
+  /** Override RPC endpoint */
   setEndpoint(url: string): void {
-    this.config.endpoint = url;
+    this.rpcConfig.endpoint = url;
+    this.server = new rpc.Server(url, {
+      allowHttp: url.startsWith('http://'),
+    });
   }
 
-  /**
-   * Adds a fallback endpoint to the failover list
-   */
-  addFailoverEndpoint(url: string): void {
-    if (!this.config.failoverEndpoints) {
-      this.config.failoverEndpoints = [];
-    }
-    this.config.failoverEndpoints.push(url);
-  }
-
-  /**
-   * Sets custom HTTP headers (e.g. API keys)
-   */
-  setHeaders(headers: Record<string, string>): void {
-    this.config.headers = { ...this.config.headers, ...headers };
-  }
-
-  /**
-   * Swaps the fetch-compatible client used for requests
-   */
-  setFetchClient(client: typeof fetch): void {
-    this.config.fetchClient = client;
-  }
-
-  /**
-   * Executes a JSON-RPC request with automatic failover
-   */
-  async request<T>(method: string, params: any[] = []): Promise<T> {
-    const endpoints = [this.config.endpoint, ...(this.config.failoverEndpoints || [])];
-    let lastError: Error | null = null;
-
-    for (const url of endpoints) {
-      try {
-        return await this.executeRequest<T>(url, method, params);
-      } catch (error) {
-        lastError = error;
-        continue;
-      }
-    }
-
-    if (lastError) {
-      throw lastError;
-    }
-
-    throw new Error('RPC request failed: No endpoints configured');
-  }
-
-  private async executeRequest<T>(
-    url: string,
-    method: string,
-    params: any[],
-  ): Promise<T> {
-    const fetchClient = this.config.fetchClient || fetch;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
-
+  /** Simulate transaction */
+  async simulateTransaction(
+    tx: any,
+  ): Promise<rpc.Api.SimulateTransactionResponse> {
     try {
-      const response = await fetchClient(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...this.config.headers,
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: Date.now(),
-          method,
-          params,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw RpcError.fromResponse(url, method, response);
-      }
-
-      const payload = await response.json();
-      if (payload.error) {
-        throw new RpcError(
-          payload.error.message || 'Unknown RPC error',
-          url,
-          method,
-          response.status,
-          payload.error,
-        );
-      }
-
-      return payload.result as T;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new RpcError(`Request timed out after ${this.config.timeoutMs}ms`, url, method);
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
+      return await this.withTimeout(() =>
+        this.server.simulateTransaction(tx),
+      );
+    } catch (err: any) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.SimulationFailed,
+        `Simulation failed: ${err?.message ?? err}`,
+        err,
+      );
     }
+  }
+
+  /** Send transaction */
+  async sendTransaction(
+    tx: any,
+  ): Promise<rpc.Api.SendTransactionResponse> {
+    try {
+      return await this.withTimeout(() =>
+        this.server.sendTransaction(tx),
+      );
+    } catch (err: any) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.SubmissionFailed,
+        `Submission failed: ${err?.message ?? err}`,
+        err,
+      );
+    }
+  }
+
+  /** Poll transaction status */
+  async getTransaction(
+    hash: string,
+    timeoutMs = this.rpcConfig.timeoutMs ?? 30_000,
+    intervalMs = 2_000,
+  ): Promise<rpc.Api.GetTransactionResponse> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const resp = await this.server.getTransaction(hash);
+      if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
+        return resp;
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+
+    throw new TikkaSdkError(
+      TikkaSdkErrorCode.Timeout,
+      `Transaction ${hash} not confirmed within ${timeoutMs}ms`,
+    );
+  }
+
+  /* ---------------- Helpers ---------------- */
+
+  /** Wrap calls with timeout support */
+  private async withTimeout<T>(fn: () => Promise<T>): Promise<T> {
+    const timeoutMs = this.rpcConfig.timeoutMs ?? 30_000;
+
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(
+          new TikkaSdkError(
+            TikkaSdkErrorCode.Timeout,
+            `RPC request timed out after ${timeoutMs}ms`,
+          ),
+        );
+      }, timeoutMs);
+
+      fn()
+        .then((res) => {
+          clearTimeout(timer);
+          resolve(res);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
   }
 }

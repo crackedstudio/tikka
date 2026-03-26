@@ -1,34 +1,34 @@
-import { Injectable, Optional } from '@nestjs/common';
-import { RpcConfig, DEFAULT_RPC_CONFIG } from './network.config';
+import { Injectable } from '@nestjs/common';
+import { Horizon } from '@stellar/stellar-sdk';
+import { NetworkConfig } from './network.config';
 
+/**
+ * HorizonService
+ * Wrapper around Stellar Horizon SDK for account + network queries.
+ */
 @Injectable()
 export class HorizonService {
-  private config: RpcConfig;
+  private server: Horizon.Server;
 
-  constructor(@Optional() config?: RpcConfig) {
-    this.config = { ...DEFAULT_RPC_CONFIG, ...config };
-  }
-
-  configure(config: Partial<RpcConfig>): void {
-    this.config = { ...this.config, ...config };
-  }
-
-  /**
-   * Note: Horizon uses REST/GET/POST instead of JSON-RPC, 
-   * but we share the config pattern for consistency.
-   */
-  async get<T>(path: string): Promise<T> {
-    const fetchClient = this.config.fetchClient || fetch;
-    const url = `${this.config.endpoint}${path}`;
-    
-    const response = await fetchClient(url, {
-      headers: this.config.headers,
+  constructor(private readonly config: NetworkConfig) {
+    this.server = new Horizon.Server(config.horizonUrl, {
+      allowHttp: config.horizonUrl.startsWith('http://'),
     });
+  }
 
-    if (!response.ok) {
-      throw new Error(`Horizon request failed: ${response.statusText}`);
-    }
+  /** Get raw Horizon server instance (advanced use cases) */
+  getServer(): Horizon.Server {
+    return this.server;
+  }
 
-    return response.json();
+  /** Load an account (required for building transactions) */
+  async loadAccount(publicKey: string): Promise<Horizon.AccountResponse> {
+    return this.server.loadAccount(publicKey);
+  }
+
+  /** Get current base fee from network */
+  async getBaseFee(): Promise<number> {
+    const stats = await this.server.feeStats();
+    return Number(stats.last_ledger_base_fee);
   }
 }

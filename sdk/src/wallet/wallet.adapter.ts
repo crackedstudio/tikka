@@ -1,13 +1,11 @@
-export enum WalletName {
-  XBull = 'xbull',
-  Albedo = 'albedo',
-}
-
-export interface WalletAdapterOptions {
-  networkPassphrase?: string;
-}
-
-export abstract class WalletAdapter {
-  constructor(protected readonly options: WalletAdapterOptions = {}) {}
-  abstract isAvailable(): boolean;
-}
+/**
+ * Re-exports all wallet-related types and adapters.
+ * 
+ * Backward-compatible: older code importing from `wallet.ts` still works.
+ */
+export {
+  WalletAdapter,
+  WalletAdapterOptions,
+  WalletName,
+  SignTransactionResult,
+} from './wallet.interface';

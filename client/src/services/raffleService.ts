@@ -10,6 +10,8 @@ import type {
     FormattedRaffle,
 } from "../types/types";
 
+// --- Helper Functions ---
+
 function buildQueryString(filters: RaffleListFilters): string {
     const params = new URLSearchParams();
     if (filters.status) params.set("status", filters.status);
@@ -55,6 +57,8 @@ function mapDemoToDetail(
     };
 }
 
+// --- Exported Functions ---
+
 export async function fetchRaffles(
     filters: RaffleListFilters = {}
 ): Promise<ApiRaffleListResponse> {
@@ -89,6 +93,56 @@ export async function fetchRaffleDetail(
     return api.get<ApiRaffleDetail>(endpoint);
 }
 
+
+export async function searchRaffles(
+    query: string
+): Promise<ApiRaffleListResponse> {
+    const trimmedQuery = query.trim().toLowerCase();
+
+    if (env.dev.useDemoData) {
+        if (!trimmedQuery) return { raffles: [], total: 0 };
+        const filtered = demoRaffles
+            .filter(r => 
+                r.title.toLowerCase().includes(trimmedQuery) || 
+                r.description.toLowerCase().includes(trimmedQuery) ||
+                r.tags.some(tag => tag.toLowerCase().includes(trimmedQuery))
+            )
+            .map(mapDemoToListItem);
+        return { raffles: filtered, total: filtered.length };
+    }
+
+    // FIX: Using a direct string path instead of API_CONFIG.endpoints.search
+    // to resolve the TypeScript 'Property search does not exist' error.
+    const endpoint = `/search?q=${encodeURIComponent(trimmedQuery)}`;
+    return api.get<ApiRaffleListResponse>(endpoint);
+}
+export function mapListItemToCardProps(item: ApiRaffleListItem) {
+    const endTimeUnix = Math.floor(new Date(item.end_time).getTime() / 1000);
+    const timeRemaining = endTimeUnix - Math.floor(Date.now() / 1000);
+
+    const days = Math.max(0, Math.floor(timeRemaining / (24 * 60 * 60)));
+    const hours = Math.max(0, Math.floor((timeRemaining % (24 * 60 * 60)) / (60 * 60)));
+    const minutes = Math.max(0, Math.floor((timeRemaining % (60 * 60)) / 60));
+    const seconds = Math.max(0, timeRemaining % 60);
+
+    return {
+        raffleId: item.id,
+        image: "https://placehold.co/600x400/11172E/FFF?text=Tikka+Raffle",
+        title: `Raffle #${item.id}`, // ApiRaffleListItem usually lacks 'title' in raw form
+        prizeValue: item.prize_amount || "0",
+        prizeCurrency: item.asset || "XLM",
+        ticketPrice: `${parseFloat(item.ticket_price).toFixed(3)} ${item.asset || "XLM"}`,
+        entries: item.tickets_sold,
+        progress: item.max_tickets > 0 ? (item.tickets_sold / item.max_tickets) * 100 : 0,
+        countdown: {
+            days: days.toString().padStart(2, "0"),
+            hours: hours.toString().padStart(2, "0"),
+            minutes: minutes.toString().padStart(2, "0"),
+            seconds: seconds.toString().padStart(2, "0"),
+        }
+    };
+}
+
 export function mapDetailToFormattedRaffle(
     detail: ApiRaffleDetail
 ): FormattedRaffle {
@@ -98,21 +152,11 @@ export function mapDetailToFormattedRaffle(
     const timeRemaining = endTimeUnix - Math.floor(Date.now() / 1000);
 
     const days = Math.max(0, Math.floor(timeRemaining / (24 * 60 * 60)));
-    const hours = Math.max(
-        0,
-        Math.floor((timeRemaining % (24 * 60 * 60)) / (60 * 60))
-    );
-    const minutes = Math.max(
-        0,
-        Math.floor((timeRemaining % (60 * 60)) / 60)
-    );
+    const hours = Math.max(0, Math.floor((timeRemaining % (24 * 60 * 60)) / (60 * 60)));
+    const minutes = Math.max(0, Math.floor((timeRemaining % (60 * 60)) / 60));
     const seconds = Math.max(0, timeRemaining % 60);
 
-    const progress =
-        detail.max_tickets > 0
-            ? (detail.tickets_sold / detail.max_tickets) * 100
-            : 0;
-
+    const progress = detail.max_tickets > 0 ? (detail.tickets_sold / detail.max_tickets) * 100 : 0;
     const ticketPrice = parseFloat(detail.ticket_price);
     const isActive = detail.status === "open" || detail.status === "OPEN";
 
