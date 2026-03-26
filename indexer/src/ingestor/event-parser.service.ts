@@ -47,6 +47,14 @@ export class EventParserService {
           return this.parseRaffleCancelled(topics, value);
         case "TicketRefunded":
           return this.parseTicketRefunded(topics, value);
+        case 'ContractPaused':
+          return this.parseContractPaused(topics);
+        case 'ContractUnpaused':
+          return this.parseContractUnpaused(topics);
+        case 'AdminTransferProposed':
+          return this.parseAdminTransferProposed(topics);
+        case 'AdminTransferAccepted':
+          return this.parseAdminTransferAccepted(topics);
         default:
           this.logger.debug(`Unknown event type: ${eventName}`);
           return null;
@@ -187,6 +195,36 @@ export class EventParserService {
       ticket_id: ticketId,
       recipient: data.recipient,
       amount: data.amount.toString(),
+    };
+  }
+
+  private parseContractPaused(topics: xdr.ScVal[]): DomainEvent {
+    const admin = scValToNative(topics[1]);
+    return { type: 'ContractPaused', admin };
+  }
+
+  private parseContractUnpaused(topics: xdr.ScVal[]): DomainEvent {
+    const admin = scValToNative(topics[1]);
+    return { type: 'ContractUnpaused', admin };
+  }
+
+  private parseAdminTransferProposed(topics: xdr.ScVal[]): DomainEvent {
+    const currentAdmin = scValToNative(topics[1]);
+    const proposedAdmin = scValToNative(topics[2]);
+    return {
+      type: 'AdminTransferProposed',
+      current_admin: currentAdmin,
+      proposed_admin: proposedAdmin,
+    };
+  }
+
+  private parseAdminTransferAccepted(topics: xdr.ScVal[]): DomainEvent {
+    const oldAdmin = scValToNative(topics[1]);
+    const newAdmin = scValToNative(topics[2]);
+    return {
+      type: 'AdminTransferAccepted',
+      old_admin: oldAdmin,
+      new_admin: newAdmin,
     };
   }
 }
