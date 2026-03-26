@@ -111,9 +111,7 @@ export async function searchRaffles(
         return { raffles: filtered, total: filtered.length };
     }
 
-    // FIX: Using a direct string path instead of API_CONFIG.endpoints.search
-    // to resolve the TypeScript 'Property search does not exist' error.
-    const endpoint = `/search?q=${encodeURIComponent(trimmedQuery)}`;
+    const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
     return api.get<ApiRaffleListResponse>(endpoint);
 }
 export function mapListItemToCardProps(item: ApiRaffleListItem) {

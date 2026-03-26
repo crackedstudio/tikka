@@ -9,6 +9,7 @@ import { UsersModule } from "./api/rest/users/users.module";
 import { LeaderboardModule } from "./api/rest/leaderboard/leaderboard.module";
 import { StatsModule } from "./api/rest/stats/stats.module";
 import { NotificationsModule } from "./api/rest/notifications/notifications.module";
+import { SearchModule } from "./api/rest/search/search.module";
 import { HealthModule } from "./health/health.module";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
@@ -61,6 +62,7 @@ import { validate } from "./config/env.schema";
     LeaderboardModule,
     StatsModule,
     NotificationsModule,
+    SearchModule,
     HealthModule,
   ],
   providers: [
