@@ -60,6 +60,15 @@ export class ContractService {
 
     const errorMessage = error instanceof Error ? error.message : String(error);
 
+    // Contract paused
+    if (errorMessage.includes('ContractPaused') || errorMessage.includes('contract_paused')) {
+      return {
+        type: ContractErrorType.CONTRACT_PAUSED,
+        message: 'The platform is temporarily paused. Existing claims and refunds still work.',
+        details: errorMessage,
+      };
+    }
+
     // Network errors
     if (
       errorMessage.includes("network") ||
