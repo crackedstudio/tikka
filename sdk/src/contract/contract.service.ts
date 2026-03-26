@@ -80,8 +80,16 @@ export class ContractService {
     }
 
     const successResp = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
+    const result = successResp.result?.retval;
 
-    return scValToNative(successResp.result.retval) as T;
+    if (result === undefined) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.SimulationFailed,
+        `Read-only simulation of ${method} returned no data`
+      );
+    }
+
+    return scValToNative(result) as T;
   }
 
   /* ---------------- FULL INVOKE ---------------- */

@@ -41,38 +41,26 @@ export class RpcService {
     });
   }
 
-  /** Simulate transaction */
+  /** Add fallback RPC endpoint */
+  addFailoverEndpoint(url: string): void {
+    if (!this.rpcConfig.failoverEndpoints) {
+      this.rpcConfig.failoverEndpoints = [];
+    }
+    this.rpcConfig.failoverEndpoints.push(url);
+  }
+
+  /** Simulate transaction with automatic failover */
   async simulateTransaction(
     tx: any,
   ): Promise<rpc.Api.SimulateTransactionResponse> {
-    try {
-      return await this.withTimeout(() =>
-        this.server.simulateTransaction(tx),
-      );
-    } catch (err: any) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.SimulationFailed,
-        `Simulation failed: ${err?.message ?? err}`,
-        err,
-      );
-    }
+    return this.request('simulateTransaction', [tx.toXDR()]);
   }
 
-  /** Send transaction */
+  /** Send transaction with automatic failover */
   async sendTransaction(
     tx: any,
   ): Promise<rpc.Api.SendTransactionResponse> {
-    try {
-      return await this.withTimeout(() =>
-        this.server.sendTransaction(tx),
-      );
-    } catch (err: any) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.SubmissionFailed,
-        `Submission failed: ${err?.message ?? err}`,
-        err,
-      );
-    }
+    return this.request('sendTransaction', [tx.toXDR()]);
   }
 
   /** Poll transaction status */
@@ -84,9 +72,14 @@ export class RpcService {
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() < deadline) {
-      const resp = await this.server.getTransaction(hash);
-      if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
-        return resp;
+      try {
+        const resp = await this.request<rpc.Api.GetTransactionResponse>('getTransaction', [hash]);
+        if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
+          return resp;
+        }
+      } catch (err) {
+        // If it's a transport error, we might want to failover inside request()
+        // so we don't need extra logic here.
       }
       await new Promise((r) => setTimeout(r, intervalMs));
     }
@@ -97,31 +90,85 @@ export class RpcService {
     );
   }
 
-  /* ---------------- Helpers ---------------- */
+  /**
+   * Internal request handler with automatic failover and custom transport.
+   */
+  private async request<T>(method: string, params: any[] = []): Promise<T> {
+    const endpoints = [this.rpcConfig.endpoint, ...(this.rpcConfig.failoverEndpoints || [])];
+    let lastError: any = null;
 
-  /** Wrap calls with timeout support */
-  private async withTimeout<T>(fn: () => Promise<T>): Promise<T> {
+    for (const url of endpoints) {
+      try {
+        return await this.executeRequest<T>(url, method, params);
+      } catch (error) {
+        lastError = error;
+        continue;
+      }
+    }
+
+    if (lastError instanceof TikkaSdkError) throw lastError;
+    throw new TikkaSdkError(
+      TikkaSdkErrorCode.NetworkError,
+      `RPC request failed for all endpoints. Last error: ${lastError?.message ?? lastError}`,
+      lastError
+    );
+  }
+
+  private async executeRequest<T>(
+    url: string,
+    method: string,
+    params: any[],
+  ): Promise<T> {
+    const fetchClient = this.rpcConfig.fetchClient || fetch;
     const timeoutMs = this.rpcConfig.timeoutMs ?? 30_000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(
-          new TikkaSdkError(
-            TikkaSdkErrorCode.Timeout,
-            `RPC request timed out after ${timeoutMs}ms`,
-          ),
+    try {
+      const response = await fetchClient(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.rpcConfig.headers,
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method,
+          params,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.NetworkError,
+          `RPC request failed: ${response.statusText}`,
+          { status: response.status }
         );
-      }, timeoutMs);
+      }
 
-      fn()
-        .then((res) => {
-          clearTimeout(timer);
-          resolve(res);
-        })
-        .catch((err) => {
-          clearTimeout(timer);
-          reject(err);
-        });
-    });
+      const payload = await response.json();
+      if (payload.error) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.SimulationFailed, // Generic for RPC errors
+          payload.error.message || 'Unknown RPC error',
+          payload.error,
+        );
+      }
+
+      return payload.result as T;
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.Timeout,
+          `Request timed out after ${timeoutMs}ms`,
+          error
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }

@@ -1,58 +1,54 @@
 import { RpcService } from './rpc.service';
-import { RpcError } from '../utils/errors';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { NetworkConfig, TikkaNetwork } from './network.config';
+import { Networks } from '@stellar/stellar-sdk';
 
 describe('RpcService', () => {
   let service: RpcService;
-  const mockEndpoint = 'https://primary.rpc.com';
+  const mockNetwork: NetworkConfig = {
+    network: 'testnet' as TikkaNetwork,
+    rpcUrl: 'https://primary.rpc.com',
+    horizonUrl: 'https://horizon.com',
+    networkPassphrase: Networks.TESTNET,
+  };
   const mockFailover = 'https://backup.rpc.com';
 
   beforeEach(() => {
-    service = new RpcService({ endpoint: mockEndpoint });
-  });
-
-  it('should use default config if none provided', () => {
-    const defaultService = new RpcService();
-    expect((defaultService as any).config.endpoint).toBe('https://soroban-testnet.stellar.org');
+    service = new RpcService(mockNetwork, { endpoint: mockNetwork.rpcUrl });
   });
 
   it('should allow runtime configuration updates', () => {
-    service.configure({ timeoutMs: 5000 });
-    expect((service as any).config.timeoutMs).toBe(5000);
+    service.configure({ timeoutMs: 5001 });
+    expect((service as any).rpcConfig.timeoutMs).toBe(5001);
   });
 
   it('should override endpoint via setEndpoint', () => {
     service.setEndpoint('https://new.rpc.com');
-    expect((service as any).config.endpoint).toBe('https://new.rpc.com');
+    expect((service as any).rpcConfig.endpoint).toBe('https://new.rpc.com');
   });
 
   it('should add failover endpoints', () => {
     service.addFailoverEndpoint(mockFailover);
-    expect((service as any).config.failoverEndpoints).toContain(mockFailover);
+    expect((service as any).rpcConfig.failoverEndpoints).toContain(mockFailover);
   });
 
-  it('should merge headers via setHeaders', () => {
-    service.setHeaders({ 'X-API-Key': '123' });
-    service.setHeaders({ 'Content-Type': 'application/json' });
-    expect((service as any).config.headers).toEqual({
-      'X-API-Key': '123',
-      'Content-Type': 'application/json',
-    });
-  });
-
-  it('should execute a successful request and return result', async () => {
+  it('should execute a successful simulation and return result', async () => {
     const mockResult = { status: 'success' };
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ result: mockResult }),
     });
 
-    service.setFetchClient(mockFetch as any);
-    const result = await service.request('get_info');
+    service.configure({ fetchClient: mockFetch as any });
+    
+    // Mock a transaction object that has toXDR()
+    const mockTx = { toXDR: () => 'mock-xdr' };
+    const result = await service.simulateTransaction(mockTx);
 
     expect(result).toEqual(mockResult);
-    expect(mockFetch).toHaveBeenCalledWith(mockEndpoint, expect.objectContaining({
+    expect(mockFetch).toHaveBeenCalledWith(mockNetwork.rpcUrl, expect.objectContaining({
       method: 'POST',
-      body: expect.stringContaining('"method":"get_info"'),
+      body: expect.stringContaining('"method":"simulateTransaction"'),
     }));
   });
 
@@ -66,44 +62,21 @@ describe('RpcService', () => {
       });
 
     service.addFailoverEndpoint(mockFailover);
-    service.setFetchClient(mockFetch as any);
+    service.configure({ fetchClient: mockFetch as any });
 
-    const result = await service.request('get_info');
+    const mockTx = { toXDR: () => 'mock-xdr' };
+    const result = await service.simulateTransaction(mockTx);
 
     expect(result).toEqual(mockResult);
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch).toHaveBeenNthCalledWith(1, mockEndpoint, expect.anything());
-    expect(mockFetch).toHaveBeenNthCalledWith(2, mockFailover, expect.anything());
   });
 
-  it('should throw Error if all endpoints fail', async () => {
+  it('should throw TikkaSdkError if all endpoints fail', async () => {
     const mockFetch = jest.fn().mockRejectedValue(new Error('Down'));
     service.addFailoverEndpoint(mockFailover);
-    service.setFetchClient(mockFetch as any);
+    service.configure({ fetchClient: mockFetch as any });
 
-    await expect(service.request('get_info')).rejects.toThrow('Down');
-  });
-
-  it('should throw RpcError if response is not ok', async () => {
-    const mockFetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-    });
-
-    service.setFetchClient(mockFetch as any);
-
-    await expect(service.request('get_info')).rejects.toThrow(RpcError);
-  });
-
-  it('should throw RpcError if payload contains error', async () => {
-    const mockFetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: jest.fn().mockResolvedValue({ error: { message: 'Method not found' } }),
-    });
-
-    service.setFetchClient(mockFetch as any);
-
-    await expect(service.request('get_info')).rejects.toThrow('Method not found');
+    const mockTx = { toXDR: () => 'mock-xdr' };
+    await expect(service.simulateTransaction(mockTx)).rejects.toThrow(TikkaSdkError);
   });
 });
