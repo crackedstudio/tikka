@@ -20,6 +20,10 @@ export enum TikkaSdkErrorCode {
   Timeout = 'TIMEOUT',
   /** Unknown / catch-all */
   Unknown = 'UNKNOWN',
+  /** Contract is paused — write operations blocked */
+  ContractPaused = 'CONTRACT_PAUSED',
+  /** Caller is not authorized for this operation */
+  Unauthorized = 'UNAUTHORIZED',
 }
 
 /**
