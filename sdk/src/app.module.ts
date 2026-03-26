@@ -4,6 +4,7 @@ import { ContractService } from './contract/contract.service';
 import { RaffleModule } from './modules/raffle/raffle.module';
 import { TicketModule } from './modules/ticket/ticket.module';
 import { UserModule } from './modules/user/user.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { TikkaNetwork, NetworkConfig } from './network/network.config';
 import { WalletAdapter } from './wallet/wallet.interface';
 
@@ -30,6 +31,7 @@ export class AppModule {
         RaffleModule,
         TicketModule,
         UserModule,
+        AdminModule,
       ],
       providers: [
         ContractService,
@@ -40,6 +42,7 @@ export class AppModule {
         RaffleModule,
         TicketModule,
         UserModule,
+        AdminModule,
       ],
     };
   }
