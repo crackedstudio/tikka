@@ -77,7 +77,7 @@ export class RpcService {
         if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
           return resp;
         }
-      } catch (err) {
+      } catch {
         // If it's a transport error, we might want to failover inside request()
         // so we don't need extra logic here.
       }

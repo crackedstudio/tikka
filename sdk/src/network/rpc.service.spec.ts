@@ -1,5 +1,5 @@
 import { RpcService } from './rpc.service';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { TikkaSdkError } from '../utils/errors';
 import { NetworkConfig, TikkaNetwork } from './network.config';
 import { Networks } from '@stellar/stellar-sdk';
 
