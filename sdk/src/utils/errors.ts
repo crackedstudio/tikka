@@ -65,5 +65,6 @@ export class TikkaSdkError extends Error {
   ) {
     super(message);
     this.name = 'TikkaSdkError';
+    Object.setPrototypeOf(this, TikkaSdkError.prototype);
   }
 }

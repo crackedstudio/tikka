@@ -49,6 +49,16 @@ export class RpcService {
     this.rpcConfig.failoverEndpoints.push(url);
   }
 
+  /** Set custom fetch-compatible client */
+  setFetchClient(client: any): void {
+    this.rpcConfig.fetchClient = client;
+  }
+
+  /** Set default HTTP headers (e.g. API keys) */
+  setHeaders(headers: Record<string, string>): void {
+    this.rpcConfig.headers = { ...this.rpcConfig.headers, ...headers };
+  }
+
   /** Simulate transaction with automatic failover */
   async simulateTransaction(
     tx: any,

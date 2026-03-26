@@ -1,6 +1,7 @@
 import { FreighterAdapter } from './freighter.adapter';
 import { XBullAdapter } from './xbull.adapter';
 import { AlbedoAdapter } from './albedo.adapter';
+import { LobstrAdapter } from './lobstr.adapter';
 import { WalletAdapter, WalletAdapterOptions, WalletName } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
@@ -48,6 +49,8 @@ export class WalletAdapterFactory {
         return new XBullAdapter(options);
       case WalletName.Albedo:
         return new AlbedoAdapter(options);
+      case WalletName.LOBSTR:
+        return new LobstrAdapter(options);
       default:
         throw new TikkaSdkError(
           TikkaSdkErrorCode.Unknown,
