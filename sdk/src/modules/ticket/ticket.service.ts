@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
+import { ContractFn } from '../../contract/bindings';
 import {
   BuyTicketParams,
   BuyTicketResult,
@@ -7,79 +8,63 @@ import {
   RefundTicketResult,
   GetUserTicketsParams,
 } from './ticket.types';
+import { assertPositiveInt } from '../../utils/validation';
 
 @Injectable()
 export class TicketService {
   constructor(private readonly contractService: ContractService) {}
 
   /**
-   * Purchases tickets for a raffle
-   * Requires wallet signature and submission
-   * 
-   * @param params - Raffle ID and quantity of tickets to buy
-   * @returns Ticket IDs, transaction hash, ledger, and fee paid
+   * Purchases tickets for a raffle.
+   * Requires wallet signature and submission.
    */
   async buy(params: BuyTicketParams): Promise<BuyTicketResult> {
     const { raffleId, quantity } = params;
+    assertPositiveInt(raffleId, 'raffleId');
+    assertPositiveInt(quantity, 'quantity');
 
-    try {
-      // TODO: Implement contract invocation
-      // 1. Build transaction calling buy_ticket(raffleId, buyer, quantity)
-      // 2. Simulate to estimate fee
-      // 3. Request wallet signature via WalletAdapter
-      // 4. Submit transaction
-      // 5. Poll for confirmation
-      // 6. Parse result to extract ticket IDs
+    const publicKey = await this.contractService['wallet']?.getPublicKey();
+    const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
+      ContractFn.BUY_TICKET,
+      [raffleId, publicKey, quantity],
+    );
 
-      throw new Error('Ticket purchase not yet implemented');
-    } catch (error) {
-      throw new Error(`Failed to buy tickets for raffle ${raffleId}: ${error.message}`);
-    }
+    return {
+      ticketIds: result,
+      txHash,
+      ledger,
+      feePaid: '0', // fee is included in tx metadata
+    };
   }
 
   /**
-   * Refunds a ticket (when raffle is cancelled)
-   * Requires wallet signature and submission
-   * 
-   * @param params - Raffle ID and ticket ID to refund
-   * @returns Transaction hash and ledger
+   * Refunds a ticket (when raffle is cancelled).
+   * Requires wallet signature and submission.
    */
   async refund(params: RefundTicketParams): Promise<RefundTicketResult> {
     const { raffleId, ticketId } = params;
+    assertPositiveInt(raffleId, 'raffleId');
+    assertPositiveInt(ticketId, 'ticketId');
 
-    try {
-      // TODO: Implement contract invocation
-      // 1. Build transaction calling refund_ticket(raffleId, ticketId)
-      // 2. Request wallet signature via WalletAdapter
-      // 3. Submit transaction
-      // 4. Poll for confirmation
+    const { txHash, ledger } = await this.contractService.invoke(
+      ContractFn.REFUND_TICKET,
+      [raffleId, ticketId],
+    );
 
-      throw new Error('Ticket refund not yet implemented');
-    } catch (error) {
-      throw new Error(`Failed to refund ticket ${ticketId} for raffle ${raffleId}: ${error.message}`);
-    }
+    return { txHash, ledger };
   }
 
   /**
-   * Gets all ticket IDs owned by a user for a specific raffle
-   * Read-only operation (no signing required)
-   * 
-   * @param params - Raffle ID and user address
-   * @returns Array of ticket IDs
+   * Gets all ticket IDs owned by a user for a specific raffle.
+   * Read-only operation (no signing required).
    */
   async getUserTickets(params: GetUserTicketsParams): Promise<number[]> {
     const { raffleId, userAddress } = params;
+    assertPositiveInt(raffleId, 'raffleId');
 
-    try {
-      // Call contract get_user_tickets via read-only simulation
-      const ticketIds = await this.contractService.simulateReadOnly<number[]>(
-        'get_user_tickets',
-        [raffleId, userAddress],
-      );
-
-      return ticketIds;
-    } catch (error) {
-      throw new Error(`Failed to fetch tickets for user ${userAddress} in raffle ${raffleId}: ${error.message}`);
-    }
+    return this.contractService.simulateReadOnly<number[]>(
+      ContractFn.GET_USER_TICKETS,
+      [raffleId, userAddress],
+    );
   }
 }

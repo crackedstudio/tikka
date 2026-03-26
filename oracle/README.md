@@ -7,31 +7,30 @@ The randomness worker processes pending randomness requests from the queue. It d
 ## Architecture
 
 ```
-RandomnessRequested Event
+RandomnessRequested Event (Stellar Horizon)
         ↓
-    Queue Job
+    Bull Queue (Redis)
         ↓
-RandomnessWorker.processRequest()
+RandomnessWorker.handleRandomnessJob()
         ↓
     ┌───┴────────────────────────┐
-    │ 1. Check idempotency       │
-    │ 2. Check contract status   │
-    │ 3. Get prize amount        │
-    │ 4. Determine VRF/PRNG      │
-    │ 5. Compute randomness      │
-    │ 6. Submit to contract      │
+    │ 1. Check contract status   │
+    │ 2. Get prize amount        │
+    │ 3. Determine VRF/PRNG      │
+    │ 4. Compute randomness      │
+    │ 5. Submit to contract      │
     └────────────────────────────┘
 ```
 
 ## Processing Flow
 
-### 1. Idempotency Check
-- Maintains in-memory cache of processed request IDs
-- Skips duplicate events to prevent double-processing
+### 1. Job Enqueuing
+- Event listener enqueues jobs into Bull with `attempts: 5` and exponential backoff.
+- Redis acts as the persistent store for the queue.
 
 ### 2. Contract Status Check
-- Queries contract to verify raffle not already finalized
-- Prevents unnecessary computation if randomness already submitted
+- Queries contract to verify raffle not already finalized.
+- Serves as the primary idempotency check for retried jobs and re-emitted events.
 
 ### 3. Prize Amount Determination
 - Uses `prizeAmount` from event payload if available
@@ -54,11 +53,10 @@ RandomnessWorker.processRequest()
 ## Services
 
 ### RandomnessWorker
-Main processor that orchestrates the entire flow.
+Consumer processor that handles jobs from the `randomness-queue`.
 
 **Key Methods:**
-- `processRequest(job: RandomnessRequest): Promise<void>` - Processes a single job
-- `clearProcessedCache(): void` - Clears idempotency cache (testing/cleanup)
+- `@Process() handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void>` - Processes a single job
 
 ### ContractService
 Interacts with Soroban contract for read operations.
@@ -106,11 +104,18 @@ npm test
 - ✅ Already-finalized raffle handling
 - ✅ Error handling and retry behavior
 
+## Configuration
+
+The service requires the following environment variables for queue operations:
+
+- `REDIS_HOST`: Redis server host (default: `localhost`)
+- `REDIS_PORT`: Redis server port (default: `6379`)
+
 ## Implementation Status
 
 ✅ Worker logic implemented  
 ✅ VRF/PRNG branching  
-✅ Idempotency handling  
+✅ Bull Queue integration (Redis-backed)  
 ✅ Unit tests with mocks  
 ⏳ ContractService RPC calls need Stellar SDK integration  
 ⏳ VrfService needs Ed25519 VRF library  
@@ -121,6 +126,5 @@ npm test
 1. Integrate Stellar SDK for contract RPC calls
 2. Implement Ed25519 VRF (e.g., using `@noble/curves`)
 3. Implement Soroban transaction building and signing
-4. Add Bull queue integration for job processing
-5. Add integration tests against Stellar testnet
-6. Configure oracle keypair management (HSM/secrets)
+4. Add integration tests against Stellar testnet
+5. Configure oracle keypair management (HSM/secrets)

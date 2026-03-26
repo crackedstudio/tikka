@@ -4,6 +4,7 @@ import RaffleDetailsCard from "../components/cards/RaffleDetailsCard";
 import ShareRaffle from "../components/ShareRaffle";
 import VerifiedBadge from "../components/VerifiedBadge";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
 import detailimage from "../assets/detailimage.png";
 
 const RaffleDetails = () => {
@@ -62,6 +63,25 @@ const RaffleDetails = () => {
                     // You can add navigation to enter raffle flow here
                 }}
             />
+            
+            {/* Notification Subscription Section */}
+            <div className="bg-[#11172E] rounded-3xl p-6 mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h3 className="text-xl font-bold text-white mb-2">Stay Updated</h3>
+                        <p className="text-gray-400 text-sm">
+                            Get notified when this raffle ends or when you win
+                        </p>
+                    </div>
+                    <NotificationSubscribeButton
+                        raffleId={raffle.id}
+                        onAuthRequired={() => {
+                            alert('Please sign in to subscribe to notifications');
+                        }}
+                    />
+                </div>
+            </div>
+
             <VerifiedBadge />
             <ShareRaffle />
         </div>

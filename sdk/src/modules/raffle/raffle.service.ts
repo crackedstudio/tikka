@@ -1,0 +1,153 @@
+import { Injectable } from '@nestjs/common';
+import { ContractService } from '../../contract/contract.service';
+import { ContractFn } from '../../contract/bindings';
+import {
+  RaffleParams,
+  CreateRaffleResult,
+  RaffleData,
+  CancelRaffleResult,
+} from './raffle.types';
+import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
+import { xlmToStroops } from '../../utils/formatting';
+import { nativeToScVal } from '@stellar/stellar-sdk';
+
+/**
+ * RaffleService — high-level API for raffle lifecycle operations.
+ *
+ * Write methods (create, cancel) require a WalletAdapter to be set on the
+ * ContractService. Read methods (get, listActive, listAll) are free (simulate).
+ */
+@Injectable()
+export class RaffleService {
+  constructor(private readonly contract: ContractService) {}
+
+  /* ------------------------------------------------------------------ */
+  /*  create                                                             */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Creates a new raffle on-chain.
+   *
+   * @returns The on-chain raffle ID, transaction hash, and ledger.
+   */
+  async create(params: RaffleParams): Promise<CreateRaffleResult> {
+    assertNonEmpty(params.ticketPrice, 'ticketPrice');
+    assertPositiveInt(params.maxTickets, 'maxTickets');
+
+    const contractParams = [
+      nativeToScVal(
+        {
+          ticket_price: BigInt(xlmToStroops(params.ticketPrice)),
+          max_tickets: params.maxTickets,
+          end_time: BigInt(Math.floor(params.endTime / 1000)), // contract expects seconds
+          allow_multiple: params.allowMultiple,
+          asset: params.asset,
+          metadata_cid: params.metadataCid ?? '',
+        },
+        {
+          type: {
+            ticket_price: ['symbol', 'i128'],
+            max_tickets: ['symbol', 'u32'],
+            end_time: ['symbol', 'u64'],
+            allow_multiple: ['symbol', 'bool'],
+            asset: ['symbol', 'string'],
+            metadata_cid: ['symbol', 'string'],
+          } as any,
+        },
+      ),
+    ];
+
+    const { result, txHash, ledger } = await this.contract.invoke<number>(
+      ContractFn.CREATE_RAFFLE,
+      contractParams,
+    );
+
+    return { raffleId: result, txHash, ledger };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  get                                                                */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Fetches on-chain data for a single raffle (read-only).
+   */
+  async get(raffleId: number): Promise<RaffleData> {
+    assertPositiveInt(raffleId, 'raffleId');
+
+    const raw = await this.contract.simulateReadOnly<any>(
+      ContractFn.GET_RAFFLE_DATA,
+      [raffleId],
+    );
+
+    return this.mapRaffleData(raffleId, raw);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  listActive                                                         */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Returns IDs of all currently active (OPEN) raffles.
+   */
+  async listActive(): Promise<number[]> {
+    return this.contract.simulateReadOnly<number[]>(
+      ContractFn.GET_ACTIVE_RAFFLE_IDS,
+      [],
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  listAll                                                            */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Returns IDs of all raffles (any state).
+   */
+  async listAll(): Promise<number[]> {
+    return this.contract.simulateReadOnly<number[]>(
+      ContractFn.GET_ALL_RAFFLE_IDS,
+      [],
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  cancel                                                             */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Cancels an OPEN raffle (must be the raffle creator).
+   */
+  async cancel(raffleId: number): Promise<CancelRaffleResult> {
+    assertPositiveInt(raffleId, 'raffleId');
+
+    const { txHash, ledger } = await this.contract.invoke(
+      ContractFn.CANCEL_RAFFLE,
+      [raffleId],
+    );
+
+    return { txHash, ledger };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Private helpers                                                    */
+  /* ------------------------------------------------------------------ */
+
+  private mapRaffleData(raffleId: number, raw: any): RaffleData {
+    return {
+      raffleId,
+      creator: raw.creator ?? raw.Creator ?? '',
+      status: raw.status ?? raw.Status ?? 0,
+      ticketPrice: String(raw.ticket_price ?? raw.ticketPrice ?? '0'),
+      maxTickets: Number(raw.max_tickets ?? raw.maxTickets ?? 0),
+      ticketsSold: Number(raw.tickets_sold ?? raw.ticketsSold ?? 0),
+      endTime: Number(raw.end_time ?? raw.endTime ?? 0) * 1000, // back to ms
+      asset: raw.asset ?? 'XLM',
+      allowMultiple: Boolean(raw.allow_multiple ?? raw.allowMultiple),
+      metadataCid: raw.metadata_cid ?? raw.metadataCid ?? '',
+      winner: raw.winner,
+      winningTicketId: raw.winning_ticket_id ?? raw.winningTicketId,
+      prizeAmount: raw.prize_amount != null ? String(raw.prize_amount) : undefined,
+    };
+  }
+}
