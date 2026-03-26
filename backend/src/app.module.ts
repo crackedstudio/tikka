@@ -10,6 +10,7 @@ import { LeaderboardModule } from "./api/rest/leaderboard/leaderboard.module";
 import { StatsModule } from "./api/rest/stats/stats.module";
 import { NotificationsModule } from "./api/rest/notifications/notifications.module";
 import { HealthModule } from "./health/health.module";
+import { SupabaseModule } from "./services/supabase.module";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
 
@@ -55,6 +56,7 @@ import { validate } from "./config/env.schema";
       }),
     }),
 
+    SupabaseModule,
     AuthModule,
     RafflesModule,
     UsersModule,
