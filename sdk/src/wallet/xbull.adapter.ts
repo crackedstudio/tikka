@@ -20,7 +20,6 @@ export class XBullAdapter extends WalletAdapter {
     super(options);
   }
 
-  /** Checks if xBull SDK is available in the current environment */
   isAvailable(): boolean {
     return (
       typeof globalThis !== 'undefined' &&
@@ -28,12 +27,12 @@ export class XBullAdapter extends WalletAdapter {
     );
   }
 
-  /** Returns the connected public key */
   async getPublicKey(): Promise<string> {
     this.assertInstalled();
     try {
       const sdk = this.getSdk();
-      return await sdk.getPublicKey();
+      const publicKey: string = await sdk.getPublicKey();
+      return publicKey;
     } catch (err: any) {
       if (this.isUserRejection(err)) {
         throw new TikkaSdkError(TikkaSdkErrorCode.UserRejected, 'User rejected xBull request', err);
@@ -42,7 +41,6 @@ export class XBullAdapter extends WalletAdapter {
     }
   }
 
-  /** Signs a Stellar transaction using xBull */
   async signTransaction(
     xdr: string,
     opts?: { networkPassphrase?: string; accountToSign?: string },
@@ -65,8 +63,6 @@ export class XBullAdapter extends WalletAdapter {
     }
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Internal helpers                                                   */
   /* ------------------------------------------------------------------ */
 
   private getSdk(): any {
