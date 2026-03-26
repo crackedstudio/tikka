@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TicketService } from './ticket.service';
-import { ContractService } from '../../contract/contract.service';
+import { NetworkModule } from '../../network/network.module';
 
 @Module({
-  providers: [TicketService, ContractService],
+  imports: [NetworkModule],
+  providers: [TicketService],
   exports: [TicketService],
 })
 export class TicketModule {}
