@@ -24,6 +24,11 @@ export const API_CONFIG = {
     },
     leaderboard: '/leaderboard',
     stats: '/stats/platform',
+    notifications: {
+      subscribe: '/notifications/subscribe',
+      unsubscribe: (raffleId: string) => `/notifications/subscribe/${raffleId}`,
+      list: '/notifications/subscriptions',
+    },
   },
   timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '30000', 10),
 } as const;

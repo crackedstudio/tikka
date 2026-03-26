@@ -38,6 +38,7 @@
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^10.4.0",
     "@nestjs/typeorm": "^10.0.2",
+    "@stellar/stellar-sdk": "^14.5.0",
     "ioredis": "^5.9.3",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.0",

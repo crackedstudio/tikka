@@ -5,13 +5,15 @@ import { VrfService } from '../src/randomness/vrf.service';
 import { PrngService } from '../src/randomness/prng.service';
 import { TxSubmitterService } from '../src/submitter/tx-submitter.service';
 import { RandomnessRequest, RandomnessMethod } from '../src/queue/queue.types';
+import { HealthService } from '../src/health/health.service';
+import { LagMonitorService } from '../src/health/lag-monitor.service';
 
 describe('RandomnessWorker', () => {
   let worker: RandomnessWorker;
   let contractService: ContractService;
-  let vrfService: VrfService;
-  let prngService: PrngService;
-  let txSubmitter: TxSubmitterService;
+  let vrfService: any;
+  let prngService: any;
+  let txSubmitter: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -42,6 +44,22 @@ describe('RandomnessWorker', () => {
             submitRandomness: jest.fn(),
           },
         },
+        {
+          provide: HealthService,
+          useValue: {
+            recordSuccess: jest.fn(),
+            recordFailure: jest.fn(),
+            updateQueueDepth: jest.fn(),
+          },
+        },
+        {
+          provide: LagMonitorService,
+          useValue: {
+            trackRequest: jest.fn(),
+            fulfillRequest: jest.fn(),
+            updateCurrentLedger: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -65,7 +83,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
-      jest.spyOn(prngService, 'compute').mockResolvedValue({
+      prngService.compute.mockResolvedValue({
         seed: 'prng-seed',
         proof: '0'.repeat(128),
       });
@@ -95,7 +113,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
-      jest.spyOn(vrfService, 'compute').mockResolvedValue({
+      vrfService.compute.mockResolvedValue({
         seed: 'vrf-seed',
         proof: 'vrf-proof',
       });
@@ -130,7 +148,7 @@ describe('RandomnessWorker', () => {
         prizeAmount: 750,
         status: 'DRAWING',
       });
-      jest.spyOn(vrfService, 'compute').mockResolvedValue({
+      vrfService.compute.mockResolvedValue({
         seed: 'vrf-seed',
         proof: 'vrf-proof',
       });
@@ -156,7 +174,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
-      jest.spyOn(prngService, 'compute').mockResolvedValue({
+      prngService.compute.mockResolvedValue({
         seed: 'seed',
         proof: '0'.repeat(128),
       });
@@ -200,7 +218,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
-      jest.spyOn(prngService, 'compute').mockResolvedValue({
+      prngService.compute.mockResolvedValue({
         seed: 'seed',
         proof: '0'.repeat(128),
       });
