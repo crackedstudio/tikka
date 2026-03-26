@@ -26,9 +26,7 @@ export const useRaffles = (filters?: RaffleListFilters) => {
         setIsLoading(true);
         setError(null);
 
-        const parsed = JSON.parse(serializedFilters) as
-            | RaffleListFilters
-            | undefined;
+        const parsed = JSON.parse(serializedFilters) as RaffleListFilters | undefined;
         fetchRaffles(parsed)
             .then((response) => {
                 if (currentRequest !== requestId.current) return;
@@ -37,9 +35,7 @@ export const useRaffles = (filters?: RaffleListFilters) => {
             })
             .catch((err) => {
                 if (currentRequest !== requestId.current) return;
-                setError(
-                    err instanceof Error ? err : new Error("Failed to fetch raffles")
-                );
+                setError(err instanceof Error ? err : new Error("Failed to fetch raffles"));
             })
             .finally(() => {
                 if (currentRequest !== requestId.current) return;
@@ -80,11 +76,7 @@ export const useRaffle = (raffleId: number) => {
             })
             .catch((err) => {
                 if (currentRequest !== requestId.current) return;
-                setError(
-                    err instanceof Error
-                        ? err
-                        : new Error(`Failed to fetch raffle ${raffleId}`)
-                );
+                setError(err instanceof Error ? err : new Error(`Failed to fetch raffle ${raffleId}`));
             })
             .finally(() => {
                 if (currentRequest !== requestId.current) return;

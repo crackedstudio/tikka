@@ -1,17 +1,15 @@
-export enum WalletName {
+/**
+ * Backward-compatible re-export.
+ * The canonical definitions now live in wallet.interface.ts.
+ */
+export {
+  WalletAdapter,
+  WalletAdapterOptions,
+  WalletName,
+  SignTransactionResult,
+} from './wallet.interface';export enum WalletName {
+  Freighter = 'freighter',
   XBull = 'xbull',
   Albedo = 'albedo',
-  Lobstr = 'lobstr'
-}
-
-export interface WalletAdapterOptions {
-  networkPassphrase?: string;
-  network?: string;
-  [key: string]: any;
-}
-
-export interface WalletAdapter {
-  isAvailable(): boolean | Promise<boolean>;
-  getPublicKey(): Promise<string>;
-  signTransaction(xdr: string, options?: WalletAdapterOptions): Promise<string>;
+  Lobstr = 'lobstr', // ✅ add this
 }

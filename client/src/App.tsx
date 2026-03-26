@@ -5,6 +5,7 @@ import CreateRaffle from "./pages/CreateRaffle";
 import Leaderboard from "./pages/Leaderboard";
 import MyRaffles from "./pages/MyRaffles";
 import WinnerDemo from "./pages/WinnerDemo";
+import SearchPage from "./pages/Search"; // Added for Search
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
@@ -32,29 +33,14 @@ function App() {
                     <Route path="/" element={<LandingLayout />}>
                         <Route index element={<LandingPage />} />
                         <Route path="home" element={<Home />} />
+                        <Route path="search" element={<SearchPage />} /> {/* Added for Search */}
                         <Route path="details" element={<RaffleDetails />} />
                         <Route path="create" element={<CreateRaffle />} />
                         <Route path="leaderboard" element={<Leaderboard />} />
                         <Route path="my-raffles" element={<MyRaffles />} />
                         <Route path="winner-demo" element={<WinnerDemo />} />
+                        <Route path="settings" element={<Settings />} />
                     </Route>
-
-                    {/* <Route path="/game" element={<GameLayout />}>
-                            <Route
-                                index
-                                element={<Game />}
-                                errorElement={<RouteError />}
-                            />
-                            <Route
-                                path="ref/:referralId"
-                                element={<Game />}
-                                errorElement={<RouteError />}
-                            />
-                            <Route path="play" element={<GamePlay />} />
-                            <Route path="leaderboard" element={<Leaderboard />} />
-                            <Route path="friends" element={<Friends />} />
-                            <Route path="classic" element={<ClassicGames />} />
-                        </Route> */}
                 </Routes>
             </Router>
         </AuthProvider>

@@ -1,96 +1,104 @@
-import { XBullAdapter } from './xbull.adapter';
-import { AlbedoAdapter } from './albedo.adapter';
-import { LobstrAdapter } from './lobstr.adapter';
-import { WalletAdapter, WalletAdapterOptions, WalletName } from './wallet.adapter';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
+require('dotenv').config();
 
-/**
- * WalletAdapterFactory
- *
- * Creates the correct WalletAdapter by wallet name, or auto-detects the
- * first available wallet in the current browser environment.
- *
- * ## Select by name (recommended for explicit wallet pickers)
- * ```ts
- * const adapter = WalletAdapterFactory.create(WalletName.XBull, {
- *   networkPassphrase: Networks.TESTNET,
- * });
- * ```
- *
- * ## Auto-detect (recommended for "Connect Wallet" buttons)
- * ```ts
- * const adapter = WalletAdapterFactory.autoDetect({
- *   networkPassphrase: Networks.TESTNET,
- * });
- * if (!adapter) throw new Error('No supported wallet found. Please install xBull or Albedo.');
- * ```
- *
- * ## Supported wallets
- * | Wallet   | Type            | isAvailable() check              |
- * |----------|-----------------|----------------------------------|
- * | xBull    | Extension + PWA | window.xBullSDK present          |
- * | Albedo   | Web popup       | Always true in browser           |
- *
- * Auto-detect priority: xBull → Albedo
- * (Extension wallets are preferred over web-based wallets)
- */
-export class WalletAdapterFactory {
-  /**
-   * Create a wallet adapter by name.
-   *
-   * @param wallet  WalletName enum value
-   * @param options Adapter options (networkPassphrase etc.)
-   * @throws TikkaSdkError(Unknown) for unsupported wallet names
-   */
-  static create(
-    wallet: WalletName,
-    options: WalletAdapterOptions = {},
-  ): WalletAdapter {
-    switch (wallet) {
-      case WalletName.XBull:
-        return new XBullAdapter(options);
-      case WalletName.Albedo:
-        return new AlbedoAdapter(options);
-      case WalletName.Lobstr:
-        return new LobstrAdapter(options);
-      default:
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.Unknown,
-          `Unsupported wallet: "${wallet}". Supported wallets: ${Object.values(WalletName).join(', ')}`,
-        );
-    }
+const app = express();
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
   }
+});
 
-  /**
-   * Auto-detect the first available wallet in the current environment.
-   * Priority order: xBull → Albedo
-   *
-   * @param options Adapter options (networkPassphrase etc.)
-   * @returns       A WalletAdapter instance, or null if none are available
-   */
-  static autoDetect(options: WalletAdapterOptions = {}): WalletAdapter | null {
-    const candidates: WalletAdapter[] = [
-      new XBullAdapter(options),
-      new AlbedoAdapter(options),
-      new LobstrAdapter(options),
-    ];
+const PORT = process.env.PORT || 3000;
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, './database/healthcare.db');
 
-    return candidates.find((adapter) => adapter.isAvailable()) ?? null;
-  }
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(compression());
+app.use(morgan('dev'));
+app.use(express.json());
 
-  /**
-   * Returns a list of all available wallets in the current environment.
-   * Useful for building a wallet selection UI.
-   *
-   * @param options Adapter options (networkPassphrase etc.)
-   * @returns       Array of available WalletAdapter instances
-   */
-  static getAvailable(options: WalletAdapterOptions = {}): WalletAdapter[] {
-    const all: WalletAdapter[] = [
-      new XBullAdapter(options),
-      new AlbedoAdapter(options),
-      new LobstrAdapter(options),
-    ];
-    return all.filter((adapter) => adapter.isAvailable());
+// Rate limiting
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+}));
+
+// Routes
+const authRoutes = require('./routes/auth');
+const patientRoutes = require('./routes/patients');
+const telemedicineRoutes = require('./routes/telemedicine')(io);
+
+app.use('/api/auth', authRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/telemedicine', telemedicineRoutes);
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Socket setup
+const TelemedicineService = require('./services/telemedicineService');
+const telemedicineService = new TelemedicineService(io);
+telemedicineService.initialize();
+
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  telemedicineService.handleSignaling(socket);
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
+});
+
+// DB init
+async function initializeDatabase() {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(DB_PATH, (err) => {
+      if (err) return reject(err);
+      console.log('Database initialized');
+      resolve();
+    });
+  });
+}
+
+// Start server
+async function startServer() {
+  try {
+    await initializeDatabase();
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
   }
 }
+
+startServer();
+
+module.exports = { app, io };
