@@ -36,6 +36,9 @@ export class HealthController {
         streamStatus: metrics.streamStatus,
         streamUptimeMs: metrics.streamUptimeMs,
         lastStreamError: metrics.lastStreamError,
+        batchSubmissions: metrics.batchSubmissions,
+        totalRevealsBatched: metrics.totalRevealsBatched,
+        totalBatchFailures: metrics.totalBatchFailures,
       },
       recentErrors: metrics.recentErrors.map(err => ({
         requestId: err.requestId,

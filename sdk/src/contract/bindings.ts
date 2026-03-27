@@ -19,6 +19,7 @@ export const ContractFn = {
   BUY_TICKET: 'buy_ticket',
   TRIGGER_DRAW: 'trigger_draw',
   RECEIVE_RANDOMNESS: 'receive_randomness',
+  RECEIVE_RANDOMNESS_BATCH: 'receive_randomness_batch',
   CANCEL_RAFFLE: 'cancel_raffle',
   REFUND_TICKET: 'refund_ticket',
 
