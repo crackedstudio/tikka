@@ -4,7 +4,10 @@
  * Central configuration for backend API endpoints
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  'http://localhost:3001';
 
 export const API_CONFIG = {
   baseUrl: API_BASE_URL,

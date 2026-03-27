@@ -30,6 +30,10 @@ export const envSchema = z
     // SIWS
     SIWS_DOMAIN: z.string().default('tikka.io'),
 
+    // Admin dashboard
+    ADMIN_TOKEN: z.string().min(1),
+    ADMIN_IP_ALLOWLIST: z.string().default(''),
+
     // Throttle — all optional with sensible defaults
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().positive().default(100),
     THROTTLE_DEFAULT_TTL: z.coerce.number().int().positive().default(60),

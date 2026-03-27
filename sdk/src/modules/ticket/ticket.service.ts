@@ -9,6 +9,7 @@ import {
   GetUserTicketsParams,
 } from './ticket.types';
 import { assertPositiveInt } from '../../utils/validation';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
 @Injectable()
 export class TicketService {
@@ -17,6 +18,10 @@ export class TicketService {
   /**
    * Purchases tickets for a raffle.
    * Requires wallet signature and submission.
+   *
+   * Token transfer failures (e.g. malicious SEP-41 token rejecting the call)
+   * are surfaced as `ExternalContractError` so callers can handle them
+   * separately from generic network/contract errors.
    */
   async buy(params: BuyTicketParams): Promise<BuyTicketResult> {
     const { raffleId, quantity } = params;
@@ -27,19 +32,35 @@ export class TicketService {
     const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
       ContractFn.BUY_TICKET,
       [raffleId, publicKey, quantity],
+      { memo: params.memo },
     );
 
-    return {
-      ticketIds: result,
-      txHash,
-      ledger,
-      feePaid: '0', // fee is included in tx metadata
-    };
+      return {
+        ticketIds: result,
+        txHash,
+        ledger,
+        feePaid: '0',
+      };
+    } catch (err) {
+      if (
+        err instanceof TikkaSdkError &&
+        err.code === TikkaSdkErrorCode.ExternalContractError
+      ) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.ExternalContractError,
+          `Token contract rejected ticket purchase for raffle ${raffleId}: ${err.message}`,
+          err,
+        );
+      }
+      throw err;
+    }
   }
 
   /**
    * Refunds a ticket (when raffle is cancelled).
    * Requires wallet signature and submission.
+   *
+   * Token transfer failures during refund are surfaced as `ExternalContractError`.
    */
   async refund(params: RefundTicketParams): Promise<RefundTicketResult> {
     const { raffleId, ticketId } = params;
@@ -49,9 +70,23 @@ export class TicketService {
     const { txHash, ledger } = await this.contractService.invoke(
       ContractFn.REFUND_TICKET,
       [raffleId, ticketId],
+      { memo: params.memo },
     );
 
-    return { txHash, ledger };
+      return { txHash, ledger };
+    } catch (err) {
+      if (
+        err instanceof TikkaSdkError &&
+        err.code === TikkaSdkErrorCode.ExternalContractError
+      ) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.ExternalContractError,
+          `Token contract rejected refund for ticket ${ticketId} in raffle ${raffleId}: ${err.message}`,
+          err,
+        );
+      }
+      throw err;
+    }
   }
 
   /**

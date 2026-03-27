@@ -9,6 +9,7 @@ import SearchPage from "./pages/Search";
 import Transparency from "./pages/Transparency";
 import Settings from "./pages/Settings";
 import RafflePage from "./pages/RafflePage";
+import OracleAdmin from "./pages/OracleAdmin";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
@@ -17,6 +18,7 @@ import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { WalletProvider } from "./providers/WalletProvider";
 import { AuthProvider } from "./providers/AuthProvider";
+import { InstallPWA } from "./components/InstallPWA";
 
 function App() {
     useEffect(() => {
@@ -31,6 +33,7 @@ function App() {
     return (
         <WalletProvider>
             <AuthProvider>
+                <InstallPWA />
                 <Router>
                     <Routes>
                     <Route path="/" element={<LandingLayout />}>
@@ -45,6 +48,7 @@ function App() {
                         <Route path="winner-demo" element={<WinnerDemo />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="transparency" element={<Transparency />} />
+                        <Route path="admin/oracle" element={<OracleAdmin />} />
                     </Route>
                 </Routes>
             </Router>
