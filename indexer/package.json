@@ -57,6 +57,7 @@
     "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "fast-check": "^4.6.0",
     "ioredis-mock": "^8.13.1",
     "jest": "^30.2.0",
     "prettier": "^3.8.1",
