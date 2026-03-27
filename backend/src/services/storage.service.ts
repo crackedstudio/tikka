@@ -1,20 +1,25 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import {
   AllowedUploadMimeType,
   RAFFLE_IMAGE_BUCKET,
 } from '../config/upload.config';
-import { env } from '../config/env.config';
+import { SUPABASE_CLIENT } from './supabase.provider';
 
-interface UploadRaffleImageInput {
+export interface UploadRaffleImageInput {
   fileBuffer: Buffer;
   mimeType: AllowedUploadMimeType;
   raffleId: string;
   uploaderId: string;
 }
 
-interface UploadRaffleImageResult {
+export interface UploadRaffleImageResult {
   url: string;
   path: string;
   bucket: string;
@@ -28,17 +33,11 @@ const MIME_TO_EXTENSION: Record<AllowedUploadMimeType, string> = {
 
 @Injectable()
 export class StorageService {
-  private readonly client: SupabaseClient;
+  private readonly logger = new Logger(StorageService.name);
 
-  constructor() {
-    const { url, serviceRoleKey } = env.supabase;
-    if (!url || !serviceRoleKey) {
-      throw new Error(
-        'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment',
-      );
-    }
-    this.client = createClient(url, serviceRoleKey);
-  }
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+  ) {}
 
   async uploadRaffleImage(
     input: UploadRaffleImageInput,
@@ -49,6 +48,10 @@ export class StorageService {
     const uploaderSegment = this.sanitizePathSegment(input.uploaderId);
     const path = `${raffleSegment}/${uploaderSegment}/${fileName}`;
 
+    this.logger.log(
+      `Uploading image for raffle=${raffleSegment} by=${uploaderSegment} (${input.mimeType}, ${input.fileBuffer.length} bytes)`,
+    );
+
     const { error } = await this.client.storage
       .from(RAFFLE_IMAGE_BUCKET)
       .upload(path, input.fileBuffer, {
@@ -57,6 +60,7 @@ export class StorageService {
       });
 
     if (error) {
+      this.logger.error(`Upload failed for path=${path}: ${error.message}`);
       throw new InternalServerErrorException(
         `Failed to upload image to storage: ${error.message}`,
       );
@@ -66,11 +70,28 @@ export class StorageService {
       .from(RAFFLE_IMAGE_BUCKET)
       .getPublicUrl(path);
 
+    this.logger.log(`Upload succeeded: ${path}`);
+
     return {
       url: data.publicUrl,
       path,
       bucket: RAFFLE_IMAGE_BUCKET,
     };
+  }
+
+  async deleteRaffleImage(path: string): Promise<void> {
+    this.logger.log(`Deleting image at path=${path}`);
+
+    const { error } = await this.client.storage
+      .from(RAFFLE_IMAGE_BUCKET)
+      .remove([path]);
+
+    if (error) {
+      this.logger.error(`Delete failed for path=${path}: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Failed to delete image from storage: ${error.message}`,
+      );
+    }
   }
 
   private sanitizePathSegment(raw: string): string {

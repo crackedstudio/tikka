@@ -1,6 +1,6 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { env } from '../config/env.config';
+import { Inject, Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_CLIENT } from './supabase.provider';
 
 /** Notification subscription record */
 export interface NotificationSubscription {
@@ -22,17 +22,9 @@ const TABLE = 'notifications';
 
 @Injectable()
 export class NotificationService {
-  private readonly client: SupabaseClient;
-
-  constructor() {
-    const { url, serviceRoleKey } = env.supabase;
-    if (!url || !serviceRoleKey) {
-      throw new Error(
-        'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment',
-      );
-    }
-    this.client = createClient(url, serviceRoleKey);
-  }
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+  ) {}
 
   /**
    * Subscribe user to raffle notifications
