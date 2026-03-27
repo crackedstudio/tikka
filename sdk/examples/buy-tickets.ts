@@ -58,7 +58,7 @@ async function main() {
   }
 
   const available = raffle.maxTickets - raffle.ticketsSold;
-  console.log(`Raffle ${raffleId}: ${available} tickets remaining at ${raffle.ticketPrice} stroops each`);
+  console.log(`Raffle ${raffleId}: ${available} tickets remaining at ${raffle.ticketPrice} XLM each`);
 
   if (quantity > available) {
     console.error(`Requested ${quantity} tickets but only ${available} available`);
