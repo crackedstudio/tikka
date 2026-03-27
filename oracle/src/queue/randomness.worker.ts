@@ -1,14 +1,17 @@
-import { RandomnessRequest, RandomnessMethod } from './queue.types';
+import { RandomnessMethod } from './queue.types';
 import { ContractService } from '../contract/contract.service';
 import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
-import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
-import { Job } from 'bull';
+import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed, InjectQueue } from '@nestjs/bull';
+import { Job, Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
 import { Injectable, Logger } from '@nestjs/common';
+import { AuditLoggerService } from '../audit/audit-logger.service';
+import { BatchCollector } from './batch-collector.service';
+import { RevealItem, BatchFlushResult } from './batch-reveal.types';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
@@ -24,12 +27,85 @@ export class RandomnessWorker {
     private readonly txSubmitter: TxSubmitterService,
     private readonly healthService: HealthService,
     private readonly lagMonitor: LagMonitorService,
-  ) { }
+    private readonly auditLogger: AuditLoggerService,
+    private readonly batchCollector: BatchCollector,
+    @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue: Queue,
+  ) {
+    this.batchCollector.onFlush(this.handleFlush.bind(this));
+  }
+
+  /**
+   * Flush handler — called by BatchCollector when a batch is ready to submit.
+   */
+  private async handleFlush(flushResult: BatchFlushResult): Promise<void> {
+    const { items } = flushResult;
+    const batchSize = items.length;
+
+    const batchResult = await this.txSubmitter.submitBatch(items);
+
+    const { txHash, ledger } = batchResult;
+    let successes = 0;
+    let failures = 0;
+
+    // Build a map from raffleId to RevealItem for quick lookup
+    const itemMap = new Map<number, RevealItem>(items.map((i) => [i.raffleId, i]));
+
+    for (const resultItem of batchResult.items) {
+      const revealItem = itemMap.get(resultItem.raffleId);
+
+      if (resultItem.success) {
+        successes++;
+        if (revealItem) {
+          try {
+            await this.auditLogger.log({
+              raffle_id: revealItem.raffleId,
+              request_id: revealItem.requestId,
+              seed: revealItem.seed,
+              proof: revealItem.proof,
+              tx_hash: txHash,
+              method: revealItem.method,
+              custom_seed: revealItem.customSeed ?? null,
+            });
+          } catch (err: any) {
+            this.logger.error(
+              `Audit log failed for raffle ${revealItem.raffleId}: ${err?.message}`,
+            );
+          }
+        }
+      } else {
+        failures++;
+        if (resultItem.errorCode === 'ALREADY_FINALISED') {
+          this.logger.debug(
+            `Raffle ${resultItem.raffleId} already finalised — discarding silently`,
+          );
+        } else {
+          this.logger.error(
+            `RevealItem failed for raffle ${resultItem.raffleId}: ${resultItem.errorCode ?? 'UNKNOWN'}`,
+          );
+          // Re-enqueue as a new Bull job for retry
+          try {
+            await this.randomnessQueue.add({ raffleId: resultItem.raffleId } as RandomnessJobPayload);
+          } catch (err: any) {
+            this.logger.error(
+              `Failed to re-enqueue raffle ${resultItem.raffleId}: ${err?.message}`,
+            );
+          }
+        }
+      }
+    }
+
+    // Record batch metrics (guard for task 9 which adds this method)
+    if (typeof (this.healthService as any).recordBatchSubmission === 'function') {
+      (this.healthService as any).recordBatchSubmission(batchSize, successes, failures);
+    }
+
+    this.logger.log(
+      `Batch submitted: size=${batchSize}, txHash=${txHash}, ledger=${ledger}, successes=${successes}, failures=${failures}`,
+    );
+  }
 
   /**
    * Processes a randomness request from the queue
-   * @param job The Bull job containing the randomness request
-   * @returns Processing result
    */
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
@@ -117,12 +193,11 @@ export class RandomnessWorker {
   /**
    * Computes randomness using the appropriate method
    */
-  private async computeRandomness(method: RandomnessMethod, requestId: string) {
+  private async computeRandomness(method: RandomnessMethod, requestId: string, raffleId?: number, customSeed?: string) {
     if (method === RandomnessMethod.VRF) {
       return await this.vrfService.compute(requestId);
     } else {
-      return await this.prngService.compute(requestId);
+      return await this.prngService.compute(requestId, raffleId, customSeed);
     }
   }
 }
-

@@ -12,10 +12,14 @@ import { HealthModule } from '../health/health.module';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { RANDOMNESS_QUEUE } from './randomness.queue';
+import { AuditModule } from '../audit/audit.module';
+import { AuditLoggerService } from '../audit/audit-logger.service';
+import { BatchCollector } from './batch-collector.service';
 
 @Module({
   imports: [
     HealthModule,
+    AuditModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -48,6 +52,8 @@ import { RANDOMNESS_QUEUE } from './randomness.queue';
     TxSubmitterService,
     HealthService,
     LagMonitorService,
+    AuditLoggerService,
+    BatchCollector,
   ],
   exports: [RandomnessWorker, CommitRevealWorker, BullModule],
 })

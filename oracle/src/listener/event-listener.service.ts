@@ -127,6 +127,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
                         let raffleId: number | undefined;
                         let requestId: string | undefined;
+                        let customSeed: string | undefined;
 
                         // Example of parsing struct/map fields:
                         if (scVal.switch() === StellarSdk.xdr.ScValType.scvMap()) {
@@ -139,6 +140,8 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                                     // Usually bytes or string or u64 - assuming u64 string representation or a byte array for this prototype
                                     // Let's assume depending on the struct it might be a u64 cast into a string.
                                     requestId = this.parseRequestId(entry.val());
+                                } else if (keySym === 'seed') {
+                                    customSeed = this.parseSeedField(entry.val());
                                 }
                             }
                         } else if (scVal.switch() === StellarSdk.xdr.ScValType.scvVec()) {
@@ -214,6 +217,28 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 return val.bytes().toString('hex');
             default:
                 return JSON.stringify(val.value());
+        }
+    }
+
+    /**
+     * Decodes an scvBytes ScVal of exactly 32 bytes to a 64-char lowercase hex string.
+     * Returns undefined and logs a WARN on any decode failure.
+     */
+    private parseSeedField(val: StellarSdk.xdr.ScVal): string | undefined {
+        try {
+            if (val.switch() !== StellarSdk.xdr.ScValType.scvBytes()) {
+                this.logger.warn(`parseSeedField: expected scvBytes, got ${val.switch().name}`);
+                return undefined;
+            }
+            const bytes: Buffer = val.bytes();
+            if (bytes.length !== 32) {
+                this.logger.warn(`parseSeedField: expected 32 bytes, got ${bytes.length}`);
+                return undefined;
+            }
+            return bytes.toString('hex');
+        } catch (e: any) {
+            this.logger.warn(`parseSeedField: failed to decode seed field: ${e?.message}`);
+            return undefined;
         }
     }
 }

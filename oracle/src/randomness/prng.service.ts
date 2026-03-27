@@ -41,12 +41,24 @@ export class PrngService {
    *                   seed  → 64 hex chars (32 bytes) for contract BytesN<32>
    *                   proof → 128 hex chars (64 bytes) for contract BytesN<64>
    */
-  compute(requestId: string, raffleId?: number): RandomnessResult {
+  compute(requestId: string, raffleId?: number, customSeed?: string): RandomnessResult {
     const reqBuf = Buffer.from(requestId, 'utf8');
 
+    // Validate customSeed if provided
+    if (customSeed !== undefined) {
+      if (!/^[0-9a-fA-F]{64}$/.test(customSeed)) {
+        throw new Error(
+          `customSeed must be a 64-character hex string (32 bytes), got length ${customSeed.length}`,
+        );
+      }
+    }
+
     // ── Seed ───────────────────────────────────────────────────────────────
-    // SHA-256( requestId_bytes [|| raffleId_u32_BE] )
+    // SHA-256( requestId_bytes [|| customSeed_bytes] [|| raffleId_u32_BE] )
     const seedHasher = crypto.createHash('sha256').update(reqBuf);
+    if (customSeed !== undefined) {
+      seedHasher.update(Buffer.from(customSeed, 'hex'));
+    }
     if (raffleId !== undefined) {
       seedHasher.update(this.encodeUint32BE(raffleId));
     }
@@ -71,7 +83,7 @@ export class PrngService {
 
     const proofBuf = Buffer.concat([proofHalf1, proofHalf2]); // 64 bytes
 
-    this.logger.debug(`PRNG seed computed for requestId=${requestId} raffleId=${raffleId}`);
+    this.logger.debug(`PRNG seed computed for requestId=${requestId} raffleId=${raffleId} customSeed=${customSeed !== undefined ? '[present]' : '[absent]'}`);
 
     return {
       seed: seedBuf.toString('hex'),   // 64 hex chars  → BytesN<32>
