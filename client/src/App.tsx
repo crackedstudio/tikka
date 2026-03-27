@@ -8,6 +8,7 @@ import WinnerDemo from "./pages/WinnerDemo";
 import SearchPage from "./pages/Search";
 import Transparency from "./pages/Transparency";
 import Settings from "./pages/Settings";
+import RafflePage from "./pages/RafflePage";
 import OracleAdmin from "./pages/OracleAdmin";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
@@ -40,6 +41,7 @@ function App() {
                         <Route path="home" element={<Home />} />
                         <Route path="search" element={<SearchPage />} /> {/* Added for Search */}
                         <Route path="details" element={<RaffleDetails />} />
+                        <Route path="raffles/:id" element={<RafflePage />} />
                         <Route path="create" element={<CreateRaffle />} />
                         <Route path="leaderboard" element={<Leaderboard />} />
                         <Route path="my-raffles" element={<MyRaffles />} />
