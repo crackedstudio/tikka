@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { demoRaffles } from "../data/demoRaffles";
 import { useRaffle } from "../hooks/useRaffles";
 import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
@@ -112,6 +112,7 @@ const RaffleCardWrapper: React.FC<{
     raffleId: number;
     ticketCount: number;
 }> = ({ raffleId, ticketCount }) => {
+    const navigate = useNavigate();
     const { raffle, error, isLoading } = useRaffle(raffleId);
 
     if (isLoading) {
@@ -161,11 +162,17 @@ const RaffleCardWrapper: React.FC<{
                 </div>
             </div>
             <div className="flex space-x-2">
-                <button className="flex-1 bg-[#FF389C] hover:bg-[#FF389C]/90 text-white py-2 px-4 rounded-lg transition-colors duration-200">
+                <button 
+                    onClick={() => navigate(`/raffles/${raffleId}`)}
+                    className="flex-1 bg-[#FF389C] hover:bg-[#FF389C]/90 text-white py-2 px-4 rounded-lg transition-colors duration-200"
+                >
                     View Details
                 </button>
                 {raffle.isActive && (
-                    <button className="bg-[#2A264A] hover:bg-[#3A365A] text-white py-2 px-4 rounded-lg transition-colors duration-200">
+                    <button 
+                        onClick={() => navigate(`/raffles/${raffleId}`)}
+                        className="bg-[#2A264A] hover:bg-[#3A365A] text-white py-2 px-4 rounded-lg transition-colors duration-200"
+                    >
                         Buy More
                     </button>
                 )}
@@ -173,5 +180,6 @@ const RaffleCardWrapper: React.FC<{
         </div>
     );
 };
+
 
 export default MyRaffles;
