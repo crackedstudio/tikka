@@ -98,9 +98,13 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
+      const errMsg = (simResponse as any).error ?? '';
+      const code = isExternalContractFailure(errMsg)
+        ? TikkaSdkErrorCode.ExternalContractError
+        : TikkaSdkErrorCode.SimulationFailed;
       throw new TikkaSdkError(
-        TikkaSdkErrorCode.SimulationFailed,
-        `Read-only simulation of ${method} failed`
+        code,
+        `Read-only simulation of ${method} failed: ${errMsg}`,
       );
     }
 
@@ -156,9 +160,13 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
+      const errMsg = (simResponse as any).error ?? '';
+      const code = isExternalContractFailure(errMsg)
+        ? TikkaSdkErrorCode.ExternalContractError
+        : TikkaSdkErrorCode.SimulationFailed;
       throw new TikkaSdkError(
-        TikkaSdkErrorCode.SimulationFailed,
-        `Simulation failed`
+        code,
+        `Simulation failed for ${method}: ${errMsg}`,
       );
     }
 
@@ -195,9 +203,13 @@ export class ContractService {
     const txResp = await this.rpc.getTransaction(sendResp.hash);
 
     if (txResp.status === rpc.Api.GetTransactionStatus.FAILED) {
+      const resultXdr = (txResp as any).resultXdr ?? '';
+      const code = isExternalContractFailure(resultXdr)
+        ? TikkaSdkErrorCode.ExternalContractError
+        : TikkaSdkErrorCode.ContractError;
       throw new TikkaSdkError(
-        TikkaSdkErrorCode.ContractError,
-        'Transaction failed'
+        code,
+        `Transaction failed on-chain for ${method}`,
       );
     }
 
@@ -332,4 +344,30 @@ export class ContractService {
 
     return nativeToScVal(val);
   }
+}
+
+/**
+ * Heuristic: detect whether a simulation/transaction error originates from
+ * a cross-contract call into an external token contract rather than from the
+ * raffle contract itself.
+ *
+ * Soroban surfaces these as `HostError` with `WasmVm` or `Contract` error
+ * types, often containing "cross-contract" or the token contract address in
+ * the error string. We also catch the common SEP-41 `transfer` trap codes.
+ */
+function isExternalContractFailure(errorText: string): boolean {
+  if (!errorText) return false;
+  const lower = errorText.toLowerCase();
+  return (
+    lower.includes('cross-contract') ||
+    lower.includes('crosscontract') ||
+    lower.includes('token') ||
+    lower.includes('transfer') ||
+    lower.includes('wasm_vm') ||
+    lower.includes('wasmvm') ||
+    // Soroban HostError codes for contract-level traps from sub-calls
+    lower.includes('value_invalid') ||
+    lower.includes('auth_required') ||
+    lower.includes('insufficient_balance')
+  );
 }
