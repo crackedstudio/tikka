@@ -1,37 +1,58 @@
-import {
-  WalletAdapter,
-  WalletAdapterOptions,
-  WalletName,
-  SignTransactionResult,
-} from './wallet.interface';
+import { isConnected, getPublicKey, signTransaction } from '@lobstrco/signer-extension-api';
+import { WalletAdapter, WalletAdapterOptions } from './wallet.adapter';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
 /**
- * LOBSTR wallet adapter (Stub).
- * 
- * LOBSTR currently doesn't provide a direct browser extension SDK 
- * similar to Freighter or xBull for Soroban. This adapter serves
- * as a placeholder for future integration or deep-linking.
+ * LOBSTR Wallet Adapter
+ * Supports both browser extension and mobile web-views (where LOBSTR injects their API).
  */
-export class LobstrAdapter extends WalletAdapter {
-  readonly name = WalletName.LOBSTR;
+export class LobstrAdapter implements WalletAdapter {
+  constructor(private options: WalletAdapterOptions = {}) {}
 
-  constructor(options: WalletAdapterOptions = {}) {
-    super(options);
-  }
-
+  /**
+   * isAvailable returning true makes it discoverable when executing in a browser environment.
+   */
   isAvailable(): boolean {
-    // LOBSTR doesn't have a reliable window detection for Soroban yet
-    return false;
+    return typeof window !== 'undefined';
   }
 
   async getPublicKey(): Promise<string> {
-    throw new Error('LOBSTR adapter is not yet implemented for Soroban');
+    try {
+      const connected = await isConnected();
+      if (!connected) {
+        throw new Error('LOBSTR extension is not installed or connected');
+      }
+
+      const pubKey = await getPublicKey();
+      if (!pubKey) {
+        throw new Error('Empty public key returned from LOBSTR');
+      }
+      return pubKey;
+    } catch (error: any) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.WalletError,
+        `LOBSTR getPublicKey failed: ${error.message || error}`,
+      );
+    }
   }
 
-  async signTransaction(
-    _xdr: string,
-    _opts?: { networkPassphrase?: string; accountToSign?: string },
-  ): Promise<SignTransactionResult> {
-    throw new Error('LOBSTR adapter is not yet implemented for Soroban');
+  async signTransaction(xdr: string, options?: WalletAdapterOptions): Promise<string> {
+    try {
+      const connected = await isConnected();
+      if (!connected) {
+        throw new Error('LOBSTR extension is not installed or connected');
+      }
+
+      const signedXdr = await signTransaction(xdr);
+      if (!signedXdr) {
+        throw new Error('Failed to sign transaction or signature was empty');
+      }
+      return signedXdr;
+    } catch (error: any) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.WalletError,
+        `LOBSTR signTransaction failed: ${error.message || error}`,
+      );
+    }
   }
 }

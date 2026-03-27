@@ -70,9 +70,6 @@ export class AlbedoAdapter extends WalletAdapter {
 
   /* ------------------------------------------------------------------ */
 
-  /**
-   * Dynamically imports @albedo-link/intent. Falls back to CDN script tag.
-   */
   private async getAlbedoLib(): Promise<any> {
     try {
       return await import('@albedo-link/intent' as any);

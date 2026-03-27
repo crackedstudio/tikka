@@ -8,4 +8,9 @@ export {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
-} from './wallet.interface';
+} from './wallet.interface';export enum WalletName {
+  Freighter = 'freighter',
+  XBull = 'xbull',
+  Albedo = 'albedo',
+  Lobstr = 'lobstr', // ✅ add this
+}
