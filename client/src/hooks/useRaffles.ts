@@ -44,7 +44,7 @@ export const useRaffles = (filters?: RaffleListFilters) => {
     }, [serializedFilters, refetchFlag]);
 
     const refetch = useCallback(() => {
-        setRefetchFlag((prev) => prev + 1);
+        setRefetchFlag((prev: number) => prev + 1);
     }, []);
 
     return { raffles, total, isLoading, error, refetch };
@@ -86,7 +86,7 @@ export const useRaffle = (raffleId: number) => {
     }, [raffleId, refetchFlag]);
 
     const refetch = useCallback(() => {
-        setRefetchFlag((prev) => prev + 1);
+        setRefetchFlag((prev: number) => prev + 1);
     }, []);
 
     return { raffle, error, isLoading, refetch };
