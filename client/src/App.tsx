@@ -17,6 +17,7 @@ import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { WalletProvider } from "./providers/WalletProvider";
 import { AuthProvider } from "./providers/AuthProvider";
+import { InstallPWA } from "./components/InstallPWA";
 
 function App() {
     useEffect(() => {
@@ -31,6 +32,7 @@ function App() {
     return (
         <WalletProvider>
             <AuthProvider>
+                <InstallPWA />
                 <Router>
                     <Routes>
                     <Route path="/" element={<LandingLayout />}>
