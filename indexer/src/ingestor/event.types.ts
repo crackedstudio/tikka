@@ -54,6 +54,28 @@ export interface TicketRefundedEvent {
   amount: string;
 }
 
+export interface ContractPausedEvent {
+  type: "ContractPaused";
+  admin: string;
+}
+
+export interface ContractUnpausedEvent {
+  type: "ContractUnpaused";
+  admin: string;
+}
+
+export interface AdminTransferProposedEvent {
+  type: "AdminTransferProposed";
+  current_admin: string;
+  proposed_admin: string;
+}
+
+export interface AdminTransferAcceptedEvent {
+  type: "AdminTransferAccepted";
+  old_admin: string;
+  new_admin: string;
+}
+
 export type DomainEvent =
   | RaffleCreatedEvent
   | TicketPurchasedEvent
@@ -62,4 +84,8 @@ export type DomainEvent =
   | RandomnessReceivedEvent
   | RaffleFinalizedEvent
   | RaffleCancelledEvent
-  | TicketRefundedEvent;
+  | TicketRefundedEvent
+  | ContractPausedEvent
+  | ContractUnpausedEvent
+  | AdminTransferProposedEvent
+  | AdminTransferAcceptedEvent;

@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { CacheService } from '../cache/cache.service';
 import { DataSource } from 'typeorm';
 import { UserProcessor } from './user.processor';
+import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
+import { RaffleEntity, RaffleStatus } from '../database/entities/raffle.entity';
 
 @Injectable()
 export class RaffleProcessor {

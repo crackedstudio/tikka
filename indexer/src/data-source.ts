@@ -4,6 +4,7 @@ import { TicketEntity } from "./database/entities/ticket.entity";
 import { UserEntity } from "./database/entities/user.entity";
 import { RaffleEventEntity } from "./database/entities/raffle-event.entity";
 import { PlatformStatEntity } from "./database/entities/platform-stat.entity";
+import { PlatformStateEntity } from "./database/entities/platform-state.entity";
 import { IndexerCursorEntity } from "./database/entities/indexer-cursor.entity";
 
 /**
@@ -30,6 +31,7 @@ const options: DataSourceOptions = {
     UserEntity,
     RaffleEventEntity,
     PlatformStatEntity,
+    PlatformStateEntity,
     IndexerCursorEntity,
   ],
   migrations: [__dirname + "/database/migrations/*{.ts,.js}"],

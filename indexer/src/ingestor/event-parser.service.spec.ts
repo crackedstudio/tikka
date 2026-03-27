@@ -10,6 +10,10 @@ import {
   RaffleFinalizedEvent,
   RaffleCancelledEvent,
   TicketRefundedEvent,
+  ContractPausedEvent,
+  ContractUnpausedEvent,
+  AdminTransferProposedEvent,
+  AdminTransferAcceptedEvent,
 } from "./event.types";
 
 describe("EventParserService", () => {
@@ -126,5 +130,91 @@ describe("EventParserService", () => {
     expect(parsed.ticket_id).toBe(42);
     expect(parsed.recipient).toBe(recipientAddress);
     expect(parsed.amount).toBe("100");
+  });
+
+  it("should parse ContractPaused event", () => {
+    const adminAddress = Keypair.random().publicKey();
+    const topics = [
+      nativeToScVal("ContractPaused", { type: "symbol" }).toXDR("base64"),
+      nativeToScVal(adminAddress, { type: "address" }).toXDR("base64"),
+    ];
+    const valueStr = nativeToScVal(0, { type: "u32" }).toXDR("base64");
+
+    const raw: RawSorobanEvent = {
+      type: "contract",
+      topics,
+      value: valueStr,
+    };
+
+    const parsed = service.parse(raw) as ContractPausedEvent;
+    expect(parsed).not.toBeNull();
+    expect(parsed.type).toBe("ContractPaused");
+    expect(parsed.admin).toBe(adminAddress);
+  });
+
+  it("should parse ContractUnpaused event", () => {
+    const adminAddress = Keypair.random().publicKey();
+    const topics = [
+      nativeToScVal("ContractUnpaused", { type: "symbol" }).toXDR("base64"),
+      nativeToScVal(adminAddress, { type: "address" }).toXDR("base64"),
+    ];
+    const valueStr = nativeToScVal(0, { type: "u32" }).toXDR("base64");
+
+    const raw: RawSorobanEvent = {
+      type: "contract",
+      topics,
+      value: valueStr,
+    };
+
+    const parsed = service.parse(raw) as ContractUnpausedEvent;
+    expect(parsed).not.toBeNull();
+    expect(parsed.type).toBe("ContractUnpaused");
+    expect(parsed.admin).toBe(adminAddress);
+  });
+
+  it("should parse AdminTransferProposed event", () => {
+    const currentAdmin = Keypair.random().publicKey();
+    const proposedAdmin = Keypair.random().publicKey();
+    const topics = [
+      nativeToScVal("AdminTransferProposed", { type: "symbol" }).toXDR("base64"),
+      nativeToScVal(currentAdmin, { type: "address" }).toXDR("base64"),
+      nativeToScVal(proposedAdmin, { type: "address" }).toXDR("base64"),
+    ];
+    const valueStr = nativeToScVal(0, { type: "u32" }).toXDR("base64");
+
+    const raw: RawSorobanEvent = {
+      type: "contract",
+      topics,
+      value: valueStr,
+    };
+
+    const parsed = service.parse(raw) as AdminTransferProposedEvent;
+    expect(parsed).not.toBeNull();
+    expect(parsed.type).toBe("AdminTransferProposed");
+    expect(parsed.current_admin).toBe(currentAdmin);
+    expect(parsed.proposed_admin).toBe(proposedAdmin);
+  });
+
+  it("should parse AdminTransferAccepted event", () => {
+    const oldAdmin = Keypair.random().publicKey();
+    const newAdmin = Keypair.random().publicKey();
+    const topics = [
+      nativeToScVal("AdminTransferAccepted", { type: "symbol" }).toXDR("base64"),
+      nativeToScVal(oldAdmin, { type: "address" }).toXDR("base64"),
+      nativeToScVal(newAdmin, { type: "address" }).toXDR("base64"),
+    ];
+    const valueStr = nativeToScVal(0, { type: "u32" }).toXDR("base64");
+
+    const raw: RawSorobanEvent = {
+      type: "contract",
+      topics,
+      value: valueStr,
+    };
+
+    const parsed = service.parse(raw) as AdminTransferAcceptedEvent;
+    expect(parsed).not.toBeNull();
+    expect(parsed.type).toBe("AdminTransferAccepted");
+    expect(parsed.old_admin).toBe(oldAdmin);
+    expect(parsed.new_admin).toBe(newAdmin);
   });
 });

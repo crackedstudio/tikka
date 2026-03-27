@@ -35,6 +35,10 @@ export const ContractFn = {
   WITHDRAW_FEES: 'withdraw_fees',
   PAUSE: 'pause',
   UNPAUSE: 'unpause',
+  TRANSFER_ADMIN: 'transfer_admin',
+  ACCEPT_ADMIN: 'accept_admin',
+  GET_ADMIN: 'get_admin',
+  IS_PAUSED: 'is_paused',
 } as const;
 
 export type ContractFnName = (typeof ContractFn)[keyof typeof ContractFn];
