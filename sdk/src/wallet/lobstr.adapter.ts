@@ -22,7 +22,10 @@ export class LobstrAdapter extends WalletAdapter {
    * isAvailable returning true makes it discoverable when executing in a browser environment.
    */
   isAvailable(): boolean {
-    return typeof window !== 'undefined';
+    return (
+      typeof globalThis !== 'undefined' &&
+      typeof (globalThis as any).window !== 'undefined'
+    );
   }
 
   async getPublicKey(): Promise<string> {

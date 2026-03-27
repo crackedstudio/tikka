@@ -79,4 +79,46 @@ describe('RpcService', () => {
     const mockTx = { toXDR: () => 'mock-xdr' };
     await expect(service.simulateTransaction(mockTx)).rejects.toThrow(TikkaSdkError);
   });
+
+  it('should retry on retryable http statuses', async () => {
+    const mockFetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ result: { status: 'ok-after-retry' } }),
+      });
+
+    service.configure({
+      fetchClient: mockFetch as any,
+      maxRetryAttempts: 2,
+      retryBaseDelayMs: 1,
+    });
+
+    const mockTx = { toXDR: () => 'mock-xdr' };
+    const result = await service.simulateTransaction(mockTx);
+    expect(result).toEqual({ status: 'ok-after-retry' });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('should allow disabling retries per call', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+    });
+
+    service.configure({
+      fetchClient: mockFetch as any,
+      maxRetryAttempts: 3,
+      retryBaseDelayMs: 1,
+    });
+
+    const mockTx = { toXDR: () => 'mock-xdr' };
+    await expect(service.simulateTransaction(mockTx, { disableRetries: true })).rejects.toThrow(TikkaSdkError);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
 });
