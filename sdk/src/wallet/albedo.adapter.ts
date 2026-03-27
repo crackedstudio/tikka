@@ -35,7 +35,11 @@ export class AlbedoAdapter extends WalletAdapter {
       if (this.isUserRejection(err)) {
         throw new TikkaSdkError(TikkaSdkErrorCode.UserRejected, 'User rejected Albedo request', err);
       }
-      throw new TikkaSdkError(TikkaSdkErrorCode.Unknown, `Albedo getPublicKey failed: ${err?.message ?? err}`, err);
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.Unknown,
+        `Albedo getPublicKey failed: ${err?.message ?? err}`,
+        err,
+      );
     }
   }
 
@@ -56,15 +60,16 @@ export class AlbedoAdapter extends WalletAdapter {
       if (this.isUserRejection(err)) {
         throw new TikkaSdkError(TikkaSdkErrorCode.UserRejected, 'User rejected transaction signing', err);
       }
-      throw new TikkaSdkError(TikkaSdkErrorCode.Unknown, `Albedo signTransaction failed: ${err?.message ?? err}`, err);
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.Unknown,
+        `Albedo signTransaction failed: ${err?.message ?? err}`,
+        err,
+      );
     }
   }
 
   /* ------------------------------------------------------------------ */
 
-  /**
-   * Dynamically imports @albedo-link/intent. Falls back to CDN script tag.
-   */
   private async getAlbedoLib(): Promise<any> {
     try {
       return await import('@albedo-link/intent' as any);
