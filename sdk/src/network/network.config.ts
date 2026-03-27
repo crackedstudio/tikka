@@ -17,7 +17,7 @@ export interface NetworkConfig {
  */
 export interface RpcConfig {
   /** Primary RPC endpoint URL */
-  endpoint: string;
+  endpoint?: string;
   /** Custom HTTP headers (e.g. API keys) */
   headers?: Record<string, string>;
   /** Ordered list of fallback endpoints */
@@ -39,7 +39,6 @@ export interface RpcConfig {
 }
 
 export const DEFAULT_RPC_CONFIG: RpcConfig = {
-  endpoint: 'https://soroban-testnet.stellar.org',
   headers: {},
   failoverEndpoints: [],
   timeoutMs: 30_000,
@@ -75,12 +74,19 @@ const NETWORK_CONFIGS: Record<TikkaNetwork, NetworkConfig> = {
  * Resolves a NetworkConfig by name, or accepts a custom override.
  */
 export function resolveNetworkConfig(
-  networkOrConfig: TikkaNetwork | NetworkConfig,
+  networkOrConfig: TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork }),
 ): NetworkConfig {
   if (typeof networkOrConfig === 'string') {
     const cfg = NETWORK_CONFIGS[networkOrConfig];
     if (!cfg) throw new Error(`Unknown network: ${networkOrConfig}`);
-    return cfg;
+    return { ...cfg };
   }
-  return networkOrConfig;
+
+  const base = NETWORK_CONFIGS[networkOrConfig.network];
+  if (!base) throw new Error(`Unknown network: ${networkOrConfig.network}`);
+
+  return {
+    ...base,
+    ...networkOrConfig,
+  };
 }

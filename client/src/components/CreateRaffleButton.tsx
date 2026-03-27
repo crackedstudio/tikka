@@ -6,6 +6,7 @@ import { useWalletContext } from "../providers/WalletProvider";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { MetadataService } from "../services/metadataService";
 import { createRaffle } from "../services/contractService";
+import { useAuthContext } from "../providers/AuthProvider";
 
 interface CreateRaffleButtonProps {
   // Form data for metadata
@@ -51,6 +52,7 @@ const CreateRaffleButton = ({
 }: CreateRaffleButtonProps) => {
   const { isConnected, isWrongNetwork, connect, switchNetwork } =
     useWalletContext();
+  const { isAuthenticated } = useAuthContext();
   const [isLoading, setIsLoading] = useState(false);
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -73,6 +75,11 @@ const CreateRaffleButton = ({
 
     if (isWrongNetwork) {
       await switchNetwork();
+      return;
+    }
+
+    if (!isAuthenticated) {
+      onError?.("Please sign in before creating a raffle.");
       return;
     }
 
@@ -159,6 +166,7 @@ const CreateRaffleButton = ({
     if (isLoading) return "Creating...";
     if (!isConnected) return "Connect Wallet to Publish";
     if (isWrongNetwork) return `Switch to ${targetNetwork}`;
+    if (!isAuthenticated) return "Sign in to Publish";
     return children;
   };
 

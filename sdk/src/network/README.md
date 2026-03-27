@@ -27,10 +27,15 @@ interface RpcConfig {
 ### Custom RPC Node & API Keys
 ```ts
 const tikka = await TikkaSDK.forRoot({
-  endpoint: 'https://rpc.your-enterprise.com',
-  headers: {
-    'Authorization': 'Bearer your-api-key'
-  }
+  network: {
+    network: 'testnet',
+    rpcUrl: 'https://rpc.your-enterprise.com',
+  },
+  rpcConfig: {
+    headers: {
+      'Authorization': 'Bearer your-api-key'
+    }
+  },
 });
 ```
 

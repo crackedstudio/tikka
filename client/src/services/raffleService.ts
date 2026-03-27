@@ -94,6 +94,7 @@ export function mapDetailToFormattedRaffle(
     return {
         id: detail.id,
         creator: detail.creator,
+        status: detail.status,
         description: detail.title || `Raffle #${detail.id}`,
         endTime: endTimeUnix,
         maxTickets: detail.max_tickets,
