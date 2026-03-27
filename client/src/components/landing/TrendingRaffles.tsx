@@ -25,7 +25,7 @@ const TrendingRaffles = ({ raffleIds }: TrendingRafflesProps) => {
                     <RaffleCardWrapper
                         key={raffleId}
                         raffleId={raffleId}
-                        onEnter={() => navigate(`/details?raffle=${raffleId}`)}
+                        onEnter={() => navigate(`/raffles/${raffleId}`)}
                     />
                 ))}
             </div>

@@ -131,7 +131,7 @@ const RaffleCreatedSuccess = ({
                 {/* View Raffle Button */}
                 {raffleId !== undefined && (
                     <Link
-                        to={`/details?raffle=${raffleId}`}
+                        to={`/raffles/${raffleId}`}
                         className="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 text-center block"
                         onClick={onClose}
                     >

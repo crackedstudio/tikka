@@ -37,6 +37,7 @@ function App() {
                         <Route path="home" element={<Home />} />
                         <Route path="search" element={<SearchPage />} /> {/* Added for Search */}
                         <Route path="details" element={<RaffleDetails />} />
+                        <Route path="raffles/:id" element={<RaffleDetails />} />
                         <Route path="create" element={<CreateRaffle />} />
                         <Route path="leaderboard" element={<Leaderboard />} />
                         <Route path="my-raffles" element={<MyRaffles />} />

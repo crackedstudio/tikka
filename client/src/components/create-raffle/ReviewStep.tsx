@@ -132,7 +132,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
           ).toString()} // Convert to stroops
           onSuccess={(raffleId) => {
             console.log("Raffle created successfully with ID:", raffleId);
-            navigate(`/details?raffle=${raffleId}`);
+            navigate(`/raffles/${raffleId}`);
             onNext();
           }}
           onError={(error) => {

@@ -55,6 +55,7 @@ export const useRaffle = (raffleId: number) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
     const requestId = useRef(0);
+    const [refetchFlag, setRefetchFlag] = useState(0);
 
     useEffect(() => {
         if (!raffleId) {
@@ -82,7 +83,11 @@ export const useRaffle = (raffleId: number) => {
                 if (currentRequest !== requestId.current) return;
                 setIsLoading(false);
             });
-    }, [raffleId]);
+    }, [raffleId, refetchFlag]);
 
-    return { raffle, error, isLoading };
+    const refetch = useCallback(() => {
+        setRefetchFlag((prev) => prev + 1);
+    }, []);
+
+    return { raffle, error, isLoading, refetch };
 };
