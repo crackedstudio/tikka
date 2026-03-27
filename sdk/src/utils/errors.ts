@@ -56,6 +56,8 @@ export enum TikkaSdkErrorCode {
   ContractPaused = 'CONTRACT_PAUSED',
   /** Caller is not authorized for this operation */
   Unauthorized = 'UNAUTHORIZED',
+  /** An external/cross-contract call (e.g. SEP-41 token) failed */
+  ExternalContractError = 'EXTERNAL_CONTRACT_ERROR',
 }
 
 /**

@@ -21,7 +21,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { RpcService } from '../src/network/rpc.service';
 import { getRaffleContractId } from '../src/contract/constants';
-import { TikkaNetwork, resolveNetworkConfig } from '../src/network/network.config';
+import { TikkaNetwork } from '../src/network/network.config';
 import { rpc } from '@stellar/stellar-sdk';
 
 async function main() {

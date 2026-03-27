@@ -3,10 +3,14 @@
  *
  * Demonstrates: bootstrap → create raffle → buy tickets → read state
  *
+ * Required env vars:
+ *   TIKKA_NETWORK    testnet | mainnet | standalone  (default: testnet)
+ *
+ * Optional env vars:
+ *   TIKKA_PUBLIC_KEY  Stellar G... address (uses mock key if omitted)
+ *
  * Usage:
- *   TIKKA_NETWORK=testnet \
- *   TIKKA_SECRET_KEY=S... \
- *   npx ts-node examples/quickstart.ts
+ *   TIKKA_NETWORK=testnet TIKKA_PUBLIC_KEY=G... npx ts-node examples/quickstart.ts
  */
 
 import 'reflect-metadata';

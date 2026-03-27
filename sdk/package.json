@@ -14,7 +14,8 @@
     "example:quickstart": "ts-node examples/quickstart.ts",
     "example:create-raffle": "ts-node examples/create-raffle.ts",
     "example:buy-tickets": "ts-node examples/buy-tickets.ts",
-    "example:listen-events": "ts-node examples/listen-events.ts"
+    "example:listen-events": "ts-node examples/listen-events.ts",
+    "example:offline-signing": "ts-node examples/offline-signing.ts"
   },
   "dependencies": {
     "@lobstrco/signer-extension-api": "^2.0.0",
