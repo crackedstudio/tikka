@@ -9,7 +9,12 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest"
+    "test": "jest",
+    "examples:check": "tsc --project examples/tsconfig.json",
+    "example:quickstart": "ts-node examples/quickstart.ts",
+    "example:create-raffle": "ts-node examples/create-raffle.ts",
+    "example:buy-tickets": "ts-node examples/buy-tickets.ts",
+    "example:listen-events": "ts-node examples/listen-events.ts"
   },
   "dependencies": {
     "@lobstrco/signer-extension-api": "^2.0.0",
