@@ -58,6 +58,8 @@ export enum TikkaSdkErrorCode {
   Unauthorized = 'UNAUTHORIZED',
   /** Validation failed for input parameters (raffleId, quantity, etc.) */
   ValidationError = 'ValidationError',
+  /** An external/cross-contract call (e.g. SEP-41 token) failed */
+  ExternalContractError = 'EXTERNAL_CONTRACT_ERROR',
 }
 
 /**
