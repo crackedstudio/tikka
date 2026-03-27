@@ -11,6 +11,9 @@ export interface HealthMetrics {
   streamStatus: 'connected' | 'disconnected' | 'reconnecting';
   streamUptimeMs: number;
   lastStreamError?: string;
+  batchSubmissions: number;
+  totalRevealsBatched: number;
+  totalBatchFailures: number;
 }
 
 export interface ErrorRecord {
@@ -34,6 +37,9 @@ export class HealthService {
   private streamStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   private streamStartedAt: number | null = null;
   private lastStreamError?: string;
+  private batchSubmissions = 0;
+  private totalRevealsBatched = 0;
+  private totalBatchFailures = 0;
 
   recordSuccess(requestId: string): void {
     this.lastProcessedAt = new Date();
@@ -54,6 +60,12 @@ export class HealthService {
     if (depth > 10) {
       this.logger.warn(`High queue depth: ${depth}`);
     }
+  }
+
+  recordBatchSubmission(batchSize: number, successes: number, failures: number): void {
+    this.batchSubmissions++;
+    this.totalRevealsBatched += batchSize;
+    this.totalBatchFailures += failures > 0 && successes === 0 ? 1 : 0;
   }
 
   updateStreamStatus(status: 'connected' | 'disconnected' | 'reconnecting', error?: string): void {
@@ -81,6 +93,9 @@ export class HealthService {
       streamStatus: this.streamStatus,
       streamUptimeMs: this.streamStartedAt ? Date.now() - this.streamStartedAt : 0,
       lastStreamError: this.lastStreamError,
+      batchSubmissions: this.batchSubmissions,
+      totalRevealsBatched: this.totalRevealsBatched,
+      totalBatchFailures: this.totalBatchFailures,
     };
   }
 
