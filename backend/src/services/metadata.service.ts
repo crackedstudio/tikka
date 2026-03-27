@@ -56,6 +56,25 @@ export class MetadataService {
   }
 
   /**
+   * Full-text search over raffle metadata (title, description, category).
+   * Uses Supabase's ilike for simple prefix/contains matching.
+   */
+  async searchMetadata(query: string, limit = 50): Promise<RaffleMetadata[]> {
+    const pattern = `%${query}%`;
+
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('*')
+      .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Search failed: ${error.message}`);
+    }
+    return (data ?? []) as RaffleMetadata[];
+  }
+
+  /**
    * Create or update raffle metadata. Upserts by raffle_id.
    */
   async upsertMetadata(
