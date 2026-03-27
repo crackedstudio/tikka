@@ -5,7 +5,8 @@ import CreateRaffle from "./pages/CreateRaffle";
 import Leaderboard from "./pages/Leaderboard";
 import MyRaffles from "./pages/MyRaffles";
 import WinnerDemo from "./pages/WinnerDemo";
-import SearchPage from "./pages/Search"; // Added for Search
+import SearchPage from "./pages/Search";
+import Transparency from "./pages/Transparency";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
@@ -40,6 +41,7 @@ function App() {
                         <Route path="my-raffles" element={<MyRaffles />} />
                         <Route path="winner-demo" element={<WinnerDemo />} />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="transparency" element={<Transparency />} />
                     </Route>
                 </Routes>
             </Router>

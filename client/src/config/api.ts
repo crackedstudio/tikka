@@ -30,6 +30,10 @@ export const API_CONFIG = {
       unsubscribe: (raffleId: string) => `/notifications/subscribe/${raffleId}`,
       list: '/notifications/subscriptions',
     },
+    transparency: {
+      list: '/transparency',
+      entry: (requestId: string) => `/transparency/${requestId}`,
+    },
   },
   timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '30000', 10),
 } as const;
