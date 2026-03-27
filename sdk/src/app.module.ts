@@ -5,12 +5,14 @@ import { RaffleModule } from './modules/raffle/raffle.module';
 import { TicketModule } from './modules/ticket/ticket.module';
 import { UserModule } from './modules/user/user.module';
 import { AdminModule } from './modules/admin/admin.module';
-import { TikkaNetwork, NetworkConfig } from './network/network.config';
+import { TikkaNetwork, NetworkConfig, RpcConfig } from './network/network.config';
 import { WalletAdapter } from './wallet/wallet.interface';
 
 export interface TikkaSdkOptions {
-  /** Network name or full config object */
-  network: TikkaNetwork | NetworkConfig;
+  /** Network name or config (supports partial overrides with required network name) */
+  network: TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork });
+  /** Optional low-level RPC transport config */
+  rpcConfig?: RpcConfig;
   /** Optional wallet adapter for write operations */
   wallet?: WalletAdapter;
   /** Override the raffle contract ID */
@@ -27,7 +29,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
-        NetworkModule.forRoot(options.network),
+        NetworkModule.forRoot(options.network, options.rpcConfig),
         RaffleModule,
         TicketModule,
         UserModule,
