@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
 import { api } from "../services/apiClient";
 import { API_CONFIG } from "../config/api";
+import VerifyProofPanel from "../components/VerifyProofPanel";
 
 interface AuditLogEntry {
     id: string;
@@ -29,6 +30,7 @@ const Transparency = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expanded, setExpanded] = useState<string | null>(null);
+    const [verifyEntry, setVerifyEntry] = useState<AuditLogEntry | null>(null);
 
     const fetchEntries = useCallback(async () => {
         setLoading(true);
@@ -178,6 +180,18 @@ const Transparency = () => {
                                                     <Detail label="Proof (hex)" value={entry.proof} />
                                                     <Detail label="Tx Hash" value={entry.tx_hash} />
                                                 </div>
+                                                <button
+                                                    onClick={() =>
+                                                        setVerifyEntry(
+                                                            verifyEntry?.id === entry.id ? null : entry
+                                                        )
+                                                    }
+                                                    className="mt-3 px-4 py-1.5 rounded-xl bg-[#FF389C] text-white text-xs font-semibold hover:bg-[#e02d88] transition-colors"
+                                                >
+                                                    {verifyEntry?.id === entry.id
+                                                        ? "Close Verifier"
+                                                        : "Verify Result"}
+                                                </button>
                                             </td>
                                         </tr>
                                     )}
@@ -209,6 +223,21 @@ const Transparency = () => {
                         Next
                     </button>
                 </div>
+            )}
+
+            {/* Verify Result panel — shown when an entry's "Verify Result" is clicked */}
+            {verifyEntry ? (
+                <VerifyProofPanel
+                    prefill={{
+                        key: verifyEntry.oracle_id,
+                        input: verifyEntry.request_id,
+                        proof: verifyEntry.proof,
+                        seed: verifyEntry.seed,
+                        method: verifyEntry.method,
+                    }}
+                />
+            ) : (
+                <VerifyProofPanel />
             )}
         </div>
     );

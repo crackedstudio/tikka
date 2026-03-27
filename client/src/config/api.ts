@@ -5,6 +5,7 @@
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const ORACLE_BASE_URL = import.meta.env.VITE_ORACLE_BASE_URL || 'http://localhost:3003';
 
 export const API_CONFIG = {
   baseUrl: API_BASE_URL,
@@ -33,7 +34,10 @@ export const API_CONFIG = {
     transparency: {
       list: '/transparency',
       entry: (requestId: string) => `/transparency/${requestId}`,
+      verifyProof: '/verify-proof',
     },
+  },
+  oracleUrl: ORACLE_BASE_URL,
   },
   timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '30000', 10),
 } as const;

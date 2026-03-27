@@ -7,6 +7,7 @@ import { ListenerModule } from './listener/listener.module';
 import { KeysModule } from './keys/keys.module';
 import { AuditModule } from './audit/audit.module';
 import { batchConfig } from './config/batch.config';
+import { VerifyModule } from './verify/verify.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { batchConfig } from './config/batch.config';
     SubscriberModule,
     ListenerModule,
     AuditModule,
+    VerifyModule,
   ],
   controllers: [],
   providers: [],
