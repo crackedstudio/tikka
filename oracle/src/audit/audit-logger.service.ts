@@ -12,6 +12,7 @@ export interface AuditLogEntry {
   proof: string;
   tx_hash: string;
   method: 'VRF' | 'PRNG';
+  custom_seed: string | null;
 }
 
 /**

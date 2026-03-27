@@ -63,6 +63,7 @@ export class RandomnessWorker {
               proof: revealItem.proof,
               tx_hash: txHash,
               method: revealItem.method,
+              custom_seed: revealItem.customSeed ?? null,
             });
           } catch (err: any) {
             this.logger.error(
@@ -107,7 +108,7 @@ export class RandomnessWorker {
    */
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
-    const { raffleId, requestId, prizeAmount } = job.data;
+    const { raffleId, requestId, prizeAmount, customSeed } = job.data;
 
     this.logger.log(`Processing randomness request job ${job.id} for raffle ${raffleId}, request ${requestId}`);
 
@@ -131,7 +132,7 @@ export class RandomnessWorker {
       this.logger.log(`Raffle ${raffleId}: prize=${finalPrizeAmount} XLM, method=${method}`);
 
       // Step 4: Compute randomness (VRF or PRNG)
-      const randomness = await this.computeRandomness(method, requestId);
+      const randomness = await this.computeRandomness(method, requestId, raffleId, customSeed);
 
       // Step 5: Build RevealItem and hand off to BatchCollector
       const revealItem: RevealItem = {
@@ -140,6 +141,7 @@ export class RandomnessWorker {
         seed: randomness.seed,
         proof: randomness.proof,
         method,
+        customSeed,
       };
 
       this.batchCollector.add(revealItem);
@@ -181,11 +183,11 @@ export class RandomnessWorker {
   /**
    * Computes randomness using the appropriate method
    */
-  private async computeRandomness(method: RandomnessMethod, requestId: string) {
+  private async computeRandomness(method: RandomnessMethod, requestId: string, raffleId?: number, customSeed?: string) {
     if (method === RandomnessMethod.VRF) {
       return await this.vrfService.compute(requestId);
     } else {
-      return await this.prngService.compute(requestId);
+      return await this.prngService.compute(requestId, raffleId, customSeed);
     }
   }
 }

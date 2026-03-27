@@ -4,4 +4,5 @@ export interface RandomnessJobPayload {
   raffleId: number;
   requestId: string;
   prizeAmount?: number;
+  customSeed?: string;
 }

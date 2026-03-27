@@ -7,6 +7,7 @@ export interface RevealItem {
   seed: string;   // hex-encoded, 32 bytes
   proof: string;  // hex-encoded, 64 bytes
   method: RandomnessMethod;
+  customSeed?: string;
 }
 
 // BatchSubmitResult — returned by TxSubmitterService.submitBatch
