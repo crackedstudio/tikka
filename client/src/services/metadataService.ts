@@ -168,49 +168,29 @@ export class MetadataService {
 
   /**
    * Upload raffle metadata and image to the backend backend
-   * returns metadataCid
+   * returns metadataCid (currently: image URL returned by backend)
    */
   static async uploadMetadataWithImage(
     metadata: Partial<RaffleMetadata>,
     imageFile: File,
   ): Promise<string> {
     try {
-      console.log(
-        "📤 MetadataService: Uploading metadata and image to backend",
-      );
+      console.log("📤 MetadataService: Uploading raffle image to backend");
 
       // Create FormData for file upload
       const formData = new FormData();
       formData.append("image", imageFile);
 
-      // Add metadata fields
-      // The backend expect metadata as a JSON string or individual fields depending on implementation
-      // Based on ARCHITECTURE, it's POST /raffles/metadata
-      Object.entries(metadata).forEach(([key, value]) => {
-        if (value !== undefined) {
-          if (typeof value === "object") {
-            formData.append(key, JSON.stringify(value));
-          } else {
-            formData.append(key, String(value));
-          }
-        }
-      });
-
-      const response = await api.post<{ metadataCid: string }>(
-        API_CONFIG.endpoints.raffles.metadata,
+      const response = await api.post<{ url: string }>(
+        API_CONFIG.endpoints.raffles.uploadImage,
         formData,
-        { requiresAuth: true, headers: {} }, // Content-Type is handled by browser for FormData
+        { requiresAuth: true, headers: {} }, // Content-Type handled automatically for FormData
       );
 
-      // If api.post doesn't support FormData directly because of JSON.stringify in apiClient.ts,
-      // we might need a custom fetch here or adjust apiClient.
-      // Let's check apiClient.ts again.
-
-      console.log(
-        "✅ MetadataService: Backend upload successful, CID:",
-        response.metadataCid,
-      );
-      return response.metadataCid;
+      // For now, treat the uploaded image URL as the "metadataCid/url" to pass into the contract.
+      // A future backend endpoint can persist the full metadata JSON and return a real CID.
+      console.log("✅ MetadataService: Image upload successful, url:", response.url);
+      return response.url;
     } catch (error) {
       console.error("Error uploading to backend:", error);
       throw error;

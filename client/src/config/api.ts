@@ -17,6 +17,7 @@ export const API_CONFIG = {
       list: '/raffles',
       detail: (id: string) => `/raffles/${id}`,
       metadata: '/raffles/metadata',
+      uploadImage: '/raffles/upload-image',
     },
     users: {
       profile: (address: string) => `/users/${address}`,

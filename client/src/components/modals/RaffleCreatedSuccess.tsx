@@ -27,7 +27,10 @@ const RaffleCreatedSuccess = ({
 
     const handleViewOnExplorer = () => {
         if (transactionHash) {
-            const explorerUrl = `https://sepolia.basescan.org/tx/${transactionHash}`;
+            const explorerUrl =
+                network === "mainnet"
+                    ? `https://stellar.expert/explorer/public/tx/${transactionHash}`
+                    : `https://stellar.expert/explorer/testnet/tx/${transactionHash}`;
             window.open(explorerUrl, "_blank");
         }
     };
@@ -61,8 +64,7 @@ const RaffleCreatedSuccess = ({
                     Raffle Created Successfully! 🎉
                 </h2>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
-                    Your raffle is ready in demo mode and can be shared for UI
-                    preview.
+                    Your raffle has been created successfully.
                 </p>
             </div>
 
