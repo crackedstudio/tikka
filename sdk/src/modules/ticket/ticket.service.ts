@@ -29,11 +29,11 @@ export class TicketService {
     assertPositiveInt(quantity, 'quantity');
 
     const publicKey = await this.contractService['wallet']?.getPublicKey();
-    try {
-      const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
-        ContractFn.BUY_TICKET,
-        [raffleId, publicKey, quantity],
-      );
+    const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
+      ContractFn.BUY_TICKET,
+      [raffleId, publicKey, quantity],
+      { memo: params.memo },
+    );
 
       return {
         ticketIds: result,
@@ -67,11 +67,11 @@ export class TicketService {
     assertPositiveInt(raffleId, 'raffleId');
     assertPositiveInt(ticketId, 'ticketId');
 
-    try {
-      const { txHash, ledger } = await this.contractService.invoke(
-        ContractFn.REFUND_TICKET,
-        [raffleId, ticketId],
-      );
+    const { txHash, ledger } = await this.contractService.invoke(
+      ContractFn.REFUND_TICKET,
+      [raffleId, ticketId],
+      { memo: params.memo },
+    );
 
       return { txHash, ledger };
     } catch (err) {

@@ -1,4 +1,5 @@
 import { RaffleStatus } from '../../contract/bindings';
+import { TxMemo } from '../../contract/contract.service';
 
 /** Parameters for creating a new raffle. */
 export interface RaffleParams {
@@ -14,6 +15,11 @@ export interface RaffleParams {
   asset: string;
   /** IPFS CID linking to off-chain metadata (title, image, etc.) */
   metadataCid?: string;
+  /**
+   * Optional transaction memo for tracking or external integrations.
+   * Supports text (≤28 bytes), numeric id, or 32-byte hash.
+   */
+  memo?: TxMemo;
 }
 
 /** Result returned after successfully creating a raffle. */
@@ -44,4 +50,14 @@ export interface RaffleData {
 export interface CancelRaffleResult {
   txHash: string;
   ledger: number;
+}
+
+/** Parameters for cancelling a raffle. */
+export interface CancelRaffleParams {
+  raffleId: number;
+  /**
+   * Optional transaction memo for tracking or external integrations.
+   * Supports text (≤28 bytes), numeric id, or 32-byte hash.
+   */
+  memo?: TxMemo;
 }
