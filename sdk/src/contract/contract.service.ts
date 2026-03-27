@@ -1,6 +1,7 @@
 import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
+  Memo,
   rpc,
   xdr,
   Address,
@@ -17,10 +18,25 @@ import { getRaffleContractId } from './constants';
 import { ContractFnName } from './bindings';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
+/**
+ * Transaction memo — attach tracking data for analytics platforms or
+ * external integrations. Mirrors Stellar's three memo types:
+ *
+ * - `{ type: 'text';   value: string }` — up to 28 UTF-8 bytes
+ * - `{ type: 'id';     value: string }` — unsigned 64-bit integer as string
+ * - `{ type: 'hash';   value: Buffer }` — 32-byte hash
+ */
+export type TxMemo =
+  | { type: 'text'; value: string }
+  | { type: 'id'; value: string }
+  | { type: 'hash'; value: Buffer };
+
 export interface InvokeOptions {
   sourcePublicKey?: string;
   simulateOnly?: boolean;
   fee?: string;
+  /** Optional memo attached to the transaction envelope. */
+  memo?: TxMemo;
 }
 
 export interface InvokeResult<T = any> {
@@ -120,13 +136,16 @@ export class ContractService {
     const account = await this.horizon.loadAccount(sourceKey);
 
     const contract = new Contract(this.contractId);
-    const tx = new TransactionBuilder(account, {
+    const builder = new TransactionBuilder(account, {
       fee: options.fee ?? BASE_FEE,
       networkPassphrase: this.networkConfig.networkPassphrase,
-    })
-      .addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))))
-      .setTimeout(30)
-      .build();
+    }).addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))));
+
+    if (options.memo) {
+      builder.addMemo(this.buildMemo(options.memo));
+    }
+
+    const tx = builder.setTimeout(30).build();
 
     const simResponse = await this.rpc.simulateTransaction(tx);
 
@@ -197,5 +216,13 @@ export class ContractService {
     }
 
     return nativeToScVal(val);
+  }
+
+  private buildMemo(memo: TxMemo): Memo {
+    switch (memo.type) {
+      case 'text': return Memo.text(memo.value);
+      case 'id':   return Memo.id(memo.value);
+      case 'hash': return Memo.hash(memo.value);
+    }
   }
 }

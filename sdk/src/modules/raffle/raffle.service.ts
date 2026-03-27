@@ -6,6 +6,7 @@ import {
   CreateRaffleResult,
   RaffleData,
   CancelRaffleResult,
+  CancelRaffleParams,
 } from './raffle.types';
 import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
 import { xlmToStroops } from '../../utils/formatting';
@@ -60,6 +61,7 @@ export class RaffleService {
     const { result, txHash, ledger } = await this.contract.invoke<number>(
       ContractFn.CREATE_RAFFLE,
       contractParams,
+      { memo: params.memo },
     );
 
     return { raffleId: result, txHash, ledger };
@@ -118,12 +120,13 @@ export class RaffleService {
   /**
    * Cancels an OPEN raffle (must be the raffle creator).
    */
-  async cancel(raffleId: number): Promise<CancelRaffleResult> {
-    assertPositiveInt(raffleId, 'raffleId');
+  async cancel(params: CancelRaffleParams): Promise<CancelRaffleResult> {
+    assertPositiveInt(params.raffleId, 'raffleId');
 
     const { txHash, ledger } = await this.contract.invoke(
       ContractFn.CANCEL_RAFFLE,
-      [raffleId],
+      [params.raffleId],
+      { memo: params.memo },
     );
 
     return { txHash, ledger };

@@ -27,6 +27,7 @@ export class TicketService {
     const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
       ContractFn.BUY_TICKET,
       [raffleId, publicKey, quantity],
+      { memo: params.memo },
     );
 
     return {
@@ -49,6 +50,7 @@ export class TicketService {
     const { txHash, ledger } = await this.contractService.invoke(
       ContractFn.REFUND_TICKET,
       [raffleId, ticketId],
+      { memo: params.memo },
     );
 
     return { txHash, ledger };
