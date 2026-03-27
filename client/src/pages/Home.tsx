@@ -7,11 +7,13 @@ import { useState, useCallback } from "react";
 import { useRaffles } from "../hooks/useRaffles";
 import { fetchRaffles } from "../services/raffleService";
 import type { ApiRaffleListItem } from "../types/types";
+import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
+import ErrorMessage from "../components/ui/ErrorMessage";
 
 const PAGE_SIZE = 6;
 
 const Home = () => {
-    const { raffles, total, error, isLoading: rafflesLoading } = useRaffles({
+    const { raffles, total, error, isLoading: rafflesLoading, refetch } = useRaffles({
         status: "open",
         limit: PAGE_SIZE,
     });
@@ -44,17 +46,18 @@ const Home = () => {
             <FeaturedRaffle isSignedIn={true} />
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
                 {rafflesLoading ? (
-                    <div className="text-center py-12">
-                        <div className="text-white text-lg">
-                            Loading raffles...
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                            <RaffleCardSkeleton key={i} />
+                        ))}
                     </div>
                 ) : error ? (
-                    <div className="text-center py-12">
-                        <div className="text-red-400 text-lg">
-                            Error loading raffles: {error.message}
-                        </div>
-                    </div>
+                    <ErrorMessage
+                        title="Failed to load raffles"
+                        message={error.message}
+                        onRetry={refetch}
+                        disabled={rafflesLoading}
+                    />
                 ) : allRaffles.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="text-white text-lg">
@@ -92,3 +95,5 @@ const Home = () => {
 };
 
 export default Home;
+
+

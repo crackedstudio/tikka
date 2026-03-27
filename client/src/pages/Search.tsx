@@ -3,8 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "../hooks/useSearch";
 import { mapListItemToCardProps } from "../services/raffleService";
 import RaffleCard from "../components/cards/RaffleCard";
-
-
+import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
+import ErrorMessage from "../components/ui/ErrorMessage";
 
 const SearchPage: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -20,14 +20,20 @@ const SearchPage: React.FC = () => {
 
             {isLoading && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Basic loading state - you can replace with your Skeleton components */}
                     {[1, 2, 3].map((n) => (
-                        <div key={n} className="h-64 bg-[#11172E] animate-pulse rounded-3xl" />
+                        <RaffleCardSkeleton key={n} />
                     ))}
                 </div>
             )}
 
-            {!isLoading && results.length === 0 && query && (
+            {error && !isLoading && (
+                <ErrorMessage
+                    title="Search failed"
+                    message={error.message}
+                />
+            )}
+
+            {!isLoading && !error && results.length === 0 && query && (
     <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-500">
         {/* Animated Icon */}
         <div className="relative mb-6">
@@ -56,18 +62,14 @@ const SearchPage: React.FC = () => {
     </div>
 )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {results.map((raffle) => (
-                    <RaffleCard 
-                        key={raffle.id} 
-                        {...mapListItemToCardProps(raffle)} 
-                    />
-                ))}
-            </div>
-
-            {error && (
-                <div className="text-red-500 mt-4 text-center">
-                    Error loading search results. Please try again.
+            {!isLoading && !error && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {results.map((raffle) => (
+                        <RaffleCard 
+                            key={raffle.id} 
+                            {...mapListItemToCardProps(raffle)} 
+                        />
+                    ))}
                 </div>
             )}
         </div>
@@ -75,3 +77,4 @@ const SearchPage: React.FC = () => {
 };
 
 export default SearchPage;
+
