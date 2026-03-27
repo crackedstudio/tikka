@@ -6,17 +6,20 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 
 **Consumers:** Frontend (client), third-party developers.
 
-## Intended structure (from spec)
+## Core Features
 
-- `src/modules/raffle` — create, get, list, cancel
-- `src/modules/ticket` — buy, refund, query
-- `src/modules/user` — participation history
-- `src/contract/` — bindings, XDR tx builder, contract addresses
-- `src/wallet/` — WalletAdapter interface and adapters (Freighter, xBull, Albedo, LOBSTR)
-- `src/network/` — Soroban RPC, Horizon
-- `src/utils/` — formatting, validation, errors
+- **Customizable RpcService**: Support for custom fetch clients, headers, and automatic failover across multiple nodes.
+- **Contract Interaction**: Type-safe transaction building and simulation for Soroban contracts.
+- **Wallet Integration**: Unified `WalletAdapter` interface supporting Freighter, xBull, and Albedo.
+- **Modular Design**: Domain-specific modules for Raffles, Tickets, and Users.
 
-Implementation to be added.
+## Project Structure
+
+- `src/network/` — Customizable Soroban RPC and Horizon services.
+- `src/contract/` — Core transaction logic and Soroban bindings.
+- `src/wallet/` — Multi-wallet adapter system.
+- `src/modules/` — Feature modules (Raffle, Ticket, User).
+- `src/utils/` — Shared utilities for formatting, validation, and error handling.
 
 ## Architecture
 

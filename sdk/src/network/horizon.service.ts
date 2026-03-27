@@ -3,8 +3,8 @@ import { Horizon } from '@stellar/stellar-sdk';
 import { NetworkConfig } from './network.config';
 
 /**
- * Thin wrapper around the Horizon client.
- * Used for account lookup, fee stats, and ledger queries.
+ * HorizonService
+ * Wrapper around Stellar Horizon SDK for account + network queries.
  */
 @Injectable()
 export class HorizonService {
@@ -16,16 +16,17 @@ export class HorizonService {
     });
   }
 
+  /** Get raw Horizon server instance (advanced use cases) */
   getServer(): Horizon.Server {
     return this.server;
   }
 
-  /** Load an account (needed to build transactions). */
+  /** Load an account (required for building transactions) */
   async loadAccount(publicKey: string): Promise<Horizon.AccountResponse> {
     return this.server.loadAccount(publicKey);
   }
 
-  /** Get recent base fee. */
+  /** Get current base fee from network */
   async getBaseFee(): Promise<number> {
     const stats = await this.server.feeStats();
     return Number(stats.last_ledger_base_fee);

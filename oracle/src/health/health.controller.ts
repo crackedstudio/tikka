@@ -33,6 +33,9 @@ export class HealthController {
           : 'N/A',
         uptimeMs: metrics.uptime,
         uptimeHours: (metrics.uptime / (1000 * 60 * 60)).toFixed(2),
+        streamStatus: metrics.streamStatus,
+        streamUptimeMs: metrics.streamUptimeMs,
+        lastStreamError: metrics.lastStreamError,
       },
       recentErrors: metrics.recentErrors.map(err => ({
         requestId: err.requestId,

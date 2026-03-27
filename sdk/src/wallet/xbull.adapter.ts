@@ -10,8 +10,6 @@ import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
  * xBull wallet adapter.
  *
  * Uses the `window.xBullSDK` global injected by the xBull extension / PWA.
- *
- * @see https://xbull.app
  */
 export class XBullAdapter extends WalletAdapter {
   readonly name = WalletName.XBull;
@@ -29,15 +27,25 @@ export class XBullAdapter extends WalletAdapter {
 
   async getPublicKey(): Promise<string> {
     this.assertInstalled();
+
     try {
       const sdk = this.getSdk();
       const publicKey: string = await sdk.getPublicKey();
       return publicKey;
     } catch (err: any) {
       if (this.isUserRejection(err)) {
-        throw new TikkaSdkError(TikkaSdkErrorCode.UserRejected, 'User rejected xBull request', err);
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.UserRejected,
+          'User rejected xBull request',
+          err
+        );
       }
-      throw new TikkaSdkError(TikkaSdkErrorCode.Unknown, `xBull getPublicKey failed: ${err?.message ?? err}`, err);
+
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.Unknown,
+        `xBull getPublicKey failed: ${err?.message ?? err}`,
+        err
+      );
     }
   }
 
@@ -46,24 +54,37 @@ export class XBullAdapter extends WalletAdapter {
     opts?: { networkPassphrase?: string; accountToSign?: string },
   ): Promise<SignTransactionResult> {
     this.assertInstalled();
-    const networkPassphrase = opts?.networkPassphrase ?? this.options.networkPassphrase;
+
+    const networkPassphrase =
+      opts?.networkPassphrase ?? this.options.networkPassphrase;
 
     try {
       const sdk = this.getSdk();
+
       const signedXdr: string = await sdk.signXDR(xdr, {
         networkPassphrase,
         publicKey: opts?.accountToSign,
       });
+
       return { signedXdr };
     } catch (err: any) {
       if (this.isUserRejection(err)) {
-        throw new TikkaSdkError(TikkaSdkErrorCode.UserRejected, 'User rejected transaction signing', err);
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.UserRejected,
+          'User rejected transaction signing',
+          err
+        );
       }
-      throw new TikkaSdkError(TikkaSdkErrorCode.Unknown, `xBull signTransaction failed: ${err?.message ?? err}`, err);
+
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.Unknown,
+        `xBull signTransaction failed: ${err?.message ?? err}`,
+        err
+      );
     }
   }
 
-  /* ------------------------------------------------------------------ */
+  /* ---------------------- Helpers ---------------------- */
 
   private getSdk(): any {
     return (globalThis as any).xBullSDK;
@@ -73,13 +94,17 @@ export class XBullAdapter extends WalletAdapter {
     if (!this.isAvailable()) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
-        'xBull wallet is not installed. Get it at https://xbull.app',
+        'xBull wallet is not installed. Install it from https://xbull.app'
       );
     }
   }
 
   private isUserRejection(err: any): boolean {
     const msg = String(err?.message ?? err).toLowerCase();
-    return msg.includes('cancel') || msg.includes('reject') || msg.includes('denied');
+    return (
+      msg.includes('cancel') ||
+      msg.includes('reject') ||
+      msg.includes('denied')
+    );
   }
 }

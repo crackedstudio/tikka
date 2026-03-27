@@ -76,12 +76,14 @@ export class RafflesController {
 
   /**
    * POST /raffles/upload-image — Upload raffle image to Supabase Storage.
+   * Accepts multipart/form-data with a single image file and optional raffleId field.
+   * Max 5 MB. Allowed types: JPEG, PNG, WebP.
    * Requires JWT (SIWS).
    */
   @Post("upload-image")
   async uploadImage(
     @Req() request: FastifyRequestWithMultipart,
-    @CurrentUser("address") address?: string,
+    @CurrentUser("address") address: string,
   ): Promise<{ url: string }> {
     const file = await request.file();
     if (!file) {
@@ -91,14 +93,14 @@ export class RafflesController {
     const mimeType = file.mimetype as AllowedUploadMimeType;
     if (!ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {
       throw new BadRequestException(
-        `Unsupported file type. Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(", ")}`,
+        `Unsupported file type "${file.mimetype}". Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(", ")}`,
       );
     }
 
     const buffer = await file.toBuffer();
     if (buffer.length > MAX_UPLOAD_BYTES) {
       throw new PayloadTooLargeException(
-        `File too large. Max size is ${MAX_UPLOAD_BYTES} bytes`,
+        `File too large (${(buffer.length / 1024 / 1024).toFixed(1)} MB). Max: ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,
       );
     }
 
@@ -107,7 +109,7 @@ export class RafflesController {
       fileBuffer: buffer,
       mimeType,
       raffleId,
-      uploaderId: address ?? "unknown-user",
+      uploaderId: address,
     });
 
     return { url: upload.url };

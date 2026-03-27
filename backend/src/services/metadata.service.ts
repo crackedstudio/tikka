@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { env } from '../config/env.config';
+import { Inject, Injectable } from '@nestjs/common';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_CLIENT } from './supabase.provider';
 
 /** Raffle metadata stored off-chain in Supabase (title, description, image, category, metadata_cid) */
 export interface RaffleMetadata {
@@ -27,17 +27,9 @@ const TABLE = 'raffle_metadata';
 
 @Injectable()
 export class MetadataService {
-  private readonly client: SupabaseClient;
-
-  constructor() {
-    const { url, serviceRoleKey } = env.supabase;
-    if (!url || !serviceRoleKey) {
-      throw new Error(
-        'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment',
-      );
-    }
-    this.client = createClient(url, serviceRoleKey);
-  }
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+  ) {}
 
   /**
    * Get metadata by raffle_id. Returns null if not found.
@@ -53,6 +45,25 @@ export class MetadataService {
       throw new Error(`Failed to fetch metadata for raffle ${raffleId}: ${error.message}`);
     }
     return data as RaffleMetadata | null;
+  }
+
+  /**
+   * Full-text search over raffle metadata (title, description, category).
+   * Uses Supabase's ilike for simple prefix/contains matching.
+   */
+  async searchMetadata(query: string, limit = 50): Promise<RaffleMetadata[]> {
+    const pattern = `%${query}%`;
+
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('*')
+      .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Search failed: ${error.message}`);
+    }
+    return (data ?? []) as RaffleMetadata[];
   }
 
   /**

@@ -22,6 +22,7 @@ export const API_CONFIG = {
       profile: (address: string) => `/users/${address}`,
       history: (address: string) => `/users/${address}/history`,
     },
+    search: '/search',
     leaderboard: '/leaderboard',
     stats: '/stats/platform',
     notifications: {
