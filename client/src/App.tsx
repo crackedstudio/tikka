@@ -7,6 +7,7 @@ import MyRaffles from "./pages/MyRaffles";
 import WinnerDemo from "./pages/WinnerDemo";
 import SearchPage from "./pages/Search";
 import Transparency from "./pages/Transparency";
+import Settings from "./pages/Settings";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";

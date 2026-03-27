@@ -15,6 +15,7 @@ import { Injectable, Logger } from '@nestjs/common';
 export class RandomnessWorker {
   private readonly logger = new Logger(RandomnessWorker.name);
   private readonly HIGH_STAKES_THRESHOLD_XLM = 500;
+  private readonly processedRequestIds = new Set<string>();
 
   constructor(
     private readonly contractService: ContractService,
@@ -32,52 +33,60 @@ export class RandomnessWorker {
    */
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
-    const { raffleId, requestId, prizeAmount } = job.data;
+    this.logger.log(
+      `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}`,
+    );
+    await this.processRequest(job.data);
+  }
 
-    this.logger.log(`Processing randomness request job ${job.id} for raffle ${raffleId}, request ${requestId}`);
+  clearProcessedCache() {
+    this.processedRequestIds.clear();
+  }
+
+  async processRequest(request: RandomnessRequest): Promise<void> {
+    const { raffleId, requestId, prizeAmount } = request;
+
+    if (this.processedRequestIds.has(requestId)) {
+      return;
+    }
 
     try {
-      // Step 1: Check if randomness already submitted to contract
-      // This is the source-of-truth idempotency check
       const alreadySubmitted = await this.contractService.isRandomnessSubmitted(raffleId);
       if (alreadySubmitted) {
         this.logger.warn(`Raffle ${raffleId} already finalized, skipping`);
         return;
       }
 
-      // Step 2: Determine prize amount if not in event payload
       let finalPrizeAmount = prizeAmount;
       if (finalPrizeAmount === undefined) {
         const raffleData = await this.contractService.getRaffleData(raffleId);
         finalPrizeAmount = raffleData.prizeAmount;
       }
 
-      // Step 3: Determine high-stakes vs low-stakes
       const method = this.determineMethod(finalPrizeAmount);
       this.logger.log(`Raffle ${raffleId}: prize=${finalPrizeAmount} XLM, method=${method}`);
 
-      // Step 4: Compute randomness (VRF or PRNG)
       const randomness = await this.computeRandomness(method, requestId);
-
-      // Step 5: Submit to contract
       const result = await this.txSubmitter.submitRandomness(raffleId, randomness);
 
-      if (result.success) {
-        this.logger.log(
-          `Successfully submitted randomness for raffle ${raffleId}: tx=${result.txHash}, ledger=${result.ledger}`,
-        );
-        this.healthService.recordSuccess(requestId);
-        this.lagMonitor.fulfillRequest(requestId);
-      } else {
+      if (!result.success) {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
+
+      this.processedRequestIds.add(requestId);
+
+      this.logger.log(
+        `Successfully submitted randomness for raffle ${raffleId}: tx=${result.txHash}, ledger=${result.ledger}`,
+      );
+      this.healthService.recordSuccess(requestId);
+      this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
         `Failed to process randomness request for raffle ${raffleId}: ${error.message}`,
         error.stack,
       );
       this.healthService.recordFailure(requestId, raffleId, error.message);
-      throw error; // Re-throw to trigger Bull retry mechanism
+      throw error;
     }
   }
 

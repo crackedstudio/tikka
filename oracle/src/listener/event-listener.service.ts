@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from 'stellar-sdk';
 import { Subject, Subscription } from 'rxjs';
@@ -30,7 +30,8 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         private readonly configService: ConfigService,
         private readonly healthService: HealthService,
         private readonly lagMonitor: LagMonitorService,
-        @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue: Queue<RandomnessJobPayload>,
+        private readonly randomnessWorker: RandomnessWorker,
+        @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue<RandomnessJobPayload>,
     ) {
         // Config parsing
         const horizonUrl = this.configService.get<string>('HORIZON_URL', 'https://horizon-testnet.stellar.org');
@@ -149,15 +150,21 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                             this.logger.log(`Enqueueing RandomnessRequest: raffle=${raffleId}, request=${requestId}`);
                             this.lagMonitor.trackRequest(requestId, raffleId, eventResponse.ledger || 0);
 
-                            this.randomnessQueue.add({
-                                raffleId,
-                                requestId,
-                            }).then(() => {
-                                this.currentQueueDepth++;
-                                this.healthService.updateQueueDepth(this.currentQueueDepth);
-                            }).catch(err => {
-                                this.logger.error(`Failed to enqueue job for raffle ${raffleId}: ${err.message}`);
-                            });
+                            if (this.randomnessQueue) {
+                                this.randomnessQueue.add({
+                                    raffleId,
+                                    requestId,
+                                }).then(() => {
+                                    this.currentQueueDepth++;
+                                    this.healthService.updateQueueDepth(this.currentQueueDepth);
+                                }).catch(err => {
+                                    this.logger.error(`Failed to enqueue job for raffle ${raffleId}: ${err.message}`);
+                                });
+                            } else {
+                                this.randomnessWorker.processRequest({ raffleId, requestId }).catch(err => {
+                                    this.logger.error(`Failed to process request for raffle ${raffleId}: ${err.message}`);
+                                });
+                            }
                         } else {
                             this.logger.warn(`Could not completely parse RandomnessRequested payload. Value: ${scVal.toXDR('base64')}`);
                         }
