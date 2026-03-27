@@ -26,6 +26,16 @@ export interface RpcConfig {
   fetchClient?: typeof fetch;
   /** Per-request timeout in ms (default: 30_000) */
   timeoutMs?: number;
+  /** Enable retry strategy for transient errors */
+  enableRetries?: boolean;
+  /** Max retry attempts per endpoint */
+  maxRetryAttempts?: number;
+  /** Initial retry delay in milliseconds */
+  retryBaseDelayMs?: number;
+  /** Exponential backoff factor */
+  retryBackoffFactor?: number;
+  /** HTTP status codes that should trigger retry */
+  retryableStatusCodes?: number[];
 }
 
 export const DEFAULT_RPC_CONFIG: RpcConfig = {
@@ -33,6 +43,11 @@ export const DEFAULT_RPC_CONFIG: RpcConfig = {
   headers: {},
   failoverEndpoints: [],
   timeoutMs: 30_000,
+  enableRetries: true,
+  maxRetryAttempts: 3,
+  retryBaseDelayMs: 300,
+  retryBackoffFactor: 2,
+  retryableStatusCodes: [429, 500, 502, 503, 504],
 };
 
 const NETWORK_CONFIGS: Record<TikkaNetwork, NetworkConfig> = {
