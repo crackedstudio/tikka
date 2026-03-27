@@ -9,6 +9,7 @@ const validEnv: Record<string, string> = {
   JWT_SECRET: 'a'.repeat(32),
   JWT_EXPIRES_IN: '7d',
   SIWS_DOMAIN: 'tikka.io',
+  ADMIN_TOKEN: 'super-secret-admin-token',
 };
 
 describe('env.schema validate()', () => {
@@ -24,6 +25,7 @@ describe('env.schema validate()', () => {
       SUPABASE_URL: 'https://test.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'key',
       JWT_SECRET: 'b'.repeat(32),
+      ADMIN_TOKEN: 'my-admin-token',
     };
     const result = validate(minimal);
     expect(result.PORT).toBe(3001);
@@ -32,6 +34,7 @@ describe('env.schema validate()', () => {
     expect(result.JWT_EXPIRES_IN).toBe('7d');
     expect(result.SIWS_DOMAIN).toBe('tikka.io');
     expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
+    expect(result.ADMIN_IP_ALLOWLIST).toBe('');
   });
 
   it('throws when SUPABASE_URL is missing', () => {
@@ -64,5 +67,26 @@ describe('env.schema validate()', () => {
     const result = validate({ ...validEnv, PATH: '/usr/bin', HOME: '/home/user' });
     expect(result.SUPABASE_URL).toBe('https://test.supabase.co');
     expect((result as Record<string, unknown>).PATH).toBe('/usr/bin');
+  });
+
+  it('throws when ADMIN_TOKEN is missing', () => {
+    const { ADMIN_TOKEN: _, ...rest } = validEnv;
+    expect(() => validate(rest)).toThrow('Environment validation failed');
+  });
+
+  it('throws when ADMIN_TOKEN is empty string', () => {
+    expect(() => validate({ ...validEnv, ADMIN_TOKEN: '' })).toThrow(
+      'Environment validation failed',
+    );
+  });
+
+  it('defaults ADMIN_IP_ALLOWLIST to empty string when not set', () => {
+    const result = validate(validEnv);
+    expect(result.ADMIN_IP_ALLOWLIST).toBe('');
+  });
+
+  it('accepts a non-empty ADMIN_IP_ALLOWLIST', () => {
+    const result = validate({ ...validEnv, ADMIN_IP_ALLOWLIST: '192.168.1.0/24,10.0.0.1' });
+    expect(result.ADMIN_IP_ALLOWLIST).toBe('192.168.1.0/24,10.0.0.1');
   });
 });
