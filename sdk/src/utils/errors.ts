@@ -1,4 +1,36 @@
 /**
+ * Low-level RPC error (transport / HTTP / JSON-RPC failures)
+ */
+export class RpcError extends Error {
+  constructor(
+    message: string,
+    public readonly endpoint: string,
+    public readonly method?: string,
+    public readonly statusCode?: number,
+    public readonly response?: any,
+  ) {
+    super(message);
+    this.name = 'RpcError';
+    Object.setPrototypeOf(this, RpcError.prototype);
+  }
+
+  static fromResponse(
+    endpoint: string,
+    method: string,
+    response: Response,
+    payload?: any,
+  ): RpcError {
+    return new RpcError(
+      `RPC request failed: ${response.statusText}`,
+      endpoint,
+      method,
+      response.status,
+      payload,
+    );
+  }
+}
+
+/**
  * SDK-wide error codes
  */
 export enum TikkaSdkErrorCode {
@@ -23,7 +55,7 @@ export enum TikkaSdkErrorCode {
 }
 
 /**
- * Structured SDK error that carries a machine-readable code.
+ * Structured SDK error (high-level, used across SDK)
  */
 export class TikkaSdkError extends Error {
   constructor(
@@ -33,5 +65,6 @@ export class TikkaSdkError extends Error {
   ) {
     super(message);
     this.name = 'TikkaSdkError';
+    Object.setPrototypeOf(this, TikkaSdkError.prototype);
   }
 }

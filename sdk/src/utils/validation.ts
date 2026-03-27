@@ -35,3 +35,8 @@ export function assertNonEmpty(value: string, name: string): void {
     );
   }
 }
+
+/**
+ * Simple truthy check for backward compatibility
+ */
+export const validateAddress = (address: string) => !!address;

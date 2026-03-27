@@ -1,6 +1,7 @@
 /**
- * Backward-compatible re-export.
- * The canonical definitions now live in wallet.interface.ts.
+ * Re-exports all wallet-related types and adapters.
+ * 
+ * Backward-compatible: older code importing from `wallet.ts` still works.
  */
 export {
   WalletAdapter,

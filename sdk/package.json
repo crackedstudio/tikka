@@ -8,7 +8,19 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "lint": "eslint \"{src,test}/**/*.ts\""
+    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "test": "jest"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
   },
   "dependencies": {
     "@lobstrco/signer-extension-api": "^2.0.0",
@@ -22,10 +34,14 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "eslint": "^10.0.2",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "typescript": "^5.6.0"
   }
 }
