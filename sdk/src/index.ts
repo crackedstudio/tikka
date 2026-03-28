@@ -19,6 +19,13 @@
 // ── Contract bindings & types (public API surface) ──────────────────────────
 export { ContractFn, RaffleStatus } from './contract/bindings';
 export type { TxMemo } from './contract/contract.service';
+export { TransactionLifecycle } from './contract/lifecycle';
+export type {
+  SimulateResult,
+  SubmitResult,
+  PollConfig,
+  InvokeLifecycleOptions,
+} from './contract/lifecycle';
 
 // ── Raffle ──────────────────────────────────────────────────────────────────
 export * from './modules/raffle';
