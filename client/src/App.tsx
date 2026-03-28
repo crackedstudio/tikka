@@ -18,6 +18,7 @@ import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { WalletProvider } from "./providers/WalletProvider";
 import { AuthProvider } from "./providers/AuthProvider";
+import NetworkWarning from "./components/common/NetworkWarning"; // Import the warning component
 import { InstallPWA } from "./components/InstallPWA";
 
 function App() {
@@ -33,6 +34,29 @@ function App() {
     return (
         <WalletProvider>
             <AuthProvider>
+                {/* * Issue #120: Global Network Warning 
+                  * This will show at the top of every page if the user is on the wrong network.
+                */}
+                <NetworkWarning />
+                
+                <Router>
+                    <Routes>
+                        <Route path="/" element={<LandingLayout />}>
+                            <Route index element={<LandingPage />} />
+                            <Route path="home" element={<Home />} />
+                            <Route path="search" element={<SearchPage />} />
+                            <Route path="details" element={<RaffleDetails />} />
+                            <Route path="create" element={<CreateRaffle />} />
+                            <Route path="leaderboard" element={<Leaderboard />} />
+                            <Route path="my-raffles" element={<MyRaffles />} />
+                            <Route path="winner-demo" element={<WinnerDemo />} />
+                            <Route path="settings" element={<Settings />} />
+                            <Route path="transparency" element={<Transparency />} />
+                        </Route>
+                    </Routes>
+                </Router>
+            </AuthProvider>
+        </WalletProvider>
                 <InstallPWA />
                 <Router>
                     <Routes>
