@@ -20,7 +20,11 @@ export class RpcService {
     private readonly networkConfig: NetworkConfig,
     rpcConfig?: RpcConfig,
   ) {
-    this.rpcConfig = this.normalizeConfig({ ...DEFAULT_RPC_CONFIG, ...rpcConfig });
+    this.rpcConfig = this.normalizeConfig({
+      ...DEFAULT_RPC_CONFIG,
+      ...rpcConfig,
+      endpoint: rpcConfig?.endpoint ?? networkConfig.rpcUrl,
+    });
 
     this.server = new rpc.Server(networkConfig.rpcUrl, {
       allowHttp: networkConfig.rpcUrl.startsWith('http://'),
@@ -79,6 +83,13 @@ export class RpcService {
     return this.request('sendTransaction', [tx.toXDR()], options);
   }
 
+  /** Fetch latest ledger from Soroban RPC */
+  async getLedger(
+    options: RequestOptions = {},
+  ): Promise<rpc.Api.GetLatestLedgerResponse> {
+    return this.request('getLatestLedger', [], options);
+  }
+
   /** Poll transaction status */
   async getTransaction(
     hash: string,
@@ -114,7 +125,10 @@ export class RpcService {
     params: any[] = [],
     options: RequestOptions = {},
   ): Promise<T> {
-    const endpoints = [this.rpcConfig.endpoint, ...(this.rpcConfig.failoverEndpoints || [])];
+    const endpoints = [
+      this.rpcConfig.endpoint ?? this.networkConfig.rpcUrl,
+      ...(this.rpcConfig.failoverEndpoints || []),
+    ];
     let lastError: any = null;
 
     for (const url of endpoints) {

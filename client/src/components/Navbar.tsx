@@ -28,9 +28,14 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
             return;
         }
 
-        // Only search if we aren't on a details or create page
-        const forbiddenPages = ["/details", "/create", "/leaderboard", "/my-raffles"];
-        if (searchValue.trim() && !forbiddenPages.includes(location.pathname)) {
+        // Only search if we aren't on detail/create pages
+        const isForbiddenPage =
+            location.pathname === "/details" ||
+            location.pathname.startsWith("/raffles/") ||
+            location.pathname === "/create" ||
+            location.pathname === "/leaderboard" ||
+            location.pathname === "/my-raffles";
+        if (searchValue.trim() && !isForbiddenPage) {
             navigate(`/search?q=${encodeURIComponent(searchValue.trim())}`);
         }
     }, 400);

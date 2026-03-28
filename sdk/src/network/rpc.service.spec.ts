@@ -12,6 +12,12 @@ describe('RpcService', () => {
     networkPassphrase: Networks.TESTNET,
   };
   const mockFailover = 'https://backup.rpc.com';
+  const mainnetNetwork: NetworkConfig = {
+    network: 'mainnet' as TikkaNetwork,
+    rpcUrl: 'https://soroban.stellar.org',
+    horizonUrl: 'https://horizon.stellar.org',
+    networkPassphrase: Networks.PUBLIC,
+  };
 
   beforeEach(() => {
     service = new RpcService(mockNetwork, { endpoint: mockNetwork.rpcUrl });
@@ -120,5 +126,29 @@ describe('RpcService', () => {
     const mockTx = { toXDR: () => 'mock-xdr' };
     await expect(service.simulateTransaction(mockTx, { disableRetries: true })).rejects.toThrow(TikkaSdkError);
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should default endpoint from network config when not provided', async () => {
+    const mainnetService = new RpcService(mainnetNetwork);
+    expect((mainnetService as any).rpcConfig.endpoint).toBe(mainnetNetwork.rpcUrl);
+  });
+
+  it('should expose getLedger method', async () => {
+    const mockResult = { sequence: 12345 };
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ result: mockResult }),
+    });
+
+    service.configure({ fetchClient: mockFetch as any });
+    const result = await service.getLedger();
+    expect(result).toEqual(mockResult);
+    expect(mockFetch).toHaveBeenCalledWith(
+      mockNetwork.rpcUrl,
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"method":"getLatestLedger"'),
+      }),
+    );
   });
 });

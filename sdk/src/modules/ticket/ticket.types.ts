@@ -1,6 +1,13 @@
+import { TxMemo } from '../../contract/contract.service';
+
 export interface BuyTicketParams {
   raffleId: number;
   quantity: number;
+  /**
+   * Optional transaction memo for tracking or external integrations.
+   * Supports text (≤28 bytes), numeric id, or 32-byte hash.
+   */
+  memo?: TxMemo;
 }
 
 export interface BuyTicketResult {
@@ -13,6 +20,11 @@ export interface BuyTicketResult {
 export interface RefundTicketParams {
   raffleId: number;
   ticketId: number;
+  /**
+   * Optional transaction memo for tracking or external integrations.
+   * Supports text (≤28 bytes), numeric id, or 32-byte hash.
+   */
+  memo?: TxMemo;
 }
 
 export interface RefundTicketResult {

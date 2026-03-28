@@ -1,12 +1,14 @@
 import React from "react";
 import type { StepComponentProps } from "../../types/types";
 import CreateRaffleButton from "../CreateRaffleButton";
+import { useNavigate } from "react-router-dom";
 
 const ReviewStep: React.FC<StepComponentProps> = ({
   formData,
   onNext,
   onBack,
 }: StepComponentProps) => {
+  const navigate = useNavigate();
   const formatDuration = (days: number, hours: number) => {
     return `${days}d ${hours}h`;
   };
@@ -130,6 +132,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
           ).toString()} // Convert to stroops
           onSuccess={(raffleId) => {
             console.log("Raffle created successfully with ID:", raffleId);
+            navigate(`/raffles/${raffleId}`);
             onNext();
           }}
           onError={(error) => {
