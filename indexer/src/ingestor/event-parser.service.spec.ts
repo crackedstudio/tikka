@@ -122,6 +122,27 @@ describe("EventParserService", () => {
     expect(parsed.params.max_tickets).toBe(100);
   });
 
+  it("should use parseV2 when contract is mapped to v2 (fallback to v1 behavior)", () => {
+    const creatorAddress = Keypair.random().publicKey();
+    const topics = [
+      nativeToScVal("RaffleCreated", { type: "symbol" }).toXDR("base64"),
+      nativeToScVal(1, { type: "u32" }).toXDR("base64"),
+      nativeToScVal(creatorAddress, { type: "address" }).toXDR("base64"),
+    ];
+    const valueStr = nativeToScVal({ price: 10, max_tickets: 100 }).toXDR("base64");
+    const raw: any = { type: "contract", topics, value: valueStr, contractId: "V2_TEST_CONTRACT" };
+
+    const spy = jest.spyOn(service as any, "parseV2");
+    const parsed = service.parse(raw as any) as RaffleCreatedEvent;
+    expect(spy).toHaveBeenCalled();
+    expect(parsed).not.toBeNull();
+    expect(parsed.type).toBe("RaffleCreated");
+    expect(parsed.raffle_id).toBe(1);
+    expect(parsed.creator).toBe(creatorAddress);
+    expect(parsed.params.price).toBe(10);
+    expect(parsed.params.max_tickets).toBe(100);
+  });
+
   it("should parse TicketPurchased event with all fields", () => {
     const buyerAddress = Keypair.random().publicKey();
     const topics = [
