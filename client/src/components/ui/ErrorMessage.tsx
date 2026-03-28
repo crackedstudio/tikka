@@ -31,7 +31,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({
                     <button
                         onClick={onRetry}
                         disabled={disabled}
-                        className="text-[#FF389C] hover:text-[#FF389C]/80 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center gap-1.5 transition-colors"
+                        className="text-pink-600 dark:text-[#FF389C] hover:text-pink-600 dark:text-[#FF389C]/80 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center gap-1.5 transition-colors"
                     >
                         <RefreshCw size={14} />
                         {retryLabel}
@@ -46,7 +46,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle size={32} className="text-red-400" />
             </div>
-            <h3 className="text-white text-xl font-semibold mb-2">{title}</h3>
+            <h3 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">{title}</h3>
             {message && (
                 <p className="text-gray-400 text-sm mb-4 max-w-md mx-auto">
                     {message}
@@ -56,7 +56,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({
                 <button
                     onClick={onRetry}
                     disabled={disabled}
-                    className="bg-[#FF389C] hover:bg-[#FF389C]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200 inline-flex items-center gap-2"
+                    className="bg-[#FF389C] hover:bg-[#FF389C]/90 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200 inline-flex items-center gap-2"
                 >
                     <RefreshCw size={16} />
                     {retryLabel}

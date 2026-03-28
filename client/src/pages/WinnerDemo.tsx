@@ -26,14 +26,14 @@ const WinnerDemo: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#1A162C] flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 dark:bg-[#1A162C] flex items-center justify-center">
             <div className="text-center">
-                <h1 className="text-4xl font-bold text-white mb-8">
+                <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">
                     Winner Announcement Demo
                 </h1>
                 <button
                     onClick={handleOpenModal}
-                    className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200"
+                    className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200"
                 >
                     Show Winner Modal
                 </button>

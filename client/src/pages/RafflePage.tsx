@@ -22,7 +22,7 @@ import Line from "../assets/svg/Line";
 import detailimage from "../assets/detailimage.png";
 
 const Skeleton = ({ className }: { className?: string }) => (
-    <div className={`animate-pulse bg-white/5 rounded-2xl ${className}`} />
+    <div className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`} />
 );
 
 const RafflePage = () => {
@@ -67,7 +67,7 @@ const RafflePage = () => {
                 />
                 <button 
                     onClick={() => navigate("/home")}
-                    className="mt-8 px-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors flex items-center space-x-2"
+                    className="mt-8 px-8 py-3 rounded-xl bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 transition-colors flex items-center space-x-2"
                 >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Back to Home</span>
@@ -104,13 +104,13 @@ const RafflePage = () => {
             <div className="flex items-center justify-between">
                 <button 
                     onClick={() => navigate(-1)}
-                    className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors group"
+                    className="flex items-center space-x-2 text-gray-400 hover:text-gray-900 dark:text-white transition-colors group"
                 >
                     <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                     <span className="font-medium">Back</span>
                 </button>
                 <div className="flex items-center space-x-3">
-                    <button className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-gray-400 hover:text-white">
+                    <button className="p-2 rounded-xl bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 transition-colors text-gray-400 hover:text-gray-900 dark:text-white">
                         <Share2 className="w-5 h-5" />
                     </button>
                     <VerifiedBadge />
@@ -126,7 +126,7 @@ const RafflePage = () => {
                         <img 
                             src={image || detailimage} 
                             alt={title}
-                            className="w-full aspect-video md:aspect-auto md:max-h-[500px] object-cover rounded-3xl shadow-2xl border border-white/5"
+                            className="w-full aspect-video md:aspect-auto md:max-h-[500px] object-cover rounded-3xl shadow-2xl border border-gray-200 dark:border-white/5"
                         />
                         {/* Status Badge Over Image */}
                         <div className="absolute top-6 left-6 z-20">
@@ -150,19 +150,19 @@ const RafflePage = () => {
                     </div>
 
                     {/* Metadata */}
-                    <div className="bg-[#11172E] border border-white/5 rounded-3xl p-8 space-y-6">
+                    <div className="bg-white dark:bg-[#11172E] border border-gray-200 dark:border-white/5 rounded-3xl p-8 space-y-6">
                         <div className="space-y-2">
-                            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">{title}</h1>
+                            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gray-900 dark:text-white">{title}</h1>
                             <div className="flex items-center space-x-3 text-gray-400">
                                 <User className="w-4 h-4" />
-                                <span className="text-sm">Created by <span className="text-white font-medium">{creator.slice(0, 6)}...{creator.slice(-4)}</span></span>
-                                <ExternalLink className="w-3 h-3 hover:text-white cursor-pointer" />
+                                <span className="text-sm">Created by <span className="text-gray-900 dark:text-white font-medium">{creator.slice(0, 6)}...{creator.slice(-4)}</span></span>
+                                <ExternalLink className="w-3 h-3 hover:text-gray-900 dark:text-white cursor-pointer" />
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <div className="flex items-center space-x-2 text-gray-300">
-                                <Info className="w-5 h-5 text-[#FE3796]" />
+                            <div className="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
+                                <Info className="w-5 h-5 text-pink-600 dark:text-[#FE3796]" />
                                 <h3 className="text-lg font-bold">About this raffle</h3>
                             </div>
                             <p className="text-gray-400 leading-relaxed">
@@ -176,18 +176,18 @@ const RafflePage = () => {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                             <div className="space-y-1">
                                 <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Prize</p>
-                                <p className="text-xl font-black text-[#FFD700]">{prizeValue} {prizeCurrency}</p>
+                                <p className="text-xl font-black text-yellow-600 dark:text-[#FFD700]">{prizeValue} {prizeCurrency}</p>
                             </div>
                             <div className="space-y-1">
                                 <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Started</p>
-                                <p className="text-xl font-bold text-white flex items-center space-x-2">
+                                <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
                                     <Calendar className="w-4 h-4 text-gray-400" />
                                     <span>Mar 2026</span>
                                 </p>
                             </div>
                             <div className="space-y-1">
                                 <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Network</p>
-                                <p className="text-xl font-bold text-white flex items-center space-x-2">
+                                <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
                                     <Wallet className="w-4 h-4 text-gray-400" />
                                     <span>Soroban</span>
                                 </p>
@@ -199,10 +199,10 @@ const RafflePage = () => {
                 {/* Right Column: CTA Sidebar */}
                 <div className="space-y-6 sticky top-8">
                     {/* Main Action Card */}
-                    <div className="bg-[#11172E] border border-white/10 rounded-3xl p-6 shadow-xl space-y-6">
+                    <div className="bg-white dark:bg-[#11172E] border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-xl space-y-6">
                         <div className="space-y-1">
                             <p className="text-sm text-gray-400 font-medium">Ticket Price</p>
-                            <p className="text-3xl font-black text-white">{ticketPriceFormatted}</p>
+                            <p className="text-3xl font-black text-gray-900 dark:text-white">{ticketPriceFormatted}</p>
                         </div>
 
                         <div className="space-y-4">
@@ -211,25 +211,25 @@ const RafflePage = () => {
                                     <Ticket className="w-4 h-4" />
                                     <span>Progress</span>
                                 </div>
-                                <span className="font-bold text-white">{entries} / {maxTickets} sold</span>
+                                <span className="font-bold text-gray-900 dark:text-white">{entries} / {maxTickets} sold</span>
                             </div>
                             <ProgressBar value={progress} height="8px" />
                         </div>
 
-                        <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+                        <div className="p-4 bg-gray-200 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/5 space-y-4">
                             <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">Ends In</span>
                                 <div className="flex space-x-2 font-mono text-sm">
-                                    <span className="bg-white/10 px-2 py-0.5 rounded text-white">{countdown.days}d</span>
-                                    <span className="bg-white/10 px-2 py-0.5 rounded text-white">{countdown.hours}h</span>
-                                    <span className="bg-white/10 px-2 py-0.5 rounded text-white">{countdown.minutes}m</span>
+                                    <span className="bg-gray-300 dark:bg-white/10 px-2 py-0.5 rounded text-gray-900 dark:text-white">{countdown.days}d</span>
+                                    <span className="bg-gray-300 dark:bg-white/10 px-2 py-0.5 rounded text-gray-900 dark:text-white">{countdown.hours}h</span>
+                                    <span className="bg-gray-300 dark:bg-white/10 px-2 py-0.5 rounded text-gray-900 dark:text-white">{countdown.minutes}m</span>
                                 </div>
                             </div>
                             <Line />
                             <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">Total Participants</span>
-                                <span className="text-sm font-bold text-white flex items-center space-x-1">
-                                    <Users className="w-4 h-4 text-[#FE3796]" />
+                                <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center space-x-1">
+                                    <Users className="w-4 h-4 text-pink-600 dark:text-[#FE3796]" />
                                     <span>{entries > 10 ? entries - 3 : entries} unique</span>
                                 </span>
                             </div>
@@ -237,24 +237,24 @@ const RafflePage = () => {
 
                         {isActive ? (
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between bg-black/20 p-1.5 rounded-xl border border-white/5">
+                                <div className="flex items-center justify-between bg-black/20 p-1.5 rounded-xl border border-gray-200 dark:border-white/5">
                                     <button 
                                         onClick={handleDecrement}
-                                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/5 hover:bg-white/10 text-white transition-colors"
+                                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 text-gray-900 dark:text-white transition-colors"
                                     >
                                         -
                                     </button>
                                     <span className="text-xl font-bold">{ticketCount}</span>
                                     <button 
                                         onClick={handleIncrement}
-                                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#FE3796] hover:brightness-110 text-white transition-colors"
+                                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#FE3796] hover:brightness-110 text-gray-900 dark:text-white transition-colors"
                                     >
                                         +
                                     </button>
                                 </div>
 
                                 <button 
-                                    className="w-full py-4 rounded-xl font-black text-white tracking-wider shadow-lg shadow-[#FE3796]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    className="w-full py-4 rounded-xl font-black text-gray-900 dark:text-white tracking-wider shadow-lg shadow-[#FE3796]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                                     style={{
                                         background: "linear-gradient(100.92deg, #FE3796 13.57%, #3931F9 97.65%)"
                                     }}
@@ -270,7 +270,7 @@ const RafflePage = () => {
                                     <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-center space-y-2">
                                         <Trophy className="w-8 h-8 text-yellow-500 mx-auto" />
                                         <p className="text-xs text-yellow-500/80 font-bold uppercase">Raffle Winner</p>
-                                        <p className="text-sm font-black text-white truncate px-2">{winner}</p>
+                                        <p className="text-sm font-black text-gray-900 dark:text-white truncate px-2">{winner}</p>
                                         <button className="text-xs text-yellow-500 hover:underline">View Proof</button>
                                     </div>
                                 ) : (
@@ -281,7 +281,7 @@ const RafflePage = () => {
                                 )}
                                 <button 
                                     disabled
-                                    className="w-full py-4 rounded-xl bg-gray-600/20 text-gray-500 font-bold border border-white/5 cursor-not-allowed uppercase tracking-widest text-sm"
+                                    className="w-full py-4 rounded-xl bg-gray-600/20 text-gray-500 font-bold border border-gray-200 dark:border-white/5 cursor-not-allowed uppercase tracking-widest text-sm"
                                 >
                                     Participation Closed
                                 </button>
@@ -290,12 +290,12 @@ const RafflePage = () => {
                     </div>
 
                     {/* Quick Help Card */}
-                    <div className="bg-[#11172E]/50 border border-white/5 rounded-3xl p-6 flex items-start space-x-4">
+                    <div className="bg-white dark:bg-[#11172E]/50 border border-gray-200 dark:border-white/5 rounded-3xl p-6 flex items-start space-x-4">
                         <div className="bg-blue-500/20 p-2 rounded-lg">
                             <ShieldCheck className="w-5 h-5 text-blue-400" />
                         </div>
                         <div className="space-y-1">
-                            <p className="text-sm font-bold text-white">Provably Fair</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Provably Fair</p>
                             <p className="text-xs text-gray-500 leading-relaxed">Winner selection uses Soroban VRF for ultimate transparency and fairness.</p>
                         </div>
                     </div>

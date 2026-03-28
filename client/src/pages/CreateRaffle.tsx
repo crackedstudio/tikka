@@ -101,15 +101,15 @@ const CreateRaffle: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen text-white">
+        <div className="min-h-screen text-gray-900 dark:text-white">
             {/* Header */}
             <div className="w-full max-w-7xl mx-auto px-6 py-8">
                 {/* Page Title */}
                 <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold text-white mb-2">
+                    <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
                         Create New Raffle
                     </h1>
-                    <p className="text-gray-300">
+                    <p className="text-gray-700 dark:text-gray-300">
                         Setup your raffle in a few simple steps
                     </p>
                 </div>

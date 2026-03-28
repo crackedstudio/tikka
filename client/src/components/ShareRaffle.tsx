@@ -3,13 +3,13 @@ import { Facebook, Link, Send, Twitter } from "lucide-react";
 
 const ShareRaffle = () => {
     return (
-        <div className="bg-[#11172E] rounded-3xl flex flex-col md:flex-row justify-between items-center border border-[#1F263F] mt-8 overflow-hidden">
+        <div className="bg-white dark:bg-[#11172E] rounded-3xl flex flex-col md:flex-row justify-between items-center border border-gray-200 dark:border-[#1F263F] mt-8 overflow-hidden">
             {/* Left Section */}
             <div className="p-8 flex-1">
-                <h3 className="text-[22px] font-semibold text-white">
+                <h3 className="text-[22px] font-semibold text-gray-900 dark:text-white">
                     Share This Raffle
                 </h3>
-                <p className="mt-3 text-[#9CA3AF] text-sm md:text-base">
+                <p className="mt-3 text-gray-600 dark:text-[#9CA3AF] text-sm md:text-base">
                     Invite your friends to join and increase the excitement!
                 </p>
 

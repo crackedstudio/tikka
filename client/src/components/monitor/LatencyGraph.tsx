@@ -8,7 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { LatencyPoint } from '../../services/monitorApi';
+import type { LatencyPoint } from '../../services/monitorApi';
 
 interface LatencyGraphProps {
   latencyData: LatencyPoint[];
@@ -42,7 +42,7 @@ export default function LatencyGraph({ latencyData, onRangeChange }: LatencyGrap
   return (
     <div className="bg-gray-900 rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-white text-lg font-semibold">Latency</h2>
+        <h2 className="text-gray-900 dark:text-white text-lg font-semibold">Latency</h2>
         <div className="flex gap-2">
           {RANGES.map((range) => (
             <button
@@ -50,8 +50,8 @@ export default function LatencyGraph({ latencyData, onRangeChange }: LatencyGrap
               onClick={() => handleRangeClick(range)}
               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                 activeRange === range.label
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-indigo-600 text-gray-900 dark:text-white'
+                  : 'bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-600'
               }`}
             >
               {range.label}
@@ -84,8 +84,8 @@ export default function LatencyGraph({ latencyData, onRangeChange }: LatencyGrap
               contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px' }}
               labelStyle={{ color: '#D1D5DB' }}
               itemStyle={{ color: '#A5B4FC' }}
-              labelFormatter={(label: string) => formatTime(label)}
-              formatter={(value: number) => [`${value} ms`, 'Latency']}
+              labelFormatter={(label) => formatTime(String(label))}
+              formatter={(value) => [`${Number(value)} ms`, 'Latency']}
             />
             <Line
               type="monotone"

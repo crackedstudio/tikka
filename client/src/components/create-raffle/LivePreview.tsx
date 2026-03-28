@@ -17,8 +17,8 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
     };
 
     return (
-        <div className="bg-[#1E1932] rounded-xl p-6 h-fit">
-            <h3 className="text-white text-xl font-bold mb-6">Live Preview</h3>
+        <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6 h-fit">
+            <h3 className="text-gray-900 dark:text-white text-xl font-bold mb-6">Live Preview</h3>
 
             {/* Raffle Image */}
             <div className="mb-4">
@@ -47,8 +47,8 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
 
             {/* Description */}
             <div className="mb-4">
-                <p className="text-white text-sm mb-2">Description</p>
-                <p className="text-gray-300 text-sm">
+                <p className="text-gray-900 dark:text-white text-sm mb-2">Description</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">
                     {formData.description || "No description provided"}
                 </p>
             </div>
@@ -59,7 +59,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                         <svg
-                            className="w-4 h-4 text-white"
+                            className="w-4 h-4 text-gray-900 dark:text-white"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                         >
@@ -69,9 +69,9 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <span className="text-white text-sm">Duration</span>
+                        <span className="text-gray-900 dark:text-white text-sm">Duration</span>
                     </div>
-                    <span className="text-white text-sm">
+                    <span className="text-gray-900 dark:text-white text-sm">
                         {formatDuration(
                             formData.duration.days,
                             formData.duration.hours
@@ -83,7 +83,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                         <svg
-                            className="w-4 h-4 text-white"
+                            className="w-4 h-4 text-gray-900 dark:text-white"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                         >
@@ -93,9 +93,9 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <span className="text-white text-sm">Tickets</span>
+                        <span className="text-gray-900 dark:text-white text-sm">Tickets</span>
                     </div>
-                    <span className="text-white text-sm">
+                    <span className="text-gray-900 dark:text-white text-sm">
                         {formatTickets(formData.totalTickets)}
                     </span>
                 </div>
@@ -103,13 +103,13 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
 
             {/* Price */}
             <div className="mb-6">
-                <p className="text-gray-300 text-sm text-center">
+                <p className="text-gray-700 dark:text-gray-300 text-sm text-center">
                     {formatPrice(formData.pricePerTicket)}
                 </p>
             </div>
 
             {/* Join Raffle Button */}
-            <button className="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200">
+            <button className="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200">
                 Join Raffle
             </button>
         </div>

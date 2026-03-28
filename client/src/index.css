@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap");
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
     font-family: "IBM Plex Sans", "Space Mono", system-ui, Avenir, Helvetica,
@@ -15,4 +16,14 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+    color: #1a1a1a;
+    background-color: #ffffff;
+}
+
+.dark {
+    color: rgba(255, 255, 255, 0.87);
+    background-color: #242424;
 }

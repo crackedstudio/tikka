@@ -49,10 +49,10 @@ const ImageStep: React.FC<StepComponentProps> = ({
     const canContinue = formData.image !== null;
 
     return (
-        <div className="bg-[#1E1932] rounded-xl p-6">
+        <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
             <div className="flex items-center space-x-3 mb-2">
                 <svg
-                    className="w-6 h-6 text-white"
+                    className="w-6 h-6 text-gray-900 dark:text-white"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                 >
@@ -62,9 +62,9 @@ const ImageStep: React.FC<StepComponentProps> = ({
                         clipRule="evenodd"
                     />
                 </svg>
-                <h3 className="text-white text-xl font-bold">Prize Image</h3>
+                <h3 className="text-gray-900 dark:text-white text-xl font-bold">Prize Image</h3>
             </div>
-            <p className="text-gray-300 text-sm mb-6">
+            <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
                 A great photo increases participation
             </p>
 
@@ -74,7 +74,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 cursor-pointer
                     ${
                         isDragOver
-                            ? "border-[#FF389C] bg-[#FF389C]/10"
+                            ? "border-pink-500 dark:border-[#FF389C] bg-[#FF389C]/10"
                             : "border-gray-500 hover:border-gray-400"
                     }
                 `}
@@ -90,7 +90,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             alt="Uploaded prize"
                             className="w-full h-48 object-cover rounded-lg mx-auto"
                         />
-                        <p className="text-white text-sm">
+                        <p className="text-gray-900 dark:text-white text-sm">
                             Click to change image
                         </p>
                     </div>
@@ -108,11 +108,11 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             />
                         </svg>
                         <div>
-                            <p className="text-white text-lg mb-2">
+                            <p className="text-gray-900 dark:text-white text-lg mb-2">
                                 Drag & Drop your prize image here
                             </p>
                             <p className="text-gray-400 mb-4">or</p>
-                            <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                            <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
                                 Upload image
                             </button>
                         </div>
@@ -135,7 +135,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
 
             {/* Image Tips */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-                <div className="bg-[#2A264A] rounded-lg p-4">
+                <div className="bg-gray-200 dark:bg-[#2A264A] rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
                         <svg
                             className="w-5 h-5 text-purple-400"
@@ -148,7 +148,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <h4 className="text-white font-medium">
+                        <h4 className="text-gray-900 dark:text-white font-medium">
                             Good Lighting
                         </h4>
                     </div>
@@ -157,7 +157,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     </p>
                 </div>
 
-                <div className="bg-[#2A264A] rounded-lg p-4">
+                <div className="bg-gray-200 dark:bg-[#2A264A] rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
                         <svg
                             className="w-5 h-5 text-purple-400"
@@ -170,7 +170,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <h4 className="text-white font-medium">
+                        <h4 className="text-gray-900 dark:text-white font-medium">
                             Multiple Angles
                         </h4>
                     </div>
@@ -179,7 +179,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     </p>
                 </div>
 
-                <div className="bg-[#2A264A] rounded-lg p-4">
+                <div className="bg-gray-200 dark:bg-[#2A264A] rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
                         <svg
                             className="w-5 h-5 text-purple-400"
@@ -192,7 +192,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <h4 className="text-white font-medium">
+                        <h4 className="text-gray-900 dark:text-white font-medium">
                             Clear Background
                         </h4>
                     </div>
@@ -206,7 +206,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
             <div className="flex justify-between mt-8">
                 <button
                     onClick={onBack}
-                    className="px-6 py-3 bg-[#2A264A] text-white rounded-lg hover:bg-[#3A365A] transition-colors duration-200"
+                    className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:bg-[#3A365A] transition-colors duration-200"
                 >
                     Back
                 </button>
@@ -215,7 +215,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     disabled={!canContinue}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
                         canContinue
-                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-white"
+                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
                             : "bg-gray-600 text-gray-400 cursor-not-allowed"
                     }`}
                 >

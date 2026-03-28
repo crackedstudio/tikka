@@ -64,8 +64,8 @@ const Transparency = () => {
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col gap-6">
             {/* Header */}
-            <div className="bg-[#11172E] rounded-3xl p-8">
-                <h1 className="text-3xl font-bold text-white mb-2">
+            <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                     Transparency Log
                 </h1>
                 <p className="text-gray-400 text-sm max-w-2xl">
@@ -86,12 +86,12 @@ const Transparency = () => {
                         setRaffleFilter(e.target.value);
                         setPage(0);
                     }}
-                    className="bg-[#11172E] text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-2 text-sm w-48 focus:outline-none focus:border-[#FF389C]"
+                    className="bg-white dark:bg-[#11172E] text-gray-900 dark:text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-2 text-sm w-48 focus:outline-none focus:border-pink-500 dark:border-[#FF389C]"
                 />
                 {raffleFilter && (
                     <button
                         onClick={() => { setRaffleFilter(""); setPage(0); }}
-                        className="text-gray-400 hover:text-white text-sm"
+                        className="text-gray-400 hover:text-gray-900 dark:text-white text-sm"
                     >
                         Clear
                     </button>
@@ -102,7 +102,7 @@ const Transparency = () => {
             </div>
 
             {/* Table */}
-            <div className="bg-[#11172E] rounded-3xl overflow-hidden">
+            <div className="bg-white dark:bg-[#11172E] rounded-3xl overflow-hidden">
                 {loading && (
                     <div className="p-8 text-center text-gray-400 text-sm animate-pulse">
                         Loading…
@@ -131,11 +131,11 @@ const Transparency = () => {
                         <tbody>
                             {entries.map((entry) => (
                                 <Fragment key={entry.id}>
-                                    <tr className="border-b border-gray-800 hover:bg-[#161d38] transition-colors">
-                                        <td className="px-6 py-3 text-gray-300 whitespace-nowrap">
+                                    <tr className="border-b border-gray-800 hover:bg-gray-100 dark:bg-[#161d38] transition-colors">
+                                        <td className="px-6 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                             {new Date(entry.timestamp).toLocaleString()}
                                         </td>
-                                        <td className="px-4 py-3 text-white font-mono">
+                                        <td className="px-4 py-3 text-gray-900 dark:text-white font-mono">
                                             #{entry.raffle_id}
                                         </td>
                                         <td className="px-4 py-3">
@@ -162,7 +162,7 @@ const Transparency = () => {
                                                         expanded === entry.id ? null : entry.id
                                                     )
                                                 }
-                                                className="text-[#FF389C] hover:underline text-xs"
+                                                className="text-pink-600 dark:text-[#FF389C] hover:underline text-xs"
                                             >
                                                 {expanded === entry.id ? "Hide" : "Details"}
                                             </button>
@@ -194,7 +194,7 @@ const Transparency = () => {
                     <button
                         disabled={page === 0}
                         onClick={() => setPage((p) => p - 1)}
-                        className="px-4 py-2 rounded-xl bg-[#11172E] text-gray-300 text-sm disabled:opacity-40 hover:bg-[#161d38]"
+                        className="px-4 py-2 rounded-xl bg-white dark:bg-[#11172E] text-gray-700 dark:text-gray-300 text-sm disabled:opacity-40 hover:bg-gray-100 dark:bg-[#161d38]"
                     >
                         Previous
                     </button>
@@ -204,7 +204,7 @@ const Transparency = () => {
                     <button
                         disabled={page >= totalPages - 1}
                         onClick={() => setPage((p) => p + 1)}
-                        className="px-4 py-2 rounded-xl bg-[#11172E] text-gray-300 text-sm disabled:opacity-40 hover:bg-[#161d38]"
+                        className="px-4 py-2 rounded-xl bg-white dark:bg-[#11172E] text-gray-700 dark:text-gray-300 text-sm disabled:opacity-40 hover:bg-gray-100 dark:bg-[#161d38]"
                     >
                         Next
                     </button>
@@ -217,7 +217,7 @@ const Transparency = () => {
 const Detail = ({ label, value }: { label: string; value: string }) => (
     <div className="flex gap-3 items-start">
         <span className="text-gray-500 w-28 shrink-0">{label}:</span>
-        <span className="text-gray-300 break-all">{value}</span>
+        <span className="text-gray-700 dark:text-gray-300 break-all">{value}</span>
     </div>
 );
 

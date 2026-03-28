@@ -46,7 +46,7 @@ const RaffleCardWrapper: React.FC<{
 
     if (error || !raffle) {
         return (
-            <div className="w-full bg-[#11172E] p-4 rounded-3xl">
+            <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl">
                 <ErrorMessage
                     variant="inline"
                     title={`Error loading raffle #${raffleId}`}
