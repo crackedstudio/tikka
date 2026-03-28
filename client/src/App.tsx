@@ -19,6 +19,7 @@ import { checkConnection } from "./services/rpcService";
 import { WalletProvider } from "./providers/WalletProvider";
 import { AuthProvider } from "./providers/AuthProvider";
 import { InstallPWA } from "./components/InstallPWA";
+import { Toaster } from "sonner";
 
 function App() {
     useEffect(() => {
@@ -34,6 +35,7 @@ function App() {
         <WalletProvider>
             <AuthProvider>
                 <InstallPWA />
+                <Toaster richColors position="bottom-right" closeButton theme="system" />
                 <Router>
                     <Routes>
                     <Route path="/" element={<LandingLayout />}>
