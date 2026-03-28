@@ -2,11 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from 'stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
+import { FeeEstimatorService } from './fee-estimator.service';
 
 export interface SubmitResult {
   txHash: string;
   ledger: number;
   success: boolean;
+  feePaid?: number;
 }
 
 @Injectable()
@@ -22,7 +24,10 @@ export class TxSubmitterService {
   private readonly POLL_TIMEOUT_MS = 30000;
   private readonly POLL_INTERVAL_MS = 1000;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly feeEstimator: FeeEstimatorService,
+  ) {
     const rpcUrl =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
       'https://soroban-testnet.stellar.org';
@@ -52,13 +57,17 @@ export class TxSubmitterService {
   }
   /**
    * Submits receive_randomness transaction to the Soroban contract
+   * with dynamic fee estimation based on network congestion.
+   * 
    * @param raffleId The raffle ID
    * @param randomness The seed and proof
-   * @returns Transaction result
+   * @param rafflePrizeXLM Optional prize value for fee cap calculation
+   * @returns Transaction result with fee paid
    */
   async submitRandomness(
     raffleId: number,
     randomness: RandomnessResult,
+    rafflePrizeXLM?: number,
   ): Promise<SubmitResult> {
     if (!this.contractId || !this.oracleSecret) {
       this.logger.error(
@@ -71,8 +80,16 @@ export class TxSubmitterService {
     const publicKey = kp.publicKey();
 
     let attempt = 0;
-    let feeBump = 1;
     let lastError: any = null;
+    
+    // Get initial fee estimate from network stats
+    const feeEstimate = await this.feeEstimator.estimateFee(rafflePrizeXLM);
+    let currentFee = feeEstimate.cappedFee;
+    
+    this.logger.log(
+      `Submitting randomness for raffle ${raffleId} with fee ${currentFee} stroops ` +
+      `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
+    );
 
     while (attempt < this.MAX_RETRIES) {
       attempt++;
@@ -81,7 +98,7 @@ export class TxSubmitterService {
           publicKey,
           raffleId,
           randomness,
-          feeBump,
+          currentFee,
         );
 
         prepared.sign(kp);
@@ -97,7 +114,7 @@ export class TxSubmitterService {
             this.logger.warn(
               `Insufficient fee detected on attempt ${attempt}; increasing fee and retrying.`,
             );
-            feeBump = Math.max(feeBump * 2, feeBump + 1);
+            currentFee = this.bumpFee(currentFee, feeEstimate.cappedFee);
             await this.delay(this.backoff(attempt));
             continue;
           }
@@ -115,14 +132,18 @@ export class TxSubmitterService {
             (confirm.ledger as number) ||
             (confirm.latestLedger as number) ||
             0;
-          return { txHash, ledger, success: true };
+          this.logger.log(
+            `Randomness submitted successfully for raffle ${raffleId}: ` +
+            `tx ${txHash}, ledger ${ledger}, fee ${currentFee} stroops`,
+          );
+          return { txHash, ledger, success: true, feePaid: currentFee };
         }
 
         if (confirm && this.isInsufficientFeeError(JSON.stringify(confirm))) {
           this.logger.warn(
             `Confirmation indicates insufficient fee on attempt ${attempt}; increasing fee.`,
           );
-          feeBump = Math.max(feeBump * 2, feeBump + 1);
+          currentFee = this.bumpFee(currentFee, feeEstimate.cappedFee);
           await this.delay(this.backoff(attempt));
           continue;
         }
@@ -138,7 +159,7 @@ export class TxSubmitterService {
         );
         // Heuristic: bump fee if looks like insufficient fee
         if (this.isInsufficientFeeError(msg)) {
-          feeBump = Math.max(feeBump * 2, feeBump + 1);
+          currentFee = this.bumpFee(currentFee, feeEstimate.cappedFee);
         }
         lastError = e;
         await this.delay(this.backoff(attempt));
@@ -155,11 +176,10 @@ export class TxSubmitterService {
     sourceAddress: string,
     raffleId: number,
     randomness: RandomnessResult,
-    feeBump: number,
+    feeStroops: number,
   ) {
     const account = await this.rpcServer.getAccount(sourceAddress);
-    const fee =
-      (Number((StellarSdk as any).BASE_FEE || 100) * feeBump).toString();
+    const fee = feeStroops.toString();
 
     const seedBytes = this.parseToBytes(randomness.seed, 32);
     const proofBytes = this.parseToBytes(randomness.proof, 64);
@@ -214,6 +234,14 @@ export class TxSubmitterService {
       m.includes('tx_insufficient_fee') ||
       m.includes('insufficient_fee')
     );
+  }
+
+  /**
+   * Bumps the fee by 50% with a cap to avoid runaway costs.
+   */
+  private bumpFee(currentFee: number, maxCap: number): number {
+    const bumped = Math.floor(currentFee * 1.5);
+    return Math.min(bumped, maxCap);
   }
 
   private backoff(attempt: number): number {
