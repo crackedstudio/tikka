@@ -5,6 +5,7 @@ import { RaffleModule } from './modules/raffle/raffle.module';
 import { TicketModule } from './modules/ticket/ticket.module';
 import { UserModule } from './modules/user/user.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { FeeEstimatorModule } from './fee-estimator/fee-estimator.module';
 import { TikkaNetwork, NetworkConfig, RpcConfig } from './network/network.config';
 import { WalletAdapter } from './wallet/wallet.interface';
 
@@ -34,6 +35,7 @@ export class AppModule {
         TicketModule,
         UserModule,
         AdminModule,
+        FeeEstimatorModule,
       ],
       providers: [
         ContractService,
@@ -45,6 +47,7 @@ export class AppModule {
         TicketModule,
         UserModule,
         AdminModule,
+        FeeEstimatorModule,
       ],
     };
   }
