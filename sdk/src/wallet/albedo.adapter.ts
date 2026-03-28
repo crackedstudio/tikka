@@ -29,7 +29,7 @@ export class AlbedoAdapter extends WalletAdapter {
   async getPublicKey(): Promise<string> {
     try {
       const albedo = await this.getAlbedoLib();
-      const result = await albedo.publicKey({});
+      const result = await albedo.intent('public_key', {});
       return result.pubkey;
     } catch (err: any) {
       if (this.isUserRejection(err)) {
@@ -51,7 +51,7 @@ export class AlbedoAdapter extends WalletAdapter {
 
     try {
       const albedo = await this.getAlbedoLib();
-      const result = await albedo.tx({
+      const result = await albedo.intent('tx', {
         xdr,
         network: networkPassphrase,
       });
@@ -72,7 +72,7 @@ export class AlbedoAdapter extends WalletAdapter {
 
   private async getAlbedoLib(): Promise<any> {
     try {
-      return await import('@albedo-link/intent' as any);
+      return await import('@albedo-link/intent');
     } catch {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,

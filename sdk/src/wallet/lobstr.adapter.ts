@@ -41,16 +41,24 @@ export class LobstrAdapter extends WalletAdapter {
       }
       return pubKey;
     } catch (error: any) {
+      if (this.isUserRejection(error)) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.UserRejected,
+          'User rejected public key request',
+          error,
+        );
+      }
       throw new TikkaSdkError(
         TikkaSdkErrorCode.Unknown,
         `LOBSTR getPublicKey failed: ${error.message || error}`,
+        error,
       );
     }
   }
 
   async signTransaction(
     xdr: string,
-    _opts?: { networkPassphrase?: string; accountToSign?: string },
+    opts?: { networkPassphrase?: string; accountToSign?: string },
   ): Promise<SignTransactionResult> {
     try {
       const connected = await isConnected();
@@ -64,10 +72,23 @@ export class LobstrAdapter extends WalletAdapter {
       }
       return { signedXdr };
     } catch (error: any) {
+      if (this.isUserRejection(error)) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.UserRejected,
+          'User rejected transaction signing',
+          error,
+        );
+      }
       throw new TikkaSdkError(
         TikkaSdkErrorCode.Unknown,
         `LOBSTR signTransaction failed: ${error.message || error}`,
+        error,
       );
     }
+  }
+
+  private isUserRejection(err: any): boolean {
+    const msg = String(err?.message ?? err).toLowerCase();
+    return msg.includes('cancel') || msg.includes('reject') || msg.includes('denied');
   }
 }
