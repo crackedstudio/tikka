@@ -12,6 +12,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
+    "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
     "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate"
