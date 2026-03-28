@@ -70,6 +70,14 @@ export interface SubmitSignedResult<T = any> {
   ledger: number;
 }
 
+/**
+ * Detects if an error message indicates a failure in an external contract
+ * (e.g., a SEP-41 token contract rejecting a transfer).
+ */
+function isExternalContractFailure(errorMsg: string): boolean {
+  return /external|token|sep-?41/i.test(errorMsg);
+}
+
 @Injectable()
 export class ContractService {
   private contractId: string;
