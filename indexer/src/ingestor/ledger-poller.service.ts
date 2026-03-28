@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { rpc } from "@stellar/stellar-sdk";
 import { CursorManagerService } from "./cursor-manager.service";
 import { EventParserService } from "./event-parser.service";
+import { DryRunService } from "./dry-run.service";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -26,6 +27,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     private configService: ConfigService,
     private cursorManager: CursorManagerService,
     private eventParser: EventParserService,
+    private dryRun: DryRunService,
   ) {
     const rpcUrl =
       this.configService.get<string>("SOROBAN_RPC_URL") ||
@@ -131,10 +133,16 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
 
     // 5. Save the updated cursor after the batch is processed successfully
     if (response.events.length > 0) {
-      await this.cursorManager.saveCursor(
-        highestLedgerProcessed,
-        lastPagingToken,
-      );
+      if (this.dryRun.enabled) {
+        this.logger.log(
+          `[DRY-RUN] Would save cursor: ledger=${highestLedgerProcessed} pagingToken=${lastPagingToken}`,
+        );
+      } else {
+        await this.cursorManager.saveCursor(
+          highestLedgerProcessed,
+          lastPagingToken,
+        );
+      }
     }
   }
 
