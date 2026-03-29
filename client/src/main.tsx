@@ -1,6 +1,6 @@
 // Polyfill for 'global' - required by Node.js packages in browser
 if (typeof global === "undefined") {
-    (window as any).global = globalThis;
+  (window as any).global = globalThis;
 }
 
 import { StrictMode } from 'react'

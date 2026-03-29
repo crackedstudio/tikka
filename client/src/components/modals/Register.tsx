@@ -20,8 +20,8 @@ const Register = ({ activeTab, changeActiveTab }: TrendingTabProps) => {
                                 className={[
                                     "pb-2 text-lg font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
                                     isActive
-                                        ? "text-white border-b-2 border-[#858584]"
-                                        : "text-[#858584] hover:text-white/80",
+                                        ? "text-gray-900 dark:text-white border-b-2 border-[#858584]"
+                                        : "text-[#858584] hover:text-gray-600 dark:text-white/80",
                                 ].join(" ")}
                                 aria-current={isActive ? "page" : undefined}
                             >
@@ -58,17 +58,17 @@ const Register = ({ activeTab, changeActiveTab }: TrendingTabProps) => {
                     <div className="mt-3 flex flex-col space-y-2">
                         <input
                             type="text"
-                            className="bg-[#060C23] border border-[#353F64] text-white px-2 py-2 rounded-xl"
+                            className="bg-gray-50 dark:bg-[#060C23] border border-[#353F64] text-gray-900 dark:text-white px-2 py-2 rounded-xl"
                             placeholder="Username"
                         />
                         <input
                             type="email"
-                            className="bg-[#060C23] border border-[#353F64] text-white px-2 py-2 rounded-xl"
+                            className="bg-gray-50 dark:bg-[#060C23] border border-[#353F64] text-gray-900 dark:text-white px-2 py-2 rounded-xl"
                             placeholder="Email Address"
                         />
                         <input
                             type="password"
-                            className="bg-[#060C23] border border-[#353F64] text-white px-2 py-2 rounded-xl"
+                            className="bg-gray-50 dark:bg-[#060C23] border border-[#353F64] text-gray-900 dark:text-white px-2 py-2 rounded-xl"
                             placeholder="Password"
                         />
                     </div>
@@ -78,7 +78,7 @@ const Register = ({ activeTab, changeActiveTab }: TrendingTabProps) => {
                             <span>Get Started</span>
                         </button>
                     </div>
-                    <p className="my-8 text-xs text-center text-[#9CA3AF]">
+                    <p className="my-8 text-xs text-center text-gray-600 dark:text-[#9CA3AF]">
                         By proceding, you agree to Tikka’s{" "}
                         <span className="text-[#fe3796]">
                             {" "}

@@ -55,10 +55,10 @@ export default function NotificationPreferences() {
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-[#11172E] rounded-3xl p-8">
+      <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8">
         <div className="flex items-center gap-3 mb-4">
           <Bell className="w-6 h-6 text-purple-500" />
-          <h2 className="text-2xl font-bold text-white">Notification Preferences</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Notification Preferences</h2>
         </div>
         <p className="text-gray-400">Please sign in to manage your notification preferences.</p>
       </div>
@@ -67,10 +67,10 @@ export default function NotificationPreferences() {
 
   if (isLoading) {
     return (
-      <div className="bg-[#11172E] rounded-3xl p-8">
+      <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8">
         <div className="flex items-center gap-3 mb-6">
           <Bell className="w-6 h-6 text-purple-500" />
-          <h2 className="text-2xl font-bold text-white">Notification Preferences</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Notification Preferences</h2>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
@@ -80,10 +80,10 @@ export default function NotificationPreferences() {
   }
 
   return (
-    <div className="bg-[#11172E] rounded-3xl p-8">
+    <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8">
       <div className="flex items-center gap-3 mb-6">
         <Bell className="w-6 h-6 text-purple-500" />
-        <h2 className="text-2xl font-bold text-white">Notification Preferences</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Notification Preferences</h2>
       </div>
 
       {error && (
@@ -102,7 +102,7 @@ export default function NotificationPreferences() {
       )}
 
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white mb-2">Active Subscriptions</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Active Subscriptions</h3>
         <p className="text-gray-400 text-sm">
           You'll receive notifications when these raffles end or when you win.
         </p>
@@ -121,13 +121,13 @@ export default function NotificationPreferences() {
           {subscriptions.map((subscription) => (
             <div
               key={subscription.id}
-              className="bg-[#1A2238] rounded-xl p-4 flex items-center justify-between hover:bg-[#1F2847] transition-colors"
+              className="bg-gray-100 dark:bg-[#1A2238] rounded-xl p-4 flex items-center justify-between hover:bg-[#1F2847] transition-colors"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-3">
                   <Bell className="w-5 h-5 text-purple-400" />
                   <div>
-                    <p className="text-white font-medium">Raffle #{subscription.raffleId}</p>
+                    <p className="text-gray-900 dark:text-white font-medium">Raffle #{subscription.raffleId}</p>
                     <p className="text-gray-400 text-sm">
                       Channel: {subscription.channel} • Subscribed on{' '}
                       {new Date(subscription.createdAt).toLocaleDateString()}

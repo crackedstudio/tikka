@@ -13,16 +13,16 @@ const ImageStep: React.FC<StepComponentProps> = ({
 
     const handleFileSelect = (files: FileList | File[]) => {
         const fileArray = Array.from(files).filter(file => file.type.startsWith("image/"));
-        
+
         if (fileArray.length > 0) {
             const currentImages = formData.images || [];
             const newImages = [...currentImages, ...fileArray];
-            
+
             // Set first image as primary if not set
             if (!formData.image && newImages.length > 0) {
-                updateFormData({ 
+                updateFormData({
                     image: newImages[0],
-                    images: newImages 
+                    images: newImages
                 });
             } else {
                 updateFormData({ images: newImages });
@@ -62,7 +62,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
 
     const removeImage = (index: number) => {
         const newImages = formData.images.filter((_, i) => i !== index);
-        
+
         // Update primary image if removed
         if (formData.image === formData.images[index]) {
             updateFormData({
@@ -81,10 +81,10 @@ const ImageStep: React.FC<StepComponentProps> = ({
     const canContinue = formData.images.length > 0;
 
     return (
-        <div className="bg-[#1E1932] rounded-xl p-6">
+        <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
             <div className="flex items-center space-x-3 mb-2">
                 <svg
-                    className="w-6 h-6 text-white"
+                    className="w-6 h-6 text-gray-900 dark:text-white"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                 >
@@ -94,9 +94,9 @@ const ImageStep: React.FC<StepComponentProps> = ({
                         clipRule="evenodd"
                     />
                 </svg>
-                <h3 className="text-white text-xl font-bold">Prize Images</h3>
+                <h3 className="text-gray-900 dark:text-white text-xl font-bold">Prize Images</h3>
             </div>
-            <p className="text-gray-300 text-sm mb-6">
+            <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
                 Upload multiple images to showcase your prize from different angles
             </p>
 
@@ -104,10 +104,9 @@ const ImageStep: React.FC<StepComponentProps> = ({
             <div
                 className={`
                     border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 cursor-pointer
-                    ${
-                        isDragOver
-                            ? "border-[#FF389C] bg-[#FF389C]/10"
-                            : "border-gray-500 hover:border-gray-400"
+                    ${isDragOver
+                        ? "border-pink-500 dark:border-[#FF389C] bg-[#FF389C]/10"
+                        : "border-gray-500 hover:border-gray-400"
                     }
                 `}
                 onDragOver={handleDragOver}
@@ -117,7 +116,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
             >
                 {formData.images.length > 0 ? (
                     <div className="space-y-4">
-                        <p className="text-white text-sm mb-4">
+                        <p className="text-gray-900 dark:text-white text-sm">
                             {formData.images.length} image{formData.images.length > 1 ? 's' : ''} uploaded - Click to add more
                         </p>
                     </div>
@@ -206,7 +205,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
 
             {/* Image Tips */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-                <div className="bg-[#2A264A] rounded-lg p-4">
+                <div className="bg-gray-200 dark:bg-[#2A264A] rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
                         <svg
                             className="w-5 h-5 text-purple-400"
@@ -219,7 +218,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <h4 className="text-white font-medium">
+                        <h4 className="text-gray-900 dark:text-white font-medium">
                             Good Lighting
                         </h4>
                     </div>
@@ -228,7 +227,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     </p>
                 </div>
 
-                <div className="bg-[#2A264A] rounded-lg p-4">
+                <div className="bg-gray-200 dark:bg-[#2A264A] rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
                         <svg
                             className="w-5 h-5 text-purple-400"
@@ -241,7 +240,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <h4 className="text-white font-medium">
+                        <h4 className="text-gray-900 dark:text-white font-medium">
                             Multiple Angles
                         </h4>
                     </div>
@@ -250,7 +249,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     </p>
                 </div>
 
-                <div className="bg-[#2A264A] rounded-lg p-4">
+                <div className="bg-gray-200 dark:bg-[#2A264A] rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
                         <svg
                             className="w-5 h-5 text-purple-400"
@@ -263,7 +262,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                 clipRule="evenodd"
                             />
                         </svg>
-                        <h4 className="text-white font-medium">
+                        <h4 className="text-gray-900 dark:text-white font-medium">
                             Clear Background
                         </h4>
                     </div>
@@ -277,18 +276,17 @@ const ImageStep: React.FC<StepComponentProps> = ({
             <div className="flex justify-between mt-8">
                 <button
                     onClick={onBack}
-                    className="px-6 py-3 bg-[#2A264A] text-white rounded-lg hover:bg-[#3A365A] transition-colors duration-200"
+                    className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:bg-[#3A365A] transition-colors duration-200"
                 >
                     Back
                 </button>
                 <button
                     onClick={onNext}
                     disabled={!canContinue}
-                    className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
-                        canContinue
-                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-white"
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${canContinue
+                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
                             : "bg-gray-600 text-gray-400 cursor-not-allowed"
-                    }`}
+                        }`}
                 >
                     Continue
                 </button>

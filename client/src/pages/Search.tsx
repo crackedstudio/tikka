@@ -38,7 +38,7 @@ const SearchPage: React.FC = () => {
         {/* Animated Icon */}
         <div className="relative mb-6">
             <div className="absolute inset-0 rounded-full bg-[#FE3796]/20 animate-ping"></div>
-            <div className="relative bg-[#11172E] p-6 rounded-full border border-white/10">
+            <div className="relative bg-white dark:bg-[#11172E] p-6 rounded-full border border-gray-200 dark:border-white/10">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FE3796" strokeWidth="2">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -47,9 +47,9 @@ const SearchPage: React.FC = () => {
             </div>
         </div>
         
-        <h3 className="text-xl font-bold text-white mb-2">No raffles found</h3>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No raffles found</h3>
         <p className="text-gray-400 text-center max-w-xs mb-8">
-            We couldn't find anything matching <span className="text-[#FE3796]">"{query}"</span>. 
+            We couldn't find anything matching <span className="text-pink-600 dark:text-[#FE3796]">"{query}"</span>. 
             Try a different keyword or category.
         </p>
        

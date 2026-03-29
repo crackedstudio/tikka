@@ -44,7 +44,7 @@ class ErrorBoundary extends React.Component<
                         <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                             <AlertCircle size={32} className="text-red-400" />
                         </div>
-                        <h2 className="text-white text-2xl font-bold mb-2">
+                        <h2 className="text-gray-900 dark:text-white text-2xl font-bold mb-2">
                             Something went wrong
                         </h2>
                         <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
@@ -54,14 +54,14 @@ class ErrorBoundary extends React.Component<
                         <div className="flex items-center justify-center gap-3">
                             <button
                                 onClick={this.handleReset}
-                                className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200 inline-flex items-center gap-2"
+                                className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200 inline-flex items-center gap-2"
                             >
                                 <RefreshCw size={16} />
                                 Try Again
                             </button>
                             <a
                                 href="/"
-                                className="border border-[#1F263F] hover:border-[#FF389C]/50 text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200"
+                                className="border border-gray-200 dark:border-[#1F263F] hover:border-pink-500 dark:border-[#FF389C]/50 text-gray-900 dark:text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200"
                             >
                                 Go Home
                             </a>

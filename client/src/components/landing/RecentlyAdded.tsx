@@ -11,7 +11,7 @@ const RecentlyAddedCardWrapper: React.FC<{ raffleId: number }> = ({
 
     if (isLoading) {
         return (
-            <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4 animate-pulse">
+            <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4 animate-pulse">
                 <div className="w-full h-48 bg-gray-700 rounded-3xl"></div>
                 <div className="h-4 bg-gray-700 rounded"></div>
                 <div className="h-4 bg-gray-700 rounded"></div>
@@ -22,7 +22,7 @@ const RecentlyAddedCardWrapper: React.FC<{ raffleId: number }> = ({
 
     if (error || !raffle) {
         return (
-            <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
+            <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
                 <div className="text-red-400 text-center text-sm">
                     Error loading raffle
                 </div>
@@ -54,7 +54,7 @@ const RecentlyAdded = () => {
                         Recently Added
                     </h1>
 
-                    <button className="inline-flex items-center gap-3 rounded-xl px-6 py-3 text-sm font-medium text-white transition hover:brightness-110 border border-[#FE3796]">
+                    <button className="inline-flex items-center gap-3 rounded-xl px-6 py-3 text-sm font-medium text-gray-900 dark:text-white transition hover:brightness-110 border border-[#FE3796]">
                         <Eye className="h-5 w-5" />
                         <span>See All</span>
                     </button>
@@ -66,7 +66,7 @@ const RecentlyAdded = () => {
                         Array.from({ length: 4 }).map((_, i) => (
                             <div
                                 key={i}
-                                className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4 animate-pulse"
+                                className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4 animate-pulse"
                             >
                                 <div className="w-full h-48 bg-gray-700 rounded-3xl"></div>
                                 <div className="h-4 bg-gray-700 rounded"></div>
@@ -82,7 +82,7 @@ const RecentlyAdded = () => {
                         </div>
                     ) : raffles.length === 0 ? (
                         <div className="col-span-full text-center py-12">
-                            <div className="text-white text-lg">
+                            <div className="text-gray-900 dark:text-white text-lg">
                                 No raffles found yet
                             </div>
                         </div>

@@ -23,7 +23,7 @@ const AboutRaffle = () => {
                 <div className="bg-[#9D4EDD33] flex items-center space-x-4 p-4 w-full rounded-xl">
                     <Users color="#9D4EDD" size={20} />
                     <div>
-                        <p className="text-[#9CA3AF] text-[12px]">
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                             Participants
                         </p>
                         <p className="font-semibold">2,458 / 5,000</p>
@@ -33,7 +33,7 @@ const AboutRaffle = () => {
                 <div className="bg-[#9D4EDD33] flex items-center space-x-4 p-4 w-full rounded-xl">
                     <Ticket color="#9D4EDD" size={20} />
                     <div>
-                        <p className="text-[#9CA3AF] text-[12px]">
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                             Tickets Sold
                         </p>
                         <p className="font-semibold">14,782</p>

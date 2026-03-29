@@ -14,7 +14,7 @@ const LandingLayout = () => {
         setModalOpen(true);
     };
     return (
-        <div className="bg-[#060C23] text-white flex flex-col space-y-16">
+        <div className="bg-gray-50 dark:bg-[#060C23] text-gray-900 dark:text-white flex flex-col space-y-16 min-h-screen transition-colors duration-300">
             <Navbar onStart={changeModal} />
             <ErrorBoundary>
                 <Outlet />

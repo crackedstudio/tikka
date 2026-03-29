@@ -40,7 +40,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
     raffleId,
 }) => {
     return (
-        <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
+        <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
             {/* Clickable content area - links to details page */}
             {raffleId ? (
                 <Link
@@ -59,9 +59,9 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                     {/* Title & Prize */}
                     <div>
                         <p className="text-[22px] font-bold">{title}</p>
-                        <p className="text-[#9CA3AF] text-sm">
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
                             Prize Value:{" "}
-                            <span className="font-bold text-[#FFD700]">
+                            <span className="font-bold text-yellow-600 dark:text-[#FFD700]">
                                 {prizeValue} {prizeCurrency}
                             </span>
                         </p>
@@ -70,7 +70,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                     {/* Countdown */}
                     <div>
                         <Line />
-                        <p className="text-xs text-center text-[#9CA3AF]">
+                        <p className="text-xs text-center text-gray-600 dark:text-[#9CA3AF]">
                             Ends In
                         </p>
                         <div className="flex justify-center space-x-1">
@@ -93,13 +93,13 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                     {/* Ticket & Entries */}
                     <div className="flex justify-between">
                         <div>
-                            <p className="text-[#9CA3AF] text-[12px]">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Ticket price
                             </p>
                             <p>{ticketPrice}</p>
                         </div>
                         <div>
-                            <p className="text-[#9CA3AF] text-[12px]">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Entries
                             </p>
                             <p>{entries}</p>
@@ -123,9 +123,9 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                     {/* Title & Prize */}
                     <div>
                         <p className="text-[22px] font-bold">{title}</p>
-                        <p className="text-[#9CA3AF] text-sm">
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
                             Prize Value:{" "}
-                            <span className="font-bold text-[#FFD700]">
+                            <span className="font-bold text-yellow-600 dark:text-[#FFD700]">
                                 {prizeValue} {prizeCurrency}
                             </span>
                         </p>
@@ -134,7 +134,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                     {/* Countdown */}
                     <div>
                         <Line />
-                        <p className="text-xs text-center text-[#9CA3AF]">
+                        <p className="text-xs text-center text-gray-600 dark:text-[#9CA3AF]">
                             Ends In
                         </p>
                         <div className="flex justify-center space-x-1">
@@ -157,13 +157,13 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                     {/* Ticket & Entries */}
                     <div className="flex justify-between">
                         <div>
-                            <p className="text-[#9CA3AF] text-[12px]">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Ticket price
                             </p>
                             <p>{ticketPrice}</p>
                         </div>
                         <div>
-                            <p className="text-[#9CA3AF] text-[12px]">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Entries
                             </p>
                             <p>{entries}</p>
@@ -194,7 +194,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
             ) : (
                 <button
                     onClick={onEnter}
-                    className="border border-[#fe3796] px-8 py-4 rounded-xl hover:bg-[#fe3796]/10 transition"
+                    className="border border-pink-500 dark:border-[#fe3796] px-8 py-4 rounded-xl hover:bg-[#fe3796]/10 transition"
                 >
                     {buttonText}
                 </button>
