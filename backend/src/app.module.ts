@@ -35,7 +35,7 @@ import { validate } from "./config/env.schema";
      *   THROTTLE_NONCE_LIMIT   / THROTTLE_NONCE_TTL
      */
     ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
+      imports: [ConfigModule.forRoot()],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         throttlers: [
