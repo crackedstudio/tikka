@@ -71,6 +71,7 @@ const RaffleDetails = () => {
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
             <RaffleDetailsCard
                 image={raffle.image || detailimage}
+                images={raffle.metadata?.images}
                 title={raffle.metadata?.title || raffle.description}
                 body={
                     raffle.metadata?.description || "No description available."

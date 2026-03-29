@@ -4,7 +4,7 @@
  * Updated to handle Issue #120: Network switching and connection state.
  */
 
-import React, { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useWallet, type UseWalletReturn } from "../hooks/useWallet";
 
 // We extend the return type to include the network status check

@@ -8,6 +8,7 @@ import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
 import { CommitmentService } from '../randomness/commitment.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
+import { FeeEstimatorService } from '../submitter/fee-estimator.service';
 import { HealthModule } from '../health/health.module';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
@@ -46,6 +47,7 @@ import { RANDOMNESS_QUEUE } from './randomness.queue';
     PrngService,
     CommitmentService,
     TxSubmitterService,
+    FeeEstimatorService,
     HealthService,
     LagMonitorService,
   ],

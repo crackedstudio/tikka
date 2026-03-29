@@ -105,6 +105,30 @@ export async function signTransaction(transaction: any): Promise<any> {
   return await getKit().signTransaction(transaction);
 }
 
+export async function isWalletConnected(): Promise<boolean> {
+  try {
+    const address = await getAccountAddress();
+    return address !== null;
+  } catch {
+    return false;
+  }
+}
+
+export async function isWalletInstalled(): Promise<boolean> {
+  // Check if any wallet extension is available
+  return typeof window !== "undefined" && (
+    !!(window as any).freighter || 
+    !!(window as any).xBull ||
+    !!(window as any).rabet
+  );
+}
+
+export async function setNetwork(network: string): Promise<void> {
+  console.warn(`Network switch to ${network} requested. Please switch manually in your wallet extension.`);
+  // Most Stellar wallets don't support programmatic network switching
+  // Users need to switch manually in their wallet extension
+}
+
 // Placeholder for future Kit support
 export async function promptNetworkSwitch(_targetNetwork: string): Promise<void> {
   console.warn("Manual network switch required in the wallet extension.");

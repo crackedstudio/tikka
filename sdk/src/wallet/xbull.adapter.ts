@@ -9,7 +9,9 @@ import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 /**
  * xBull wallet adapter.
  *
- * Uses the `window.xBullSDK` global injected by the xBull extension / PWA.
+ * Uses the `window.xbull` global injected by the xBull extension / PWA.
+ * 
+ * @see https://docs.xbull.app/
  */
 export class XBullAdapter extends WalletAdapter {
   readonly name = WalletName.XBull;
@@ -21,7 +23,7 @@ export class XBullAdapter extends WalletAdapter {
   isAvailable(): boolean {
     return (
       typeof globalThis !== 'undefined' &&
-      typeof (globalThis as any).xBullSDK !== 'undefined'
+      typeof (globalThis as any).xbull !== 'undefined'
     );
   }
 
@@ -61,9 +63,9 @@ export class XBullAdapter extends WalletAdapter {
     try {
       const sdk = this.getSdk();
 
-      const signedXdr: string = await sdk.signXDR(xdr, {
+      const signedXdr: string = await sdk.signTransaction(xdr, {
         networkPassphrase,
-        publicKey: opts?.accountToSign,
+        accountToSign: opts?.accountToSign,
       });
 
       return { signedXdr };
@@ -87,7 +89,7 @@ export class XBullAdapter extends WalletAdapter {
   /* ---------------------- Helpers ---------------------- */
 
   private getSdk(): any {
-    return (globalThis as any).xBullSDK;
+    return (globalThis as any).xbull;
   }
 
   private assertInstalled(): void {
