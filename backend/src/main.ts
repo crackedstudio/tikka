@@ -6,7 +6,9 @@ import {
 } from "@nestjs/platform-fastify";
 import multipart from "@fastify/multipart";
 import { AppModule } from "./app.module";
+import { configureSecurity } from "./bootstrap";
 import { MAX_UPLOAD_BYTES } from "./config/upload.config";
+import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -24,6 +26,7 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);
+  await configureSecurity(app);
 
   // Using 'as any' bypasses the type mismatch error between Fastify versions
   await app.register(multipart as any, {
@@ -32,6 +35,8 @@ async function bootstrap() {
       files: 1,
     },
   });
+
+  app.useGlobalInterceptors(new RequestLoggingInterceptor());
 
   await app.listen(process.env.PORT ?? 3001, "0.0.0.0");
   console.log(`Application is running on: ${await app.getUrl()}`);
