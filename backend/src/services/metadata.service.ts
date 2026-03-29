@@ -51,14 +51,23 @@ export class MetadataService {
    * Full-text search over raffle metadata (title, description, category).
    * Uses Supabase's ilike for simple prefix/contains matching.
    */
-  async searchMetadata(query: string, limit = 50): Promise<RaffleMetadata[]> {
+  async searchMetadata(
+    query: string,
+    category?: string,
+    limit = 50,
+  ): Promise<RaffleMetadata[]> {
     const pattern = `%${query}%`;
 
-    const { data, error } = await this.client
+    let searchQuery = this.client
       .from(TABLE)
       .select('*')
-      .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
-      .limit(limit);
+      .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`);
+
+    if (category) {
+      searchQuery = searchQuery.ilike('category', category.trim());
+    }
+
+    const { data, error } = await searchQuery.limit(limit);
 
     if (error) {
       throw new Error(`Search failed: ${error.message}`);
@@ -76,6 +85,7 @@ export class MetadataService {
     const row = {
       raffle_id: raffleId,
       ...payload,
+      category: payload.category?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 

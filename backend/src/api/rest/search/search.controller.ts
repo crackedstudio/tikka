@@ -8,12 +8,16 @@ export class SearchController {
 
   @Get()
   @Public()
-  async search(@Query('q') query: string) {
+  async search(
+    @Query('q') query: string,
+    @Query('category') category?: string,
+  ) {
     if (!query || query.trim().length < 2) {
       return { raffles: [], total: 0 };
     }
 
-    const results = await this.searchService.search(query);
+    const normalizedCategory = category?.trim() ? category.trim() : undefined;
+    const results = await this.searchService.search(query, normalizedCategory);
     return {
       raffles: results,
       total: results.length,

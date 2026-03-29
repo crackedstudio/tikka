@@ -32,8 +32,8 @@ export class SearchService {
     private readonly indexerService: IndexerService,
   ) {}
 
-  async search(query: string): Promise<SearchResult[]> {
-    const matches = await this.metadataService.searchMetadata(query);
+  async search(query: string, category?: string): Promise<SearchResult[]> {
+    const matches = await this.metadataService.searchMetadata(query, category);
 
     if (matches.length === 0) return [];
 
