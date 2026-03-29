@@ -57,6 +57,7 @@ useEffect(() => {
         { label: "My Raffles", href: "/my-raffles" },
         { label: "Leaderboard", href: "/leaderboard" },
         { label: "Settings", href: "/settings" },
+        { label: "Contact Support", href: "/support" },
     ];
 
     const targetNetwork = STELLAR_CONFIG.network.charAt(0).toUpperCase() + STELLAR_CONFIG.network.slice(1);
@@ -92,15 +93,22 @@ useEffect(() => {
 
                 {/* Desktop nav */}
                 <div className="hidden items-center gap-2 lg:flex">
-                    {navItems.map((item) => (
-                        <Link
-                            key={item.label}
-                            to={item.href}
-                            className="px-4 py-2 text-sm text-white/80 hover:text-white transition"
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.href;
+                        return (
+                            <Link
+                                key={item.label}
+                                to={item.href}
+                                className={`px-4 py-2 text-sm transition ${
+                                    isActive
+                                        ? "text-white font-semibold"
+                                        : "text-white/80 hover:text-white"
+                                }`}
+                            >
+                                {item.label}
+                            </Link>
+                        );
+                    })}
 
                     {isConnected && (
                         <div className="flex items-center gap-2 mr-2">
@@ -128,6 +136,7 @@ useEffect(() => {
                 {/* Mobile: hamburger */}
                 <button
                     type="button"
+                    aria-label={open ? "Close navigation menu" : "Open navigation menu"}
                     onClick={() => setOpen((s: boolean) => !s)}
                     className="lg:hidden inline-flex items-center justify-center rounded-lg p-2 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/40 text-white"
                 >
@@ -145,6 +154,7 @@ useEffect(() => {
 
             {/* Mobile panel */}
             <div
+                data-testid="mobile-nav-panel"
                 className={`lg:hidden overflow-hidden transition-[max-height,opacity] duration-300 bg-[#0B0F1C] ${
                     open ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
                 }`}
@@ -161,16 +171,23 @@ useEffect(() => {
                         />
                     </div>
 
-                    {navItems.map((item) => (
-                        <Link
-                            key={item.label}
-                            to={item.href}
-                            className="rounded-lg px-3 py-3 text-sm text-white/90 hover:bg-white/5"
-                            onClick={() => setOpen(false)}
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.href;
+                        return (
+                            <Link
+                                key={item.label}
+                                to={item.href}
+                                className={`rounded-lg px-3 py-3 text-sm transition ${
+                                    isActive
+                                        ? "text-white font-semibold bg-white/10"
+                                        : "text-white/90 hover:bg-white/5"
+                                }`}
+                                onClick={() => setOpen(false)}
+                            >
+                                {item.label}
+                            </Link>
+                        );
+                    })}
 
                     <a
                         onClick={() => {
