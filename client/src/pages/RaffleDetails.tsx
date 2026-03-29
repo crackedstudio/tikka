@@ -75,7 +75,7 @@ const RaffleDetails = () => {
                     items={[
                         { label: 'Home', href: '/home' },
                         { label: 'Explore', href: '/search' },
-                        { label: raffle.title || 'Raffle Details' }
+                        { label: raffle.metadata?.title || 'Raffle Details' }
                     ]}
                 />
             </div>

@@ -325,6 +325,7 @@ export interface RaffleListFilters {
 export interface FormattedRaffle {
     id: number;
     creator: string;
+    title?: string;
     status: string;
     description: string;
     endTime: number;
