@@ -1,6 +1,8 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UsePipes } from '@nestjs/common';
 import { SearchService } from '../../../services/search.service';
 import { Public } from '../../../auth/decorators/public.decorator';
+import { SearchQueryDto, SearchQuerySchema } from './dto/search-query.dto';
+import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
 
 @Controller('search')
 export class SearchController {
@@ -8,15 +10,12 @@ export class SearchController {
 
   @Get()
   @Public()
-  async search(@Query('q') query: string) {
-    if (!query || query.trim().length < 2) {
+  @UsePipes(new (createZodPipe(SearchQuerySchema))())
+  async search(@Query() query: SearchQueryDto) {
+    if (!query.q || query.q.trim().length < 2) {
       return { raffles: [], total: 0 };
     }
 
-    const results = await this.searchService.search(query);
-    return {
-      raffles: results,
-      total: results.length,
-    };
+    return this.searchService.search(query.q, query.limit, query.offset);
   }
 }
