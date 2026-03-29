@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
 import { api } from "../services/apiClient";
 import { API_CONFIG } from "../config/api";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 interface AuditLogEntry {
     id: string;
@@ -63,6 +64,9 @@ const Transparency = () => {
 
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col gap-6">
+            <div className="-mb-2">
+                <Breadcrumbs />
+            </div>
             {/* Header */}
             <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -140,11 +144,10 @@ const Transparency = () => {
                                         </td>
                                         <td className="px-4 py-3">
                                             <span
-                                                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                                    entry.method === "VRF"
+                                                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${entry.method === "VRF"
                                                         ? "bg-purple-900 text-purple-300"
                                                         : "bg-blue-900 text-blue-300"
-                                                }`}
+                                                    }`}
                                             >
                                                 {entry.method}
                                             </span>

@@ -8,6 +8,7 @@ import ErrorMessage from "../components/ui/ErrorMessage";
 import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
 import EnterRaffleButton from "../components/EnterRaffleButton";
 import detailimage from "../assets/detailimage.png";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const RaffleDetails = () => {
     const { id } = useParams();
@@ -69,11 +70,21 @@ const RaffleDetails = () => {
 
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
+            <div className="mb-4">
+                <Breadcrumbs 
+                    items={[
+                        { label: 'Home', href: '/home' },
+                        { label: 'Explore', href: '/search' },
+                        { label: raffle.title || 'Raffle Details' }
+                    ]} 
+                />
+            </div>
+            
             <RaffleDetailsCard
                 image={raffle.image || detailimage}
-                title={raffle.metadata?.title || raffle.description}
+                title={raffle.title}
                 body={
-                    raffle.metadata?.description || "No description available."
+                    raffle.description || "No description available."
                 }
                 prizeValue={raffle.prizeValue}
                 prizeCurrency={raffle.prizeCurrency}

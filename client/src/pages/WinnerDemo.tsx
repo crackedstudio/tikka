@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Modal from "../components/modals/Modal";
 import WinnerAnnouncement from "../components/modals/WinnerAnnouncement";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const WinnerDemo: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,8 +27,11 @@ const WinnerDemo: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#1A162C] flex items-center justify-center">
-            <div className="text-center">
+        <div className="min-h-screen bg-gray-50 dark:bg-[#1A162C] flex items-center justify-center relative">
+            <div className="absolute w-full max-w-7xl mx-auto top-0 left-0 right-0 px-6 py-8">
+                <Breadcrumbs />
+            </div>
+            <div className="text-center mt-12">
                 <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">
                     Winner Announcement Demo
                 </h1>
