@@ -1,0 +1,19 @@
+# .sops.yaml — SOPS encryption rules for the oracle
+# Place this file at oracle/.sops.yaml (or repo root).
+#
+# Encrypt with age:
+#   sops --encrypt oracle/.env > oracle/.env.enc
+#
+# Decrypt (done automatically by scripts/decrypt-env.sh at startup):
+#   sops --decrypt oracle/.env.enc > oracle/.env
+#
+# To use AWS KMS instead, replace the age key with a kms ARN:
+#   kms:
+#     - arn: arn:aws:kms:us-east-1:123456789012:key/<key-id>
+
+creation_rules:
+  - path_regex: oracle/\.env(\.enc)?$
+    age: >-
+      age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    # Restrict access: only the CI/CD role and the oracle pod's service account
+    # should hold the private age key (stored in a K8s Secret or AWS Secrets Manager).

@@ -23,6 +23,19 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 - `src/modules/` — Feature modules (Raffle, Ticket, User).
 - `src/utils/` — Shared utilities for formatting, validation, and error handling.
 
+## API Documentation
+
+Full TypeDoc reference is auto-generated and hosted on GitHub Pages:
+**[crackedstudio.github.io/tikka](https://crackedstudio.github.io/tikka)**
+
+To build locally:
+```bash
+npm run docs        # generates sdk/docs/
+npm run docs:watch  # rebuilds on file change
+```
+
+The docs are organized by module: **Raffle** · **Ticket** · **Wallet** · **User** · **Network** · **Utils**.
+
 ## Architecture
 
 Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section 2 — tikka-sdk).
