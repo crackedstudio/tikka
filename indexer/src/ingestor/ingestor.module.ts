@@ -13,5 +13,10 @@ import { EventHandlersModule } from "./event-handlers.module";
     LedgerPollerService,
     EventHandlersModule,
   ],
+import { DryRunService } from "./dry-run.service";
+
+@Module({
+  providers: [CursorManagerService, EventParserService, LedgerPollerService, DryRunService],
+  exports: [CursorManagerService, EventParserService, LedgerPollerService, DryRunService],
 })
 export class IngestorModule {}

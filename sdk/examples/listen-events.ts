@@ -31,7 +31,6 @@ async function main() {
     : null;
   const pollMs = parseInt(process.env.TIKKA_POLL_MS ?? '5000', 10);
 
-  const networkConfig = resolveNetworkConfig(network);
   const contractId = process.env.TIKKA_CONTRACT_ID ?? getRaffleContractId(network);
 
   const app = await NestFactory.createApplicationContext(
@@ -47,7 +46,7 @@ async function main() {
   console.log(`  Polling every ${pollMs}ms — press Ctrl+C to stop\n`);
 
   // Track the latest ledger we've seen to avoid re-processing
-  let startLedger: number | undefined;
+  let cursor: string | undefined;
 
   async function poll() {
     try {
@@ -59,14 +58,16 @@ async function main() {
       ];
 
       const response = await server.getEvents({
-        startLedger,
+        cursor: cursor ?? '',
         filters,
         limit: 100,
       });
 
       for (const event of response.events) {
-        // Advance cursor past processed events
-        startLedger = event.ledger + 1;
+        // Update cursor from response
+        if (response.latestLedger) {
+          cursor = String(response.latestLedger);
+        }
 
         const topic = event.topic.map((t: { toString(): string }) => t.toString()).join(':');
         const value = event.value?.toString() ?? '';
@@ -85,13 +86,12 @@ async function main() {
     }
   }
 
-  // Initial poll to set the start ledger to "now"
+  // Initial poll to set the cursor to "now"
   try {
     const latest = await server.getLatestLedger();
-    startLedger = latest.sequence;
-    console.log(`Starting from ledger ${startLedger}\n`);
+    console.log(`Starting from ledger ${latest.sequence}\n`);
   } catch {
-    // If we can't get the latest ledger, start from 0 and let the RPC decide
+    // If we can't get the latest ledger, start from beginning
   }
 
   // Poll loop

@@ -8,11 +8,18 @@ module.exports = {
         '^.+\\.(t|j)s$': 'ts-jest',
     },
     transformIgnorePatterns: [
-        // Transform JS modules that ship as ES modules in node_modules
-        '/node_modules/(?!(stellar-sdk|@stellar|axios|@noble)/)'
+        // Transform ESM modules from @noble and @stellar packages
+        'node_modules/(?!(@noble|@stellar|stellar-sdk)/)',
     ],
     moduleNameMapper: {
         '^src/(.*)$': '<rootDir>/src/$1',
-        '^@noble/curves/(.*)$': '<rootDir>/node_modules/@noble/curves/$1.js',
+    },
+    globals: {
+        'ts-jest': {
+            tsconfig: {
+                esModuleInterop: true,
+                allowSyntheticDefaultImports: true,
+            },
+        },
     },
 };

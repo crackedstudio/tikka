@@ -43,6 +43,7 @@ describe('TicketService', () => {
       expect(contractService.invoke).toHaveBeenCalledWith(
         ContractFn.BUY_TICKET,
         [params.raffleId, 'G...ADDRESS', params.quantity],
+        { memo: undefined },
       );
       expect(result).toEqual({
         ticketIds: mockResult.result,
@@ -83,6 +84,7 @@ describe('TicketService', () => {
       expect(contractService.invoke).toHaveBeenCalledWith(
         ContractFn.REFUND_TICKET,
         [params.raffleId, params.ticketId],
+        { memo: undefined },
       );
       expect(result).toEqual({
         txHash: 'refund-hash',

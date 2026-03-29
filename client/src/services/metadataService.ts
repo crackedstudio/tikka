@@ -171,7 +171,7 @@ export class MetadataService {
    * returns metadataCid (currently: image URL returned by backend)
    */
   static async uploadMetadataWithImage(
-    metadata: Partial<RaffleMetadata>,
+    _metadata: Partial<RaffleMetadata>,
     imageFile: File,
   ): Promise<string> {
     try {
