@@ -8,21 +8,13 @@ export interface BreadcrumbItem {
 }
 
 interface BreadcrumbsProps {
-    /** 
-     * Optional items to completely override the default path-based breadcrumbs.
-     * Useful for deep pages that need custom names (like fetching a raffle title).
-     */
     items?: BreadcrumbItem[];
-    /**
-     * Optional classname
-     */
     className?: string;
 }
 
 export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items, className = '' }) => {
     const location = useLocation();
 
-    // Auto-generate items from URL if none are provided
     const generateDefaultItems = (): BreadcrumbItem[] => {
         const pathnames = location.pathname.split('/').filter((x) => x);
         const defaultItems: BreadcrumbItem[] = [{ label: 'Home', href: '/home' }];
@@ -30,14 +22,11 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items, className = '' 
         let currentPath = '';
         pathnames.forEach((segment, index) => {
             currentPath += `/${segment}`;
-            // Format the segment name: capitalize and replace dashes
             let formattedSegment = segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
 
-            // Re-route 'raffles' to say 'Explore' for user familiarity
             if (segment.toLowerCase() === 'raffles') {
                 formattedSegment = 'Explore';
             }
-            // Re-route 'details' to say 'Explore' since it's the search/explore flow typically
             if (segment.toLowerCase() === 'details') {
                 formattedSegment = 'Details';
             }

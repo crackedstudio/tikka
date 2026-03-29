@@ -8,7 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import type { LatencyPoint } from '../../services/monitorApi';
+import { LatencyPoint } from '../../services/monitorApi';
 
 interface LatencyGraphProps {
   latencyData: LatencyPoint[];
@@ -84,8 +84,8 @@ export default function LatencyGraph({ latencyData, onRangeChange }: LatencyGrap
               contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px' }}
               labelStyle={{ color: '#D1D5DB' }}
               itemStyle={{ color: '#A5B4FC' }}
-              labelFormatter={(label) => formatTime(String(label))}
-              formatter={(value) => [`${Number(value)} ms`, 'Latency']}
+              labelFormatter={(label: string) => formatTime(label)}
+              formatter={(value: number) => [`${value} ms`, 'Latency']}
             />
             <Line
               type="monotone"

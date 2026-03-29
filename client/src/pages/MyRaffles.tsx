@@ -170,11 +170,11 @@ const RaffleCardWrapper: React.FC<{
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
             <img
                 src={raffle.image}
-                alt={raffle.title}
+                alt={raffle.description}
                 className="w-full h-48 object-cover rounded-lg mb-4"
             />
             <h3 className="text-gray-900 dark:text-white font-semibold text-lg mb-2">
-                {raffle.title}
+                {raffle.description}
             </h3>
             <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm">
