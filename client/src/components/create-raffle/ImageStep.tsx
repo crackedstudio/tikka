@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import type { StepComponentProps } from "../../types/types";
+import { X } from "lucide-react";
 
 const ImageStep: React.FC<StepComponentProps> = ({
     formData,
@@ -10,16 +11,29 @@ const ImageStep: React.FC<StepComponentProps> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragOver, setIsDragOver] = useState(false);
 
-    const handleFileSelect = (file: File) => {
-        if (file && file.type.startsWith("image/")) {
-            updateFormData({ image: file });
+    const handleFileSelect = (files: FileList | File[]) => {
+        const fileArray = Array.from(files).filter(file => file.type.startsWith("image/"));
+
+        if (fileArray.length > 0) {
+            const currentImages = formData.images || [];
+            const newImages = [...currentImages, ...fileArray];
+
+            // Set first image as primary if not set
+            if (!formData.image && newImages.length > 0) {
+                updateFormData({
+                    image: newImages[0],
+                    images: newImages
+                });
+            } else {
+                updateFormData({ images: newImages });
+            }
         }
     };
 
     const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            handleFileSelect(file);
+        const files = e.target.files;
+        if (files) {
+            handleFileSelect(files);
         }
     };
 
@@ -36,9 +50,9 @@ const ImageStep: React.FC<StepComponentProps> = ({
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
-        const file = e.dataTransfer.files[0];
-        if (file) {
-            handleFileSelect(file);
+        const files = e.dataTransfer.files;
+        if (files) {
+            handleFileSelect(files);
         }
     };
 
@@ -46,7 +60,25 @@ const ImageStep: React.FC<StepComponentProps> = ({
         fileInputRef.current?.click();
     };
 
-    const canContinue = formData.image !== null;
+    const removeImage = (index: number) => {
+        const newImages = formData.images.filter((_, i) => i !== index);
+
+        // Update primary image if removed
+        if (formData.image === formData.images[index]) {
+            updateFormData({
+                image: newImages.length > 0 ? newImages[0] : null,
+                images: newImages
+            });
+        } else {
+            updateFormData({ images: newImages });
+        }
+    };
+
+    const setPrimaryImage = (index: number) => {
+        updateFormData({ image: formData.images[index] });
+    };
+
+    const canContinue = formData.images.length > 0;
 
     return (
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
@@ -62,20 +94,19 @@ const ImageStep: React.FC<StepComponentProps> = ({
                         clipRule="evenodd"
                     />
                 </svg>
-                <h3 className="text-gray-900 dark:text-white text-xl font-bold">Prize Image</h3>
+                <h3 className="text-gray-900 dark:text-white text-xl font-bold">Prize Images</h3>
             </div>
             <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
-                A great photo increases participation
+                Upload multiple images to showcase your prize from different angles
             </p>
 
             {/* Upload Area */}
             <div
                 className={`
                     border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 cursor-pointer
-                    ${
-                        isDragOver
-                            ? "border-pink-500 dark:border-[#FF389C] bg-[#FF389C]/10"
-                            : "border-gray-500 hover:border-gray-400"
+                    ${isDragOver
+                        ? "border-pink-500 dark:border-[#FF389C] bg-[#FF389C]/10"
+                        : "border-gray-500 hover:border-gray-400"
                     }
                 `}
                 onDragOver={handleDragOver}
@@ -83,15 +114,10 @@ const ImageStep: React.FC<StepComponentProps> = ({
                 onDrop={handleDrop}
                 onClick={handleUploadClick}
             >
-                {formData.image ? (
+                {formData.images.length > 0 ? (
                     <div className="space-y-4">
-                        <img
-                            src={URL.createObjectURL(formData.image)}
-                            alt="Uploaded prize"
-                            className="w-full h-48 object-cover rounded-lg mx-auto"
-                        />
                         <p className="text-gray-900 dark:text-white text-sm">
-                            Click to change image
+                            {formData.images.length} image{formData.images.length > 1 ? 's' : ''} uploaded - Click to add more
                         </p>
                     </div>
                 ) : (
@@ -108,12 +134,12 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             />
                         </svg>
                         <div>
-                            <p className="text-gray-900 dark:text-white text-lg mb-2">
-                                Drag & Drop your prize image here
+                            <p className="text-white text-lg mb-2">
+                                Drag & Drop your prize images here
                             </p>
                             <p className="text-gray-400 mb-4">or</p>
-                            <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
-                                Upload image
+                            <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                                Upload images
                             </button>
                         </div>
                     </div>
@@ -124,13 +150,57 @@ const ImageStep: React.FC<StepComponentProps> = ({
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleFileInputChange}
                 className="hidden"
             />
 
+            {/* Image Gallery */}
+            {formData.images.length > 0 && (
+                <div className="mt-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {formData.images.map((img, index) => (
+                            <div key={index} className="relative group">
+                                <img
+                                    src={URL.createObjectURL(img)}
+                                    alt={`Prize ${index + 1}`}
+                                    className="w-full h-32 object-cover rounded-lg"
+                                />
+                                {formData.image === img && (
+                                    <div className="absolute top-2 left-2 bg-[#FF389C] text-white text-xs px-2 py-1 rounded">
+                                        Primary
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                                    {formData.image !== img && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPrimaryImage(index);
+                                            }}
+                                            className="bg-white text-black px-3 py-1 rounded text-sm hover:bg-gray-200"
+                                        >
+                                            Set Primary
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeImage(index);
+                                        }}
+                                        className="bg-red-500 text-white p-2 rounded hover:bg-red-600"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <p className="text-gray-400 text-sm mt-4 text-center">
-                Upload a clear picture of your prize. This is what excites
-                players
+                Upload clear pictures of your prize. Multiple angles help build trust
             </p>
 
             {/* Image Tips */}
@@ -213,11 +283,10 @@ const ImageStep: React.FC<StepComponentProps> = ({
                 <button
                     onClick={onNext}
                     disabled={!canContinue}
-                    className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
-                        canContinue
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${canContinue
                             ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
                             : "bg-gray-600 text-gray-400 cursor-not-allowed"
-                    }`}
+                        }`}
                 >
                     Continue
                 </button>

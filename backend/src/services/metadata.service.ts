@@ -14,6 +14,11 @@ export interface RaffleMetadata {
   updated_at: string;
 }
 
+export interface SearchMetadataResult {
+  matches: RaffleMetadata[];
+  total: number;
+}
+
 /** Payload for creating or updating raffle metadata */
 export interface UpsertMetadataPayload {
   title?: string;
@@ -51,19 +56,26 @@ export class MetadataService {
    * Full-text search over raffle metadata (title, description, category).
    * Uses Supabase's ilike for simple prefix/contains matching.
    */
-  async searchMetadata(query: string, limit = 50): Promise<RaffleMetadata[]> {
+  async searchMetadata(
+    query: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<SearchMetadataResult> {
     const pattern = `%${query}%`;
 
-    const { data, error } = await this.client
+    const { data, error, count } = await this.client
       .from(TABLE)
-      .select('*')
+      .select('*', { count: 'exact' })
       .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw new Error(`Search failed: ${error.message}`);
     }
-    return (data ?? []) as RaffleMetadata[];
+    return {
+      matches: (data ?? []) as RaffleMetadata[],
+      total: count ?? 0,
+    };
   }
 
   /**

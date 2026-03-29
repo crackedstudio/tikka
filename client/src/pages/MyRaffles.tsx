@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useRaffle, useRaffles } from "../hooks/useRaffles";
 import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";

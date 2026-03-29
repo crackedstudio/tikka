@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tikka-backend
+  namespace: default
+  labels:
+    app: tikka-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: tikka-backend
+  template:
+    metadata:
+      labels:
+        app: tikka-backend
+    spec:
+      containers:
+      - name: tikka-backend
+        image: crackedstudio/tikka-backend:latest
+        ports:
+        - containerPort: 3001
+        envFrom:
+        - configMapRef:
+            name: tikka-backend-config
+        - secretRef:
+            name: tikka-backend-secrets
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 10

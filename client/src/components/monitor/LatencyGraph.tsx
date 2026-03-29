@@ -48,11 +48,10 @@ export default function LatencyGraph({ latencyData, onRangeChange }: LatencyGrap
             <button
               key={range.label}
               onClick={() => handleRangeClick(range)}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                activeRange === range.label
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${activeRange === range.label
                   ? 'bg-indigo-600 text-gray-900 dark:text-white'
                   : 'bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-600'
-              }`}
+                }`}
             >
               {range.label}
             </button>
@@ -84,8 +83,8 @@ export default function LatencyGraph({ latencyData, onRangeChange }: LatencyGrap
               contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px' }}
               labelStyle={{ color: '#D1D5DB' }}
               itemStyle={{ color: '#A5B4FC' }}
-              labelFormatter={(label) => formatTime(String(label))}
-              formatter={(value) => [`${Number(value)} ms`, 'Latency']}
+              labelFormatter={(label: any) => formatTime(String(label))}
+              formatter={(value: any) => [`${value} ms`, 'Latency']}
             />
             <Line
               type="monotone"
