@@ -1,0 +1,39 @@
+{
+  "contracts": [
+    {
+      "address": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "version": "v1",
+      "description": "Main raffle contract",
+      "enabled": true,
+      "eventHandlers": {
+        "RaffleCreated": "RaffleCreatedHandler",
+        "TicketPurchased": "TicketPurchasedHandler",
+        "DrawTriggered": "DrawTriggeredHandler",
+        "RandomnessRequested": "RandomnessRequestedHandler",
+        "RandomnessReceived": "RandomnessReceivedHandler",
+        "RaffleFinalized": "RaffleFinalizedHandler",
+        "RaffleCancelled": "RaffleCancelledHandler",
+        "TicketRefunded": "TicketRefundedHandler",
+        "ContractPaused": "ContractPausedHandler",
+        "ContractUnpaused": "ContractUnpausedHandler",
+        "AdminTransferProposed": "AdminTransferProposedHandler",
+        "AdminTransferAccepted": "AdminTransferAcceptedHandler"
+      }
+    },
+    {
+      "address": "THIRD_PARTY_CONTRACT_ADDRESS_HERE",
+      "version": "v1",
+      "description": "Third-party raffle contract",
+      "enabled": false,
+      "eventHandlers": {
+        "RaffleCreated": "ThirdPartyRaffleCreatedHandler",
+        "CustomEvent": "CustomEventHandler"
+      }
+    }
+  ],
+  "defaultHandlers": {
+    "RaffleCreated": "RaffleCreatedHandler",
+    "TicketPurchased": "TicketPurchasedHandler",
+    "RaffleFinalized": "RaffleFinalizedHandler"
+  }
+}
