@@ -7,7 +7,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Dependencies - The **/ ensures it catches node_modules in subfolders
+**/node_modules
 dist
 dist-ssr
 *.local
@@ -23,6 +24,7 @@ dist-ssr
 *.sln
 *.sw?
 
+# System/Env
 .env
 build-docs/
-package-lock.json
+# REMOVED package-lock.json from here - it belongs in the repo!
