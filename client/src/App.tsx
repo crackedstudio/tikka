@@ -13,6 +13,7 @@ import OracleAdmin from "./pages/OracleAdmin";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
+import Support from "./pages/Support";
 import { useEffect } from "react";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
@@ -52,6 +53,7 @@ function App() {
                             <Route path="my-raffles" element={<MyRaffles />} />
                             <Route path="winner-demo" element={<WinnerDemo />} />
                             <Route path="settings" element={<Settings />} />
+                            <Route path="support" element={<Support />} />
                             <Route path="transparency" element={<Transparency />} />
                             <Route path="admin/oracle" element={<OracleAdmin />} />
                         </Route>
