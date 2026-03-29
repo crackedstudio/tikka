@@ -1,14 +1,14 @@
 /**
  * useAuth Hook
- * 
+ *
  * React hook for managing SIWS authentication state and operations
  * Orchestrates the full nonce → sign → verify flow
  */
 
-import { useState, useCallback } from 'react';
-import { getNonce, verify } from '../services/authService';
-import { getToken, setToken, clearToken } from '../services/apiClient';
-import { getKit } from '../services/walletService';
+import { useState, useCallback } from "react";
+import { getNonce, verify } from "../services/authService";
+import { getToken, setToken, clearToken } from "../services/apiClient";
+import { getKit } from "../services/walletService";
 
 export interface AuthState {
   isAuthenticated: boolean;
@@ -66,18 +66,29 @@ export function useAuth(): UseAuthReturn {
     try {
       // Step 1: Get nonce and message from backend
       const nonceData = await getNonce(walletAddress);
-      
-      // Step 2: Sign the message with the wallet
-      const kit = getKit();
-      const { result: signedMessage } = await kit.signMessage(
-        nonceData.message,
-        {
-          address: walletAddress,
-        }
-      );
 
-      // Convert signature to base64
-      const signatureBase64 = Buffer.from(signedMessage).toString('base64');
+      // Step 2: Sign the message with the wallet
+      let signatureBase64: string;
+      if (import.meta.env.VITE_TEST_MODE === "true") {
+        signatureBase64 = "TEST_SIGNATURE_BASE64";
+      } else {
+        const kit = getKit();
+        const { signedMessage } = await kit.signMessage(nonceData.message, {
+          address: walletAddress,
+        });
+
+        // Convert signed message to base64 if it's not already a string
+        // StellarWalletsKit signMessage returns { signedMessage: string, ... }
+        signatureBase64 =
+          typeof signedMessage === "string"
+            ? signedMessage
+            : btoa(
+                String.fromCharCode.apply(
+                  null,
+                  Array.from(new Uint8Array(signedMessage)),
+                ),
+              );
+      }
 
       // Step 3: Verify signature with backend and get JWT
       const { accessToken } = await verify({
@@ -98,11 +109,11 @@ export function useAuth(): UseAuthReturn {
         error: null,
       });
     } catch (error) {
-      console.error('Authentication error:', error);
+      console.error("Authentication error:", error);
       setState((prev) => ({
         ...prev,
         isAuthenticating: false,
-        error: error instanceof Error ? error.message : 'Authentication failed',
+        error: error instanceof Error ? error.message : "Authentication failed",
       }));
       throw error;
     }

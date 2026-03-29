@@ -1,6 +1,6 @@
 export {
   ListRafflesQuerySchema,
-  type ListRafflesQueryDto,
+  ListRafflesQueryDto,
 } from './list-raffles-query.dto';
 
 export {

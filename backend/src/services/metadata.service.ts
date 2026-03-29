@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { env } from '../config/env.config';
+import { Inject, Injectable } from '@nestjs/common';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_CLIENT } from './supabase.provider';
 
 /** Raffle metadata stored off-chain in Supabase (title, description, image, category, metadata_cid) */
 export interface RaffleMetadata {
@@ -12,6 +12,11 @@ export interface RaffleMetadata {
   metadata_cid: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface SearchMetadataResult {
+  matches: RaffleMetadata[];
+  total: number;
 }
 
 /** Payload for creating or updating raffle metadata */
@@ -27,17 +32,9 @@ const TABLE = 'raffle_metadata';
 
 @Injectable()
 export class MetadataService {
-  private readonly client: SupabaseClient;
-
-  constructor() {
-    const { url, serviceRoleKey } = env.supabase;
-    if (!url || !serviceRoleKey) {
-      throw new Error(
-        'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment',
-      );
-    }
-    this.client = createClient(url, serviceRoleKey);
-  }
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+  ) {}
 
   /**
    * Get metadata for multiple raffle IDs in a single query.
@@ -76,6 +73,32 @@ export class MetadataService {
       throw new Error(`Failed to fetch metadata for raffle ${raffleId}: ${error.message}`);
     }
     return data as RaffleMetadata | null;
+  }
+
+  /**
+   * Full-text search over raffle metadata (title, description, category).
+   * Uses Supabase's ilike for simple prefix/contains matching.
+   */
+  async searchMetadata(
+    query: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<SearchMetadataResult> {
+    const pattern = `%${query}%`;
+
+    const { data, error, count } = await this.client
+      .from(TABLE)
+      .select('*', { count: 'exact' })
+      .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw new Error(`Search failed: ${error.message}`);
+    }
+    return {
+      matches: (data ?? []) as RaffleMetadata[],
+      total: count ?? 0,
+    };
   }
 
   /**

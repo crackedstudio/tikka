@@ -1,9 +1,11 @@
 import { Eye } from "lucide-react";
 import TrendingRaffles from "./TrendingRaffles";
-import { useActiveRaffles } from "../../hooks/useRaffles";
+import { useRaffles } from "../../hooks/useRaffles";
+import RaffleCardSkeleton from "../ui/RaffleCardSkeleton";
+import ErrorMessage from "../ui/ErrorMessage";
 
 const DiscoverRaffles = () => {
-    const { raffles, error, isLoading } = useActiveRaffles();
+    const { raffles, error, isLoading } = useRaffles({ status: "open" });
 
     return (
         <section className="w-full">
@@ -31,17 +33,16 @@ const DiscoverRaffles = () => {
                 {/* Content */}
                 <div className="mt-8">
                     {isLoading ? (
-                        <div className="text-center py-12">
-                            <div className="text-white text-lg">
-                                Loading raffles...
-                            </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                            {[1, 2, 3].map((i) => (
+                                <RaffleCardSkeleton key={i} />
+                            ))}
                         </div>
                     ) : error ? (
-                        <div className="text-center py-12">
-                            <div className="text-red-400 text-lg">
-                                Error loading raffles: {error.message}
-                            </div>
-                        </div>
+                        <ErrorMessage
+                            title="Error loading raffles"
+                            message={(error as Error)?.message}
+                        />
                     ) : raffles.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="text-white text-lg">
@@ -52,7 +53,7 @@ const DiscoverRaffles = () => {
                             </div>
                         </div>
                     ) : (
-                        <TrendingRaffles raffleIds={raffles} />
+                        <TrendingRaffles raffleIds={raffles.map((r) => r.id)} />
                     )}
                 </div>
             </div>

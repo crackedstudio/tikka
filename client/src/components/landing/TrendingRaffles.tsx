@@ -3,6 +3,8 @@ import TrendingTab from "./TrendingTab";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRaffle } from "../../hooks/useRaffles";
+import RaffleCardSkeleton from "../ui/RaffleCardSkeleton";
+import ErrorMessage from "../ui/ErrorMessage";
 
 interface TrendingRafflesProps {
     raffleIds: number[];
@@ -23,7 +25,7 @@ const TrendingRaffles = ({ raffleIds }: TrendingRafflesProps) => {
                     <RaffleCardWrapper
                         key={raffleId}
                         raffleId={raffleId}
-                        onEnter={() => navigate(`/details?raffle=${raffleId}`)}
+                        onEnter={() => navigate(`/raffles/${raffleId}`)}
                     />
                 ))}
             </div>
@@ -39,33 +41,17 @@ const RaffleCardWrapper: React.FC<{
     const { raffle, error, isLoading } = useRaffle(raffleId);
 
     if (isLoading) {
-        return (
-            <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4 animate-pulse">
-                <div className="w-full h-48 bg-gray-700 rounded-3xl"></div>
-                <div className="h-6 bg-gray-700 rounded"></div>
-                <div className="h-4 bg-gray-700 rounded"></div>
-                <div className="h-4 bg-gray-700 rounded"></div>
-                <div className="h-12 bg-gray-700 rounded-xl"></div>
-            </div>
-        );
+        return <RaffleCardSkeleton />;
     }
 
     if (error || !raffle) {
-        console.log("🔍 RaffleCardWrapper - Error or no raffle data:", {
-            raffleId,
-            error,
-            raffle,
-        });
         return (
-            <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
-                <div className="text-red-400 text-center">
-                    Error loading raffle #{raffleId}
-                </div>
-                {error && (
-                    <div className="text-gray-400 text-xs text-center">
-                        {error.message || "Unknown error"}
-                    </div>
-                )}
+            <div className="w-full bg-[#11172E] p-4 rounded-3xl">
+                <ErrorMessage
+                    variant="inline"
+                    title={`Error loading raffle #${raffleId}`}
+                    message={error?.message}
+                />
             </div>
         );
     }

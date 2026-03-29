@@ -28,4 +28,12 @@ export class ContractService {
     const data = await this.getRaffleData(raffleId);
     return data.status === 'FINALIZED' || data.status === 'CANCELLED';
   }
+
+  /**
+   * Pings the Soroban contract to inform the ecosystem that the oracle is alive
+   */
+  async ping(): Promise<void> {
+    // TODO: Implement Soroban RPC call to ping
+    // throw new Error('Contract RPC not yet implemented');
+  }
 }

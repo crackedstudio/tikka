@@ -6,6 +6,7 @@ import type {
 import LeaderboardSection from "../components/leaderboard/LeaderboardSection";
 import PlayerStats from "../components/leaderboard/PlayerStats";
 import { useLeaderboard } from "../hooks/useLeaderboard";
+import ErrorMessage from "../components/ui/ErrorMessage";
 
 const Leaderboard: React.FC = () => {
     // Map existing tabs to valid 'by' parameters if applicable, e.g. "weekly" -> default or a specific query
@@ -19,7 +20,7 @@ const Leaderboard: React.FC = () => {
         return undefined;
     };
 
-    const { data, isLoading, error } = useLeaderboard({ by: getSortBy() });
+    const { data, isLoading, error, refetch } = useLeaderboard({ by: getSortBy() });
 
     const topPlayers = data?.topPlayers || [];
     const players = data?.players || [];
@@ -54,14 +55,12 @@ const Leaderboard: React.FC = () => {
                                 </h3>
                             </div>
                         ) : error ? (
-                            <div className="text-center py-12">
-                                <h3 className="text-red-400 text-xl font-semibold mb-2">
-                                    Error Loading Leaderboard
-                                </h3>
-                                <p className="text-gray-400">
-                                    Please try again later.
-                                </p>
-                            </div>
+                            <ErrorMessage
+                                title="Error Loading Leaderboard"
+                                message={error.message}
+                                onRetry={refetch}
+                                disabled={isLoading}
+                            />
                         ) : topPlayers.length === 0 && players.length === 0 ? (
                             <div className="text-center py-12">
                                 <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">

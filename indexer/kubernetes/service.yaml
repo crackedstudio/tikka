@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tikka-indexer
+  labels:
+    app: tikka-indexer
+spec:
+  selector:
+    app: tikka-indexer
+  ports:
+    - port: 80
+      targetPort: 3002
+      protocol: TCP
+  type: ClusterIP

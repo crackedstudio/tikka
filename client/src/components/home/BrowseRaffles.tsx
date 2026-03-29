@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+
 
 const BrowseRaffles = () => {
     return (
@@ -15,19 +15,7 @@ const BrowseRaffles = () => {
                     </h3>
 
                     {/* Search (full width and centered on small screens) */}
-                    <div className="w-full max-w-2xl">
-                        <div className="relative w-full rounded-2xl bg-[#071022] border border-[#1B2433] px-4 py-3">
-                            <input
-                                type="text"
-                                placeholder="Search raffles"
-                                className="w-full bg-transparent placeholder:text-[#6B7280] text-[#E6EEF8] text-base md:text-lg outline-none pr-12"
-                            />
-                            <Search
-                                size={20}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
-                            />
-                        </div>
-                    </div>
+                    
                 </div>
 
                 {/* Right card: keeps same width/appearance on desktop; stacks under left on mobile */}

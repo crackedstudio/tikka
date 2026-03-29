@@ -69,8 +69,8 @@ const ProcessingRaffleCreation = ({
                     {currentStep}
                 </p>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
-                    This is a demo flow. No wallet connection or onchain
-                    transaction is required.
+                    Keep this window open while we upload metadata and submit
+                    your transaction.
                 </p>
             </div>
 
