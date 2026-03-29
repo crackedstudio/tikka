@@ -38,6 +38,7 @@ const EnterRaffleButton: React.FC<EnterRaffleButtonProps> = ({
 
     return (
         <button
+            data-testid="enter-raffle-btn"
             onClick={handleEnterRaffle}
             disabled={isLoading}
             className={`${className} ${

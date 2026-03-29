@@ -102,7 +102,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                             <p className="text-[#9CA3AF] text-[12px]">
                                 Entries
                             </p>
-                            <p>{entries}</p>
+                            <p data-testid="entries-count">{entries}</p>
                         </div>
                     </div>
 
@@ -166,7 +166,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                             <p className="text-[#9CA3AF] text-[12px]">
                                 Entries
                             </p>
-                            <p>{entries}</p>
+                            <p data-testid="entries-count">{entries}</p>
                         </div>
                     </div>
 

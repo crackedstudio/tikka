@@ -3,6 +3,8 @@ import TrendingTab from "./TrendingTab";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRaffle } from "../../hooks/useRaffles";
+import Modal from "../modals/Modal";
+import SuccessfulTicket from "../modals/SuccessfulTicket";
 
 interface TrendingRafflesProps {
     raffleIds: number[];
@@ -37,6 +39,13 @@ const RaffleCardWrapper: React.FC<{
     onEnter: () => void;
 }> = ({ raffleId, onEnter }) => {
     const { raffle, error, isLoading } = useRaffle(raffleId);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [extraEntries, setExtraEntries] = useState(0);
+
+    const handlePurchaseSuccess = () => {
+        setExtraEntries((n) => n + 1);
+        setShowSuccess(true);
+    };
 
     if (isLoading) {
         return (
@@ -71,19 +80,31 @@ const RaffleCardWrapper: React.FC<{
     }
 
     return (
-        <RaffleCard
-            image={raffle.image}
-            title={raffle.description}
-            prizeValue={raffle.prizeValue}
-            prizeCurrency={raffle.prizeCurrency}
-            countdown={raffle.countdown}
-            ticketPrice={raffle.ticketPriceFormatted}
-            entries={raffle.entries}
-            progress={raffle.progress}
-            buttonText={raffle.buttonText}
-            raffleId={raffle.id}
-            onEnter={onEnter}
-        />
+        <>
+            <RaffleCard
+                image={raffle.image}
+                title={raffle.description}
+                prizeValue={raffle.prizeValue}
+                prizeCurrency={raffle.prizeCurrency}
+                countdown={raffle.countdown}
+                ticketPrice={raffle.ticketPriceFormatted}
+                entries={raffle.entries + extraEntries}
+                progress={raffle.progress}
+                buttonText={raffle.buttonText}
+                raffleId={raffle.id}
+                onEnter={handlePurchaseSuccess}
+            />
+            <Modal open={showSuccess} onClose={() => setShowSuccess(false)}>
+                <SuccessfulTicket
+                    raffleName={raffle.description}
+                    onClose={() => setShowSuccess(false)}
+                    onContinue={() => {
+                        setShowSuccess(false);
+                        onEnter();
+                    }}
+                />
+            </Modal>
+        </>
     );
 };
 
