@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2020",
+    "moduleResolution": "node",
+    "outDir": "./dist/light",
+    "rootDir": "src",
+    "declaration": true,
+    "isolatedModules": false, 
+    "emitDecoratorMetadata": false, 
+    "experimentalDecorators": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/index.light.ts",
+    "src/types.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/**/*.module.ts",
+    "src/contract/contract.service.ts"
+  ]
+}
