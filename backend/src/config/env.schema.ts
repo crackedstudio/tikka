@@ -30,6 +30,9 @@ export const envSchema = z
     // SIWS
     SIWS_DOMAIN: z.string().default('tikka.io'),
 
+    // Frontend
+    VITE_FRONTEND_URL: z.string().url(),
+
     // Admin dashboard
     ADMIN_TOKEN: z.string().min(1),
     ADMIN_IP_ALLOWLIST: z.string().default(''),

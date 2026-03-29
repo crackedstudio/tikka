@@ -5,6 +5,7 @@ import {
 } from "@nestjs/platform-fastify";
 import multipart from "@fastify/multipart";
 import { AppModule } from "./app.module";
+import { configureSecurity } from "./bootstrap";
 import { MAX_UPLOAD_BYTES } from "./config/upload.config";
 
 async function bootstrap() {
@@ -12,6 +13,8 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter(),
   );
+
+  await configureSecurity(app);
 
   // Using 'as any' bypasses the type mismatch error between Fastify versions
   await app.register(multipart as any, {
