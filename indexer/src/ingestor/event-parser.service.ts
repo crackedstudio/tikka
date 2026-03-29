@@ -2,6 +2,13 @@ import { xdr, scValToNative } from "@stellar/stellar-sdk";
 import { Injectable, Logger } from "@nestjs/common";
 import { DomainEvent } from "./event.types";
 
+// Version map for contract addresses
+const CONTRACT_VERSION_MAP: Record<string, "v1" | "v2"> = {
+  // Example test mapping for v2 contracts used in unit tests
+  V2_TEST_CONTRACT: "v2",
+  // '0xNewContract': 'v2'
+};
+
 export interface RawSorobanEvent {
   type: string; // e.g. 'contract'
   topics: string[]; // base64 encoded XDR scVals
@@ -16,7 +23,29 @@ export class EventParserService {
    * Parses a raw Soroban event into a typed DomainEvent.
    * Returns null if the event is unsupported or malformed.
    */
+
   public parse(rawEvent: RawSorobanEvent): DomainEvent | null {
+    const contractId = this.getContractId(rawEvent);
+    const version = this.getVersion(contractId);
+    if (version === "v2") {
+      return this.parseV2(rawEvent);
+    }
+    return this.parseV1(rawEvent);
+  }
+
+  // Extract contractId from event (adjust as needed for your event structure)
+  private getContractId(event: any): string {
+    // If contractId is not present, return empty string
+    return event.contractId || event.address || "";
+  }
+
+  // Version detection logic
+  private getVersion(contractId: string): "v1" | "v2" {
+    return CONTRACT_VERSION_MAP[contractId] || "v1";
+  }
+
+  // Existing parse logic, moved here with NO changes
+  private parseV1(rawEvent: RawSorobanEvent): DomainEvent | null {
     if (rawEvent.type !== "contract") {
       return null;
     }
@@ -47,13 +76,13 @@ export class EventParserService {
           return this.parseRaffleCancelled(topics, value);
         case "TicketRefunded":
           return this.parseTicketRefunded(topics, value);
-        case 'ContractPaused':
+        case "ContractPaused":
           return this.parseContractPaused(topics);
-        case 'ContractUnpaused':
+        case "ContractUnpaused":
           return this.parseContractUnpaused(topics);
-        case 'AdminTransferProposed':
+        case "AdminTransferProposed":
           return this.parseAdminTransferProposed(topics);
-        case 'AdminTransferAccepted':
+        case "AdminTransferAccepted":
           return this.parseAdminTransferAccepted(topics);
         default:
           this.logger.debug(`Unknown event type: ${eventName}`);
@@ -65,6 +94,14 @@ export class EventParserService {
       );
       return null;
     }
+  }
+
+  // Minimal V2 override (extend only if schema changes)
+  private parseV2(rawEvent: RawSorobanEvent): DomainEvent | null {
+    // By default, fallback to V1 logic
+    const parsed = this.parseV1(rawEvent);
+    // If V2 schema changes, override fields here
+    return parsed;
   }
 
   private parseRaffleCreated(
@@ -200,19 +237,19 @@ export class EventParserService {
 
   private parseContractPaused(topics: xdr.ScVal[]): DomainEvent {
     const admin = scValToNative(topics[1]);
-    return { type: 'ContractPaused', admin };
+    return { type: "ContractPaused", admin };
   }
 
   private parseContractUnpaused(topics: xdr.ScVal[]): DomainEvent {
     const admin = scValToNative(topics[1]);
-    return { type: 'ContractUnpaused', admin };
+    return { type: "ContractUnpaused", admin };
   }
 
   private parseAdminTransferProposed(topics: xdr.ScVal[]): DomainEvent {
     const currentAdmin = scValToNative(topics[1]);
     const proposedAdmin = scValToNative(topics[2]);
     return {
-      type: 'AdminTransferProposed',
+      type: "AdminTransferProposed",
       current_admin: currentAdmin,
       proposed_admin: proposedAdmin,
     };
@@ -222,7 +259,7 @@ export class EventParserService {
     const oldAdmin = scValToNative(topics[1]);
     const newAdmin = scValToNative(topics[2]);
     return {
-      type: 'AdminTransferAccepted',
+      type: "AdminTransferAccepted",
       old_admin: oldAdmin,
       new_admin: newAdmin,
     };

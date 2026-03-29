@@ -1,0 +1,82 @@
+# oracle/k8s/deployment.yaml
+# High-availability oracle deployment.
+# - 2 replicas spread across nodes via PodAntiAffinity
+# - Bull queue locks ensure only one replica processes each job
+# - Readiness probe hits /health before traffic is routed
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tikka-oracle
+  labels:
+    app: tikka-oracle
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tikka-oracle
+  template:
+    metadata:
+      labels:
+        app: tikka-oracle
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: tikka-oracle
+                topologyKey: kubernetes.io/hostname
+      volumes:
+        - name: age-key
+          secret:
+            secretName: tikka-oracle-age-key
+            defaultMode: 0400
+      containers:
+        - name: oracle
+          image: ghcr.io/crackedstudio/tikka-oracle:latest
+          ports:
+            - containerPort: 3003
+          envFrom:
+            - secretRef:
+                name: tikka-oracle-secrets
+          env:
+            - name: SOPS_AGE_KEY_FILE
+              value: /run/secrets/age.key
+          volumeMounts:
+            - name: age-key
+              mountPath: /run/secrets
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tikka-oracle
+spec:
+  selector:
+    app: tikka-oracle
+  ports:
+    - port: 3003
+      targetPort: 3003

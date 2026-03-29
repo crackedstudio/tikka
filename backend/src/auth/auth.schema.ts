@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export const GetNonceQuerySchema = z.object({
   address: z
@@ -19,4 +20,16 @@ export const VerifyBodySchema = z.object({
   issuedAt: z.string().optional(),
 });
 
-export type VerifyBodyDto = z.infer<typeof VerifyBodySchema>;
+export class VerifyBodyDto {
+  @ApiProperty({ description: "Stellar address of the user" })
+  address: string;
+
+  @ApiProperty({ description: "Wallet signature of the SIWS message" })
+  signature: string;
+
+  @ApiProperty({ description: "Nonce obtained from /auth/nonce" })
+  nonce: string;
+
+  @ApiPropertyOptional({ description: "Timestamp the signature was issued" })
+  issuedAt?: string;
+}

@@ -4,3 +4,5 @@
 .env.local
 *.log
 package-lock.json
+# Encrypted env is tracked; plaintext is not
+!.env.enc

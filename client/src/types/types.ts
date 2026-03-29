@@ -8,6 +8,7 @@ export interface RaffleFormData {
     title: string;
     description: string;
     image: File | null;
+    images: File[];
     pricePerTicket: number;
     totalTickets: number;
     duration: {
@@ -126,7 +127,8 @@ export interface WalletInfo {
 export interface RaffleMetadata {
     title: string;
     description: string;
-    image: string; // IPFS URL or Supabase storage URL
+    image: string; // IPFS URL or Supabase storage URL (primary/legacy)
+    images?: string[]; // Multiple images for physical prizes
     prizeName: string;
     prizeValue: string;
     prizeCurrency: string;
@@ -353,6 +355,7 @@ export interface FormattedRaffle {
         title: string;
         description: string;
         image: string;
+        images?: string[];
         prizeName: string;
         prizeValue: string;
         prizeCurrency: string;

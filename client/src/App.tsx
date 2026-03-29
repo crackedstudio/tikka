@@ -13,11 +13,13 @@ import OracleAdmin from "./pages/OracleAdmin";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
+import Support from "./pages/Support";
 import { useEffect } from "react";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { WalletProvider } from "./providers/WalletProvider";
 import { AuthProvider } from "./providers/AuthProvider";
+import NetworkWarning from "./components/NetworkWarning";
 import { InstallPWA } from "./components/InstallPWA";
 import { Toaster } from "sonner";
 
@@ -34,28 +36,35 @@ function App() {
     return (
         <WalletProvider>
             <AuthProvider>
-                <InstallPWA />
                 <Toaster richColors position="bottom-right" closeButton theme="system" />
+                {/* * Issue #120: Global Network Warning 
+                  * This will show at the top of every page if the user is on the wrong network.
+                */}
+                <NetworkWarning />
+
                 <Router>
                     <Routes>
-                    <Route path="/" element={<LandingLayout />}>
-                        <Route index element={<LandingPage />} />
-                        <Route path="home" element={<Home />} />
-                        <Route path="search" element={<SearchPage />} /> {/* Added for Search */}
-                        <Route path="details" element={<RaffleDetails />} />
-                        <Route path="raffles/:id" element={<RafflePage />} />
-                        <Route path="create" element={<CreateRaffle />} />
-                        <Route path="leaderboard" element={<Leaderboard />} />
-                        <Route path="my-raffles" element={<MyRaffles />} />
-                        <Route path="winner-demo" element={<WinnerDemo />} />
-                        <Route path="settings" element={<Settings />} />
-                        <Route path="transparency" element={<Transparency />} />
-                        <Route path="admin/oracle" element={<OracleAdmin />} />
-                    </Route>
-                </Routes>
-            </Router>
-        </AuthProvider>
-    </WalletProvider>
+                        <Route path="/" element={<LandingLayout />}>
+                            <Route index element={<LandingPage />} />
+                            <Route path="home" element={<Home />} />
+                            <Route path="search" element={<SearchPage />} />
+                            <Route path="details" element={<RaffleDetails />} />
+                            <Route path="raffles/:id" element={<RafflePage />} />
+                            <Route path="create" element={<CreateRaffle />} />
+                            <Route path="leaderboard" element={<Leaderboard />} />
+                            <Route path="my-raffles" element={<MyRaffles />} />
+                            <Route path="winner-demo" element={<WinnerDemo />} />
+                            <Route path="settings" element={<Settings />} />
+                            <Route path="support" element={<Support />} />
+                            <Route path="transparency" element={<Transparency />} />
+                            <Route path="admin/oracle" element={<OracleAdmin />} />
+                        </Route>
+                    </Routes>
+                </Router>
+
+                <InstallPWA />
+            </AuthProvider>
+        </WalletProvider>
     );
 }
 

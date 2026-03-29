@@ -34,6 +34,9 @@ export const API_CONFIG = {
       unsubscribe: (raffleId: string) => `/notifications/subscribe/${raffleId}`,
       list: '/notifications/subscriptions',
     },
+    support: {
+      contact: '/support',
+    },
     transparency: {
       list: '/transparency',
       entry: (requestId: string) => `/transparency/${requestId}`,

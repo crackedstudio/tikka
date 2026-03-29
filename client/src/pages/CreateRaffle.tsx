@@ -15,6 +15,7 @@ const CreateRaffle: React.FC = () => {
         title: "",
         description: "",
         image: null,
+        images: [],
         pricePerTicket: 0,
         totalTickets: 0,
         duration: {

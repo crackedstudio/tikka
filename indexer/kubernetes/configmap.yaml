@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tikka-indexer-config
+  labels:
+    app: tikka-indexer
+data:
+  NODE_ENV: "production"
+  PORT: "3002"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  SOROBAN_RPC_URL: "https://soroban-testnet.stellar.org"
+  LAG_THRESHOLD: "100"
+  DRY_RUN: "false"

@@ -1,9 +1,17 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthService } from './health.service';
+import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
+import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
+import { TxSubmitterService } from '../submitter/tx-submitter.service';
 
 @Controller()
 export class HealthController {
-  constructor(private readonly healthService: HealthService) {}
+  constructor(
+    private readonly healthService: HealthService,
+    private readonly oracleRegistry: OracleRegistryService,
+    private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
+    private readonly txSubmitter: TxSubmitterService,
+  ) {}
 
   @Get('health')
   getHealth() {
@@ -15,20 +23,25 @@ export class HealthController {
   }
 
   @Get('oracle/status')
-  getStatus() {
+  async getStatus() {
     const metrics = this.healthService.getMetrics();
     const isHealthy = this.healthService.isHealthy();
+    const multiOracleConfig = this.oracleRegistry.getConfig();
+    const pendingTrackers = this.multiOracleCoordinator.getPendingTrackers();
     
+    const rpcStatus = await this.txSubmitter.getRpcStatus();
+
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
+      rpc: rpcStatus,
       metrics: {
         queueDepth: metrics.queueDepth,
         lastProcessedAt: metrics.lastProcessedAt,
         lastProcessedRequestId: metrics.lastProcessedRequestId,
         totalProcessed: metrics.totalProcessed,
         totalFailed: metrics.totalFailed,
-        successRate: metrics.totalProcessed > 0 
+        successRate: metrics.totalProcessed > 0
           ? ((metrics.totalProcessed / (metrics.totalProcessed + metrics.totalFailed)) * 100).toFixed(2) + '%'
           : 'N/A',
         uptimeMs: metrics.uptime,
@@ -36,6 +49,15 @@ export class HealthController {
         streamStatus: metrics.streamStatus,
         streamUptimeMs: metrics.streamUptimeMs,
         lastStreamError: metrics.lastStreamError,
+      },
+      multiOracle: {
+        enabled: multiOracleConfig.enabled,
+        mode: multiOracleConfig.enabled ? 'multi-oracle' : 'single-oracle',
+        localOracleId: multiOracleConfig.localOracleId,
+        threshold: multiOracleConfig.threshold,
+        totalOracles: multiOracleConfig.totalOracles,
+        oracleIds: multiOracleConfig.oracleIds,
+        pendingSubmissions: pendingTrackers,
       },
       recentErrors: metrics.recentErrors.map(err => ({
         requestId: err.requestId,

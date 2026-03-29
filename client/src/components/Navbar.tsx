@@ -58,6 +58,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
         { label: "My Raffles", href: "/my-raffles" },
         { label: "Leaderboard", href: "/leaderboard" },
         { label: "Settings", href: "/settings" },
+        { label: "Contact Support", href: "/support" },
     ];
 
     const targetNetwork = STELLAR_CONFIG.network.charAt(0).toUpperCase() + STELLAR_CONFIG.network.slice(1);
@@ -93,15 +94,21 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
 
                 {/* Desktop nav */}
                 <div className="hidden items-center gap-2 lg:flex">
-                    {navItems.map((item) => (
-                        <Link
-                            key={item.label}
-                            to={item.href}
-                            className="px-4 py-2 text-sm text-gray-600 dark:text-white/80 hover:text-gray-900 dark:text-white transition"
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.href;
+                        return (
+                            <Link
+                                key={item.label}
+                                to={item.href}
+                                className={`px-4 py-2 text-sm transition ${isActive
+                                    ? "text-gray-600 dark:text-white font-semibold"
+                                    : "text-gray-600 dark:text-white/80 hover:text-white"
+                                    }`}
+                            >
+                                {item.label}
+                            </Link>
+                        );
+                    })}
 
                     {isConnected && (
                         <div className="flex items-center gap-2 mr-2">
@@ -128,28 +135,27 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                 </div>
 
                 {/* Mobile: hamburger */}
-                <div className="flex gap-4">
-                    <button
-                        type="button"
-                        onClick={() => setOpen((s: boolean) => !s)}
-                        className="lg:hidden inline-flex items-center justify-center rounded-lg p-2 hover:bg-gray-200 dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/40 text-gray-900 dark:text-white"
-                    >
-                        {!open ? (
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                            </svg>
-                        ) : (
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                            </svg>
-                        )}
-                    </button>
-                </div>
-
+                <button
+                    type="button"
+                    aria-label={open ? "Close navigation menu" : "Open navigation menu"}
+                    onClick={() => setOpen((s: boolean) => !s)}
+                    className="lg:hidden inline-flex items-center justify-center rounded-lg p-2 hover:bg-gray-200 dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/40 text-gray-900 dark:text-white"
+                >
+                    {!open ? (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                    ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                    )}
+                </button>
             </nav>
 
             {/* Mobile panel */}
             <div
+                data-testid="mobile-nav-panel"
                 className={`lg:hidden overflow-hidden transition-[max-height,opacity,background-color] duration-300 bg-gray-50 dark:bg-[#0B0F1C] ${open ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
                     }`}
             >
@@ -165,16 +171,22 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                         />
                     </div>
 
-                    {navItems.map((item) => (
-                        <Link
-                            key={item.label}
-                            to={item.href}
-                            className="rounded-lg px-3 py-3 text-sm text-gray-600 dark:text-white/90 hover:bg-gray-200 dark:bg-white/5"
-                            onClick={() => setOpen(false)}
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.href;
+                        return (
+                            <Link
+                                key={item.label}
+                                to={item.href}
+                                className={`rounded-lg px-3 py-3 text-sm transition ${isActive
+                                    ? "text-gray-300 dark:text-white font-semibold dark:bg-white/10"
+                                    : "text-gray-600 dark:text-white/90 hover:bg-white/5"
+                                    }`}
+                                onClick={() => setOpen(false)}
+                            >
+                                {item.label}
+                            </Link>
+                        );
+                    })}
 
                     <a
                         onClick={() => {
@@ -186,9 +198,9 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                         Get Started
                     </a>
                     <ThemeToggle />
-                </div>
-            </div>
-        </header>
+                </div >
+            </div >
+        </header >
     );
 };
 
