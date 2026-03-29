@@ -1,41 +1,39 @@
-// generate the code for this file that would be used to manage email templates in the application.
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import * as handlebars from 'handlebars';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class EmailTemplateService {
-  private templates: Record<string, string> = {};
+  private readonly logger = new Logger(EmailTemplateService.name);
 
-    // Method to add or update an email template
-    setTemplate(name: string, content: string): void {
-        this.templates[name] = content;
-    }
+  /**
+   * Renders a handlebars template with the provided context
+   * @param templateName Name of the file (without .hbs)
+   * @param context Data to inject into the template
+   */
+  render(templateName: string, context: any): string {
+    try {
+      // 1. Resolve the path to the template file
+      // Note: We look in 'dist' because that's where the compiled code runs from
+      const templatePath = path.join(process.cwd(), 'assets', 'templates', `${templateName}.hbs`);
 
-    // Method to retrieve an email template by name
-    getTemplate(name: string): string | undefined {
-        return this.templates[name];
-    }
+      // 2. Read the file content
+      if (!fs.existsSync(templatePath)) {
+        this.logger.error(`Template not found at path: ${templatePath}`);
+        throw new InternalServerErrorException(`Email template ${templateName} not found`);
+      }
 
-    // Method to delete an email template by name
-    deleteTemplate(name: string): void {
-        delete this.templates[name];
-    }
+      const source = fs.readFileSync(templatePath, 'utf8');
 
-    // Method to list all available email templates
-    listTemplates(): string[] {
-        return Object.keys(this.templates);
-    }
+      // 3. Compile the template
+      const template = handlebars.compile(source);
 
-    // Method to render a template with provided variables
-    renderTemplate(name: string, variables: Record<string, string>): string | undefined {
-        const template = this.getTemplate(name);
-        if (!template) {
-            return undefined;
-        }
-        let rendered = template;
-        for (const [key, value] of Object.entries(variables)) {
-            const placeholder = `{{${key}}}`;
-            rendered = rendered.replace(new RegExp(placeholder, 'g'), value);
-        }
-        return rendered;
+      // 4. Return the generated HTML string
+      return template(context);
+    } catch (error) {
+      this.logger.error(`Error rendering template ${templateName}:`, error.stack);
+      throw new InternalServerErrorException('Failed to render email template');
     }
+  }
 }
