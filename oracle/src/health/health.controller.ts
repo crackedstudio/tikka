@@ -1,9 +1,15 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthService } from './health.service';
+import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
+import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 
 @Controller()
 export class HealthController {
-  constructor(private readonly healthService: HealthService) {}
+  constructor(
+    private readonly healthService: HealthService,
+    private readonly oracleRegistry: OracleRegistryService,
+    private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
+  ) {}
 
   @Get('health')
   getHealth() {
@@ -18,6 +24,8 @@ export class HealthController {
   getStatus() {
     const metrics = this.healthService.getMetrics();
     const isHealthy = this.healthService.isHealthy();
+    const multiOracleConfig = this.oracleRegistry.getConfig();
+    const pendingTrackers = this.multiOracleCoordinator.getPendingTrackers();
     
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
@@ -36,6 +44,15 @@ export class HealthController {
         streamStatus: metrics.streamStatus,
         streamUptimeMs: metrics.streamUptimeMs,
         lastStreamError: metrics.lastStreamError,
+      },
+      multiOracle: {
+        enabled: multiOracleConfig.enabled,
+        mode: multiOracleConfig.enabled ? 'multi-oracle' : 'single-oracle',
+        localOracleId: multiOracleConfig.localOracleId,
+        threshold: multiOracleConfig.threshold,
+        totalOracles: multiOracleConfig.totalOracles,
+        oracleIds: multiOracleConfig.oracleIds,
+        pendingSubmissions: pendingTrackers,
       },
       recentErrors: metrics.recentErrors.map(err => ({
         requestId: err.requestId,
