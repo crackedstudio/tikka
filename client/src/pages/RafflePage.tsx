@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useRaffle } from "../hooks/useRaffles";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import ErrorMessage from "../components/ui/ErrorMessage";
@@ -31,7 +31,7 @@ const RafflePage = () => {
     const [ticketCount, setTicketCount] = useState(1);
     
     const raffleId = id ? parseInt(id) : 0;
-    const { raffle, isLoading, error, refetch } = useRaffle(raffleId);
+    const { raffle, isLoading, error } = useRaffle(raffleId);
 
     if (isLoading) {
         return (
@@ -77,7 +77,6 @@ const RafflePage = () => {
     }
 
     const {
-        title,
         description,
         image,
         ticketPriceFormatted,
@@ -90,8 +89,11 @@ const RafflePage = () => {
         creator,
         isActive,
         isFinalized,
-        winner
+        winner,
+        metadata
     } = raffle;
+    
+    const title = metadata?.title || description;
 
     const handleIncrement = () => setTicketCount(prev => Math.min(prev + 1, maxTickets - entries));
     const handleDecrement = () => setTicketCount(prev => Math.max(prev - 1, 1));

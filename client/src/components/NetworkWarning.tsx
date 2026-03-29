@@ -3,7 +3,7 @@
  * Goal: Alert users when they are on Mainnet but the app requires Testnet.
  * Part of Issue #120
  */
-import { useWalletContext } from "../../providers/WalletProvider";
+import { useWalletContext } from "../providers/WalletProvider";
 
 const NetworkWarning = () => {
   const { isConnected, isWrongNetwork, requiredNetwork, switchNetwork } = useWalletContext();

@@ -4,6 +4,7 @@ import Line from "../../assets/svg/Line";
 import AboutRaffle from "../AboutRaffle";
 import EnterRaffle from "../EnterRaffle";
 import RecentParticipants from "../RecentParticipants";
+import ImageCarousel from "../ImageCarousel";
 
 type Countdown = {
     days: string;
@@ -14,6 +15,7 @@ type Countdown = {
 
 type RaffleDetailsCardProps = {
     image: string;
+    images?: string[];
     title: string;
     body: string;
     prizeValue: string;
@@ -24,6 +26,7 @@ type RaffleDetailsCardProps = {
 
 const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
     image,
+    images,
     title,
     body,
     prizeValue,
@@ -31,17 +34,16 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
     countdown,
     onEnter,
 }) => {
+    // Use images array if available, otherwise fallback to single image
+    const displayImages = images && images.length > 0 ? images : [image];
+
     return (
         <div className="w-full p-4 md:p-6 lg:p-8 rounded-3xl my-5 flex flex-col space-y-8">
             {/* Top: image + main content */}
             <div className="flex flex-col gap-6 md:flex-row md:gap-8 items-stretch">
-                {/* Image (stacks on top for mobile) */}
+                {/* Image/Carousel (stacks on top for mobile) */}
                 <div className="w-full md:w-1/2">
-                    <img
-                        src={image}
-                        alt={title}
-                        className="w-full h-auto rounded-2xl object-cover"
-                    />
+                    <ImageCarousel images={displayImages} alt={title} />
                 </div>
 
                 {/* Content */}

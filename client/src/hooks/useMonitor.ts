@@ -3,9 +3,9 @@ import {
   fetchStats,
   fetchLatency,
   fetchErrors,
-  QueueStatsResponse,
-  LatencyPoint,
-  ErrorRecord,
+  type QueueStatsResponse,
+  type LatencyPoint,
+  type ErrorRecord,
 } from '../services/monitorApi';
 
 interface UseMonitorOptions {
