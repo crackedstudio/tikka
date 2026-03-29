@@ -20,6 +20,7 @@ describe('EmailTemplateService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   it('should be defined', () => {
@@ -28,13 +29,13 @@ describe('EmailTemplateService', () => {
 
   describe('render', () => {
     it('should successfully render a template with context', () => {
-      const templateName = 'winner';
+      const templateName = 'Winner';
       const context = { username: 'Clinton' };
       const mockHbsContent = 'Hello {{username}}';
 
       // Mock fs to say the file exists and return our fake string
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.readFileSync as jest.Mock).mockReturnValue(mockHbsContent);
+      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      jest.spyOn(fs, 'readFileSync').mockReturnValue(mockHbsContent);
 
       const result = service.render(templateName, context);
 
@@ -44,7 +45,7 @@ describe('EmailTemplateService', () => {
     });
 
     it('should throw InternalServerErrorException if template does not exist', () => {
-      (fs.existsSync as jest.Mock).mockReturnValue(false);
+      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
 
       expect(() => {
         service.render('non-existent', {});
@@ -52,9 +53,8 @@ describe('EmailTemplateService', () => {
     });
 
     it('should throw InternalServerErrorException if handlebars fails to compile', () => {
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      // This is invalid handlebars syntax (missing closing braces)
-      (fs.readFileSync as jest.Mock).mockReturnValue('Hello {{username');
+      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      jest.spyOn(fs, 'readFileSync').mockReturnValue('Hello {{username');
 
       expect(() => {
         service.render('broken-template', { username: 'Clinton' });
