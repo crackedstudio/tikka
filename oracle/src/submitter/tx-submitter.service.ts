@@ -2,11 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from 'stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
+import { FeeEstimatorService } from './fee-estimator.service';
 
 export interface SubmitResult {
   txHash: string;
   ledger: number;
   success: boolean;
+  feePaid?: number;
 }
 
 @Injectable()
@@ -83,8 +85,16 @@ export class TxSubmitterService {
     const publicKey = kp.publicKey();
 
     let attempt = 0;
-    let feeBump = 1;
     let lastError: any = null;
+    
+    // Get initial fee estimate from network stats
+    const feeEstimate = await this.feeEstimator.estimateFee(rafflePrizeXLM);
+    let currentFee = feeEstimate.cappedFee;
+    
+    this.logger.log(
+      `Submitting randomness for raffle ${raffleId} with fee ${currentFee} stroops ` +
+      `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
+    );
 
     while (attempt < this.MAX_RETRIES) {
       attempt++;
@@ -168,7 +178,7 @@ export class TxSubmitterService {
     sourceAddress: string,
     raffleId: number,
     randomness: RandomnessResult,
-    feeBump: number,
+    feeStroops: number,
   ) {
     const account = await this.rpcServer.getAccount(sourceAddress);
     const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeBump).toString();
@@ -211,6 +221,14 @@ export class TxSubmitterService {
   private isInsufficientFeeError(message: string): boolean {
     const m = message.toLowerCase();
     return m.includes('insufficient fee') || m.includes('tx_insufficient_fee');
+  }
+
+  /**
+   * Bumps the fee by 50% with a cap to avoid runaway costs.
+   */
+  private bumpFee(currentFee: number, maxCap: number): number {
+    const bumped = Math.floor(currentFee * 1.5);
+    return Math.min(bumped, maxCap);
   }
 
   private backoff(attempt: number): number {
