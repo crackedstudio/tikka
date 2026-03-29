@@ -11,6 +11,21 @@ export interface HealthMetrics {
   streamStatus: 'connected' | 'disconnected' | 'reconnecting';
   streamUptimeMs: number;
   lastStreamError?: string;
+  multiOracle?: MultiOracleHealthStatus;
+}
+
+export interface MultiOracleHealthStatus {
+  enabled: boolean;
+  mode: string;
+  localOracleId: string;
+  threshold: number;
+  totalOracles: number;
+  pendingSubmissions: {
+    raffleId: number;
+    requestId: string;
+    submissions: number;
+    threshold: number;
+  }[];
 }
 
 export interface ErrorRecord {
