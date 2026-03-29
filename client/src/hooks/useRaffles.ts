@@ -18,7 +18,7 @@ export const useRaffles = (filters?: RaffleListFilters) => {
     const requestId = useRef(0);
     const [refetchFlag, setRefetchFlag] = useState(0);
 
-    const serializedFilters = JSON.stringify(filters);
+    const serializedFilters = JSON.stringify(filters ?? {});
 
     useEffect(() => {
         const currentRequest = ++requestId.current;
