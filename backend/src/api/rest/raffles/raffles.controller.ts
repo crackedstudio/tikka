@@ -11,13 +11,19 @@ import {
   Req,
   UsePipes,
 } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
 import { UpsertMetadataPayload } from "../../../services/metadata.service";
-import { ListRafflesQuerySchema, type ListRafflesQueryDto } from "./dto";
+import {
+  ListRafflesQuerySchema,
+  ListRafflesQueryDto,
+  BatchMetadataQuerySchema,
+  type BatchMetadataQueryDto,
+} from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
@@ -27,13 +33,14 @@ import {
 import { StorageService } from "../../../services/storage.service";
 import {
   UpsertMetadataSchema,
-  type UpsertMetadataDto,
+  UpsertMetadataDto,
 } from "./metadata.schema";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
 
+@ApiTags("Raffles")
 @Controller("raffles")
 export class RafflesController {
   constructor(
@@ -47,9 +54,22 @@ export class RafflesController {
    */
   @Public()
   @Get()
+  @ApiOperation({ summary: "List raffles with optional filters and pagination" })
   @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
   async list(@Query() filters: ListRafflesQueryDto) {
     return this.rafflesService.list(filters);
+  }
+
+  /**
+   * GET /raffles/metadata?ids=1,2,3 — Batch fetch off-chain metadata for up to 100 raffle IDs.
+   * Returns an array of found metadata records; IDs with no metadata are omitted.
+   * Must be declared before :id to prevent NestJS matching "metadata" as an id param.
+   */
+  @Public()
+  @Get('metadata')
+  @UsePipes(new (createZodPipe(BatchMetadataQuerySchema))())
+  async getBatchMetadata(@Query() query: BatchMetadataQueryDto) {
+    return this.rafflesService.getBatchMetadata(query.ids);
   }
 
   /**
@@ -57,6 +77,8 @@ export class RafflesController {
    */
   @Public()
   @Get(":id")
+  @ApiOperation({ summary: "Get raffle detail by ID" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
   async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
   }
@@ -65,7 +87,10 @@ export class RafflesController {
    * POST /raffles/:raffleId/metadata — Create or update raffle metadata.
    * Requires JWT (SIWS).
    */
+  @ApiBearerAuth()
   @Post(":raffleId/metadata")
+  @ApiOperation({ summary: "Create or update raffle metadata" })
+  @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
   async upsertMetadata(
     @Param("raffleId", ParseIntPipe) raffleId: number,
     @Body(new (createZodPipe(UpsertMetadataSchema))())
@@ -80,7 +105,26 @@ export class RafflesController {
    * Max 5 MB. Allowed types: JPEG, PNG, WebP.
    * Requires JWT (SIWS).
    */
+  @ApiBearerAuth()
   @Post("upload-image")
+  @ApiOperation({ summary: "Upload raffle image to storage" })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+        raffleId: {
+          type: "string",
+          description: "Optional raffle ID (defaults to 'draft')",
+        },
+      },
+      required: ["file"],
+    },
+  })
   async uploadImage(
     @Req() request: FastifyRequestWithMultipart,
     @CurrentUser("address") address: string,

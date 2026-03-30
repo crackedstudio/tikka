@@ -1,3 +1,4 @@
+
 import {
   Controller,
   Get,
@@ -6,6 +7,7 @@ import {
   Query,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { Public } from "./decorators/public.decorator";
 import { Throttle } from "../middleware/throttle.decorator";
@@ -17,6 +19,7 @@ import {
   VerifyBodyDto,
 } from "./auth.schema";
 
+@ApiTags("Authentication")
 @Controller("auth")
 @Public()
 export class AuthController {
@@ -32,6 +35,8 @@ export class AuthController {
    */
   @Throttle({ nonce: { limit: 30, ttl: 60000 } })
   @Get("nonce")
+  @ApiOperation({ summary: "Get signing nonce for SIWS" })
+  @ApiQuery({ name: "address", description: "Stellar address of the user" })
   @UsePipes(new (createZodPipe(GetNonceQuerySchema))())
   async getNonce(@Query("address") address: string) {
     return this.authService.getNonce(address);
@@ -46,6 +51,7 @@ export class AuthController {
    */
   @Throttle({ auth: { limit: 10, ttl: 60000 } })
   @Post("verify")
+  @ApiOperation({ summary: "Verify wallet signature and issue JWT" })
   @UsePipes(new (createZodPipe(VerifyBodySchema))())
   async verify(@Body() payload: VerifyBodyDto) {
     try {

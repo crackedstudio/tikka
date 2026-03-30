@@ -6,6 +6,7 @@ import {
 } from "@creit.tech/stellar-wallets-kit";
 
 const SELECTED_WALLET_ID = "selectedWalletId";
+const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
 
 /**
  * Helper to convert passphrase to a simple network name
@@ -49,6 +50,10 @@ function getSelectedWalletId(): string | null {
 }
 
 export async function getAccountAddress(): Promise<string | null> {
+  if (IS_TEST_MODE) {
+    return "GTESTADDRESS1234567890ABCDEF";
+  }
+
   try {
     if (!getSelectedWalletId()) return null;
     const { address } = await getKit().getAddress();
@@ -60,6 +65,13 @@ export async function getAccountAddress(): Promise<string | null> {
 }
 
 export async function connectWallet(): Promise<{ success: boolean; address?: string; error?: string }> {
+  if (IS_TEST_MODE) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(SELECTED_WALLET_ID, "test-wallet");
+    }
+    return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
+  }
+
   const kitInstance = getKit();
   return new Promise((resolve) => {
     kitInstance.openModal({
@@ -90,6 +102,10 @@ export async function disconnectWallet(): Promise<void> {
  * Updated for Issue #120: Gets the current network name
  */
 export async function getNetwork(): Promise<string | null> {
+  if (IS_TEST_MODE) {
+    return 'testnet';
+  }
+
   try {
     if (!getSelectedWalletId()) return null;
     const { network } = await getKit().getNetwork();
@@ -101,11 +117,22 @@ export async function getNetwork(): Promise<string | null> {
 }
 
 export async function signTransaction(transaction: any): Promise<any> {
+  if (IS_TEST_MODE) {
+    return {
+      success: true,
+      signedTransaction: 'test-signed-transaction',
+    };
+  }
+
   if (!getSelectedWalletId()) throw new Error("No wallet connected");
   return await getKit().signTransaction(transaction);
 }
 
 export async function isWalletConnected(): Promise<boolean> {
+  if (IS_TEST_MODE) {
+    return true;
+  }
+
   try {
     const address = await getAccountAddress();
     return address !== null;
@@ -115,6 +142,10 @@ export async function isWalletConnected(): Promise<boolean> {
 }
 
 export async function isWalletInstalled(): Promise<boolean> {
+  if (IS_TEST_MODE) {
+    return true;
+  }
+
   // Check if any wallet extension is available
   return typeof window !== "undefined" && (
     !!(window as any).freighter || 

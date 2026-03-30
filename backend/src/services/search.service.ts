@@ -25,6 +25,11 @@ export interface SearchResult {
   created_at?: string;
 }
 
+export interface SearchResponse {
+  raffles: SearchResult[];
+  total: number;
+}
+
 @Injectable()
 export class SearchService {
   constructor(
@@ -32,17 +37,27 @@ export class SearchService {
     private readonly indexerService: IndexerService,
   ) {}
 
-  async search(query: string, category?: string): Promise<SearchResult[]> {
-    const matches = await this.metadataService.searchMetadata(query, category);
+  async search(
+    query: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<SearchResponse> {
+    const { matches, total } = await this.metadataService.searchMetadata(
+      query,
+      limit,
+      offset,
+    );
 
-    if (matches.length === 0) return [];
+    if (matches.length === 0) {
+      return { raffles: [], total };
+    }
 
     // Fetch on-chain data for all matched raffles in parallel
-    const enriched = await Promise.all(
+    const raffles = await Promise.all(
       matches.map(async (meta) => this.mergeWithIndexer(meta)),
     );
 
-    return enriched;
+    return { raffles, total };
   }
 
   private async mergeWithIndexer(meta: RaffleMetadata): Promise<SearchResult> {

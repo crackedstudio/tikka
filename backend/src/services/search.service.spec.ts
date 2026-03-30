@@ -1,39 +1,44 @@
 import { SearchService } from './search.service';
-import { MetadataService } from './metadata.service';
-import { IndexerService } from './indexer.service';
 
 describe('SearchService', () => {
-  let service: SearchService;
-  let metadataService: { searchMetadata: jest.Mock };
-  let indexerService: { getRaffle: jest.Mock };
-
-  beforeEach(() => {
-    metadataService = {
-      searchMetadata: jest.fn(),
+  it('passes limit and offset to metadata search and returns paginated results with total', async () => {
+    const metadataService = {
+      searchMetadata: jest.fn().mockResolvedValue({
+        matches: [
+          {
+            raffle_id: 2,
+            title: 'Summer Raffle',
+            description: 'A nice prize',
+            image_url: null,
+            category: 'seasonal',
+          },
+        ],
+        total: 11,
+      }),
     };
-    indexerService = {
-      getRaffle: jest.fn(),
+
+    const indexerService = {
+      getRaffle: jest.fn().mockResolvedValue(null),
     };
 
-    service = new SearchService(
-      metadataService as unknown as MetadataService,
-      indexerService as unknown as IndexerService,
+    const service = new SearchService(
+      metadataService as any,
+      indexerService as any,
     );
-  });
 
-  it('forwards an optional category filter to metadata search', async () => {
-    metadataService.searchMetadata.mockResolvedValue([]);
+    await expect((service as any).search('summer', 5, 10)).resolves.toEqual({
+      raffles: [
+        {
+          id: 2,
+          title: 'Summer Raffle',
+          description: 'A nice prize',
+          image_url: null,
+          category: 'seasonal',
+        },
+      ],
+      total: 11,
+    });
 
-    await service.search('raffle', 'Art');
-
-    expect(metadataService.searchMetadata).toHaveBeenCalledWith('raffle', 'Art');
-  });
-
-  it('omits the category filter when none is provided', async () => {
-    metadataService.searchMetadata.mockResolvedValue([]);
-
-    await service.search('raffle');
-
-    expect(metadataService.searchMetadata).toHaveBeenCalledWith('raffle', undefined);
+    expect(metadataService.searchMetadata).toHaveBeenCalledWith('summer', 5, 10);
   });
 });
