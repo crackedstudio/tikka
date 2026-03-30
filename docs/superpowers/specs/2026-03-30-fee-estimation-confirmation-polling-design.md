@@ -112,24 +112,22 @@ constructor(...) {
 - `memo` — attached to the transaction envelope
 - `simulateOnly` — returns simulated result without signing/submitting
 
-**Strategy:** Call the lifecycle phases individually, injecting memo before simulation and short-circuiting for `simulateOnly`.
+**Strategy:** Add `memo?: TxMemo` to `TransactionLifecycle.InvokeLifecycleOptions` and thread it into `lifecycle.buildTx()` (the private transaction builder). Memo must be set during `TransactionBuilder` construction — it cannot be patched onto an already-assembled XDR. `simulateOnly` is a service-level concern and stays in `ContractService` only.
 
 ```
-simulate()          ← lifecycle.simulate() with sourcePublicKey + fee options
+lifecycle.simulate(method, params, { sourcePublicKey, fee, memo })
   ↓ [simulateOnly?] → return { result: returnValue, txHash: '', ledger: 0 }
   ↓
-[apply memo to XDR] ← if options.memo: parse assembledXdr, add memo, re-serialise
+lifecycle.sign(assembledXdr)
   ↓
-sign(assembledXdr)  ← lifecycle.sign()
+lifecycle.submit(signedXdr)
   ↓
-submit(signedXdr)   ← lifecycle.submit()
-  ↓
-poll(txHash)        ← lifecycle.poll() with options.poll config
+lifecycle.poll(txHash, options.poll)
   ↓
 return InvokeResult
 ```
 
-Memo injection detail: after `lifecycle.simulate()` returns `assembledXdr`, parse it with `TransactionBuilder.fromXDR()`, add the memo via `Memo.*`, re-serialise to XDR, then pass to `lifecycle.sign()`. The assembled fee/auth data is in the envelope and survives re-serialisation.
+`lifecycle.buildTx()` updated to accept an optional `memo?: TxMemo` and call `.addMemo(Memo.*)` on the `TransactionBuilder` before `.build()`. `InvokeLifecycleOptions` gains a `memo?: TxMemo` field passed through `simulate()` into `buildTx()`.
 
 #### 3c. `buildUnsigned()` — Use `lifecycle.simulate()`
 
@@ -195,8 +193,8 @@ consume the poll timeout.
 |------|--------|
 | `sdk/src/network/rpc.service.ts` | Remove `while` loop from `getTransaction()`; drop `timeoutMs`/`intervalMs` params |
 | `sdk/src/network/rpc.service.spec.ts` | Remove/rewrite polling loop tests; add single-request test |
-| `sdk/src/contract/lifecycle.ts` | Default `timeoutMs` 30 s → 60 s; remove args from `rpc.getTransaction()` call; add `setWallet()`/`setContractId()` setters |
-| `sdk/src/contract/contract.service.ts` | Add `lifecycle` field; delegate `invoke`, `buildUnsigned`, `submitSigned` to phases; propagate `setWallet`/`setContractId` to lifecycle |
+| `sdk/src/contract/lifecycle.ts` | Default `timeoutMs` 30 s → 60 s; remove args from `rpc.getTransaction()` call; add `setWallet()`/`setContractId()` setters; add `memo?: TxMemo` to `InvokeLifecycleOptions` + `buildTx()` |
+| `sdk/src/contract/contract.service.ts` | Add `lifecycle` field; delegate `invoke`, `buildUnsigned`, `submitSigned` to phases; propagate `setWallet`/`setContractId` to lifecycle; keep `simulateOnly` logic local |
 | `sdk/src/contract/contract.service.spec.ts` | Update mocks to reflect lifecycle delegation |
 | `docs/ARCHITECTURE.md` | Add fee estimation + polling config sections |
 
