@@ -91,7 +91,11 @@ export class RpcService {
     return this.request('getLatestLedger', [], options);
   }
 
-  /** Get a single transaction status from the RPC node. Returns NOT_FOUND if the tx is not yet indexed. */
+  /**
+   * Get a single transaction status from the RPC node (single-shot).
+   * Returns NOT_FOUND if the tx is not yet indexed — caller owns the retry loop.
+   * Transient transport errors (429, 5xx) are still retried by `executeRequest()`.
+   */
   async getTransaction(
     hash: string,
   ): Promise<rpc.Api.GetTransactionResponse> {
