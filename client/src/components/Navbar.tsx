@@ -5,9 +5,11 @@ import logo from "../assets/svg/logo.svg";
 import tikka from "../assets/svg/Tikka.svg";
 import WalletButton from "./WalletButton";
 import SignInButton from "./SignInButton";
+import NotificationBellIcon from "./cards/NotificationBellIcon";
 import { Search } from "lucide-react";
 import { useWalletContext } from "../providers/WalletProvider";
 import { STELLAR_CONFIG } from "../config/stellar";
+
 
 const Navbar = ({ onStart }: { onStart?: () => void }) => {
     const [open, setOpen] = React.useState(false);
@@ -121,7 +123,13 @@ useEffect(() => {
                         </div>
                     )}
 
-                    <WalletButton />
+                    <div className="flex items-center gap-4">
+                        
+                        <WalletButton />
+                        
+                    </div>
+                    
+                    <NotificationBellIcon raffleId={0} onAuthRequired={() => { /* optionally open sign-in drawer */ }} />
                     <SignInButton />
                 </div>
 

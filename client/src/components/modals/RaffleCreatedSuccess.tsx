@@ -43,7 +43,7 @@ const RaffleCreatedSuccess = ({
                 {onClose && (
                     <button
                         onClick={onClose}
-                        className="text-white hover:text-gray-300 transition-colors flex-shrink-0"
+                        className="text-gray-900 dark:text-white hover:text-gray-700 dark:text-gray-300 transition-colors flex-shrink-0"
                         aria-label="Close modal"
                     >
                         <X size={20} className="sm:w-6 sm:h-6" />
@@ -54,13 +54,13 @@ const RaffleCreatedSuccess = ({
             {/* Success Animation */}
             <div className="flex justify-center mb-6 sm:mb-8">
                 <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                    <CheckCircle size={32} className="text-white" />
+                    <CheckCircle size={32} className="text-gray-900 dark:text-white" />
                 </div>
             </div>
 
             {/* Success Message */}
             <div className="text-center mb-8 sm:mb-12">
-                <h2 className="text-lg sm:text-[22px] font-bold text-white mb-2">
+                <h2 className="text-lg sm:text-[22px] font-bold text-gray-900 dark:text-white mb-2">
                     Raffle Created Successfully! 🎉
                 </h2>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
@@ -75,14 +75,14 @@ const RaffleCreatedSuccess = ({
                     {raffleId !== undefined && (
                         <>
                             <div className="flex justify-between items-center">
-                                <span className="text-white text-xs sm:text-sm">
+                                <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                                     Raffle ID:
                                 </span>
-                                <span className="text-white font-mono text-xs sm:text-sm">
+                                <span className="text-gray-900 dark:text-white font-mono text-xs sm:text-sm">
                                     #{raffleId}
                                 </span>
                             </div>
-                            <div className="border-t border-[#1F263F]"></div>
+                            <div className="border-t border-gray-200 dark:border-[#1F263F]"></div>
                         </>
                     )}
 
@@ -90,35 +90,35 @@ const RaffleCreatedSuccess = ({
                     {transactionHash && (
                         <>
                             <div className="flex justify-between items-center">
-                                <span className="text-white text-xs sm:text-sm">
+                                <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                                     Transaction Hash:
                                 </span>
                                 <div className="flex items-center space-x-2">
-                                    <span className="text-white font-mono text-xs sm:text-sm truncate max-w-[120px]">
+                                    <span className="text-gray-900 dark:text-white font-mono text-xs sm:text-sm truncate max-w-[120px]">
                                         {transactionHash.slice(0, 6)}...
                                         {transactionHash.slice(-4)}
                                     </span>
                                     <button
                                         onClick={handleCopyTransactionHash}
-                                        className="text-gray-400 hover:text-white transition-colors"
+                                        className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors"
                                         title="Copy transaction hash"
                                     >
                                         <Copy size={14} />
                                     </button>
                                 </div>
                             </div>
-                            <div className="border-t border-[#1F263F]"></div>
+                            <div className="border-t border-gray-200 dark:border-[#1F263F]"></div>
                         </>
                     )}
 
                     {/* Mode */}
                     <div className="flex justify-between items-center">
-                        <span className="text-white text-xs sm:text-sm">
+                        <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                             Mode:
                         </span>
                         <div className="flex items-center space-x-1 sm:space-x-2">
                             <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-400 rounded-full"></div>
-                            <span className="text-white text-xs sm:text-sm">
+                            <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                                 {network}
                             </span>
                         </div>
@@ -132,7 +132,7 @@ const RaffleCreatedSuccess = ({
                 {raffleId !== undefined && (
                     <Link
                         to={`/raffles/${raffleId}`}
-                        className="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 text-center block"
+                        className="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 text-center block"
                         onClick={onClose}
                     >
                         View My Raffle
@@ -143,7 +143,7 @@ const RaffleCreatedSuccess = ({
                 {transactionHash && (
                     <button
                         onClick={handleViewOnExplorer}
-                        className="w-full bg-[#2A264A] hover:bg-[#3A365A] text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                        className="w-full bg-gray-200 dark:bg-[#2A264A] hover:bg-gray-300 dark:bg-[#3A365A] text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
                     >
                         <ExternalLink size={16} />
                         <span>View on Explorer</span>
@@ -153,7 +153,7 @@ const RaffleCreatedSuccess = ({
                 {/* Create Another Raffle Button */}
                 <Link
                     to="/create"
-                    className="w-full bg-transparent border border-[#FF389C] text-[#FF389C] hover:bg-[#FF389C]/10 px-6 py-3 rounded-lg font-medium transition-colors duration-200 text-center block"
+                    className="w-full bg-transparent border border-pink-500 dark:border-[#FF389C] text-pink-600 dark:text-[#FF389C] hover:bg-[#FF389C]/10 px-6 py-3 rounded-lg font-medium transition-colors duration-200 text-center block"
                     onClick={onClose}
                 >
                     Create Another Raffle

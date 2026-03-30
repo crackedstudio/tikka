@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tikka-backend-config
+  namespace: default
+data:
+  PORT: "3001"
+  NODE_ENV: "production"
+  INDEXER_URL: "http://tikka-indexer.default.svc.cluster.local:3002"
+  INDEXER_TIMEOUT_MS: "5000"
+  SIWS_DOMAIN: "tikka.io"
+  THROTTLE_DEFAULT_LIMIT: "100"
+  THROTTLE_DEFAULT_TTL: "60"

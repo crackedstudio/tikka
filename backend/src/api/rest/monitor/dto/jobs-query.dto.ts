@@ -1,19 +1,10 @@
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { z } from 'zod';
 
-export class JobsQueryDto {
-  @IsOptional()
-  @IsIn(['pending', 'completed', 'failed'])
-  status?: 'pending' | 'completed' | 'failed';
+/** Query params for GET /monitor/jobs */
+export const JobsQuerySchema = z.object({
+  status: z.enum(['pending', 'completed', 'failed']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
+  cursor: z.string().optional(),
+});
 
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  @Type(() => Number)
-  limit?: number = 50;
-
-  @IsOptional()
-  @IsString()
-  cursor?: string;
-}
+export type JobsQueryDto = z.infer<typeof JobsQuerySchema>;

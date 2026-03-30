@@ -6,7 +6,7 @@ interface RaffleCardSkeletonProps {
 }
 
 const RaffleCardSkeleton: React.FC<RaffleCardSkeletonProps> = ({
-    bgColor = "bg-[#11172E]",
+    bgColor = "bg-white dark:bg-[#11172E]",
     rounded = "rounded-3xl",
 }) => {
     return (

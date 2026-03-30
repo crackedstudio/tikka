@@ -12,7 +12,7 @@ const Hero = ({ handleStartClick }: HeroProps) => {
                 {/* Left: Text */}
                 <div className="flex flex-col space-y-8 w-full md:w-1/2 text-center md:text-left">
                     <div>
-                        <span className="text-xs bg-[#121628] py-2 px-4 rounded-full mb-4 inline-block">
+                        <span className="text-xs bg-[#121628] dark:bg-white/5 text-white dark:text-white py-2 px-4 rounded-full mb-4 inline-block">
                             A New Way to Win Together
                         </span>
                     </div>

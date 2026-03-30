@@ -16,7 +16,7 @@ const RecentParticipants = () => {
                 <p className="text-[#858584] text-[22px]">
                     Recent Participants
                 </p>
-                <p className="text-[#00E6CC] text-sm">View All</p>
+                <p className="text-teal-600 dark:text-[#00E6CC] text-sm">View All</p>
             </div>
             <div className="mt-8 flex space-x-4">
                 {images.map((img, index) => (

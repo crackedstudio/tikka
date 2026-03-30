@@ -1,3 +1,4 @@
+
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
@@ -10,6 +11,7 @@ import { LeaderboardModule } from "./api/rest/leaderboard/leaderboard.module";
 import { StatsModule } from "./api/rest/stats/stats.module";
 import { NotificationsModule } from "./api/rest/notifications/notifications.module";
 import { SearchModule } from "./api/rest/search/search.module";
+import { SupportModule } from "./api/rest/support/support.module";
 import { HealthModule } from "./health/health.module";
 import { MonitorModule } from "./api/rest/monitor/monitor.module";
 import { SupabaseModule } from "./services/supabase.module";
@@ -35,7 +37,7 @@ import { validate } from "./config/env.schema";
      *   THROTTLE_NONCE_LIMIT   / THROTTLE_NONCE_TTL
      */
     ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
+      imports: [ConfigModule.forRoot()],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         throttlers: [
@@ -66,6 +68,7 @@ import { validate } from "./config/env.schema";
     StatsModule,
     NotificationsModule,
     SearchModule,
+    SupportModule,
     HealthModule,
     MonitorModule,
   ],

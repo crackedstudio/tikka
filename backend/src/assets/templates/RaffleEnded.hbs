@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; }
+    .header { background: #1f2937; color: white; padding: 30px; text-align: center; }
+    .content { padding: 30px; color: #4b5563; line-height: 1.6; }
+    .status-badge { display: inline-block; padding: 4px 12px; background: #fee2e2; color: #dc2626; border-radius: 99px; font-size: 14px; font-weight: bold; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Raffle Competition Ended</h2>
+    </div>
+    <div class="content">
+      <div class="status-badge">COMPLETED</div>
+      <p>Hello,</p>
+      <p>The entry period for <strong>{{raffleName}}</strong> has officially closed.</p>
+      <p>Our system is currently finalizing the results. You can check the final leaderboard and see the winner by clicking below.</p>
+      <a href="{{resultsUrl}}" style="color: #6366f1; font-weight: bold;">View Final Results &rarr;</a>
+    </div>
+    <div class="footer">
+      <p>Thank you for participating in Tikka!</p>
+    </div>
+  </div>
+</body>
+</html>

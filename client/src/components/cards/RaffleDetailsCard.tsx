@@ -53,7 +53,7 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
                         <p className="text-2xl md:text-3xl lg:text-[38px] font-bold">
                             {title}
                         </p>
-                        <p className="text-base md:text-[20px] text-[#9CA3AF] mt-3">
+                        <p className="text-base md:text-[20px] text-gray-600 dark:text-[#9CA3AF] mt-3">
                             {body}
                         </p>
                     </div>
@@ -63,10 +63,10 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
                     {/* Prize + Countdown */}
                     <div className="flex flex-col gap-4">
                         <div>
-                            <p className="text-[#9CA3AF] text-sm">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
                                 Prize Value:
                             </p>
-                            <p className="font-bold text-[#FFD700] text-xl md:text-[38px]">
+                            <p className="font-bold text-yellow-600 dark:text-[#FFD700] text-xl md:text-[38px]">
                                 {prizeValue} {prizeCurrency}
                             </p>
                         </div>
@@ -74,7 +74,7 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
                         <Line />
 
                         <div>
-                            <p className="text-xs text-[#9CA3AF] mb-2">
+                            <p className="text-xs text-gray-600 dark:text-[#9CA3AF] mb-2">
                                 Ends In
                             </p>
                             <div className="flex flex-wrap gap-2 text-sm md:text-[18px]">

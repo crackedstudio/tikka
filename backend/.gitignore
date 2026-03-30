@@ -4,3 +4,4 @@
 .env.local
 *.log
 package-lock.json
+package.json
