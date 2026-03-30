@@ -81,7 +81,7 @@ export function InstallPWA() {
                     Later
                 </button>
                 <button
-                    className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-800 transition-colors"
+                    className="px-4 py-2 bg-green-500 text-gray-900 dark:text-white text-sm font-medium rounded-lg shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-800 transition-colors"
                     onClick={onClick}
                 >
                     Install App

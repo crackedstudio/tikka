@@ -17,7 +17,7 @@ const TrendingTab = ({ activeTab, changeActiveTab }: TrendingTabProps) => {
             </label>
             <select
                 id="trending-filter"
-                className="md:hidden w-full rounded-xl bg-[#121628] text-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="md:hidden w-full rounded-xl bg-[#121628] text-gray-900 dark:text-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-white/20"
                 value={activeTab}
                 onChange={(e) => changeActiveTab(e.target.value)}
             >
@@ -39,8 +39,8 @@ const TrendingTab = ({ activeTab, changeActiveTab }: TrendingTabProps) => {
                             className={[
                                 "pb-2 text-lg font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
                                 isActive
-                                    ? "text-white border-b-2 border-[#858584]"
-                                    : "text-[#858584] hover:text-white/80",
+                                    ? "text-gray-900 dark:text-white border-b-2 border-[#858584]"
+                                    : "text-[#858584] hover:text-gray-600 dark:text-white/80",
                             ].join(" ")}
                             aria-current={isActive ? "page" : undefined}
                         >

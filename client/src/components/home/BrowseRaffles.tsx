@@ -20,11 +20,11 @@ const BrowseRaffles = () => {
 
                 {/* Right card: keeps same width/appearance on desktop; stacks under left on mobile */}
                 <aside className="w-full md:w-auto md:flex-shrink-0">
-                    <div className="bg-[#11172E] border border-[#1F263F] rounded-xl p-5 w-full max-w-sm mx-auto md:mx-0">
+                    <div className="bg-white dark:bg-[#11172E] border border-gray-200 dark:border-[#1F263F] rounded-xl p-5 w-full max-w-sm mx-auto md:mx-0">
                         <h2 className="font-semibold text-[22px]">
                             Host your raffle
                         </h2>
-                        <p className="text-[#9CA3AF] text-[16px] mt-1">
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-[16px] mt-1">
                             Join the most exciting raffle demo platform where
                         </p>
 

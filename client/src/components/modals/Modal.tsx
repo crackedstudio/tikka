@@ -110,7 +110,7 @@ export default function Modal({ open, onClose, children }: ModalProps) {
                         : "opacity-0 translate-y-4 scale-95"
                 }`}
             >
-                <div className="rounded-2xl bg-[#0B1220] border border-[#1F263F] p-6 shadow-xl">
+                <div className="rounded-2xl bg-[#0B1220] border border-gray-200 dark:border-[#1F263F] p-6 shadow-xl">
                     <div className="mt-4">{children}</div>
                 </div>
             </div>

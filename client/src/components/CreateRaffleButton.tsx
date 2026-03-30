@@ -47,12 +47,14 @@ const CreateRaffleButton = ({
   imageFile,
   onSuccess,
   onError,
-  className = "bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200",
+  className = "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200",
   children = "Publish Raffle",
 }: CreateRaffleButtonProps) => {
   const { isConnected, isWrongNetwork, connect, switchNetwork } =
     useWalletContext();
   const { isAuthenticated } = useAuthContext();
+  const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
+  const effectiveIsAuthenticated = isTestMode || isAuthenticated;
   const [isLoading, setIsLoading] = useState(false);
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -78,7 +80,7 @@ const CreateRaffleButton = ({
       return;
     }
 
-    if (!isAuthenticated) {
+    if (!effectiveIsAuthenticated) {
       onError?.("Please sign in before creating a raffle.");
       return;
     }
@@ -166,7 +168,7 @@ const CreateRaffleButton = ({
     if (isLoading) return "Creating...";
     if (!isConnected) return "Connect Wallet to Publish";
     if (isWrongNetwork) return `Switch to ${targetNetwork}`;
-    if (!isAuthenticated) return "Sign in to Publish";
+    if (!effectiveIsAuthenticated) return "Sign in to Publish";
     return children;
   };
 

@@ -23,7 +23,7 @@ const ProcessingTickets = ({
                 {onClose && (
                     <button
                         onClick={onClose}
-                        className="text-white hover:text-gray-300 transition-colors flex-shrink-0"
+                        className="text-gray-900 dark:text-white hover:text-gray-700 dark:text-gray-300 transition-colors flex-shrink-0"
                         aria-label="Close modal"
                     >
                         <X size={20} className="sm:w-6 sm:h-6" />
@@ -39,7 +39,7 @@ const ProcessingTickets = ({
                 </div>
             </div>
             <div className="text-center mb-8 sm:mb-12">
-                <h2 className="text-lg sm:text-[22px] font-bold text-white mb-2">
+                <h2 className="text-lg sm:text-[22px] font-bold text-gray-900 dark:text-white mb-2">
                     Purchasing tickets...
                 </h2>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
@@ -52,25 +52,25 @@ const ProcessingTickets = ({
                 <div className="space-y-3">
                     {/* Reference ID */}
                     <div className="flex justify-between items-center">
-                        <span className="text-white text-xs sm:text-sm">
+                        <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                             Reference ID:
                         </span>
-                        <span className="text-white font-mono text-xs sm:text-sm truncate ml-2">
+                        <span className="text-gray-900 dark:text-white font-mono text-xs sm:text-sm truncate ml-2">
                             {transactionHash}
                         </span>
                     </div>
 
                     {/* Divider */}
-                    <div className="border-t border-[#1F263F]"></div>
+                    <div className="border-t border-gray-200 dark:border-[#1F263F]"></div>
 
                     {/* Mode */}
                     <div className="flex justify-between items-center">
-                        <span className="text-white text-xs sm:text-sm">
+                        <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                             Mode:
                         </span>
                         <div className="flex items-center space-x-1 sm:space-x-2">
                             <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full"></div>
-                            <span className="text-white text-xs sm:text-sm">
+                            <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                                 {network}
                             </span>
                         </div>

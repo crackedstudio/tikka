@@ -1,11 +1,9 @@
-import { IsISO8601, IsOptional } from 'class-validator';
+import { z } from 'zod';
 
-export class LatencyQueryDto {
-  @IsOptional()
-  @IsISO8601()
-  from?: string;
+/** Query params for GET /monitor/latency */
+export const LatencyQuerySchema = z.object({
+  from: z.string().datetime("Invalid datetime format for 'from'").optional(),
+  to: z.string().datetime("Invalid datetime format for 'to'").optional(),
+});
 
-  @IsOptional()
-  @IsISO8601()
-  to?: string;
-}
+export type LatencyQueryDto = z.infer<typeof LatencyQuerySchema>;

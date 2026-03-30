@@ -1,7 +1,8 @@
 import { TicketService } from './ticket.service';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
-import { BuyTicketParams, RefundTicketParams } from './ticket.types';
+import { BuyTicketParams, RefundTicketParams, BuyBatchParams } from './ticket.types';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
 describe('TicketService', () => {
   let service: TicketService;
@@ -120,6 +121,141 @@ describe('TicketService', () => {
     it('should validate raffleId', async () => {
       const params = { raffleId: -1, userAddress: 'G...' };
       await expect(service.getUserTickets(params)).rejects.toThrow('raffleId must be a positive integer');
+    });
+  });
+
+  describe('buyBatch', () => {
+    it('should purchase tickets for multiple raffles', async () => {
+      const params: BuyBatchParams = {
+        purchases: [
+          { raffleId: 1, quantity: 3 },
+          { raffleId: 2, quantity: 5 },
+        ],
+      };
+
+      // Mock simulation success for both
+      contractService.simulateReadOnly.mockResolvedValue([101, 102, 103]);
+
+      // Mock invoke results
+      contractService.invoke
+        .mockResolvedValueOnce({
+          result: [101, 102, 103],
+          txHash: 'tx-hash-1',
+          ledger: 1000,
+        })
+        .mockResolvedValueOnce({
+          result: [201, 202, 203, 204, 205],
+          txHash: 'tx-hash-2',
+          ledger: 1001,
+        });
+
+      const result = await service.buyBatch(params);
+
+      expect(mockWallet.getPublicKey).toHaveBeenCalled();
+      expect(contractService.simulateReadOnly).toHaveBeenCalledTimes(2);
+      expect(contractService.invoke).toHaveBeenCalledTimes(2);
+      
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0]).toEqual({
+        raffleId: 1,
+        ticketIds: [101, 102, 103],
+        success: true,
+      });
+      expect(result.results[1]).toEqual({
+        raffleId: 2,
+        ticketIds: [201, 202, 203, 204, 205],
+        success: true,
+      });
+      expect(result.txHash).toBe('tx-hash-2');
+      expect(result.ledger).toBe(1001);
+    });
+
+    it('should handle partial failures gracefully', async () => {
+      const params: BuyBatchParams = {
+        purchases: [
+          { raffleId: 1, quantity: 3 },
+          { raffleId: 2, quantity: 5 },
+        ],
+      };
+
+      // First simulation succeeds, second fails
+      contractService.simulateReadOnly
+        .mockResolvedValueOnce([101, 102, 103])
+        .mockRejectedValueOnce(new Error('Raffle not found'));
+
+      // Only first invoke should happen
+      contractService.invoke.mockResolvedValueOnce({
+        result: [101, 102, 103],
+        txHash: 'tx-hash-1',
+        ledger: 1000,
+      });
+
+      const result = await service.buyBatch(params);
+
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0].success).toBe(true);
+      expect(result.results[1].success).toBe(false);
+      expect(result.results[1].error).toContain('Raffle not found');
+    });
+
+    it('should throw if purchases array is empty', async () => {
+      const params: BuyBatchParams = { purchases: [] };
+      
+      await expect(service.buyBatch(params)).rejects.toThrow(
+        TikkaSdkError
+      );
+    });
+
+    it('should validate each purchase in the batch', async () => {
+      const params: BuyBatchParams = {
+        purchases: [
+          { raffleId: 1, quantity: 3 },
+          { raffleId: -1, quantity: 5 }, // Invalid raffleId
+        ],
+      };
+
+      await expect(service.buyBatch(params)).rejects.toThrow(
+        'Invalid purchase at index 1'
+      );
+    });
+
+    it('should throw if all purchases fail simulation', async () => {
+      const params: BuyBatchParams = {
+        purchases: [
+          { raffleId: 1, quantity: 3 },
+          { raffleId: 2, quantity: 5 },
+        ],
+      };
+
+      contractService.simulateReadOnly.mockRejectedValue(
+        new Error('All raffles closed')
+      );
+
+      await expect(service.buyBatch(params)).rejects.toThrow(
+        'All batch purchases failed simulation'
+      );
+    });
+
+    it('should pass memo to individual purchases', async () => {
+      const params: BuyBatchParams = {
+        purchases: [{ raffleId: 1, quantity: 3 }],
+        memo: { type: 'text', value: 'Batch purchase' },
+      };
+
+      contractService.simulateReadOnly.mockResolvedValue([101, 102, 103]);
+      contractService.invoke.mockResolvedValue({
+        result: [101, 102, 103],
+        txHash: 'tx-hash',
+        ledger: 1000,
+      });
+
+      await service.buyBatch(params);
+
+      expect(contractService.invoke).toHaveBeenCalledWith(
+        ContractFn.BUY_TICKET,
+        [1, 'G...ADDRESS', 3],
+        { memo: params.memo },
+      );
     });
   });
 });

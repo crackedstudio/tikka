@@ -53,23 +53,23 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
 
     if (isCollapsed) {
         return (
-            <div className="bg-[#1E1932] rounded-xl p-4">
+            <div className="bg-white dark:bg-[#1E1932] rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                         <svg
-                            className="w-4 h-4 text-white"
+                            className="w-4 h-4 text-gray-900 dark:text-white"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                         >
                             <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
                         </svg>
-                        <span className="text-white font-medium">
+                        <span className="text-gray-900 dark:text-white font-medium">
                             Player Stats
                         </span>
                     </div>
                     <button
                         onClick={() => setIsCollapsed(false)}
-                        className="text-gray-400 hover:text-white transition-colors"
+                        className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors"
                     >
                         <svg
                             className="w-4 h-4"
@@ -89,22 +89,22 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
     }
 
     return (
-        <div className="bg-[#1E1932] rounded-xl p-6">
+        <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
                     <svg
-                        className="w-4 h-4 text-white"
+                        className="w-4 h-4 text-gray-900 dark:text-white"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                     >
                         <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
                     </svg>
-                    <span className="text-white font-medium">Player Stats</span>
+                    <span className="text-gray-900 dark:text-white font-medium">Player Stats</span>
                 </div>
                 <button
                     onClick={() => setIsCollapsed(true)}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors"
                 >
                     <svg
                         className="w-4 h-4"
@@ -126,7 +126,7 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
                     <div className="w-8 h-8 rounded-full bg-gray-300"></div>
                 </div>
                 <div>
-                    <h3 className="text-white font-semibold">{stats.name}</h3>
+                    <h3 className="text-gray-900 dark:text-white font-semibold">{stats.name}</h3>
                     <p className="text-gray-400 text-sm">{stats.joinedDate}</p>
                     <div className="flex items-center space-x-2 mt-1">
                         <div className="flex items-center space-x-1 bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs">
@@ -156,7 +156,7 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
             {/* Level Progress */}
             <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-white font-medium">
+                    <span className="text-gray-900 dark:text-white font-medium">
                         Level {stats.level}
                     </span>
                 </div>
@@ -170,7 +170,7 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
                     <span>Current</span>
                     <span>Next Level: {stats.level + 1}</span>
                 </div>
-                <div className="text-center text-white font-semibold mt-1">
+                <div className="text-center text-gray-900 dark:text-white font-semibold mt-1">
                     {stats.currentXp}/{stats.nextLevelXp} XP
                 </div>
             </div>
@@ -178,7 +178,7 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
             {/* Daily Login Streak */}
             <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
-                    <span className="text-white font-medium">
+                    <span className="text-gray-900 dark:text-white font-medium">
                         DAILY LOGIN STREAK
                     </span>
                     <span className="text-gray-400 text-sm">
@@ -192,7 +192,7 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
                                 key={day}
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
                                     stats.streakDays[index]
-                                        ? "bg-yellow-500 text-white"
+                                        ? "bg-yellow-500 text-gray-900 dark:text-white"
                                         : "bg-gray-600 text-gray-400"
                                 }`}
                             >
@@ -201,14 +201,14 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
                         )
                     )}
                 </div>
-                <button className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                <button className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 dark:text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
                     Claim 25 XP Bonus!
                 </button>
             </div>
 
             {/* Recent Achievements */}
             <div>
-                <h4 className="text-white font-medium mb-3">
+                <h4 className="text-gray-900 dark:text-white font-medium mb-3">
                     RECENT ACHIEVEMENTS
                 </h4>
                 <div className="grid grid-cols-3 gap-2">
@@ -234,7 +234,7 @@ const PlayerStats: React.FC<PlayerStatsProps> = ({ stats, achievements }) => {
                             >
                                 {getAchievementIcon(achievement.icon)}
                             </div>
-                            <div className="text-white text-xs font-medium">
+                            <div className="text-gray-900 dark:text-white text-xs font-medium">
                                 {achievement.name}
                             </div>
                         </div>

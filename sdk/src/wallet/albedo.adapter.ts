@@ -45,16 +45,30 @@ export class AlbedoAdapter extends WalletAdapter {
 
   async signTransaction(
     xdr: string,
-    opts?: { networkPassphrase?: string },
+    opts?: { networkPassphrase?: string; accountToSign?: string },
   ): Promise<SignTransactionResult> {
     const networkPassphrase = opts?.networkPassphrase ?? this.options.networkPassphrase;
 
+    if (!networkPassphrase) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.InvalidParams,
+        'Network passphrase is required for Albedo transaction signing',
+      );
+    }
+
     try {
       const albedo = await this.getAlbedoLib();
-      const result = await albedo.intent('tx', {
+      const intentParams: any = {
         xdr,
         network: networkPassphrase,
-      });
+      };
+
+      // Optionally specify which account should sign
+      if (opts?.accountToSign) {
+        intentParams.pubkey = opts.accountToSign;
+      }
+
+      const result = await albedo.intent('tx', intentParams);
       return { signedXdr: result.signed_envelope_xdr };
     } catch (err: any) {
       if (this.isUserRejection(err)) {
@@ -68,11 +82,45 @@ export class AlbedoAdapter extends WalletAdapter {
     }
   }
 
+  /**
+   * Signs an arbitrary message using Albedo's sign_message intent.
+   * Useful for authentication flows (e.g., SIWS - Sign In With Stellar).
+   *
+   * @param message - Text message to sign
+   * @returns HEX-encoded signature
+   */
+  async signMessage(message: string): Promise<string> {
+    try {
+      const albedo = await this.getAlbedoLib();
+      const result = await albedo.intent('sign_message', { message });
+      return result.message_signature;
+    } catch (err: any) {
+      if (this.isUserRejection(err)) {
+        throw new TikkaSdkError(TikkaSdkErrorCode.UserRejected, 'User rejected message signing', err);
+      }
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.Unknown,
+        `Albedo signMessage failed: ${err?.message ?? err}`,
+        err,
+      );
+    }
+  }
+
+  /**
+   * Returns the network passphrase configured for this adapter.
+   * Albedo doesn't expose the user's selected network, so we return
+   * the configured network from adapter options.
+   */
+  async getNetwork(): Promise<string | undefined> {
+    return this.options.networkPassphrase;
+  }
+
   /* ------------------------------------------------------------------ */
 
   private async getAlbedoLib(): Promise<any> {
     try {
-      return await import('@albedo-link/intent');
+      const module = await import('@albedo-link/intent');
+      return module.default || module;
     } catch {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,

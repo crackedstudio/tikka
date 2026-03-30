@@ -13,6 +13,7 @@ import {
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
 import { SubscribeSchema, type SubscribeDto } from './dto';
+import { DeviceTokenSchema, type DeviceTokenDto } from './dto/device-token.dto';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
 
 @Controller('notifications')
@@ -56,5 +57,34 @@ export class NotificationsController {
   @Get('subscriptions')
   async getUserSubscriptions(@CurrentUser('address') userAddress: string) {
     return this.notificationsService.getUserSubscriptions(userAddress);
+  }
+
+  /**
+   * POST /notifications/device-token — Register a push device token
+   * Requires JWT (SIWS)
+   */
+  @Post('device-token')
+  @UsePipes(new (createZodPipe(DeviceTokenSchema))())
+  async registerDeviceToken(
+    @Body() dto: DeviceTokenDto,
+    @CurrentUser('address') userAddress: string,
+  ) {
+    return this.notificationsService.registerDeviceToken(
+      userAddress,
+      dto.deviceToken,
+      dto.platform,
+    );
+  }
+
+  /**
+   * DELETE /notifications/device-token — Remove a push device token
+   * Requires JWT (SIWS)
+   */
+  @Delete('device-token')
+  async unregisterDeviceToken(
+    @Body() dto: DeviceTokenDto,
+    @CurrentUser('address') userAddress: string,
+  ) {
+    await this.notificationsService.unregisterDeviceToken(userAddress, dto.deviceToken);
   }
 }

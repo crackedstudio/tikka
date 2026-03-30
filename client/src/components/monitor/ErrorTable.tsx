@@ -34,16 +34,16 @@ const ErrorTable = ({ errors }: ErrorTableProps) => {
         placeholder="Filter by error message…"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        className="w-full rounded-lg border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-purple-500 focus:outline-none"
+        className="w-full rounded-lg border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-purple-500 focus:outline-none"
       />
 
       {filtered.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">No errors</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[#2A264A]">
-          <table className="w-full text-sm text-gray-300">
+        <div className="overflow-x-auto rounded-xl border border-gray-300 dark:border-[#2A264A]">
+          <table className="w-full text-sm text-gray-700 dark:text-gray-300">
             <thead>
-              <tr className="border-b border-[#2A264A] bg-[#15102A] text-left text-xs uppercase tracking-wider text-gray-500">
+              <tr className="border-b border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] text-left text-xs uppercase tracking-wider text-gray-500">
                 <th className="px-4 py-3">Job ID</th>
                 <th className="px-4 py-3">Failed At</th>
                 <th className="px-4 py-3">Error Message</th>
@@ -57,7 +57,7 @@ const ErrorTable = ({ errors }: ErrorTableProps) => {
                     <tr
                       key={error.jobId}
                       onClick={() => toggleRow(error.jobId)}
-                      className="cursor-pointer border-b border-[#2A264A] bg-[#0E0A1F] transition-colors hover:bg-[#15102A]"
+                      className="cursor-pointer border-b border-gray-300 dark:border-[#2A264A] bg-[#0E0A1F] transition-colors hover:bg-white dark:bg-[#15102A]"
                     >
                       <td className="px-4 py-3 font-mono text-xs text-purple-300">
                         {error.jobId}
@@ -70,10 +70,10 @@ const ErrorTable = ({ errors }: ErrorTableProps) => {
                     {isExpanded && (
                       <tr
                         key={`${error.jobId}-xdr`}
-                        className="border-b border-[#2A264A] bg-[#0A0718]"
+                        className="border-b border-gray-300 dark:border-[#2A264A] bg-[#0A0718]"
                       >
                         <td colSpan={3} className="px-4 py-3">
-                          <pre className="overflow-x-auto rounded-lg bg-[#15102A] p-3 font-mono text-xs text-gray-300">
+                          <pre className="overflow-x-auto rounded-lg bg-white dark:bg-[#15102A] p-3 font-mono text-xs text-gray-700 dark:text-gray-300">
                             {error.xdr || '(no XDR)'}
                           </pre>
                         </td>
