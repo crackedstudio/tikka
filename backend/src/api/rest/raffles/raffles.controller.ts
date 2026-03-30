@@ -18,7 +18,12 @@ import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
 import { UpsertMetadataPayload } from "../../../services/metadata.service";
-import { ListRafflesQuerySchema, ListRafflesQueryDto } from "./dto";
+import {
+  ListRafflesQuerySchema,
+  ListRafflesQueryDto,
+  BatchMetadataQuerySchema,
+  type BatchMetadataQueryDto,
+} from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
@@ -53,6 +58,18 @@ export class RafflesController {
   @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
   async list(@Query() filters: ListRafflesQueryDto) {
     return this.rafflesService.list(filters);
+  }
+
+  /**
+   * GET /raffles/metadata?ids=1,2,3 — Batch fetch off-chain metadata for up to 100 raffle IDs.
+   * Returns an array of found metadata records; IDs with no metadata are omitted.
+   * Must be declared before :id to prevent NestJS matching "metadata" as an id param.
+   */
+  @Public()
+  @Get('metadata')
+  @UsePipes(new (createZodPipe(BatchMetadataQuerySchema))())
+  async getBatchMetadata(@Query() query: BatchMetadataQueryDto) {
+    return this.rafflesService.getBatchMetadata(query.ids);
   }
 
   /**
