@@ -7,11 +7,14 @@ export const supabaseProvider = {
   provide: SUPABASE_CLIENT,
   useFactory: (): SupabaseClient => {
     const { url, serviceRoleKey } = env.supabase;
+    console.log(`Supabase client creating with URL: ${url}`);
     if (!url || !serviceRoleKey) {
       throw new Error(
         'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment',
       );
     }
-    return createClient(url, serviceRoleKey);
+    const client = createClient(url, serviceRoleKey);
+    console.log("Supabase client created.");
+    return client;
   },
 };
