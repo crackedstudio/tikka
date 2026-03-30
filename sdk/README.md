@@ -50,10 +50,90 @@ The SDK provides a unified interface for multiple Stellar wallets. All adapters 
 |---|---|---|
 | Freighter | Browser extension | Most popular, requires extension |
 | xBull | Browser extension / PWA | Mobile-friendly |
-| Albedo | Web-based | No extension required |
+| Albedo | Web-based | No extension required, popup-based |
 | LOBSTR | Browser extension | Large user base |
 
-### Usage
+### Albedo Wallet
+
+Albedo is a web-based wallet that doesn't require browser extensions. It opens a popup window for authentication and transaction signing, making it ideal for users who prefer not to install extensions.
+
+**Key Features:**
+- No browser extension required
+- Works in any modern browser
+- Popup-based authentication
+- Supports message signing for SIWS (Sign In With Stellar)
+- Network switching support
+
+**Installation:**
+```bash
+npm install @albedo-link/intent
+```
+
+**Basic Usage:**
+```typescript
+import { AlbedoAdapter } from '@tikka/sdk';
+import { Networks } from '@stellar/stellar-sdk';
+
+// Create adapter with network configuration
+const adapter = new AlbedoAdapter({
+  networkPassphrase: Networks.TESTNET
+});
+
+// Check availability (always true in browser)
+if (adapter.isAvailable()) {
+  // Get public key (opens Albedo popup)
+  const publicKey = await adapter.getPublicKey();
+  console.log('User public key:', publicKey);
+  
+  // Sign transaction (opens Albedo popup)
+  const { signedXdr } = await adapter.signTransaction(xdr, {
+    networkPassphrase: Networks.TESTNET
+  });
+  
+  // Sign message for authentication
+  const signature = await adapter.signMessage('Sign in to MyApp');
+}
+```
+
+**Advanced Usage:**
+```typescript
+// Specify which account should sign (for multi-account users)
+const { signedXdr } = await adapter.signTransaction(xdr, {
+  networkPassphrase: Networks.TESTNET,
+  accountToSign: 'GBQW4KLMRXIMSDWBEWX4AWQKWYW7R3E7SFPSHTUDTFFT22NNUC6COL72'
+});
+
+// Get configured network
+const network = await adapter.getNetwork();
+console.log('Network:', network);
+```
+
+**Error Handling:**
+```typescript
+import { TikkaSdkError, TikkaSdkErrorCode } from '@tikka/sdk';
+
+try {
+  const publicKey = await adapter.getPublicKey();
+} catch (err) {
+  if (err instanceof TikkaSdkError) {
+    switch (err.code) {
+      case TikkaSdkErrorCode.UserRejected:
+        console.log('User cancelled the request');
+        break;
+      case TikkaSdkErrorCode.WalletNotInstalled:
+        console.log('@albedo-link/intent package not installed');
+        break;
+      default:
+        console.log('Unknown error:', err.message);
+    }
+  }
+}
+```
+
+**Complete Example:**
+See [examples/albedo-wallet.ts](./examples/albedo-wallet.ts) for a full working example.
+
+### General Wallet Usage
 
 ```typescript
 import { FreighterAdapter, XBullAdapter, AlbedoAdapter, LobstrAdapter } from '@tikka/sdk';

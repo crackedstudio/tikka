@@ -17,6 +17,8 @@ import {
     signTransaction,
 } from "../services/walletService";
 
+const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
+
 export interface WalletState {
     address: string | null;
     isConnected: boolean;
@@ -39,12 +41,12 @@ export interface UseWalletReturn extends WalletState {
 export function useWallet(): UseWalletReturn {
     const [state, setState] = useState<WalletState>({
         address: null,
-        isConnected: false,
+        isConnected: IS_TEST_MODE,
         isConnecting: false,
         isDisconnecting: false,
         error: null,
-        isWalletAvailable: false,
-        network: null,
+        isWalletAvailable: IS_TEST_MODE,
+        network: IS_TEST_MODE ? 'testnet' : null,
         isWrongNetwork: false,
     });
 

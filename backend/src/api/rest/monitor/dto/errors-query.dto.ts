@@ -1,11 +1,9 @@
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { z } from 'zod';
 
-export class ErrorsQueryDto {
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  @Type(() => Number)
-  limit?: number = 50;
-}
+/** Query params for GET /monitor/errors */
+export const ErrorsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
+});
+
+export type ErrorsQueryDto = z.infer<typeof ErrorsQuerySchema>;
+

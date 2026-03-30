@@ -6,6 +6,7 @@
  */
 
 import { API_CONFIG } from "../config/api";
+import { toast } from "sonner";
 
 /**
  * Get the stored JWT token
@@ -61,22 +62,81 @@ export async function apiRequest<T = any>(
     throw new Error("Authentication required");
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers: requestHeaders,
-  });
+  const timeoutMs = typeof API_CONFIG.timeout === 'number' ? API_CONFIG.timeout : 8000;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      headers: requestHeaders,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Network error occurred";
+
+    // Global Error Toast Notification for Network Failures
+    toast.error("API Connection Failed", {
+      id: "network-error-toast",
+      description: errorMessage,
+      action: {
+        label: "Retry",
+        onClick: () => window.location.reload(),
+      },
+      cancel: {
+        label: "Copy Error",
+        onClick: () => {
+          navigator.clipboard.writeText(
+            JSON.stringify({ endpoint: url, error: errorMessage }, null, 2)
+          );
+          toast.success("Error copied to clipboard", { duration: 2000 });
+        },
+      },
+    });
+    throw new Error(`Network Error: ${errorMessage}`);
+  }
 
   if (!response.ok) {
     // Handle 401 Unauthorized - clear token and throw
     if (response.status === 401) {
       clearToken();
+      toast.error("Unauthorized", {
+        description: "Please sign in again to continue.",
+        action: { label: "Sign In", onClick: () => window.location.reload() },
+      });
       throw new Error("Unauthorized - please sign in again");
     }
 
-    const error = await response.json().catch(() => ({
+    const errorData = await response.json().catch(() => ({
       message: `Request failed with status ${response.status}`,
+      status: response.status,
     }));
-    throw new Error(error.message || "Request failed");
+
+    const errorMessage = errorData.message || "Request failed";
+
+    // Global Error Toast Notification with Actions
+    toast.error("API Request Failed", {
+      id: "api-error-toast",
+      description: errorMessage,
+      action: {
+        label: "Retry",
+        onClick: () => window.location.reload(), // Simple retry mechanism
+      },
+      cancel: {
+        label: "Copy Error",
+        onClick: () => {
+          navigator.clipboard.writeText(
+            JSON.stringify(
+              { endpoint: url, status: response.status, error: errorData },
+              null,
+              2
+            )
+          );
+          toast.success("Error copied to clipboard", { duration: 2000 });
+        },
+      },
+    });
+
+    throw new Error(errorMessage);
   }
 
   // Handle empty responses
