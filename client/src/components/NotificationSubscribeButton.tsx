@@ -60,8 +60,8 @@ export default function NotificationSubscribeButton({
           ${isCompact ? 'px-3 py-2 text-sm' : 'px-6 py-3'}
           ${
             isSubscribed
-              ? 'bg-gray-700 hover:bg-gray-600 text-white'
-              : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
+              ? 'bg-gray-700 hover:bg-gray-600 text-gray-900 dark:text-white'
+              : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-gray-900 dark:text-white'
           }
         `}
       >

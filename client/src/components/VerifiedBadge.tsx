@@ -12,27 +12,27 @@ const VerifiedBadge = () => {
                     <span>Provably Fair Raffles</span>
                 </h2>
 
-                <p className="text-[#9CA3AF] mt-3">
+                <p className="text-gray-600 dark:text-[#9CA3AF] mt-3">
                     VeriWin uses Chainlink VRF (Verifiable Random Function) to
                     ensure all winners are selected through a provably fair and
                     tamper-proof random selection process.
                 </p>
 
-                <button className="mt-3 inline-flex items-center gap-2 text-[#00E5FF] hover:underline">
+                <button className="mt-3 inline-flex items-center gap-2 text-teal-600 dark:text-[#00E5FF] hover:underline">
                     <span>Learn how our raffles work</span> <MoveRight />
                 </button>
             </div>
 
             {/* Right: badges */}
             <div className="flex gap-4 lg:w-auto">
-                <div className="bg-[#19192B] p-4 rounded-xl flex items-center gap-3">
+                <div className="bg-white dark:bg-[#19192B] p-4 rounded-xl flex items-center gap-3">
                     <img
                         src={chainlink}
                         alt="Chainlink VRF"
                         className="h-10 w-10"
                     />
                     <div className="flex flex-col leading-tight">
-                        <p className="text-xs md:text-sm text-white/70">
+                        <p className="text-xs md:text-sm text-gray-600 dark:text-white/70">
                             Powered by
                         </p>
                         <p className="font-medium md:text-lg text-sm">
@@ -41,14 +41,14 @@ const VerifiedBadge = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#19192B] p-4 rounded-xl flex items-center gap-3">
+                <div className="bg-white dark:bg-[#19192B] p-4 rounded-xl flex items-center gap-3">
                     <img
                         src={verified}
                         alt="Verified Contract"
                         className="h-10 w-10"
                     />
                     <div className="flex flex-col leading-tight">
-                        <p className="text-sm text-white/70">Smart Contract</p>
+                        <p className="text-sm text-gray-600 dark:text-white/70">Smart Contract</p>
                         <p className="font-medium">Verified</p>
                     </div>
                 </div>

@@ -4,6 +4,7 @@ import HealthPanel from '../components/monitor/HealthPanel';
 import LatencyGraph from '../components/monitor/LatencyGraph';
 import ErrorTable from '../components/monitor/ErrorTable';
 import { useMonitor } from '../hooks/useMonitor';
+import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 
 function Dashboard() {
   const [from, setFrom] = useState<string | undefined>(undefined);
@@ -17,13 +18,16 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D0A1E] px-4 py-8 text-white">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0D0A1E] px-4 py-8 text-gray-900 dark:text-white">
       <div className="mx-auto max-w-5xl">
+        <div className="mb-4">
+          <Breadcrumbs />
+        </div>
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">Oracle Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Oracle Admin Dashboard</h1>
           <button
             onClick={handleSignOut}
-            className="rounded-lg border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-[#1E1840] hover:text-white"
+            className="rounded-lg border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-700 dark:text-gray-300 transition-colors hover:bg-[#1E1840] hover:text-gray-900 dark:text-white"
           >
             Sign Out
           </button>

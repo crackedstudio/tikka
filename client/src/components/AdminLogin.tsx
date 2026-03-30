@@ -15,9 +15,9 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0D0A1E]">
-      <div className="w-full max-w-sm rounded-xl border border-[#2A264A] bg-[#15102A] p-8">
-        <h1 className="mb-6 text-center text-2xl font-bold text-white">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-[#0D0A1E]">
+      <div className="w-full max-w-sm rounded-xl border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] p-8">
+        <h1 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
           Oracle Admin Dashboard
         </h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -31,13 +31,13 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="Enter admin token"
-              className="rounded-lg border border-[#2A264A] bg-[#0D0A1E] px-4 py-2 text-white placeholder-gray-600 outline-none focus:border-[#5B4FCF] focus:ring-1 focus:ring-[#5B4FCF]"
+              className="rounded-lg border border-gray-300 dark:border-[#2A264A] bg-gray-50 dark:bg-[#0D0A1E] px-4 py-2 text-gray-900 dark:text-white placeholder-gray-600 outline-none focus:border-[#5B4FCF] focus:ring-1 focus:ring-[#5B4FCF]"
             />
           </div>
           <button
             type="submit"
             disabled={!token.trim()}
-            className="rounded-lg bg-[#5B4FCF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#6B5FDF] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-[#5B4FCF] px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white transition-colors hover:bg-[#6B5FDF] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Sign In
           </button>
