@@ -133,7 +133,7 @@ describe('ContractService.invoke()', () => {
     );
     expect(lifecycle.sign).toHaveBeenCalledWith(ASSEMBLED_XDR, Networks.TESTNET);
     expect(lifecycle.submit).toHaveBeenCalledWith(SIGNED_XDR);
-    expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH);
+    expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH, undefined);
     expect(result).toEqual({ result: 99, txHash: TX_HASH, ledger: 300 });
   });
 
@@ -170,6 +170,22 @@ describe('ContractService.invoke()', () => {
       [1],
       expect.objectContaining({ memo: { type: 'text', value: 'raffle-ref' } }),
     );
+  });
+
+  it('passes poll config through to lifecycle.poll()', async () => {
+    const { service, lifecycle } = buildService(true);
+
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'sign').mockResolvedValue(SIGNED_XDR);
+    jest.spyOn(lifecycle, 'submit').mockResolvedValue(TX_HASH);
+    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult as any);
+
+    await service.invoke(ContractFn.BUY_TICKET, [1], {
+      sourcePublicKey: SOURCE_KEY,
+      poll: { timeoutMs: 90_000 },
+    });
+
+    expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH, { timeoutMs: 90_000 });
   });
 });
 

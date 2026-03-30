@@ -17,7 +17,7 @@ import { getRaffleContractId } from './constants';
 import { ContractFnName } from './bindings';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { TransactionLifecycle } from './lifecycle';
-import type { TxMemo } from './lifecycle';
+import type { TxMemo, PollConfig } from './lifecycle';
 export type { TxMemo } from './lifecycle';
 
 export interface InvokeOptions {
@@ -26,6 +26,8 @@ export interface InvokeOptions {
   fee?: string;
   /** Optional memo attached to the transaction envelope. */
   memo?: TxMemo;
+  /** Optional polling configuration override. */
+  poll?: PollConfig;
 }
 
 export interface InvokeResult<T = any> {
@@ -63,7 +65,7 @@ export interface SubmitSignedResult<T = any> {
  * Detects if an error message indicates a failure in an external contract
  * (e.g., a SEP-41 token contract rejecting a transfer).
  */
-function isExternalContractFailure(errorMsg: string): boolean {
+function isExternalSimulationError(errorMsg: string): boolean {
   return /external|token|sep-?41/i.test(errorMsg);
 }
 
@@ -116,7 +118,7 @@ export class ContractService {
 
     if (rpc.Api.isSimulationError(simResponse)) {
       const errMsg = (simResponse as any).error ?? '';
-      const code = isExternalContractFailure(errMsg)
+      const code = isExternalSimulationError(errMsg)
         ? TikkaSdkErrorCode.ExternalContractError
         : TikkaSdkErrorCode.SimulationFailed;
       throw new TikkaSdkError(
@@ -161,7 +163,7 @@ export class ContractService {
 
     const signedXdr = await this.lifecycle.sign(sim.assembledXdr, sim.networkPassphrase);
     const txHash    = await this.lifecycle.submit(signedXdr);
-    const polled    = await this.lifecycle.poll<T>(txHash);
+    const polled    = await this.lifecycle.poll<T>(txHash, options.poll);
     return { result: polled.returnValue as T, txHash: polled.txHash, ledger: polled.ledger };
   }
 
