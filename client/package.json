@@ -11,7 +11,10 @@
         "test:unit": "vitest --run",
         "test:e2e": "playwright test",
         "preview": "vite preview",
-        "validate-env": "node scripts/validate-env.js"
+        "validate-env": "node scripts/validate-env.js",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:headed": "playwright test --headed"
     },
     "dependencies": {
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
@@ -28,6 +31,7 @@
         "tailwindcss": "^4.1.13"
     },
     "devDependencies": {
+        "@playwright/test": "^1.50.0",
         "@eslint/js": "^9.33.0",
         "@playwright/test": "^1.43.0",
         "@testing-library/jest-dom": "^5.16.5",
