@@ -60,7 +60,7 @@ export interface SubmitResult<T = unknown> {
 export interface PollConfig {
   /**
    * Maximum time (ms) to wait for the transaction to leave NOT_FOUND status.
-   * @default 30_000
+   * @default 60_000
    */
   timeoutMs?: number;
   /**
@@ -256,7 +256,7 @@ export class TransactionLifecycle {
     txHash: string,
     config: PollConfig = {},
   ): Promise<SubmitResult<T>> {
-    const timeoutMs   = config.timeoutMs   ?? 30_000;
+    const timeoutMs   = config.timeoutMs   ?? 60_000;
     const intervalMs  = config.intervalMs  ?? 2_000;
     const backoff     = config.backoffFactor ?? 1.5;
     const maxInterval = config.maxIntervalMs ?? 10_000;
@@ -267,7 +267,7 @@ export class TransactionLifecycle {
 
     while (Date.now() < deadline) {
       attempts++;
-      const resp = await this.rpc.getTransaction(txHash, timeoutMs, currentInterval);
+      const resp = await this.rpc.getTransaction(txHash);
 
       if (resp.status === rpc.Api.GetTransactionStatus.SUCCESS) {
         const ok = resp as rpc.Api.GetSuccessfulTransactionResponse;
