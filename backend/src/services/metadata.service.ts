@@ -111,6 +111,7 @@ export class MetadataService {
     const row = {
       raffle_id: raffleId,
       ...payload,
+      category: payload.category?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
