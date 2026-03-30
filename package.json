@@ -9,5 +9,13 @@
     "build:backend": "npm run build --prefix backend",
     "build:indexer": "npm run build --prefix indexer",
     "build:oracle": "npm run build --prefix oracle"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@types/react-router-dom": "^5.3.3"
+  },
+  "dependencies": {
+    "react-router-dom": "^7.13.2"
   }
 }

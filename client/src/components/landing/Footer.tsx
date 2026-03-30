@@ -113,6 +113,11 @@ const Footer = () => {
                                     Community
                                 </a>
                             </li>
+                            <li >
+                                <a href="/faq" className="hover:text-white">
+                                    FAQ
+                                </a>
+                            </li>
                         </ul>
                     </nav>
 

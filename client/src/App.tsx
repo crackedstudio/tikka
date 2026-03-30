@@ -10,7 +10,7 @@ import Transparency from "./pages/Transparency";
 import Settings from "./pages/Settings";
 import RafflePage from "./pages/RafflePage";
 import OracleAdmin from "./pages/OracleAdmin";
-
+import FAQPage from './pages/FAQ/FAQPage'; // Imported FAQ
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
 import { useEffect } from "react";
@@ -34,9 +34,6 @@ function App() {
     return (
         <WalletProvider>
             <AuthProvider>
-                {/* * Issue #120: Global Network Warning 
-                  * This will show at the top of every page if the user is on the wrong network.
-                */}
                 <NetworkWarning />
                 
                 <Router>
@@ -53,6 +50,8 @@ function App() {
                             <Route path="winner-demo" element={<WinnerDemo />} />
                             <Route path="settings" element={<Settings />} />
                             <Route path="transparency" element={<Transparency />} />
+                            {/* Issue #192: FAQ Route Added Here */}
+                            <Route path="faq" element={<FAQPage />} />
                             <Route path="admin/oracle" element={<OracleAdmin />} />
                         </Route>
                     </Routes>
