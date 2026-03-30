@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { rpc } from '@stellar/stellar-sdk';
-import { NetworkConfig, RpcConfig, DEFAULT_RPC_CONFIG } from './network.config';
+import { DEFAULT_RPC_CONFIG } from './network.config';
+import type { NetworkConfig, RpcConfig } from './network.config';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
 interface RequestOptions {

@@ -9,6 +9,7 @@ const validEnv: Record<string, string> = {
   JWT_SECRET: 'a'.repeat(32),
   JWT_EXPIRES_IN: '7d',
   SIWS_DOMAIN: 'tikka.io',
+  VITE_FRONTEND_URL: 'https://app.tikka.io',
   ADMIN_TOKEN: 'super-secret-admin-token',
 };
 
@@ -25,6 +26,7 @@ describe('env.schema validate()', () => {
       SUPABASE_URL: 'https://test.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'key',
       JWT_SECRET: 'b'.repeat(32),
+      VITE_FRONTEND_URL: 'https://app.tikka.io',
       ADMIN_TOKEN: 'my-admin-token',
     };
     const result = validate(minimal);
@@ -49,6 +51,11 @@ describe('env.schema validate()', () => {
 
   it('throws when JWT_SECRET is missing', () => {
     const { JWT_SECRET: _, ...rest } = validEnv;
+    expect(() => validate(rest)).toThrow('Environment validation failed');
+  });
+
+  it('throws when VITE_FRONTEND_URL is missing', () => {
+    const { VITE_FRONTEND_URL: _, ...rest } = validEnv;
     expect(() => validate(rest)).toThrow('Environment validation failed');
   });
 

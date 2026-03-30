@@ -23,7 +23,7 @@ const LeaderboardSection: React.FC<LeaderboardSectionProps> = ({
     return (
         <div className="flex-1">
             {/* Title */}
-            <h1 className="text-4xl font-bold text-white mb-8">Leaderboard</h1>
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">Leaderboard</h1>
 
             {/* Tabs */}
             <div className="flex space-x-1 mb-8">
@@ -33,8 +33,8 @@ const LeaderboardSection: React.FC<LeaderboardSectionProps> = ({
                         onClick={() => onTabChange(tab.id)}
                         className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
                             activeTab === tab.id
-                                ? "bg-[#2A264A] text-white"
-                                : "text-gray-400 hover:text-white"
+                                ? "bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white"
+                                : "text-gray-400 hover:text-gray-900 dark:text-white"
                         }`}
                     >
                         {tab.label}

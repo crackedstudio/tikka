@@ -40,7 +40,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                         >
                             {step.completed || step.active ? (
                                 <svg
-                                    className="w-6 h-6 text-white"
+                                    className="w-6 h-6 text-gray-900 dark:text-white"
                                     fill="currentColor"
                                     viewBox="0 0 20 20"
                                 >
@@ -131,7 +131,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                             mt-2 text-sm font-medium transition-colors duration-300
                             ${
                                 step.completed || step.active
-                                    ? "text-white"
+                                    ? "text-gray-900 dark:text-white"
                                     : "text-gray-400"
                             }
                         `}

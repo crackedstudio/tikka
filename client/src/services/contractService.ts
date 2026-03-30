@@ -137,7 +137,6 @@ export class ContractService {
    * Build and submit a contract transaction
    * TODO: Used by write functions when implemented in future issues
    */
-  // @ts-ignore - Keeping for future write function implementation
   private static async submitTransaction(
     operation: xdr.Operation,
     operationName: string,
@@ -491,6 +490,15 @@ export class ContractService {
   static async createRaffle(
     params: CreateRaffleParams,
   ): Promise<ContractResponse<string>> {
+    if (import.meta.env.VITE_TEST_MODE === "true") {
+      console.log("✍️ ContractService.createRaffle (test mode): Mocked success", params);
+      return {
+        success: true,
+        data: "123",
+        transactionHash: "TEST123",
+      };
+    }
+
     try {
       console.log(
         "✍️ ContractService.createRaffle: Creating raffle with params",

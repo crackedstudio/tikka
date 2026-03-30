@@ -16,7 +16,7 @@ const EnterRaffleButton = ({
     ticketPrice,
     onSuccess,
     onError,
-    className = "border border-[#fe3796] px-8 py-4 rounded-xl hover:bg-[#fe3796]/10 transition",
+    className = "border border-pink-500 dark:border-[#fe3796] px-8 py-4 rounded-xl hover:bg-[#fe3796]/10 transition",
     children = "Enter Raffle",
 }: EnterRaffleButtonProps) => {
     const { isConnected, isWrongNetwork, connect, switchNetwork } = useWalletContext();
@@ -68,7 +68,7 @@ const EnterRaffleButton = ({
             onClick={handleButtonClick}
             disabled={isLoading}
             className={`${className} ${isLoading ? "opacity-50 cursor-not-allowed" : ""
-                } ${(!isConnected || isWrongNetwork) && !isLoading ? "!bg-indigo-600 !text-white !border-indigo-600 hover:!bg-indigo-700" : ""}`}
+                } ${(!isConnected || isWrongNetwork) && !isLoading ? "!bg-indigo-600 !text-gray-900 dark:text-white !border-indigo-600 hover:!bg-indigo-700" : ""}`}
         >
             {getButtonText()}
         </button>

@@ -14,6 +14,11 @@ export interface RaffleMetadata {
   updated_at: string;
 }
 
+export interface SearchMetadataResult {
+  matches: RaffleMetadata[];
+  total: number;
+}
+
 /** Payload for creating or updating raffle metadata */
 export interface UpsertMetadataPayload {
   title?: string;
@@ -30,6 +35,29 @@ export class MetadataService {
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
   ) {}
+
+  /**
+   * Get metadata for multiple raffle IDs in a single query.
+   * Returns a map of raffle_id → RaffleMetadata for found records only.
+   */
+  async getBatchMetadata(raffleIds: number[]): Promise<Map<number, RaffleMetadata>> {
+    if (raffleIds.length === 0) return new Map();
+
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('*')
+      .in('raffle_id', raffleIds);
+
+    if (error) {
+      throw new Error(`Failed to fetch batch metadata: ${error.message}`);
+    }
+
+    const result = new Map<number, RaffleMetadata>();
+    for (const row of (data as RaffleMetadata[])) {
+      result.set(row.raffle_id, row);
+    }
+    return result;
+  }
 
   /**
    * Get metadata by raffle_id. Returns null if not found.
@@ -51,19 +79,26 @@ export class MetadataService {
    * Full-text search over raffle metadata (title, description, category).
    * Uses Supabase's ilike for simple prefix/contains matching.
    */
-  async searchMetadata(query: string, limit = 50): Promise<RaffleMetadata[]> {
+  async searchMetadata(
+    query: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<SearchMetadataResult> {
     const pattern = `%${query}%`;
 
-    const { data, error } = await this.client
+    const { data, error, count } = await this.client
       .from(TABLE)
-      .select('*')
+      .select('*', { count: 'exact' })
       .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw new Error(`Search failed: ${error.message}`);
     }
-    return (data ?? []) as RaffleMetadata[];
+    return {
+      matches: (data ?? []) as RaffleMetadata[],
+      total: count ?? 0,
+    };
   }
 
   /**
@@ -76,6 +111,7 @@ export class MetadataService {
     const row = {
       raffle_id: raffleId,
       ...payload,
+      category: payload.category?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 

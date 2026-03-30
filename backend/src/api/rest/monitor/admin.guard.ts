@@ -5,14 +5,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Request } from 'express';
+import { FastifyRequest } from 'fastify';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
   constructor(private readonly config: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<FastifyRequest>();
 
     const token = request.headers['x-admin-token'];
     const adminToken = this.config.get<string>('ADMIN_TOKEN');
@@ -30,7 +30,7 @@ export class AdminGuard implements CanActivate {
 
       const requestIp =
         request.ip ||
-        (request.connection && request.connection.remoteAddress) ||
+        request.raw.socket.remoteAddress ||
         '';
 
       if (!allowedIps.includes(requestIp)) {

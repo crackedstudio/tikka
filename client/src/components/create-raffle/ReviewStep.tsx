@@ -16,7 +16,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
   const potentialRevenue = formData.pricePerTicket * formData.totalTickets;
 
   return (
-    <div className="bg-[#1E1932] rounded-xl p-6">
+    <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
       <div className="flex items-center space-x-3 mb-2">
         <svg
           className="w-6 h-6 text-green-500"
@@ -29,24 +29,24 @@ const ReviewStep: React.FC<StepComponentProps> = ({
             clipRule="evenodd"
           />
         </svg>
-        <h3 className="text-white text-xl font-bold">Review & Publish</h3>
+        <h3 className="text-gray-900 dark:text-white text-xl font-bold">Review & Publish</h3>
       </div>
-      <p className="text-gray-300 text-sm mb-6">
+      <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
         Double-check everything before going live
       </p>
 
       <div className="space-y-6">
         {/* Raffle Details */}
         <div>
-          <h4 className="text-white font-semibold mb-3">Raffle Details</h4>
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">Raffle Details</h4>
           <div className="space-y-2">
             <div className="flex">
               <span className="text-gray-400 w-24">Title:</span>
-              <span className="text-white">{formData.title || "Not set"}</span>
+              <span className="text-gray-900 dark:text-white">{formData.title || "Not set"}</span>
             </div>
             <div className="flex">
               <span className="text-gray-400 w-24">Description:</span>
-              <span className="text-white">
+              <span className="text-gray-900 dark:text-white">
                 {formData.description || "Not set"}
               </span>
             </div>
@@ -55,21 +55,21 @@ const ReviewStep: React.FC<StepComponentProps> = ({
 
         {/* Pricing */}
         <div>
-          <h4 className="text-white font-semibold mb-3">Pricing</h4>
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">Pricing</h4>
           <div className="space-y-2">
             <div className="flex">
               <span className="text-gray-400 w-24">Ticket Price:</span>
-              <span className="text-white">
+              <span className="text-gray-900 dark:text-white">
                 ${formData.pricePerTicket.toFixed(2)}
               </span>
             </div>
             <div className="flex">
               <span className="text-gray-400 w-24">Total Tickets:</span>
-              <span className="text-white">{formData.totalTickets}</span>
+              <span className="text-gray-900 dark:text-white">{formData.totalTickets}</span>
             </div>
             <div className="flex">
               <span className="text-gray-400 w-24">Duration:</span>
-              <span className="text-white">
+              <span className="text-gray-900 dark:text-white">
                 {formatDuration(
                   formData.duration.days,
                   formData.duration.hours,
@@ -78,7 +78,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
             </div>
             <div className="flex">
               <span className="text-gray-400 w-24">Revenue:</span>
-              <span className="text-white font-semibold">
+              <span className="text-gray-900 dark:text-white font-semibold">
                 ${potentialRevenue.toFixed(2)}
               </span>
             </div>
@@ -88,7 +88,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
         {/* Image Preview */}
         {formData.image && (
           <div>
-            <h4 className="text-white font-semibold mb-3">Prize Image</h4>
+            <h4 className="text-gray-900 dark:text-white font-semibold mb-3">Prize Image</h4>
             <img
               src={URL.createObjectURL(formData.image)}
               alt="Raffle prize"
@@ -102,7 +102,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
       <div className="flex justify-between mt-8">
         <button
           onClick={onBack}
-          className="px-6 py-3 bg-[#2A264A] text-white rounded-lg hover:bg-[#3A365A] transition-colors duration-200"
+          className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:bg-[#3A365A] transition-colors duration-200"
         >
           Back
         </button>
