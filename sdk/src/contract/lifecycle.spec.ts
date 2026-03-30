@@ -591,3 +591,62 @@ describe('invoke()', () => {
     expect(rpcService.getTransaction).toHaveBeenCalledWith(TX_HASH);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setWallet() / setContractId()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('setWallet() / setContractId()', () => {
+  it('setWallet updates the wallet used for signing', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+
+    const lc = buildLifecycle(false); // no wallet initially
+    await expect(lc.sign('XDR==')).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.WalletNotInstalled,
+    });
+
+    lc.setWallet(wallet);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: 'SIGNED==' });
+    const result = await lc.sign('XDR==');
+    expect(result).toBe('SIGNED==');
+  });
+
+  it('setContractId changes the contract used in buildTx', () => {
+    const lc = buildLifecycle();
+    lc.setContractId('NEW_CONTRACT_ID');
+    expect((lc as any).contractId).toBe('NEW_CONTRACT_ID');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// memo support in simulate()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('simulate() with memo', () => {
+  it('passes a text memo through buildTx without error', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+
+    const lc = buildLifecycle();
+    const result = await lc.simulate(
+      ContractFn.BUY_TICKET,
+      [1, SOURCE_KEY, 1],
+      { sourcePublicKey: SOURCE_KEY, memo: { type: 'text', value: 'test-memo' } },
+    );
+
+    expect(rpcService.simulateTransaction).toHaveBeenCalledTimes(1);
+    expect(result.assembledXdr).toBeTruthy();
+  });
+
+  it('passes an id memo through buildTx without error', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+
+    const lc = buildLifecycle();
+    const result = await lc.simulate(
+      ContractFn.BUY_TICKET,
+      [1, SOURCE_KEY, 1],
+      { sourcePublicKey: SOURCE_KEY, memo: { type: 'id', value: '42' } },
+    );
+
+    expect(result.assembledXdr).toBeTruthy();
+  });
+});
