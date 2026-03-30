@@ -91,31 +91,11 @@ export class RpcService {
     return this.request('getLatestLedger', [], options);
   }
 
-  /** Poll transaction status */
+  /** Get a single transaction status from the RPC node. Returns NOT_FOUND if the tx is not yet indexed. */
   async getTransaction(
     hash: string,
-    timeoutMs = this.rpcConfig.timeoutMs ?? 30_000,
-    intervalMs = 2_000,
   ): Promise<rpc.Api.GetTransactionResponse> {
-    const deadline = Date.now() + timeoutMs;
-
-    while (Date.now() < deadline) {
-      try {
-        const resp = await this.request<rpc.Api.GetTransactionResponse>('getTransaction', [hash]);
-        if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
-          return resp;
-        }
-      } catch {
-        // If it's a transport error, we might want to failover inside request()
-        // so we don't need extra logic here.
-      }
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-
-    throw new TikkaSdkError(
-      TikkaSdkErrorCode.Timeout,
-      `Transaction ${hash} not confirmed within ${timeoutMs}ms`,
-    );
+    return this.request('getTransaction', [hash]);
   }
 
   /**
