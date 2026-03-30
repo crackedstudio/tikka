@@ -319,6 +319,12 @@ async function notifyRaffleEnd(raffleId: number) {
 
 ### Push Notifications
 
+Implemented: `PushNotificationService` (FCM) and device token registration endpoints.
+
+- `POST /notifications/device-token` (auth required) - register user device token
+- `DELETE /notifications/device-token` (auth required) - remove user device token
+- `POST /notifications/subscribe`/`DELETE /notifications/subscribe/:raffleId`/`GET /notifications/subscriptions` already available
+
 ```typescript
 // Example: Send push notification when user wins
 async function notifyWinner(raffleId: number, winnerAddress: string) {
@@ -328,11 +334,10 @@ async function notifyWinner(raffleId: number, winnerAddress: string) {
   );
   
   if (subscription?.channel === 'push') {
-    await pushService.send({
-      to: winnerAddress,
+    await pushService.sendToUser(winnerAddress, {
       title: 'Congratulations!',
       body: `You won raffle #${raffleId}!`,
-      data: { raffleId }
+      data: { raffleId: String(raffleId) }
     });
   }
 }
