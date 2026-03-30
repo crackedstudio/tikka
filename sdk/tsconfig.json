@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+  
+    "rootDir": "src", // This tells TS that 'src' is the root, so don't create a 'src' folder inside 'dist'
+    /* ... other options ... */
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
@@ -17,5 +20,7 @@
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true
-  }
+  },
+  "include": ["src/**/*"], 
+  "exclude": ["node_modules", "dist", "examples"]
 }
