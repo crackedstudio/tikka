@@ -8,6 +8,24 @@ export interface HealthMetrics {
   totalFailed: number;
   recentErrors: ErrorRecord[];
   uptime: number;
+  streamStatus: 'connected' | 'disconnected' | 'reconnecting';
+  streamUptimeMs: number;
+  lastStreamError?: string;
+  multiOracle?: MultiOracleHealthStatus;
+}
+
+export interface MultiOracleHealthStatus {
+  enabled: boolean;
+  mode: string;
+  localOracleId: string;
+  threshold: number;
+  totalOracles: number;
+  pendingSubmissions: {
+    raffleId: number;
+    requestId: string;
+    submissions: number;
+    threshold: number;
+  }[];
 }
 
 export interface ErrorRecord {
@@ -28,6 +46,9 @@ export class HealthService {
   private totalFailed = 0;
   private recentErrors: ErrorRecord[] = [];
   private readonly MAX_ERROR_HISTORY = 10;
+  private streamStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
+  private streamStartedAt: number | null = null;
+  private lastStreamError?: string;
 
   recordSuccess(requestId: string): void {
     this.lastProcessedAt = new Date();
@@ -50,6 +71,19 @@ export class HealthService {
     }
   }
 
+  updateStreamStatus(status: 'connected' | 'disconnected' | 'reconnecting', error?: string): void {
+    this.streamStatus = status;
+    if (status === 'connected') {
+      this.streamStartedAt = Date.now();
+      this.lastStreamError = undefined;
+    } else if (status === 'disconnected') {
+      this.streamStartedAt = null;
+      if (error) this.lastStreamError = error;
+    } else {
+      if (error) this.lastStreamError = error;
+    }
+  }
+
   getMetrics(): HealthMetrics {
     return {
       queueDepth: this.queueDepth,
@@ -59,10 +93,14 @@ export class HealthService {
       totalFailed: this.totalFailed,
       recentErrors: this.recentErrors,
       uptime: Date.now() - this.startTime,
+      streamStatus: this.streamStatus,
+      streamUptimeMs: this.streamStartedAt ? Date.now() - this.streamStartedAt : 0,
+      lastStreamError: this.lastStreamError,
     };
   }
 
   isHealthy(): boolean {
+    if (this.streamStatus === 'disconnected') return false;
     if (this.queueDepth > 0 && this.lastProcessedAt) {
       const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
       if (this.lastProcessedAt.getTime() < fiveMinutesAgo) return false;

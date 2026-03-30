@@ -3,6 +3,7 @@ import Footer from "../components/landing/Footer";
 import Modal from "../components/modals/Modal";
 import Register from "../components/modals/Register";
 import Navbar from "../components/Navbar";
+import ErrorBoundary from "../components/ui/ErrorBoundary";
 import { Outlet } from "react-router-dom";
 
 const LandingLayout = () => {
@@ -13,9 +14,11 @@ const LandingLayout = () => {
         setModalOpen(true);
     };
     return (
-        <div className="bg-[#060C23] text-white flex flex-col space-y-16">
+        <div className="bg-gray-50 dark:bg-[#060C23] text-gray-900 dark:text-white flex flex-col space-y-16 min-h-screen transition-colors duration-300">
             <Navbar onStart={changeModal} />
-            <Outlet />
+            <ErrorBoundary>
+                <Outlet />
+            </ErrorBoundary>
             <Footer />
             <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
                 <Register

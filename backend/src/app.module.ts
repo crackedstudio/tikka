@@ -1,3 +1,4 @@
+
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
@@ -8,11 +9,18 @@ import { RafflesModule } from "./api/rest/raffles/raffles.module";
 import { UsersModule } from "./api/rest/users/users.module";
 import { LeaderboardModule } from "./api/rest/leaderboard/leaderboard.module";
 import { StatsModule } from "./api/rest/stats/stats.module";
+import { NotificationsModule } from "./api/rest/notifications/notifications.module";
+import { SearchModule } from "./api/rest/search/search.module";
+import { SupportModule } from "./api/rest/support/support.module";
+import { HealthModule } from "./health/health.module";
+import { MonitorModule } from "./api/rest/monitor/monitor.module";
+import { SupabaseModule } from "./services/supabase.module";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
+import { validate } from "./config/env.schema";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate }),
 
     /**
      * Named throttler tiers — each applied by the TikkaThrottlerGuard.
@@ -52,11 +60,17 @@ import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
       }),
     }),
 
+    SupabaseModule,
     AuthModule,
     RafflesModule,
     UsersModule,
     LeaderboardModule,
     StatsModule,
+    NotificationsModule,
+    SearchModule,
+    SupportModule,
+    HealthModule,
+    MonitorModule,
   ],
   providers: [
     // 1. JWT guard first — authenticates the request (sets req.user)

@@ -33,10 +33,10 @@ const PricingStep: React.FC<StepComponentProps> = ({
         formData.pricePerTicket > 0 && formData.totalTickets > 0;
 
     return (
-        <div className="bg-[#1E1932] rounded-xl p-6">
+        <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
             <div className="flex items-center space-x-3 mb-2">
                 <svg
-                    className="w-6 h-6 text-white"
+                    className="w-6 h-6 text-gray-900 dark:text-white"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                 >
@@ -46,18 +46,18 @@ const PricingStep: React.FC<StepComponentProps> = ({
                         clipRule="evenodd"
                     />
                 </svg>
-                <h3 className="text-white text-xl font-bold">
+                <h3 className="text-gray-900 dark:text-white text-xl font-bold">
                     $ Ticket Pricing
                 </h3>
             </div>
-            <p className="text-gray-300 text-sm mb-6">
+            <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
                 Set your ticket price and quantity
             </p>
 
             <div className="space-y-6">
                 {/* Price Per Ticket */}
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">
+                    <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
                         Price Per Ticket ($)
                     </label>
                     <input
@@ -67,13 +67,13 @@ const PricingStep: React.FC<StepComponentProps> = ({
                         value={formData.pricePerTicket}
                         onChange={handlePriceChange}
                         placeholder="0.0"
-                        className="w-full px-4 py-3 bg-[#2A264A] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
+                        className="w-full px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
                     />
                 </div>
 
                 {/* Total Tickets */}
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">
+                    <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
                         Total Tickets Available
                     </label>
                     <div className="relative">
@@ -83,12 +83,12 @@ const PricingStep: React.FC<StepComponentProps> = ({
                             value={formData.totalTickets}
                             onChange={handleTicketsChange}
                             placeholder="0"
-                            className="w-full px-4 py-3 pr-16 bg-[#2A264A] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
+                            className="w-full px-4 py-3 pr-16 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
                         />
                         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col">
                             <button
                                 onClick={incrementTickets}
-                                className="text-gray-400 hover:text-white transition-colors duration-200"
+                                className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200"
                             >
                                 <svg
                                     className="w-4 h-4"
@@ -104,7 +104,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                             </button>
                             <button
                                 onClick={decrementTickets}
-                                className="text-gray-400 hover:text-white transition-colors duration-200"
+                                className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200"
                             >
                                 <svg
                                     className="w-4 h-4"
@@ -124,11 +124,11 @@ const PricingStep: React.FC<StepComponentProps> = ({
 
                 {/* Potential Revenue */}
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">
+                    <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
                         Potential Revenue
                     </label>
-                    <div className="px-4 py-3 bg-[#2A264A] border border-gray-600 rounded-lg">
-                        <span className="text-white text-lg font-semibold">
+                    <div className="px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg">
+                        <span className="text-gray-900 dark:text-white text-lg font-semibold">
                             ${potentialRevenue.toFixed(2)}
                         </span>
                     </div>
@@ -139,7 +139,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
             <div className="flex justify-between mt-8">
                 <button
                     onClick={onBack}
-                    className="px-6 py-3 bg-[#2A264A] text-white rounded-lg hover:bg-[#3A365A] transition-colors duration-200"
+                    className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:bg-[#3A365A] transition-colors duration-200"
                 >
                     Back
                 </button>
@@ -148,7 +148,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                     disabled={!canContinue}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
                         canContinue
-                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-white"
+                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
                             : "bg-gray-600 text-gray-400 cursor-not-allowed"
                     }`}
                 >

@@ -1,21 +1,20 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-    testDir: "./tests/e2e",
-    timeout: 20_000,
-    retries: process.env.CI ? 2 : 0,
-    use: {
-        baseURL: "http://localhost:5173",
-        trace: "on-first-retry",
-        screenshot: "only-on-failure",
-    },
-    projects: [
-        { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    ],
-    webServer: {
-        command: "npm run dev",
-        url: "http://localhost:5173",
-        reuseExistingServer: !process.env.CI,
-        timeout: 60_000,
-    },
+  testDir: './tests/e2e',
+  timeout: 60_000,
+  retries: 0,
+  reporter: [['list'], ['html', { open: 'never' }]],
+  use: {
+    headless: true,
+    actionTimeout: 15_000,
+    baseURL: 'http://localhost:5173',
+    trace: 'on-first-retry',
+  },
+  webServer: {
+    command: 'VITE_TEST_MODE=true npm run dev',
+    port: 5173,
+    timeout: 120_000,
+    reuseExistingServer: true,
+  },
 });

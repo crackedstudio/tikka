@@ -41,7 +41,7 @@ const SignInButton = () => {
   // Show error state
   if (error && !isAuthenticating) {
     return (
-      <div className="flex items-center gap-2 rounded-full border border-red-500/50 bg-[#15102A] px-4 py-2 text-sm text-red-400">
+      <div className="flex items-center gap-2 rounded-full border border-red-500/50 bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-red-400">
         <span className="inline-flex h-2 w-2 rounded-full bg-red-500" />
         Auth Error
       </div>
@@ -53,7 +53,7 @@ const SignInButton = () => {
     return (
       <button
         onClick={handleSignOut}
-        className="flex items-center gap-2 rounded-full border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A]"
+        className="flex items-center gap-2 rounded-full border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-900 dark:text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A]"
         title={`Signed in as ${address}`}
       >
         <span className="inline-flex h-2 w-2 rounded-full bg-green-500" />
@@ -67,7 +67,7 @@ const SignInButton = () => {
     return (
       <button
         disabled
-        className="flex items-center gap-2 rounded-full border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-white opacity-50 cursor-not-allowed"
+        className="flex items-center gap-2 rounded-full border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-900 dark:text-white opacity-50 cursor-not-allowed"
       >
         <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
         Signing in...
@@ -79,7 +79,7 @@ const SignInButton = () => {
   return (
     <button
       onClick={handleSignIn}
-      className="flex items-center gap-2 rounded-full border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A]"
+      className="flex items-center gap-2 rounded-full border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-900 dark:text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A]"
     >
       <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500" />
       Sign In

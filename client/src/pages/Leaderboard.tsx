@@ -6,6 +6,7 @@ import type {
 import LeaderboardSection from "../components/leaderboard/LeaderboardSection";
 import PlayerStats from "../components/leaderboard/PlayerStats";
 import { useLeaderboard } from "../hooks/useLeaderboard";
+import ErrorMessage from "../components/ui/ErrorMessage";
 
 const Leaderboard: React.FC = () => {
     // Map existing tabs to valid 'by' parameters if applicable, e.g. "weekly" -> default or a specific query
@@ -19,7 +20,7 @@ const Leaderboard: React.FC = () => {
         return undefined;
     };
 
-    const { data, isLoading, error } = useLeaderboard({ by: getSortBy() });
+    const { data, isLoading, error, refetch } = useLeaderboard({ by: getSortBy() });
 
     const topPlayers = data?.topPlayers || [];
     const players = data?.players || [];
@@ -39,7 +40,7 @@ const Leaderboard: React.FC = () => {
     const achievements: Achievement[] = [];
 
     return (
-        <div className="min-h-screen text-white">
+        <div className="min-h-screen text-gray-900 dark:text-white">
             {/* Header */}
             <div className="w-full max-w-7xl mx-auto px-6 py-8">
                 {/* Main Content */}
@@ -49,19 +50,17 @@ const Leaderboard: React.FC = () => {
                         {isLoading ? (
                             <div className="text-center py-12">
                                 <div className="w-12 h-12 border-4 border-gray-600 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-                                <h3 className="text-white text-xl font-semibold mb-2">
+                                <h3 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
                                     Loading Leaderboard...
                                 </h3>
                             </div>
                         ) : error ? (
-                            <div className="text-center py-12">
-                                <h3 className="text-red-400 text-xl font-semibold mb-2">
-                                    Error Loading Leaderboard
-                                </h3>
-                                <p className="text-gray-400">
-                                    Please try again later.
-                                </p>
-                            </div>
+                            <ErrorMessage
+                                title="Error Loading Leaderboard"
+                                message={error.message}
+                                onRetry={refetch}
+                                disabled={isLoading}
+                            />
                         ) : topPlayers.length === 0 && players.length === 0 ? (
                             <div className="text-center py-12">
                                 <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -77,7 +76,7 @@ const Leaderboard: React.FC = () => {
                                         />
                                     </svg>
                                 </div>
-                                <h3 className="text-white text-xl font-semibold mb-2">
+                                <h3 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
                                     Leaderboard Coming Soon
                                 </h3>
                                 <p className="text-gray-400 mb-6">

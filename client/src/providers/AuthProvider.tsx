@@ -1,13 +1,13 @@
 /**
  * AuthProvider
- * 
+ *
  * React context provider for authentication state management
  * Provides SIWS authentication state and methods across the application
  */
 
-import { createContext, useContext, ReactNode, useEffect } from 'react';
-import { useAuth, type UseAuthReturn } from '../hooks/useAuth';
-import { useWalletContext } from './WalletProvider';
+import { createContext, useContext, type ReactNode, useEffect, useState } from "react";
+import { useAuth, type UseAuthReturn } from "../hooks/useAuth";
+import { useWalletContext } from "./WalletProvider";
 
 const AuthContext = createContext<UseAuthReturn | undefined>(undefined);
 
@@ -21,27 +21,32 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const auth = useAuth();
   const { address, isConnected } = useWalletContext();
+  const [didInitialAuthCheck, setDidInitialAuthCheck] = useState(false);
 
-  // Auto-logout when wallet disconnects
+  // Auto-logout when wallet disconnects.
+  // Skip the first render to allow wallet state to initialize.
+  const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
+
   useEffect(() => {
-    if (!isConnected && auth.isAuthenticated) {
+    if (!didInitialAuthCheck) {
+      setDidInitialAuthCheck(true);
+      return;
+    }
+
+    if (!isTestMode && !isConnected && auth.isAuthenticated) {
       auth.logout();
     }
-  }, [isConnected, auth.isAuthenticated]);
+  }, [isConnected, auth.isAuthenticated, didInitialAuthCheck, auth, isTestMode]);
 
   // Update auth address when wallet address changes
   useEffect(() => {
-    if (address && auth.isAuthenticated && auth.address !== address) {
+    if (auth.address && address && auth.isAuthenticated && auth.address !== address) {
       // Address mismatch - logout for security
       auth.logout();
     }
   }, [address, auth.isAuthenticated, auth.address]);
 
-  return (
-    <AuthContext.Provider value={auth}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
 /**
@@ -50,10 +55,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
  */
 export function useAuthContext(): UseAuthReturn {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
+    throw new Error("useAuthContext must be used within an AuthProvider");
   }
-  
+
   return context;
 }

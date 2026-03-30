@@ -78,10 +78,10 @@ const DurationStep: React.FC<StepComponentProps> = ({
         formData.duration.days > 0 || formData.duration.hours > 0;
 
     return (
-        <div className="bg-[#1E1932] rounded-xl p-6">
+        <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
             <div className="flex items-center space-x-3 mb-2">
                 <svg
-                    className="w-6 h-6 text-white"
+                    className="w-6 h-6 text-gray-900 dark:text-white"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                 >
@@ -91,11 +91,11 @@ const DurationStep: React.FC<StepComponentProps> = ({
                         clipRule="evenodd"
                     />
                 </svg>
-                <h3 className="text-white text-xl font-bold">
+                <h3 className="text-gray-900 dark:text-white text-xl font-bold">
                     Raffle Duration
                 </h3>
             </div>
-            <p className="text-gray-300 text-sm mb-6">
+            <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
                 How long will the raffle run?
             </p>
 
@@ -104,7 +104,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                     {/* Days */}
                     <div>
-                        <label className="block text-white text-sm font-medium mb-2">
+                        <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
                             Days
                         </label>
                         <div className="relative">
@@ -113,12 +113,12 @@ const DurationStep: React.FC<StepComponentProps> = ({
                                 min="0"
                                 value={formData.duration.days}
                                 onChange={handleDaysChange}
-                                className="w-full px-4 py-3 pr-12 bg-[#2A264A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
+                                className="w-full px-4 py-3 pr-12 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
                             />
                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col">
                                 <button
                                     onClick={incrementDays}
-                                    className="text-gray-400 hover:text-white transition-colors duration-200"
+                                    className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200"
                                 >
                                     <svg
                                         className="w-4 h-4"
@@ -134,7 +134,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                                 </button>
                                 <button
                                     onClick={decrementDays}
-                                    className="text-gray-400 hover:text-white transition-colors duration-200"
+                                    className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200"
                                 >
                                     <svg
                                         className="w-4 h-4"
@@ -154,7 +154,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
 
                     {/* Hours */}
                     <div>
-                        <label className="block text-white text-sm font-medium mb-2">
+                        <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
                             Hours
                         </label>
                         <div className="relative">
@@ -164,12 +164,12 @@ const DurationStep: React.FC<StepComponentProps> = ({
                                 max="23"
                                 value={formData.duration.hours}
                                 onChange={handleHoursChange}
-                                className="w-full px-4 py-3 pr-12 bg-[#2A264A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
+                                className="w-full px-4 py-3 pr-12 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
                             />
                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col">
                                 <button
                                     onClick={incrementHours}
-                                    className="text-gray-400 hover:text-white transition-colors duration-200"
+                                    className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200"
                                 >
                                     <svg
                                         className="w-4 h-4"
@@ -185,7 +185,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                                 </button>
                                 <button
                                     onClick={decrementHours}
-                                    className="text-gray-400 hover:text-white transition-colors duration-200"
+                                    className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200"
                                 >
                                     <svg
                                         className="w-4 h-4"
@@ -206,11 +206,11 @@ const DurationStep: React.FC<StepComponentProps> = ({
 
                 {/* End Time Display */}
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">
+                    <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
                         Raffle will end in
                     </label>
-                    <div className="px-4 py-3 bg-[#2A264A] border border-gray-600 rounded-lg text-center">
-                        <span className="text-white text-lg font-semibold">
+                    <div className="px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-center">
+                        <span className="text-gray-900 dark:text-white text-lg font-semibold">
                             {formatEndTime()}
                         </span>
                     </div>
@@ -221,7 +221,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
             <div className="flex justify-between mt-8">
                 <button
                     onClick={onBack}
-                    className="px-6 py-3 bg-[#2A264A] text-white rounded-lg hover:bg-[#3A365A] transition-colors duration-200"
+                    className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:bg-[#3A365A] transition-colors duration-200"
                 >
                     Back
                 </button>
@@ -230,7 +230,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                     disabled={!canContinue}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
                         canContinue
-                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-white"
+                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
                             : "bg-gray-600 text-gray-400 cursor-not-allowed"
                     }`}
                 >

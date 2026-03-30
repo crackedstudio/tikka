@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+
 
 const BrowseRaffles = () => {
     return (
@@ -15,28 +15,16 @@ const BrowseRaffles = () => {
                     </h3>
 
                     {/* Search (full width and centered on small screens) */}
-                    <div className="w-full max-w-2xl">
-                        <div className="relative w-full rounded-2xl bg-[#071022] border border-[#1B2433] px-4 py-3">
-                            <input
-                                type="text"
-                                placeholder="Search raffles"
-                                className="w-full bg-transparent placeholder:text-[#6B7280] text-[#E6EEF8] text-base md:text-lg outline-none pr-12"
-                            />
-                            <Search
-                                size={20}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
-                            />
-                        </div>
-                    </div>
+                    
                 </div>
 
                 {/* Right card: keeps same width/appearance on desktop; stacks under left on mobile */}
                 <aside className="w-full md:w-auto md:flex-shrink-0">
-                    <div className="bg-[#11172E] border border-[#1F263F] rounded-xl p-5 w-full max-w-sm mx-auto md:mx-0">
+                    <div className="bg-white dark:bg-[#11172E] border border-gray-200 dark:border-[#1F263F] rounded-xl p-5 w-full max-w-sm mx-auto md:mx-0">
                         <h2 className="font-semibold text-[22px]">
                             Host your raffle
                         </h2>
-                        <p className="text-[#9CA3AF] text-[16px] mt-1">
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-[16px] mt-1">
                             Join the most exciting raffle demo platform where
                         </p>
 

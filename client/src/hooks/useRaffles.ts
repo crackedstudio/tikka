@@ -1,90 +1,93 @@
-import { useMemo } from "react";
-import { demoRaffles } from "../data/demoRaffles";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+    fetchRaffles,
+    fetchRaffleDetail,
+    mapDetailToFormattedRaffle,
+} from "../services/raffleService";
+import type {
+    ApiRaffleListItem,
+    RaffleListFilters,
+    FormattedRaffle,
+} from "../types/types";
 
-// Hook to get all active raffles with their data
-export const useActiveRaffles = () => {
-    const raffles = useMemo(
-        () => demoRaffles.filter((raffle) => raffle.isActive).map((r) => r.id),
-        []
-    );
+export const useRaffles = (filters?: RaffleListFilters) => {
+    const [raffles, setRaffles] = useState<ApiRaffleListItem[]>([]);
+    const [total, setTotal] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+    const requestId = useRef(0);
+    const [refetchFlag, setRefetchFlag] = useState(0);
 
-    return {
-        raffles,
-        error: null,
-        isLoading: false,
-    };
+    const serializedFilters = JSON.stringify(filters);
+
+    useEffect(() => {
+        const currentRequest = ++requestId.current;
+
+        setIsLoading(true);
+        setError(null);
+
+        const parsed = JSON.parse(serializedFilters) as RaffleListFilters | undefined;
+        fetchRaffles(parsed)
+            .then((response) => {
+                if (currentRequest !== requestId.current) return;
+                setRaffles(response.raffles);
+                setTotal(response.total ?? response.raffles.length);
+            })
+            .catch((err) => {
+                if (currentRequest !== requestId.current) return;
+                setError(err instanceof Error ? err : new Error("Failed to fetch raffles"));
+            })
+            .finally(() => {
+                if (currentRequest !== requestId.current) return;
+                setIsLoading(false);
+            });
+    }, [serializedFilters, refetchFlag]);
+
+    const refetch = useCallback(() => {
+        setRefetchFlag((prev: number) => prev + 1);
+    }, []);
+
+    return { raffles, total, isLoading, error, refetch };
 };
 
-// Hook to get a single raffle with formatted data
 export const useRaffle = (raffleId: number) => {
-    const raffle = useMemo(() => {
-        const raffleData = demoRaffles.find((item) => item.id === raffleId);
-        if (!raffleData) return null;
+    const [raffle, setRaffle] = useState<FormattedRaffle | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+    const requestId = useRef(0);
+    const [refetchFlag, setRefetchFlag] = useState(0);
 
-        const timeRemaining = raffleData.endTime - Math.floor(Date.now() / 1000);
-        const days = Math.max(0, Math.floor(timeRemaining / (24 * 60 * 60)));
-        const hours = Math.max(
-            0,
-            Math.floor((timeRemaining % (24 * 60 * 60)) / (60 * 60))
-        );
-        const minutes = Math.max(
-            0,
-            Math.floor((timeRemaining % (24 * 60 * 60)) / 60)
-        );
-        const seconds = Math.max(0, timeRemaining % 60);
+    useEffect(() => {
+        if (!raffleId) {
+            setRaffle(null);
+            setIsLoading(false);
+            setError(null);
+            return;
+        }
 
-        const progress =
-            raffleData.maxTickets > 0
-                ? (raffleData.totalTicketsSold / raffleData.maxTickets) * 100
-                : 0;
+        const currentRequest = ++requestId.current;
 
-        return {
-            id: raffleData.id,
-            creator: "demo",
-            description: raffleData.title,
-            endTime: raffleData.endTime,
-            maxTickets: raffleData.maxTickets,
-            allowMultipleTickets: true,
-            ticketPrice: raffleData.ticketPriceEth,
-            ticketToken: undefined,
-            totalTicketsSold: raffleData.totalTicketsSold,
-            winner: null,
-            winningTicketId: 0,
-            isActive: raffleData.isActive,
-            isFinalized: !raffleData.isActive,
-            winningsWithdrawn: false,
-            countdown: {
-                days: days.toString().padStart(2, "0"),
-                hours: hours.toString().padStart(2, "0"),
-                minutes: minutes.toString().padStart(2, "0"),
-                seconds: seconds.toString().padStart(2, "0"),
-            },
-            progress: Math.min(progress, 100),
-            entries: raffleData.totalTicketsSold,
-            ticketPriceFormatted: `${raffleData.ticketPriceEth.toFixed(3)} ETH`,
-            prizeValue: raffleData.prizeValue,
-            prizeCurrency: raffleData.prizeCurrency,
-            buttonText: "Enter Raffle",
-            image: raffleData.image,
-            metadata: {
-                title: raffleData.title,
-                description: raffleData.description,
-                image: raffleData.image,
-                prizeName: raffleData.title,
-                prizeValue: raffleData.prizeValue,
-                prizeCurrency: raffleData.prizeCurrency,
-                category: raffleData.tags[0] || "General",
-                tags: raffleData.tags,
-                createdBy: "demo",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            },
-        };
-    }, [raffleId]);
+        setIsLoading(true);
+        setError(null);
 
-    return {
-        raffle,
-        error: raffle ? null : new Error("Demo raffle not found."),
-        isLoading: false,
-    };
+        fetchRaffleDetail(raffleId)
+            .then((detail) => {
+                if (currentRequest !== requestId.current) return;
+                setRaffle(mapDetailToFormattedRaffle(detail));
+            })
+            .catch((err) => {
+                if (currentRequest !== requestId.current) return;
+                setError(err instanceof Error ? err : new Error(`Failed to fetch raffle ${raffleId}`));
+            })
+            .finally(() => {
+                if (currentRequest !== requestId.current) return;
+                setIsLoading(false);
+            });
+    }, [raffleId, refetchFlag]);
+
+    const refetch = useCallback(() => {
+        setRefetchFlag((prev: number) => prev + 1);
+    }, []);
+
+    return { raffle, error, isLoading, refetch };
 };
