@@ -21,6 +21,7 @@ import { WalletProvider } from "./providers/WalletProvider";
 import { AuthProvider } from "./providers/AuthProvider";
 import NetworkWarning from "./components/NetworkWarning";
 import { InstallPWA } from "./components/InstallPWA";
+import { Toaster } from "sonner";
 
 function App() {
     useEffect(() => {
@@ -35,11 +36,12 @@ function App() {
     return (
         <WalletProvider>
             <AuthProvider>
+                <Toaster richColors position="bottom-right" closeButton theme="system" />
                 {/* * Issue #120: Global Network Warning 
                   * This will show at the top of every page if the user is on the wrong network.
                 */}
                 <NetworkWarning />
-                
+
                 <Router>
                     <Routes>
                         <Route path="/" element={<LandingLayout />}>
@@ -59,7 +61,7 @@ function App() {
                         </Route>
                     </Routes>
                 </Router>
-                
+
                 <InstallPWA />
             </AuthProvider>
         </WalletProvider>
