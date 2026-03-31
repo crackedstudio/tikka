@@ -6,9 +6,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "tikka": "./bin/tikka.mjs"
+    "tikka": "./bin/tikka.cjs"
   },
   "scripts": {
+    "cli": "node bin/tikka.cjs",
     "build": "nest build",
     "build:light": "tsc -p tsconfig.light.json",
     "start": "nest start",

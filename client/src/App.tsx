@@ -10,7 +10,7 @@ import Transparency from "./pages/Transparency";
 import Settings from "./pages/Settings";
 import RafflePage from "./pages/RafflePage";
 import OracleAdmin from "./pages/OracleAdmin";
-
+import FAQPage from './pages/FAQ/FAQPage'; // Imported FAQ
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
 import Support from "./pages/Support";
@@ -57,6 +57,8 @@ function App() {
                             <Route path="settings" element={<Settings />} />
                             <Route path="support" element={<Support />} />
                             <Route path="transparency" element={<Transparency />} />
+                            {/* Issue #192: FAQ Route Added Here */}
+                            <Route path="faq" element={<FAQPage />} />
                             <Route path="admin/oracle" element={<OracleAdmin />} />
                         </Route>
                     </Routes>
