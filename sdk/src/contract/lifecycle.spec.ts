@@ -429,54 +429,52 @@ describe('poll()', () => {
     ).rejects.toThrow(TX_HASH);
   });
 
-  it('applies exponential backoff — interval grows with backoffFactor', async () => {
-    const intervals: number[] = [];
+  it('applies exponential backoff — sleep interval grows with backoffFactor', async () => {
     let callIndex = 0;
-
-    rpcService.getTransaction.mockImplementation(async (_hash, _timeout, interval) => {
+    rpcService.getTransaction.mockImplementation(async () => {
       callIndex++;
-      intervals.push(interval as number);
       if (callIndex >= 4) return makeGetSuccess(200) as any;
       return makeGetNotFound() as any;
     });
 
     const lc = buildLifecycle();
+    const sleepSpy = jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+
     await lc.poll(TX_HASH, {
       timeoutMs: 60_000,
-      intervalMs: 10,       // small to avoid real-timer delays
+      intervalMs: 10,
       backoffFactor: 2.0,
       maxIntervalMs: 10_000,
     });
 
-    // Intervals passed to getTransaction should grow: 10, 20, 40
-    expect(intervals[0]).toBe(10);
-    expect(intervals[1]).toBe(20);
-    expect(intervals[2]).toBe(40);
+    // sleep is called between NOT_FOUND retries; intervals should grow: 10, 20, 40
+    expect(sleepSpy).toHaveBeenNthCalledWith(1, 10);
+    expect(sleepSpy).toHaveBeenNthCalledWith(2, 20);
+    expect(sleepSpy).toHaveBeenNthCalledWith(3, 40);
   });
 
   it('caps the backoff interval at maxIntervalMs', async () => {
-    const intervals: number[] = [];
     let callIndex = 0;
-
-    rpcService.getTransaction.mockImplementation(async (_hash, _timeout, interval) => {
+    rpcService.getTransaction.mockImplementation(async () => {
       callIndex++;
-      intervals.push(interval as number);
       if (callIndex >= 5) return makeGetSuccess(200) as any;
       return makeGetNotFound() as any;
     });
 
     const lc = buildLifecycle();
+    const sleepSpy = jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+
     await lc.poll(TX_HASH, {
       timeoutMs: 60_000,
-      intervalMs: 20,   // small real intervals
+      intervalMs: 20,
       backoffFactor: 3.0,
-      maxIntervalMs: 50, // cap
+      maxIntervalMs: 50,
     });
 
-    // 20 → 50 (capped) → 50 (capped) → 50 (capped)
-    expect(intervals[0]).toBe(20);
-    for (let i = 1; i < intervals.length; i++) {
-      expect(intervals[i]).toBeLessThanOrEqual(50);
+    // 20 → capped at 50 for all subsequent
+    expect(sleepSpy).toHaveBeenNthCalledWith(1, 20);
+    for (let i = 2; i <= sleepSpy.mock.calls.length; i++) {
+      expect(sleepSpy).toHaveBeenNthCalledWith(i, 50);
     }
   });
 });
@@ -589,11 +587,66 @@ describe('invoke()', () => {
       poll: { timeoutMs: 45_000, intervalMs: 3_000, backoffFactor: 2.0 },
     });
 
-    // getTransaction is called with the custom timeoutMs and intervalMs
-    expect(rpcService.getTransaction).toHaveBeenCalledWith(
-      TX_HASH,
-      45_000,
-      3_000,
+    // getTransaction is single-shot — called with hash only
+    expect(rpcService.getTransaction).toHaveBeenCalledWith(TX_HASH);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setWallet() / setContractId()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('setWallet() / setContractId()', () => {
+  it('setWallet updates the wallet used for signing', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+
+    const lc = buildLifecycle(false); // no wallet initially
+    await expect(lc.sign('XDR==')).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.WalletNotInstalled,
+    });
+
+    lc.setWallet(wallet);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: 'SIGNED==' });
+    const result = await lc.sign('XDR==');
+    expect(result).toBe('SIGNED==');
+  });
+
+  it('setContractId changes the contract used in buildTx', () => {
+    const lc = buildLifecycle();
+    lc.setContractId('NEW_CONTRACT_ID');
+    expect((lc as any).contractId).toBe('NEW_CONTRACT_ID');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// memo support in simulate()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('simulate() with memo', () => {
+  it('passes a text memo through buildTx without error', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+
+    const lc = buildLifecycle();
+    const result = await lc.simulate(
+      ContractFn.BUY_TICKET,
+      [1, SOURCE_KEY, 1],
+      { sourcePublicKey: SOURCE_KEY, memo: { type: 'text', value: 'test-memo' } },
     );
+
+    expect(rpcService.simulateTransaction).toHaveBeenCalledTimes(1);
+    expect(result.assembledXdr).toBeTruthy();
+  });
+
+  it('passes an id memo through buildTx without error', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+
+    const lc = buildLifecycle();
+    const result = await lc.simulate(
+      ContractFn.BUY_TICKET,
+      [1, SOURCE_KEY, 1],
+      { sourcePublicKey: SOURCE_KEY, memo: { type: 'id', value: '42' } },
+    );
+
+    expect(result.assembledXdr).toBeTruthy();
   });
 });
