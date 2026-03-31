@@ -284,8 +284,8 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     onClick={onNext}
                     disabled={!canContinue}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${canContinue
-                        ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
-                        : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
+                            : "bg-gray-600 text-gray-400 cursor-not-allowed"
                         }`}
                 >
                     Continue

@@ -249,7 +249,7 @@ const RafflePage = () => {
                         {isActive ? (
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between bg-black/20 p-1.5 rounded-xl border border-gray-200 dark:border-white/5">
-                                    <button
+                                    <button 
                                         onClick={handleDecrement}
                                         className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 text-gray-900 dark:text-white transition-colors"
                                     >
@@ -264,7 +264,7 @@ const RafflePage = () => {
                                     </button>
                                 </div>
 
-                                <button
+                                <button 
                                     className="w-full py-4 rounded-xl font-black text-gray-900 dark:text-white tracking-wider shadow-lg shadow-[#FE3796]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                                     style={{
                                         background: "linear-gradient(100.92deg, #FE3796 13.57%, #3931F9 97.65%)"
