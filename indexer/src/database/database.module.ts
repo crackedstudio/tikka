@@ -9,6 +9,7 @@ import { RaffleEventEntity } from "./entities/raffle-event.entity";
 import { PlatformStatEntity } from "./entities/platform-stat.entity";
 import { PlatformStateEntity } from "./entities/platform-state.entity";
 import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
+import { WebhookEntity } from "./entities/webhook.entity";
 
 /**
  * DatabaseModule wires TypeORM into the NestJS DI container.
@@ -36,6 +37,7 @@ import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
           PlatformStatEntity,
           PlatformStateEntity,
           IndexerCursorEntity,
+          WebhookEntity,
         ],
         migrations: [__dirname + "/migrations/*{.ts,.js}"],
         migrationsRun: true,
@@ -51,6 +53,7 @@ import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
       PlatformStatEntity,
       PlatformStateEntity,
       IndexerCursorEntity,
+      WebhookEntity,
     ]),
   ],
   exports: [TypeOrmModule],

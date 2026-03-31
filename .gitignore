@@ -9,3 +9,7 @@ CLAUDE.md
 
 # Docs
 sdk/docs/
+node_modules/
+dist/
+.env
+*.log
