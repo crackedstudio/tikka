@@ -134,11 +134,11 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             />
                         </svg>
                         <div>
-                            <p className="text-white text-lg mb-2">
+                            <p className="text-gray-900 dark:text-white text-lg mb-2">
                                 Drag & Drop your prize images here
                             </p>
                             <p className="text-gray-400 mb-4">or</p>
-                            <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                            <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
                                 Upload images
                             </button>
                         </div>

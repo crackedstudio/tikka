@@ -8,6 +8,7 @@ import ErrorMessage from "../components/ui/ErrorMessage";
 import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
 import EnterRaffleButton from "../components/EnterRaffleButton";
 import detailimage from "../assets/detailimage.png";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const RaffleDetails = () => {
     const { id } = useParams();
@@ -30,10 +31,10 @@ const RaffleDetails = () => {
         lowerStatus === "cancelled"
             ? "Claim Refund"
             : raffle?.winner
-              ? "View Winner"
-              : isFinalized
-                ? "Raffle Ended"
-                : "Buy Ticket";
+                ? "View Winner"
+                : isFinalized
+                    ? "Raffle Ended"
+                    : "Buy Ticket";
 
     if (isLoading) {
         return (
@@ -69,12 +70,22 @@ const RaffleDetails = () => {
 
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
+            <div className="mb-4">
+                <Breadcrumbs
+                    items={[
+                        { label: 'Home', href: '/home' },
+                        { label: 'Explore', href: '/search' },
+                        { label: raffle.metadata?.title || 'Raffle Details' }
+                    ]}
+                />
+            </div>
+
             <RaffleDetailsCard
                 image={raffle.image || detailimage}
                 images={raffle.metadata?.images}
                 title={raffle.metadata?.title || raffle.description}
                 body={
-                    raffle.metadata?.description || "No description available."
+                    raffle.description || "No description available."
                 }
                 prizeValue={raffle.prizeValue}
                 prizeCurrency={raffle.prizeCurrency}
@@ -138,7 +149,7 @@ const RaffleDetails = () => {
                     )}
                 </div>
             </div>
-            
+
             {/* Notification Subscription Section */}
             <div className="bg-white dark:bg-[#11172E] rounded-3xl p-6 mb-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

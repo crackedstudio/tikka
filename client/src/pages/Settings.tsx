@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Settings as SettingsIcon, Bell, User } from 'lucide-react';
 import NotificationPreferences from '../components/NotificationPreferences';
 import { useAuthContext } from '../providers/AuthProvider';
+import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 
 type SettingsTab = 'notifications' | 'profile';
 
@@ -32,6 +33,10 @@ export default function Settings() {
 
   return (
     <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-12">
+      <div className="mb-2">
+        <Breadcrumbs />
+      </div>
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>

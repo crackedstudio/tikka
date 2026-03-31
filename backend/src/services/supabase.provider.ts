@@ -1,20 +1,22 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { env } from '../config/env.config';
+import { ConfigService } from '@nestjs/config'; 
 
 export const SUPABASE_CLIENT = 'SUPABASE_CLIENT';
 
 export const supabaseProvider = {
   provide: SUPABASE_CLIENT,
-  useFactory: (): SupabaseClient => {
-    const { url, serviceRoleKey } = env.supabase;
-    console.log(`Supabase client creating with URL: ${url}`);
+  inject: [ConfigService], // 1. Inject ConfigService
+  useFactory: (configService: ConfigService): SupabaseClient => { // 2. Accept it as an argument
+    
+    // 3. Pull values using configService
+    const url = configService.get<string>('SUPABASE_URL');
+    const serviceRoleKey = configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+
     if (!url || !serviceRoleKey) {
       throw new Error(
         'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment',
       );
     }
-    const client = createClient(url, serviceRoleKey);
-    console.log("Supabase client created.");
-    return client;
+    return createClient(url, serviceRoleKey);
   },
 };

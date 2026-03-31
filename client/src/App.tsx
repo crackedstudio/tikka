@@ -10,7 +10,7 @@ import Transparency from "./pages/Transparency";
 import Settings from "./pages/Settings";
 import RafflePage from "./pages/RafflePage";
 import OracleAdmin from "./pages/OracleAdmin";
-
+import FAQPage from './pages/FAQ/FAQPage'; // Imported FAQ
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import RaffleDetails from "./pages/RaffleDetails";
 import Support from "./pages/Support";
@@ -21,6 +21,7 @@ import { WalletProvider } from "./providers/WalletProvider";
 import { AuthProvider } from "./providers/AuthProvider";
 import NetworkWarning from "./components/NetworkWarning";
 import { InstallPWA } from "./components/InstallPWA";
+import { Toaster } from "sonner";
 
 function App() {
     useEffect(() => {
@@ -35,11 +36,12 @@ function App() {
     return (
         <WalletProvider>
             <AuthProvider>
+                <Toaster richColors position="bottom-right" closeButton theme="system" />
                 {/* * Issue #120: Global Network Warning 
                   * This will show at the top of every page if the user is on the wrong network.
                 */}
                 <NetworkWarning />
-                
+
                 <Router>
                     <Routes>
                         <Route path="/" element={<LandingLayout />}>
@@ -55,11 +57,13 @@ function App() {
                             <Route path="settings" element={<Settings />} />
                             <Route path="support" element={<Support />} />
                             <Route path="transparency" element={<Transparency />} />
+                            {/* Issue #192: FAQ Route Added Here */}
+                            <Route path="faq" element={<FAQPage />} />
                             <Route path="admin/oracle" element={<OracleAdmin />} />
                         </Route>
                     </Routes>
                 </Router>
-                
+
                 <InstallPWA />
             </AuthProvider>
         </WalletProvider>

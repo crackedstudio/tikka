@@ -4,13 +4,13 @@ import { useRaffle } from "../hooks/useRaffles";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import VerifiedBadge from "../components/VerifiedBadge";
-import { 
-    Ticket, 
-    Users, 
-    Clock, 
-    ShieldCheck, 
-    ArrowLeft, 
-    Share2, 
+import {
+    Ticket,
+    Users,
+    Clock,
+    ShieldCheck,
+    ArrowLeft,
+    Share2,
     Info,
     Trophy,
     User,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Line from "../assets/svg/Line";
 import detailimage from "../assets/detailimage.png";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const Skeleton = ({ className }: { className?: string }) => (
     <div className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`} />
@@ -29,7 +30,7 @@ const RafflePage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [ticketCount, setTicketCount] = useState(1);
-    
+
     const raffleId = id ? parseInt(id) : 0;
     const { raffle, isLoading, error } = useRaffle(raffleId);
 
@@ -40,7 +41,7 @@ const RafflePage = () => {
                     <Skeleton className="h-10 w-10 rounded-full" />
                     <Skeleton className="h-6 w-32" />
                 </div>
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 space-y-6">
                         <Skeleton className="w-full aspect-video rounded-3xl" />
@@ -61,11 +62,11 @@ const RafflePage = () => {
     if (error || !raffle) {
         return (
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-20 flex flex-col items-center">
-                <ErrorMessage 
+                <ErrorMessage
                     title={error ? "Error Loading Raffle" : "Raffle Not Found"}
                     message={error?.message || "The raffle you're looking for doesn't exist or has been removed."}
                 />
-                <button 
+                <button
                     onClick={() => navigate("/home")}
                     className="mt-8 px-8 py-3 rounded-xl bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 transition-colors flex items-center space-x-2"
                 >
@@ -101,10 +102,18 @@ const RafflePage = () => {
     const totalCost = (parseFloat(raffle.ticketPrice) * ticketCount).toFixed(3);
 
     return (
-        <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <Breadcrumbs
+                items={[
+                    { label: 'Home', href: '/home' },
+                    { label: 'Explore', href: '/search' },
+                    { label: description || 'Raffle Details' }
+                ]}
+            />
+
             {/* Navigation Header */}
             <div className="flex items-center justify-between">
-                <button 
+                <button
                     onClick={() => navigate(-1)}
                     className="flex items-center space-x-2 text-gray-400 hover:text-gray-900 dark:text-white transition-colors group"
                 >
@@ -125,8 +134,8 @@ const RafflePage = () => {
                     {/* Hero Section */}
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl z-10" />
-                        <img 
-                            src={image || detailimage} 
+                        <img
+                            src={image || detailimage}
                             alt={title}
                             className="w-full aspect-video md:aspect-auto md:max-h-[500px] object-cover rounded-3xl shadow-2xl border border-gray-200 dark:border-white/5"
                         />
@@ -247,7 +256,7 @@ const RafflePage = () => {
                                         -
                                     </button>
                                     <span className="text-xl font-bold">{ticketCount}</span>
-                                    <button 
+                                    <button
                                         onClick={handleIncrement}
                                         className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#FE3796] hover:brightness-110 text-gray-900 dark:text-white transition-colors"
                                     >
@@ -281,7 +290,7 @@ const RafflePage = () => {
                                         <p className="text-xs text-gray-500">No winner announced yet</p>
                                     </div>
                                 )}
-                                <button 
+                                <button
                                     disabled
                                     className="w-full py-4 rounded-xl bg-gray-600/20 text-gray-500 font-bold border border-gray-200 dark:border-white/5 cursor-not-allowed uppercase tracking-widest text-sm"
                                 >

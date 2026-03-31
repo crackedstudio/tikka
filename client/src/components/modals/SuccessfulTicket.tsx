@@ -16,7 +16,7 @@ const SuccessfulTicket = ({
     if (!isVisible) return null;
 
     return (
-        <div className="w-full max-w-[500px] mx-auto px-4 sm:px-6">
+        <div data-testid="success-modal" className="w-full max-w-[500px] mx-auto px-4 sm:px-6">
             {/* Close Button */}
             {onClose && (
                 <div className="flex justify-end mb-4 sm:mb-6">
@@ -52,6 +52,7 @@ const SuccessfulTicket = ({
             {/* Continue Button */}
             <div className="w-full">
                 <button
+                    data-testid="success-continue-btn"
                     onClick={onContinue}
                     className="w-full bg-[#fe3796] hover:bg-[#fe3796]/90 text-gray-900 dark:text-white font-semibold py-3 sm:py-4 px-4 sm:px-6 rounded-xl transition-colors text-sm sm:text-base"
                 >

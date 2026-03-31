@@ -6,9 +6,11 @@ import tikka from "../assets/svg/Tikka.svg";
 import WalletButton from "./WalletButton";
 import ThemeToggle from "./ThemeToggle";
 import SignInButton from "./SignInButton";
+import NotificationBellIcon from "./cards/NotificationBellIcon";
 import { Search } from "lucide-react";
 import { useWalletContext } from "../providers/WalletProvider";
 import { STELLAR_CONFIG } from "../config/stellar";
+
 
 const Navbar = ({ onStart }: { onStart?: () => void }) => {
     const [open, setOpen] = React.useState(false);
@@ -58,7 +60,6 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
         { label: "My Raffles", href: "/my-raffles" },
         { label: "Leaderboard", href: "/leaderboard" },
         { label: "Settings", href: "/settings" },
-        { label: "Contact Support", href: "/support" },
     ];
 
     const targetNetwork = STELLAR_CONFIG.network.charAt(0).toUpperCase() + STELLAR_CONFIG.network.slice(1);

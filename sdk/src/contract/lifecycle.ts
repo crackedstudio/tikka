@@ -25,6 +25,7 @@ import {
   xdr,
   scValToNative,
   BASE_FEE,
+  Memo,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -33,6 +34,15 @@ import { WalletAdapter } from '../wallet/wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+/**
+ * Transaction memo — attach tracking data or external references.
+ * Mirrors the three Stellar memo types the protocol supports.
+ */
+export type TxMemo =
+  | { type: 'text'; value: string }
+  | { type: 'id'; value: string }
+  | { type: 'hash'; value: Buffer };
 
 /** Successful simulation result — everything needed to decide whether to sign. */
 export interface SimulateResult<T = unknown> {
@@ -60,7 +70,7 @@ export interface SubmitResult<T = unknown> {
 export interface PollConfig {
   /**
    * Maximum time (ms) to wait for the transaction to leave NOT_FOUND status.
-   * @default 30_000
+   * @default 60_000
    */
   timeoutMs?: number;
   /**
@@ -89,6 +99,8 @@ export interface InvokeLifecycleOptions {
   fee?: string;
   /** Polling configuration. */
   poll?: PollConfig;
+  /** Optional memo attached to the transaction envelope. */
+  memo?: TxMemo;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -123,9 +135,17 @@ export class TransactionLifecycle {
     private readonly rpc: RpcService,
     private readonly horizon: HorizonService,
     private readonly networkConfig: NetworkConfig,
-    private readonly wallet: WalletAdapter | undefined,
-    private readonly contractId: string,
+    private wallet: WalletAdapter | undefined,
+    private contractId: string,
   ) {}
+
+  setWallet(adapter: WalletAdapter | undefined): void {
+    this.wallet = adapter;
+  }
+
+  setContractId(id: string): void {
+    this.contractId = id;
+  }
 
   // ── Phase 1: Simulate ──────────────────────────────────────────────────────
 
@@ -140,10 +160,10 @@ export class TransactionLifecycle {
   async simulate<T = unknown>(
     method: string,
     params: any[],
-    options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee'> = {},
+    options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
     const sourceKey = options.sourcePublicKey ?? await this.resolveSourceKey();
-    const tx = await this.buildTx(method, params, sourceKey, options.fee);
+    const tx = await this.buildTx(method, params, sourceKey, options.fee, options.memo);
 
     const simResponse = await this.rpc.simulateTransaction(tx);
 
@@ -256,7 +276,7 @@ export class TransactionLifecycle {
     txHash: string,
     config: PollConfig = {},
   ): Promise<SubmitResult<T>> {
-    const timeoutMs   = config.timeoutMs   ?? 30_000;
+    const timeoutMs   = config.timeoutMs   ?? 60_000;
     const intervalMs  = config.intervalMs  ?? 2_000;
     const backoff     = config.backoffFactor ?? 1.5;
     const maxInterval = config.maxIntervalMs ?? 10_000;
@@ -267,7 +287,7 @@ export class TransactionLifecycle {
 
     while (Date.now() < deadline) {
       attempts++;
-      const resp = await this.rpc.getTransaction(txHash, timeoutMs, currentInterval);
+      const resp = await this.rpc.getTransaction(txHash);
 
       if (resp.status === rpc.Api.GetTransactionStatus.SUCCESS) {
         const ok = resp as rpc.Api.GetSuccessfulTransactionResponse;
@@ -347,6 +367,7 @@ export class TransactionLifecycle {
     params: any[],
     sourceKey: string,
     fee?: string,
+    memo?: TxMemo,
   ) {
     const account = await this.horizon.loadAccount(sourceKey).catch(() => ({
       accountId: () => sourceKey,
@@ -355,15 +376,26 @@ export class TransactionLifecycle {
     } as any));
 
     const contract = new Contract(this.contractId);
-    return new TransactionBuilder(account, {
+    const builder = new TransactionBuilder(account, {
       fee: fee ?? BASE_FEE,
       networkPassphrase: this.networkConfig.networkPassphrase,
-    })
-      .addOperation(
-        contract.call(method, ...params.map((p) => this.toScVal(p))),
-      )
-      .setTimeout(30)
-      .build();
+    }).addOperation(
+      contract.call(method, ...params.map((p) => this.toScVal(p))),
+    );
+
+    if (memo) {
+      builder.addMemo(this.buildMemo(memo));
+    }
+
+    return builder.setTimeout(30).build();
+  }
+
+  private buildMemo(memo: TxMemo): Memo {
+    switch (memo.type) {
+      case 'text': return Memo.text(memo.value);
+      case 'id':   return Memo.id(memo.value);
+      case 'hash': return Memo.hash(memo.value);
+    }
   }
 
   private toScVal(val: any): xdr.ScVal {

@@ -7,6 +7,7 @@ import PricingStep from "../components/create-raffle/PricingStep";
 import DurationStep from "../components/create-raffle/DurationStep";
 import ReviewStep from "../components/create-raffle/ReviewStep";
 import LivePreview from "../components/create-raffle/LivePreview";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const CreateRaffle: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0);
@@ -105,6 +106,9 @@ const CreateRaffle: React.FC = () => {
         <div className="min-h-screen text-gray-900 dark:text-white">
             {/* Header */}
             <div className="w-full max-w-7xl mx-auto px-6 py-8">
+                <div className="mb-4">
+                    <Breadcrumbs />
+                </div>
                 {/* Page Title */}
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">

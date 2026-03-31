@@ -212,7 +212,7 @@ export interface ContractResponse<T> {
  */
 export const ContractErrorType = {
     NETWORK_ERROR: "NETWORK_ERROR",
-    CONTRACT_ERROR: "CONTRACT_ERROR", 
+    CONTRACT_ERROR: "CONTRACT_ERROR",
     WALLET_ERROR: "WALLET_ERROR",
     VALIDATION_ERROR: "VALIDATION_ERROR",
     INSUFFICIENT_FUNDS: "INSUFFICIENT_FUNDS",
@@ -325,6 +325,7 @@ export interface RaffleListFilters {
 export interface FormattedRaffle {
     id: number;
     creator: string;
+    title?: string;
     status: string;
     description: string;
     endTime: number;

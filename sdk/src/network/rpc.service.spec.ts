@@ -151,4 +151,24 @@ describe('RpcService', () => {
       }),
     );
   });
+
+  it('getTransaction makes a single request and returns the raw response', async () => {
+    const mockResp = { status: 'NOT_FOUND' };
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ result: mockResp }),
+    });
+
+    service.configure({ fetchClient: mockFetch as any });
+    const result = await service.getTransaction('abc123');
+
+    expect(result).toEqual(mockResp);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      mockNetwork.rpcUrl,
+      expect.objectContaining({
+        body: expect.stringContaining('"method":"getTransaction"'),
+      }),
+    );
+  });
 });

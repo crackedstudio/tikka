@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useRaffle, useRaffles } from "../hooks/useRaffles";
 import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const MyRaffles: React.FC = () => {
     const [activeTab, setActiveTab] = useState("created");
@@ -52,6 +53,9 @@ const MyRaffles: React.FC = () => {
     return (
         <div className="min-h-screen text-gray-900 dark:text-white">
             <div className="w-full max-w-7xl mx-auto px-6 py-8">
+                <div className="mb-4">
+                    <Breadcrumbs />
+                </div>
                 {/* Page Title */}
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
@@ -68,11 +72,10 @@ const MyRaffles: React.FC = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
-                                activeTab === tab.id
+                            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${activeTab === tab.id
                                     ? "bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white"
                                     : "text-gray-400 hover:text-gray-900 dark:text-white"
-                            }`}
+                                }`}
                         >
                             {tab.label}
                         </button>
@@ -123,8 +126,8 @@ const MyRaffles: React.FC = () => {
                             {activeTab === "created"
                                 ? "No created raffles found."
                                 : activeTab === "participated"
-                                ? "No participated raffles found."
-                                : "No won raffles found."}
+                                    ? "No participated raffles found."
+                                    : "No won raffles found."}
                         </p>
                         <Link
                             to="/create"
@@ -185,23 +188,22 @@ const RaffleCardWrapper: React.FC<{
                 <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Status:</span>
                     <span
-                        className={`${
-                            raffle.isActive ? "text-green-400" : "text-red-400"
-                        }`}
+                        className={`${raffle.isActive ? "text-green-400" : "text-red-400"
+                            }`}
                     >
                         {raffle.isActive ? "Active" : "Ended"}
                     </span>
                 </div>
             </div>
             <div className="flex space-x-2">
-                <button 
+                <button
                     onClick={() => navigate(`/raffles/${raffleId}`)}
                     className="flex-1 bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
                     View Details
                 </button>
                 {raffle.isActive && (
-                    <button 
+                    <button
                         onClick={() => navigate(`/raffles/${raffleId}`)}
                         className="bg-gray-200 dark:bg-[#2A264A] hover:bg-gray-300 dark:bg-[#3A365A] text-gray-900 dark:text-white py-2 px-4 rounded-lg transition-colors duration-200"
                     >

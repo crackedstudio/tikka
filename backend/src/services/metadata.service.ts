@@ -37,6 +37,29 @@ export class MetadataService {
   ) {}
 
   /**
+   * Get metadata for multiple raffle IDs in a single query.
+   * Returns a map of raffle_id → RaffleMetadata for found records only.
+   */
+  async getBatchMetadata(raffleIds: number[]): Promise<Map<number, RaffleMetadata>> {
+    if (raffleIds.length === 0) return new Map();
+
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('*')
+      .in('raffle_id', raffleIds);
+
+    if (error) {
+      throw new Error(`Failed to fetch batch metadata: ${error.message}`);
+    }
+
+    const result = new Map<number, RaffleMetadata>();
+    for (const row of (data as RaffleMetadata[])) {
+      result.set(row.raffle_id, row);
+    }
+    return result;
+  }
+
+  /**
    * Get metadata by raffle_id. Returns null if not found.
    */
   async getMetadata(raffleId: number): Promise<RaffleMetadata | null> {
@@ -88,6 +111,7 @@ export class MetadataService {
     const row = {
       raffle_id: raffleId,
       ...payload,
+      category: payload.category?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 

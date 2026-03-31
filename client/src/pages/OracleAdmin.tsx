@@ -4,6 +4,7 @@ import HealthPanel from '../components/monitor/HealthPanel';
 import LatencyGraph from '../components/monitor/LatencyGraph';
 import ErrorTable from '../components/monitor/ErrorTable';
 import { useMonitor } from '../hooks/useMonitor';
+import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 
 function Dashboard() {
   const [from, setFrom] = useState<string | undefined>(undefined);
@@ -19,6 +20,9 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0D0A1E] px-4 py-8 text-gray-900 dark:text-white">
       <div className="mx-auto max-w-5xl">
+        <div className="mb-4">
+          <Breadcrumbs />
+        </div>
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Oracle Admin Dashboard</h1>
           <button

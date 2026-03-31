@@ -6,6 +6,7 @@ import databaseConfig from "./config/database.config";
 import { DatabaseModule } from "./database/database.module";
 import { IngestorModule } from "./ingestor/ingestor.module";
 import { HealthModule } from "./health/health.module";
+import { WebhooksModule } from "./webhooks/webhooks.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { HealthModule } from "./health/health.module";
     IngestorModule,
     // Event processors (raffle, ticket, user, stats)
     ProcessorsModule,
+    WebhooksModule,
     // Health endpoint (lag, DB, Redis)
     HealthModule,
   ],
