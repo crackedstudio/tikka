@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { CacheService } from '../cache/cache.service';
-import { DataSource } from 'typeorm';
-import { UserProcessor } from './user.processor';
-import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
-import { RaffleEntity, RaffleStatus } from '../database/entities/raffle.entity';
+import { Injectable, Logger } from "@nestjs/common";
+import { CacheService } from "../cache/cache.service";
+import { DataSource } from "typeorm";
+import { UserProcessor } from "./user.processor";
+import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
+import { RaffleEntity, RaffleStatus } from "../database/entities/raffle.entity";
+import { WebhookService, WebhookPayload } from "../webhooks/webhook.service";
 
 @Injectable()
 export class RaffleProcessor {
@@ -13,21 +14,34 @@ export class RaffleProcessor {
     private dataSource: DataSource,
     private cacheService: CacheService,
     private userProcessor: UserProcessor,
+    private webhookService: WebhookService,
   ) {}
 
   /**
    * Called when a RaffleCreated event is indexed.
    * Invalidates active raffles list cache.
    */
-  async handleRaffleCreated(raffleId: number, creator?: string, ledger?: number) {
+  async handleRaffleCreated(
+    raffleId: number,
+    creator?: string,
+    ledger?: number,
+  ) {
     this.logger.log(`Handling RaffleCreated for ${raffleId}`);
-    if (creator && typeof ledger === 'number') {
+    if (creator && typeof ledger === "number") {
       const runner = this.dataSource.createQueryRunner();
       await runner.connect();
       await runner.startTransaction();
       try {
         await this.userProcessor.handleRaffleCreated(creator, ledger, runner);
         await runner.commitTransaction();
+
+        // Dispatch webhook after successful DB write
+        await this.webhookService.dispatchEvent({
+          eventType: "RaffleCreated",
+          raffleId,
+          timestamp: new Date().toISOString(),
+          data: { creator, ledger },
+        });
       } catch (e) {
         await runner.rollbackTransaction();
         throw e;
@@ -35,7 +49,7 @@ export class RaffleProcessor {
         await runner.release();
       }
     }
-    
+
     // Invalidate caches
     await this.cacheService.invalidateActiveRaffles();
   }
@@ -44,7 +58,11 @@ export class RaffleProcessor {
    * Called when a RaffleFinalized event is indexed.
    * Invalidates raffle detail and leaderboard.
    */
-  async handleRaffleFinalized(raffleId: number, winner?: string, prizeAmount?: string) {
+  async handleRaffleFinalized(
+    raffleId: number,
+    winner?: string,
+    prizeAmount?: string,
+  ) {
     this.logger.log(`Handling RaffleFinalized for ${raffleId}`);
     if (winner) {
       const runner = this.dataSource.createQueryRunner();
@@ -54,10 +72,18 @@ export class RaffleProcessor {
         await this.userProcessor.handleRaffleFinalized(
           raffleId,
           winner,
-          prizeAmount ?? '0',
+          prizeAmount ?? "0",
           runner,
         );
         await runner.commitTransaction();
+
+        // Dispatch webhook after successful DB write
+        await this.webhookService.dispatchEvent({
+          eventType: "RaffleFinalized",
+          raffleId,
+          timestamp: new Date().toISOString(),
+          data: { winner, prizeAmount },
+        });
       } catch (e) {
         await runner.rollbackTransaction();
         throw e;
