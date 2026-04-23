@@ -199,6 +199,11 @@ export class RandomnessWorker {
   @OnQueueFailed()
   onFailed(job: Job, err: Error) {
     this.logger.error(`Failed job ${job.id} of type ${job.name}: ${err.message}`);
+    if (job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      this.logger.error(
+        `[ALERT] Job ${job.id} exhausted all ${job.opts.attempts} attempts for raffle ${job.data?.raffleId}, request ${job.data?.requestId}. Manual intervention required.`,
+      );
+    }
   }
 
   private determineMethod(prizeAmount: number): RandomnessMethod {

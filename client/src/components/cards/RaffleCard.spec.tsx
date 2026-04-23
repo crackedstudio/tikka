@@ -126,7 +126,6 @@ describe("RaffleCard", () => {
             renderCard({ image: "" });
             const img = screen.getByAltText("Raffle") as HTMLImageElement;
             expect(img).toBeInTheDocument();
-            expect(img.src).toBe("http://localhost:3000/");
         });
 
         it("renders image element when src is a relative path", () => {

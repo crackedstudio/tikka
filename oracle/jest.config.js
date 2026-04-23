@@ -14,9 +14,10 @@ module.exports = {
         }],
     },
     transformIgnorePatterns: [
-        'node_modules/(?!(@noble|@stellar|stellar-sdk)/)',
+        'node_modules/(?!(.pnpm/)?(@noble|@stellar|stellar-sdk))',
     ],
     moduleNameMapper: {
         '^src/(.*)$': '<rootDir>/src/$1',
+        '^@noble/curves/(.*)(?<!\\.js)$': '@noble/curves/$1.js',
     },
 };

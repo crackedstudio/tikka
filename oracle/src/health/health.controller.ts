@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthService } from './health.service';
+import { LagMonitorService } from './lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
@@ -8,6 +9,7 @@ import { TxSubmitterService } from '../submitter/tx-submitter.service';
 export class HealthController {
   constructor(
     private readonly healthService: HealthService,
+    private readonly lagMonitor: LagMonitorService,
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
     private readonly txSubmitter: TxSubmitterService,
@@ -19,6 +21,7 @@ export class HealthController {
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
+      pendingLagRequests: this.lagMonitor.getPendingCount(),
     };
   }
 
@@ -28,8 +31,8 @@ export class HealthController {
     const isHealthy = this.healthService.isHealthy();
     const multiOracleConfig = this.oracleRegistry.getConfig();
     const pendingTrackers = this.multiOracleCoordinator.getPendingTrackers();
-    
     const rpcStatus = await this.txSubmitter.getRpcStatus();
+    const pendingLag = this.lagMonitor.getPendingRequests();
 
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
@@ -49,6 +52,15 @@ export class HealthController {
         streamStatus: metrics.streamStatus,
         streamUptimeMs: metrics.streamUptimeMs,
         lastStreamError: metrics.lastStreamError,
+      },
+      lag: {
+        pendingCount: pendingLag.length,
+        pendingRequests: pendingLag.map(r => ({
+          requestId: r.requestId,
+          raffleId: r.raffleId,
+          requestedAtLedger: r.requestedAtLedger,
+          age: new Date().toISOString(),
+        })),
       },
       multiOracle: {
         enabled: multiOracleConfig.enabled,

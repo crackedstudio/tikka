@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { Keypair } from 'stellar-sdk';
 import { ed25519 } from '@noble/curves/ed25519';
 import * as crypto from 'crypto';
+import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 
 describe('VrfService', () => {
   let service: VrfService;
@@ -13,26 +14,26 @@ describe('VrfService', () => {
   let oracleRegistry: OracleRegistryService;
   const mockSecret = Keypair.random().secret();
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        VrfService,
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn().mockReturnValue(mockSecret),
-          },
-        },
-        KeyService,
-        {
-          provide: OracleRegistryService,
-          useValue: {
-            getOracle: jest.fn(),
-            getLocalKeypair: jest.fn(),
-          },
-        },
-      ],
-    }).compile();
+    beforeEach(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                VrfService,
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn().mockReturnValue(mockSecret),
+                    },
+                },
+                KeyService,
+                {
+                    provide: OracleRegistryService,
+                    useValue: {
+                        getOracle: jest.fn(),
+                        getLocalKeypair: jest.fn().mockReturnValue(Keypair.random()),
+                    },
+                },
+            ],
+        }).compile();
 
     service = module.get<VrfService>(VrfService);
     keyService = module.get<KeyService>(KeyService);
