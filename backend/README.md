@@ -116,6 +116,93 @@ done
 
 ---
 
+## Health Check
+
+### GET /health
+
+Returns the live status of all backend dependencies. No authentication required.
+
+```bash
+curl http://localhost:3001/health
+```
+
+**Response — all healthy (HTTP 200):**
+
+```json
+{
+  "status": "ok",
+  "indexer": "ok",
+  "supabase": "ok",
+  "timestamp": "2026-04-23T11:00:00.000Z"
+}
+```
+
+**Response — dependency down (HTTP 503):**
+
+```json
+{
+  "status": "degraded",
+  "indexer": "error",
+  "supabase": "ok",
+  "timestamp": "2026-04-23T11:00:00.000Z"
+}
+```
+
+| Field       | Values              | Description                                      |
+| ----------- | ------------------- | ------------------------------------------------ |
+| `status`    | `ok` / `degraded`   | Overall health — `degraded` if any check fails   |
+| `indexer`   | `ok` / `error`      | Reachability of tikka-indexer `/health`          |
+| `supabase`  | `ok` / `error`      | Reachability of Supabase REST endpoint           |
+| `timestamp` | ISO 8601 string     | Time the check was performed                     |
+
+The endpoint returns **HTTP 503** when `status` is `degraded`, so orchestrators (Kubernetes, Railway, Fly.io) can detect unhealthy instances automatically.
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in the required values before starting the server.
+
+```bash
+cp .env.example .env
+```
+
+The app validates all variables at startup using Zod. Missing or invalid required vars cause an immediate startup failure with a clear error message listing every invalid field.
+
+### Required
+
+These must be set or the app will refuse to start:
+
+| Variable                   | Description                                                  |
+| -------------------------- | ------------------------------------------------------------ |
+| `SUPABASE_URL`             | Full URL of your Supabase project (e.g. `https://xyz.supabase.co`) |
+| `SUPABASE_SERVICE_ROLE_KEY`| Supabase service role key (not the anon key)                 |
+| `JWT_SECRET`               | Secret for signing JWTs — **minimum 32 characters**          |
+| `VITE_FRONTEND_URL`        | Frontend origin allowed by CORS (e.g. `https://app.tikka.io`) |
+| `ADMIN_TOKEN`              | Bearer token for `/admin/*` endpoints                        |
+
+### Optional (with defaults)
+
+| Variable                   | Default                    | Description                                      |
+| -------------------------- | -------------------------- | ------------------------------------------------ |
+| `PORT`                     | `3001`                     | HTTP port the server listens on                  |
+| `INDEXER_URL`              | `http://localhost:3002`    | Base URL of the tikka-indexer internal API       |
+| `INDEXER_TIMEOUT_MS`       | `5000`                     | HTTP timeout for indexer requests (ms)           |
+| `JWT_EXPIRES_IN`           | `7d`                       | JWT expiry duration (e.g. `1h`, `7d`)            |
+| `SIWS_DOMAIN`              | `tikka.io`                 | Domain shown in the SIWS sign-in message         |
+| `ADMIN_IP_ALLOWLIST`       | `""` (allow all)           | Comma-separated CIDRs/IPs for admin access       |
+| `FCM_ENABLED`              | `false`                    | Enable Firebase Cloud Messaging push notifications |
+| `FCM_SERVICE_ACCOUNT_JSON` | —                          | FCM service account JSON string (for CI/secrets) |
+| `FCM_SERVICE_ACCOUNT_PATH` | —                          | Path to FCM service account JSON file            |
+| `THROTTLE_DEFAULT_LIMIT`   | `100`                      | Max requests per window for public endpoints     |
+| `THROTTLE_DEFAULT_TTL`     | `60`                       | Rate-limit window size in seconds                |
+| `THROTTLE_AUTH_LIMIT`      | `10`                       | Max requests per window for `POST /auth/verify`  |
+| `THROTTLE_AUTH_TTL`        | `60`                       | Rate-limit window for auth tier (seconds)        |
+| `THROTTLE_NONCE_LIMIT`     | `30`                       | Max requests per window for `GET /auth/nonce`    |
+| `THROTTLE_NONCE_TTL`       | `60`                       | Rate-limit window for nonce tier (seconds)       |
+
+---
+
 ## Structure
 
 - `src/api/rest/` - raffles, users, leaderboard, stats, search, notifications

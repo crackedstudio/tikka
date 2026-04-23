@@ -1,14 +1,15 @@
 import { MetadataService } from './metadata.service';
-import { SUPABASE_CLIENT } from './supabase.provider';
 
 describe('MetadataService', () => {
   let service: MetadataService;
   let queryBuilder: {
     select: jest.Mock;
     or: jest.Mock;
-    ilike: jest.Mock;
-    limit: jest.Mock;
+    range: jest.Mock;
+    eq: jest.Mock;
+    maybeSingle: jest.Mock;
     upsert: jest.Mock;
+    in: jest.Mock;
   };
   let client: { from: jest.Mock };
 
@@ -16,9 +17,11 @@ describe('MetadataService', () => {
     queryBuilder = {
       select: jest.fn().mockReturnThis(),
       or: jest.fn().mockReturnThis(),
-      ilike: jest.fn().mockReturnThis(),
-      limit: jest.fn(),
+      range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       upsert: jest.fn(),
+      in: jest.fn().mockReturnThis(),
     };
 
     client = {
@@ -28,12 +31,12 @@ describe('MetadataService', () => {
     service = new MetadataService(client as any);
   });
 
-  it('applies category filtering case-insensitively', async () => {
-    queryBuilder.limit.mockResolvedValue({ data: [], error: null });
+  it('searches metadata with ilike pattern', async () => {
+    await service.searchMetadata('raffle');
 
-    await service.searchMetadata('raffle', 'Art');
-
-    expect(queryBuilder.ilike).toHaveBeenCalledWith('category', 'Art');
+    expect(queryBuilder.or).toHaveBeenCalledWith(
+      expect.stringContaining('%raffle%'),
+    );
   });
 
   it('trims category values before upserting metadata', async () => {
