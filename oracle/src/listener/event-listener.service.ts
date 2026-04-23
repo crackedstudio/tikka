@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from 'stellar-sdk';
 import { Subject, Subscription } from 'rxjs';
 import { RandomnessWorker } from '../queue/randomness.worker';
+import { CommitRevealWorker } from '../queue/commit-reveal.worker';
 import { RandomnessRequest } from '../queue/queue.types';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
@@ -31,6 +32,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         private readonly healthService: HealthService,
         private readonly lagMonitor: LagMonitorService,
         private readonly randomnessWorker: RandomnessWorker,
+        private readonly commitRevealWorker: CommitRevealWorker,
         @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue<RandomnessJobPayload>,
     ) {
         // Config parsing
@@ -117,6 +119,48 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 // Check if the topic is a Symbol
                 if (primaryTopic.switch() === StellarSdk.xdr.ScValType.scvSymbol()) {
                     const eventName = primaryTopic.sym().toString();
+
+                    if (eventName === 'RaffleCreated') {
+                        const scVal = (eventXdr as any).body().v0().data();
+                        let raffleId: number | undefined;
+                        let endTime: number | undefined;
+
+                        if (scVal.switch() === StellarSdk.xdr.ScValType.scvMap()) {
+                            for (const entry of scVal.map() ?? []) {
+                                const key = entry.key().sym().toString();
+                                if (key === 'raffle_id') raffleId = entry.val().u32();
+                                else if (key === 'end_time') endTime = Number(entry.val().u64().toString());
+                            }
+                        }
+
+                        if (raffleId !== undefined) {
+                            this.logger.log(`RaffleCreated: raffle=${raffleId}, scheduling commit`);
+                            this.commitRevealWorker.processCommit({ raffleId, endTime: endTime ?? 0 }).catch(err =>
+                                this.logger.error(`Commit failed for raffle ${raffleId}: ${err.message}`),
+                            );
+                        }
+                    }
+
+                    if (eventName === 'DrawTriggered') {
+                        const scVal = (eventXdr as any).body().v0().data();
+                        let raffleId: number | undefined;
+                        let requestId: string | undefined;
+
+                        if (scVal.switch() === StellarSdk.xdr.ScValType.scvMap()) {
+                            for (const entry of scVal.map() ?? []) {
+                                const key = entry.key().sym().toString();
+                                if (key === 'raffle_id') raffleId = entry.val().u32();
+                                else if (key === 'request_id') requestId = this.parseRequestId(entry.val());
+                            }
+                        }
+
+                        if (raffleId !== undefined && requestId !== undefined) {
+                            this.logger.log(`DrawTriggered: raffle=${raffleId}, scheduling reveal`);
+                            this.commitRevealWorker.processReveal({ raffleId, requestId }).catch(err =>
+                                this.logger.error(`Reveal failed for raffle ${raffleId}: ${err.message}`),
+                            );
+                        }
+                    }
 
                     if (eventName === 'RandomnessRequested') {
                         this.logger.log(`Received RandomnessRequested event for contract ${this.raffleContractId}`);
