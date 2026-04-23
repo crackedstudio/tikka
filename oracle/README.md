@@ -121,6 +121,29 @@ The service requires the following environment variables for queue operations:
 ⏳ VrfService needs Ed25519 VRF library  
 ⏳ TxSubmitterService needs Soroban transaction building  
 
+## Manual Rescue Tool
+
+When jobs fail after all retries, operators can use the rescue CLI for manual intervention:
+
+```bash
+# Re-enqueue a failed job
+npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason <reason>
+
+# Force submit randomness manually
+npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason <reason>
+
+# Mark job as failed (invalid/malicious)
+npm run oracle:rescue force-fail <jobId> --operator <name> --reason <reason>
+
+# List failed jobs
+npm run oracle:rescue list-failed
+
+# View rescue audit logs
+npm run oracle:rescue logs
+```
+
+See [RESCUE_GUIDE.md](./RESCUE_GUIDE.md) for detailed usage and [ON_CALL_TROUBLESHOOTING.md](./ON_CALL_TROUBLESHOOTING.md) for on-call procedures.
+
 ## Next Steps
 
 1. Integrate Stellar SDK for contract RPC calls
