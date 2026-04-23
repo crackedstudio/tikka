@@ -104,6 +104,62 @@ npm test
 - ✅ Already-finalized raffle handling
 - ✅ Error handling and retry behavior
 
+## Health & Monitoring
+
+### Endpoints
+
+| Endpoint | Description |
+|---|---|
+| `GET /health` | Liveness check — returns `healthy`/`unhealthy` + pending lag count |
+| `GET /oracle/status` | Full status — metrics, lag, RPC health, multi-oracle state, recent errors |
+
+**`GET /health` response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-04-23T12:00:00.000Z",
+  "pendingLagRequests": 0
+}
+```
+
+**`GET /oracle/status` response (abbreviated):**
+```json
+{
+  "status": "healthy",
+  "metrics": {
+    "queueDepth": 2,
+    "lastProcessedAt": "2026-04-23T11:59:00.000Z",
+    "totalProcessed": 142,
+    "totalFailed": 1,
+    "successRate": "99.30%",
+    "streamStatus": "connected"
+  },
+  "lag": {
+    "pendingCount": 1,
+    "pendingRequests": [
+      { "requestId": "req-abc", "raffleId": 7, "requestedAtLedger": 1234500 }
+    ]
+  },
+  "rpc": [{ "url": "https://soroban-testnet.stellar.org", "healthy": true }],
+  "recentErrors": []
+}
+```
+
+### Lag Alerting
+
+`LagMonitorService` tracks every `RandomnessRequested` event by ledger number. If a request is not fulfilled within **100 ledgers** (~8 minutes on Stellar), an `[ALERT]` log is emitted:
+
+```
+[ALERT] Request req-abc for raffle 7 not fulfilled within 100 ledgers. Lag: 103
+```
+
+### Recommended Monitoring Setup
+
+- **Liveness probe**: `GET /health` — use as Kubernetes `livenessProbe`
+- **Alerting**: Scrape logs for `[ALERT]` pattern or wire a log aggregator
+- **Metrics**: `queueDepth > 10` warns; `queueDepth > 50` marks unhealthy
+- **Heartbeat**: Oracle pings the contract every `HEARTBEAT_INTERVAL_MS` (default: 1 hour)
+
 ## Configuration
 
 The service requires the following environment variables for queue operations:

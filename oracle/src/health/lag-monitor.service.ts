@@ -47,4 +47,8 @@ export class LagMonitorService {
   getPendingCount(): number {
     return this.pendingRequests.size;
   }
+
+  getPendingRequests(): PendingRequest[] {
+    return Array.from(this.pendingRequests.values());
+  }
 }
