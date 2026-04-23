@@ -27,7 +27,10 @@ export class TxSubmitterService {
   private readonly POLL_TIMEOUT_MS = 30000;
   private readonly POLL_INTERVAL_MS = 1000;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly feeEstimator: FeeEstimatorService,
+  ) {
     const primary =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
       'https://soroban-testnet.stellar.org';
@@ -86,9 +89,10 @@ export class TxSubmitterService {
 
     let attempt = 0;
     let lastError: any = null;
+    let feeBump = 1;
     
     // Get initial fee estimate from network stats
-    const feeEstimate = await this.feeEstimator.estimateFee(rafflePrizeXLM);
+    const feeEstimate = await this.feeEstimator.estimateFee(0);
     let currentFee = feeEstimate.cappedFee;
     
     this.logger.log(
@@ -181,7 +185,7 @@ export class TxSubmitterService {
     feeStroops: number,
   ) {
     const account = await this.rpcServer.getAccount(sourceAddress);
-    const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeBump).toString();
+    const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeStroops).toString();
 
     const seedBytes = this.parseToBytes(randomness.seed, 32);
     const proofBytes = this.parseToBytes(randomness.proof, 64);
