@@ -1,5 +1,5 @@
 
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerModule, seconds } from "@nestjs/throttler";
@@ -15,6 +15,8 @@ import { SupportModule } from "./api/rest/support/support.module";
 import { HealthModule } from "./health/health.module";
 import { MonitorModule } from "./api/rest/monitor/monitor.module";
 import { SupabaseModule } from "./services/supabase.module";
+import { GeoModule } from "./services/geo.module";
+import { GeoMiddleware } from "./middleware/geo.middleware";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
 
@@ -61,6 +63,7 @@ import { validate } from "./config/env.schema";
     }),
 
     SupabaseModule,
+    GeoModule,
     AuthModule,
     RafflesModule,
     UsersModule,
@@ -79,4 +82,8 @@ import { validate } from "./config/env.schema";
     { provide: APP_GUARD, useClass: TikkaThrottlerGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(GeoMiddleware).forRoutes('*');
+  }
+}

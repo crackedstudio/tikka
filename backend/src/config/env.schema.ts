@@ -42,6 +42,10 @@ export const envSchema = z
     FCM_SERVICE_ACCOUNT_JSON: z.string().optional(),
     FCM_SERVICE_ACCOUNT_PATH: z.string().optional(),
 
+    // Geolocation
+    GEO_PROVIDER_URL: z.string().url().default('http://ip-api.com/json'),
+    GEO_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+
     // Throttle — all optional with sensible defaults
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().positive().default(100),
     THROTTLE_DEFAULT_TTL: z.coerce.number().int().positive().default(60),

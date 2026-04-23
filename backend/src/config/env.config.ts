@@ -32,4 +32,15 @@ export const env = {
     serviceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON ?? undefined,
     serviceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH ?? undefined,
   },
+  get geo() {
+    return {
+      /**
+       * Base URL for the geolocation provider.
+       * Default: ip-api.com free tier (HTTP only, 45 req/min).
+       * Override with a paid/HTTPS endpoint in production.
+       */
+      providerUrl: process.env.GEO_PROVIDER_URL ?? 'http://ip-api.com/json',
+      timeoutMs: parseInt(process.env.GEO_TIMEOUT_MS ?? '3000', 10),
+    };
+  },
 } as const;
