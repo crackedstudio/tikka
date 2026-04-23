@@ -27,9 +27,11 @@ export const env = {
       domain: process.env.SIWS_DOMAIN ?? "tikka.io",
     };
   },
-  fcm: {
-    enabled: process.env.FCM_ENABLED === 'true',
-    serviceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON ?? undefined,
-    serviceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH ?? undefined,
+  get fcm() {
+    return {
+      enabled: process.env.FCM_ENABLED === 'true',
+      serviceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON ?? undefined,
+      serviceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH ?? undefined,
+    };
   },
 } as const;
