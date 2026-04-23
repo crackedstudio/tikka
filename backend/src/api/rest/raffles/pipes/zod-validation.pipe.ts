@@ -3,7 +3,7 @@ import {
   ArgumentMetadata,
   BadRequestException,
 } from "@nestjs/common";
-import { ZodSchema, ZodError } from "zod";
+import { ZodSchema, ZodTypeDef, ZodError } from "zod";
 
 /**
  * Creates a validation pipe using a Zod schema.
@@ -27,9 +27,9 @@ import { ZodSchema, ZodError } from "zod";
  * @returns PipeTransform class that validates and transforms data
  * @throws BadRequestException when validation fails
  */
-export function createZodPipe<T>(schema: ZodSchema<T>) {
+export function createZodPipe<Output, Input = Output>(schema: ZodSchema<Output, ZodTypeDef, Input>) {
   return class implements PipeTransform {
-    transform(value: unknown, _metadata: ArgumentMetadata): T {
+    transform(value: unknown, _metadata: ArgumentMetadata): Output {
       const result = schema.safeParse(value);
       if (!result.success) {
         const msg = result.error.errors.map((e) => e.message).join("; ");
