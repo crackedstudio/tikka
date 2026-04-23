@@ -40,5 +40,9 @@
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.0"
+  },
+  "optionalDependencies": {
+    "@aws-sdk/client-kms": "^3.0.0",
+    "@google-cloud/kms": "^4.0.0"
   }
 }

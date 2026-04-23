@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowOracleKMSSigning",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Sign",
+        "kms:GetPublicKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "arn:aws:kms:REGION:ACCOUNT_ID:key/KEY_ID",
+      "Condition": {
+        "StringEquals": {
+          "kms:SigningAlgorithm": "ECDSA_SHA_256"
+        }
+      }
+    }
+  ]
+}

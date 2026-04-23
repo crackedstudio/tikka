@@ -1,73 +1,99 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Keypair } from 'stellar-sdk';
+import { KeyProvider } from './key-provider.interface';
+import { KeyProviderFactory } from './key-provider.factory';
+import { EnvKeyProvider } from './providers/env-key.provider';
 
 /**
- * KeyService — manages the oracle's Ed25519 keypair.
+ * KeyService — manages the oracle's Ed25519 keypair using pluggable providers.
+ * 
  * Responsibilities:
- *  - Securely load the oracle private key from environment/config.
- *  - Provide the public key for contract verification.
- *  - Provide signing capabilities for VRF and transaction submission.
+ *  - Initialize the appropriate KeyProvider based on configuration
+ *  - Provide the public key for contract verification
+ *  - Provide signing capabilities for VRF and transaction submission
+ *  - Support HSM-backed signing (AWS KMS, Google Cloud KMS)
+ * 
+ * Security:
+ *  - When using HSM providers, private keys never leave the HSM
+ *  - Signing operations are performed within the secure hardware
+ *  - Only the public key and signatures are exposed
  */
 @Injectable()
 export class KeyService implements OnModuleInit {
   private readonly logger = new Logger(KeyService.name);
-  private keypair: Keypair;
+  private provider: KeyProvider;
 
   constructor(private readonly configService: ConfigService) {}
 
-  onModuleInit() {
-    this.loadKeypair();
+  async onModuleInit() {
+    await this.initializeProvider();
   }
 
   /**
-   * Loads the oracle keypair from the ORACLE_PRIVATE_KEY environment variable.
-   * Expects a Stellar secret key (S...).
+   * Initializes the KeyProvider based on configuration.
    */
-  private loadKeypair() {
-    const secret = this.configService.get<string>('ORACLE_PRIVATE_KEY');
-
-    if (!secret) {
-      this.logger.error('ORACLE_PRIVATE_KEY is not defined in the environment');
-      throw new Error('ORACLE_PRIVATE_KEY must be defined');
-    }
-
+  private async initializeProvider() {
     try {
-      this.keypair = Keypair.fromSecret(secret);
-      this.logger.log(`Oracle keypair loaded for address: ${this.keypair.publicKey()}`);
+      this.provider = KeyProviderFactory.create(this.configService);
+      const publicKey = await this.provider.getPublicKey();
+      const providerType = this.provider.getProviderType();
+      
+      this.logger.log(
+        `KeyService initialized with ${providerType} provider for address: ${publicKey}`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to load oracle keypair: ${error.message}`);
-      throw new Error('Invalid ORACLE_PRIVATE_KEY format');
+      this.logger.error(`Failed to initialize KeyProvider: ${error.message}`);
+      throw error;
     }
   }
 
   /**
    * Returns the oracle's public key as a string.
    */
-  getPublicKey(): string {
-    return this.keypair.publicKey();
+  async getPublicKey(): Promise<string> {
+    return this.provider.getPublicKey();
   }
 
   /**
    * Returns the raw public key bytes (32 bytes).
    */
-  getPublicKeyBuffer(): Buffer {
-    return this.keypair.rawPublicKey();
+  async getPublicKeyBuffer(): Promise<Buffer> {
+    return this.provider.getPublicKeyBuffer();
   }
 
   /**
    * Returns the raw secret key bytes (32 bytes).
+   * 
+   * WARNING: This method only works with EnvKeyProvider.
+   * HSM providers (AWS KMS, GCP KMS) will throw an error.
+   * 
+   * @deprecated Use sign() method instead for HSM compatibility
    */
   getSecretBuffer(): Buffer {
-    return this.keypair.rawSecretKey();
+    if (this.provider instanceof EnvKeyProvider) {
+      return this.provider.getSecretBuffer();
+    }
+
+    throw new Error(
+      'getSecretBuffer() is not supported with HSM providers. Use sign() method instead.',
+    );
   }
 
   /**
    * Signs a buffer using the oracle's private key.
+   * For HSM providers, signing is performed within the secure hardware.
+   * 
    * @param data The data to sign
-   * @returns 64-byte Ed25519 signature
+   * @returns Ed25519 signature (64 bytes for Ed25519, may vary for other algorithms)
    */
-  sign(data: Buffer): Buffer {
-    return this.keypair.sign(data);
+  async sign(data: Buffer): Promise<Buffer> {
+    return this.provider.sign(data);
+  }
+
+  /**
+   * Returns the provider type for debugging and monitoring.
+   */
+  getProviderType(): string {
+    return this.provider.getProviderType();
   }
 }

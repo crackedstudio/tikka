@@ -1,0 +1,29 @@
+# Google Cloud IAM permissions for Oracle KMS signing
+
+# Option 1: Use predefined role
+# gcloud kms keys add-iam-policy-binding KEY_NAME \
+#   --keyring KEY_RING \
+#   --location LOCATION \
+#   --member "serviceAccount:SERVICE_ACCOUNT" \
+#   --role roles/cloudkms.signerVerifier
+
+# Option 2: Create custom role with minimal permissions
+title: "Oracle KMS Signer"
+description: "Minimal permissions for Oracle to sign with KMS"
+stage: "GA"
+includedPermissions:
+  - cloudkms.cryptoKeyVersions.useToSign
+  - cloudkms.cryptoKeyVersions.viewPublicKey
+  - cloudkms.cryptoKeys.get
+
+# Create custom role:
+# gcloud iam roles create oracleKmsSigner \
+#   --project PROJECT_ID \
+#   --file gcp-kms-permissions.yaml
+
+# Bind custom role:
+# gcloud kms keys add-iam-policy-binding KEY_NAME \
+#   --keyring KEY_RING \
+#   --location LOCATION \
+#   --member "serviceAccount:SERVICE_ACCOUNT" \
+#   --role projects/PROJECT_ID/roles/oracleKmsSigner
