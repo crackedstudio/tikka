@@ -13,6 +13,7 @@
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
     "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",
+    "status": "ts-node --transpile-only src/cli/status.command.ts",
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
     "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
