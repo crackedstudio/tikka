@@ -6,13 +6,13 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc -b && vite build",
+        "analyze": "ANALYZE=1 vite build",
         "lint": "eslint .",
         "test": "vitest --run",
         "test:unit": "vitest --run",
         "test:e2e": "playwright test",
         "preview": "vite preview",
         "validate-env": "node scripts/validate-env.js",
-        "test:e2e": "playwright test",
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed"
     },
@@ -31,7 +31,6 @@
         "tailwindcss": "^4.1.13"
     },
     "devDependencies": {
-        "@playwright/test": "^1.50.0",
         "@eslint/js": "^9.33.0",
         "@playwright/test": "^1.43.0",
         "@testing-library/jest-dom": "^5.16.5",
@@ -46,6 +45,7 @@
         "globals": "^16.3.0",
         "jsdom": "^22.1.0",
         "react-hook-form": "^7.72.0",
+        "rollup-plugin-visualizer": "^7.0.1",
         "typescript": "~5.8.3",
         "typescript-eslint": "^8.39.1",
         "vite": "^7.1.2",
