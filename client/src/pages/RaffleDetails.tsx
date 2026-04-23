@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { useRaffle } from "../hooks/useRaffles";
 import RaffleDetailsCard from "../components/cards/RaffleDetailsCard";
 import ShareRaffle from "../components/ShareRaffle";
@@ -142,7 +143,7 @@ const RaffleDetails = () => {
                             ticketPrice={raffle.ticketPrice}
                             className="border border-pink-500 dark:border-[#fe3796] px-8 py-3 rounded-xl hover:bg-[#fe3796]/10 transition"
                             onSuccess={() => refetch()}
-                            onError={(message) => alert(message)}
+                            onError={(message) => toast.error(message)}
                         >
                             {ctaLabel}
                         </EnterRaffleButton>
@@ -162,7 +163,9 @@ const RaffleDetails = () => {
                     <NotificationSubscribeButton
                         raffleId={raffle.id}
                         onAuthRequired={() => {
-                            alert('Please sign in to subscribe to notifications');
+                            toast.info('Sign in required', {
+                                description: 'Please connect your wallet and sign in to subscribe to notifications.',
+                            });
                         }}
                     />
                 </div>

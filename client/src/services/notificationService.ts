@@ -31,8 +31,8 @@ export interface UserSubscription {
 }
 
 /**
- * Subscribe to notifications for a specific raffle
- * Requires authentication
+ * Subscribe to notifications for a specific raffle.
+ * Requires authentication — JWT is injected automatically by apiClient.
  */
 export async function subscribeToRaffle(
   request: SubscribeRequest
@@ -45,12 +45,10 @@ export async function subscribeToRaffle(
 }
 
 /**
- * Unsubscribe from notifications for a specific raffle
- * Requires authentication
+ * Unsubscribe from notifications for a specific raffle.
+ * Requires authentication.
  */
-export async function unsubscribeFromRaffle(
-  raffleId: number
-): Promise<void> {
+export async function unsubscribeFromRaffle(raffleId: number): Promise<void> {
   return api.delete(
     API_CONFIG.endpoints.notifications.unsubscribe(raffleId.toString()),
     { requiresAuth: true }
@@ -58,27 +56,12 @@ export async function unsubscribeFromRaffle(
 }
 
 /**
- * Get all active subscriptions for the authenticated user
- * Requires authentication
+ * Get all active subscriptions for the authenticated user.
+ * Requires authentication.
  */
 export async function getUserSubscriptions(): Promise<UserSubscription[]> {
   return api.get<UserSubscription[]>(
     API_CONFIG.endpoints.notifications.list,
     { requiresAuth: true }
   );
-}
-
-/**
- * Check if user is subscribed to a specific raffle
- */
-export async function isSubscribedToRaffle(
-  raffleId: number
-): Promise<boolean> {
-  try {
-    const subscriptions = await getUserSubscriptions();
-    return subscriptions.some(sub => sub.raffleId === raffleId);
-  } catch (error) {
-    console.error('Error checking subscription status:', error);
-    return false;
-  }
 }
