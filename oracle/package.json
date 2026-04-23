@@ -11,6 +11,10 @@
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest",
+    "test:e2e": "jest --config jest.config.js --testMatch='**/test/e2e-*.spec.ts'",
+    "test:e2e:mocked": "jest --config jest.config.js --testMatch='**/test/e2e-oracle-flow.spec.ts'",
+    "test:e2e:standalone": "jest --config jest.config.js --testMatch='**/test/e2e-standalone-node.spec.ts' --runInBand",
+    "test:e2e:full": "bash scripts/run-e2e-tests.sh",
     "oracle:rescue": "ts-node src/rescue/rescue.cli.ts"
   },
   "dependencies": {
