@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { env } from '../config/env.config';
 
 export interface HealthResult {
@@ -15,9 +16,11 @@ export class HealthService {
   private readonly supabaseUrl: string;
   private readonly supabaseKey: string;
 
-  constructor() {
-    this.indexerUrl = env.indexer.url.replace(/\/$/, '');
-    this.indexerTimeoutMs = env.indexer.timeoutMs;
+  constructor(private readonly config: ConfigService) {
+    this.indexerUrl = this.config
+      .getOrThrow<string>('INDEXER_URL')
+      .replace(/\/$/, '');
+    this.indexerTimeoutMs = this.config.get<number>('INDEXER_TIMEOUT_MS', 5000);
     this.supabaseUrl = env.supabase.url.replace(/\/$/, '');
     this.supabaseKey = env.supabase.serviceRoleKey;
   }

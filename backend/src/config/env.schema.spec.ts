@@ -4,6 +4,7 @@ const validEnv: Record<string, string> = {
   PORT: '3001',
   SUPABASE_URL: 'https://test.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+  STELLAR_NETWORK: 'testnet',
   INDEXER_URL: 'http://localhost:3002',
   INDEXER_TIMEOUT_MS: '5000',
   JWT_SECRET: 'a'.repeat(32),
@@ -25,6 +26,8 @@ describe('env.schema validate()', () => {
     const minimal: Record<string, string> = {
       SUPABASE_URL: 'https://test.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'key',
+      STELLAR_NETWORK: 'testnet',
+      INDEXER_URL: '',
       JWT_SECRET: 'b'.repeat(32),
       VITE_FRONTEND_URL: 'https://app.tikka.io',
       ADMIN_TOKEN: 'my-admin-token',
@@ -95,5 +98,40 @@ describe('env.schema validate()', () => {
   it('accepts a non-empty ADMIN_IP_ALLOWLIST', () => {
     const result = validate({ ...validEnv, ADMIN_IP_ALLOWLIST: '192.168.1.0/24,10.0.0.1' });
     expect(result.ADMIN_IP_ALLOWLIST).toBe('192.168.1.0/24,10.0.0.1');
+  });
+
+  it('defaults STELLAR_NETWORK to testnet when omitted', () => {
+    const prev = process.env.STELLAR_NETWORK;
+    delete process.env.STELLAR_NETWORK;
+    try {
+      const { STELLAR_NETWORK: _, ...withoutStellar } = validEnv;
+      const result = validate(withoutStellar);
+      expect(result.STELLAR_NETWORK).toBe('testnet');
+    } finally {
+      if (prev !== undefined) process.env.STELLAR_NETWORK = prev;
+    }
+  });
+
+  it('fills INDEXER_URL from network defaults when INDEXER_URL is omitted', () => {
+    const prevIndexer = process.env.INDEXER_URL;
+    delete process.env.INDEXER_URL;
+    try {
+      const { INDEXER_URL: _, ...rest } = validEnv;
+      const result = validate({ ...rest, STELLAR_NETWORK: 'mainnet' });
+      expect(result.INDEXER_URL).toBe('http://localhost:3002');
+      expect(result.STELLAR_NETWORK).toBe('mainnet');
+    } finally {
+      if (prevIndexer !== undefined) process.env.INDEXER_URL = prevIndexer;
+    }
+  });
+
+  it('accepts STELLAR_CONTRACT_ID and STELLAR_HORIZON_URL overrides', () => {
+    const result = validate({
+      ...validEnv,
+      STELLAR_CONTRACT_ID: 'CCONTRACTTEST1234567890123456789012',
+      STELLAR_HORIZON_URL: 'https://horizon-custom.example.com',
+    });
+    expect(result.STELLAR_CONTRACT_ID).toBe('CCONTRACTTEST1234567890123456789012');
+    expect(result.STELLAR_HORIZON_URL).toBe('https://horizon-custom.example.com');
   });
 });

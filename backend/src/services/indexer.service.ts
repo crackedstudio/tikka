@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { env } from '../config/env.config';
+import { ConfigService } from '@nestjs/config';
 
 // ── Response types aligned with indexer API (ARCHITECTURE §3) ─────────────────
 
@@ -106,9 +106,11 @@ export class IndexerService {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
 
-  constructor() {
-    this.baseUrl = env.indexer.url.replace(/\/$/, '');
-    this.timeoutMs = env.indexer.timeoutMs;
+  constructor(private readonly config: ConfigService) {
+    this.baseUrl = this.config
+      .getOrThrow<string>('INDEXER_URL')
+      .replace(/\/$/, '');
+    this.timeoutMs = this.config.get<number>('INDEXER_TIMEOUT_MS', 5000);
   }
 
   private async fetch<T>(

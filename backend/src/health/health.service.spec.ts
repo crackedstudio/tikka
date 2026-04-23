@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthService } from './health.service';
 
@@ -18,7 +19,20 @@ describe('HealthService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [HealthService],
+      providers: [
+        HealthService,
+        {
+          provide: ConfigService,
+          useValue: {
+            getOrThrow: (key: string) => {
+              if (key === 'INDEXER_URL') return 'http://indexer.test';
+              throw new Error(`unexpected key ${key}`);
+            },
+            get: (key: string, def?: number) =>
+              key === 'INDEXER_TIMEOUT_MS' ? 3000 : def,
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<HealthService>(HealthService);
