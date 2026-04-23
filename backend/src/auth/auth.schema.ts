@@ -20,6 +20,12 @@ export const VerifyBodySchema = z.object({
   issuedAt: z.string().optional(),
 });
 
+export const RefreshBodySchema = z.object({
+  refreshToken: z
+    .string({ required_error: "refreshToken is required" })
+    .min(1, "refreshToken cannot be empty"),
+});
+
 export class VerifyBodyDto {
   @ApiProperty({ description: "Stellar address of the user" })
   address: string;
@@ -32,4 +38,9 @@ export class VerifyBodyDto {
 
   @ApiPropertyOptional({ description: "Timestamp the signature was issued" })
   issuedAt?: string;
+}
+
+export class RefreshBodyDto {
+  @ApiProperty({ description: "Refresh token previously issued by the server" })
+  refreshToken: string;
 }
