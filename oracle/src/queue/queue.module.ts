@@ -31,11 +31,9 @@ import { RANDOMNESS_QUEUE } from './randomness.queue';
       name: RANDOMNESS_QUEUE,
       defaultJobOptions: {
         attempts: 5,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
+        backoff: { type: 'exponential', delay: 2000 },
         removeOnComplete: true,
+        removeOnFail: false,
       },
     }),
   ],
@@ -51,6 +49,6 @@ import { RANDOMNESS_QUEUE } from './randomness.queue';
     HealthService,
     LagMonitorService,
   ],
-  exports: [RandomnessWorker, CommitRevealWorker, BullModule],
+  exports: [RandomnessWorker, CommitRevealWorker, BullModule.registerQueue({ name: RANDOMNESS_QUEUE })],
 })
 export class QueueModule { }

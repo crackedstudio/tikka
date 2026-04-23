@@ -104,6 +104,30 @@ npm test
 - ✅ Already-finalized raffle handling
 - ✅ Error handling and retry behavior
 
+## Queue & Redis
+
+The oracle uses **Bull** (backed by Redis) to reliably process randomness requests.
+
+| Setting | Value |
+|---------|-------|
+| Queue name | `randomness-queue` |
+| Retries | 5 attempts, exponential backoff (2 s base) |
+| Failed jobs | Retained in Redis for inspection (`removeOnFail: false`) |
+| Alert | `[ALERT]` log emitted when all attempts are exhausted |
+
+**Required environment variables:**
+
+```
+REDIS_HOST=localhost   # Redis server hostname
+REDIS_PORT=6379        # Redis server port
+```
+
+Redis must be running before starting the oracle. A minimal local setup:
+
+```bash
+docker run -d -p 6379:6379 redis:7-alpine
+```
+
 ## Configuration
 
 The service requires the following environment variables for queue operations:
