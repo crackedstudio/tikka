@@ -3,6 +3,18 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import Navbar from './Navbar';
 
+// Prevent CJS named-export error from @stellar/freighter-api
+vi.mock('../services/walletService', () => ({
+  connectWallet: vi.fn(),
+  disconnectWallet: vi.fn(),
+  getAccountAddress: vi.fn(),
+  getNetwork: vi.fn(),
+  isWalletConnected: vi.fn().mockResolvedValue(false),
+  isWalletInstalled: vi.fn().mockResolvedValue(false),
+  setNetwork: vi.fn(),
+  signTransaction: vi.fn(),
+}));
+
 vi.mock('../providers/WalletProvider', () => ({
   useWalletContext: () => ({
     isConnected: true,
