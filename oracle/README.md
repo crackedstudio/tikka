@@ -159,6 +159,29 @@ npm test
 - **Alerting**: Scrape logs for `[ALERT]` pattern or wire a log aggregator
 - **Metrics**: `queueDepth > 10` warns; `queueDepth > 50` marks unhealthy
 - **Heartbeat**: Oracle pings the contract every `HEARTBEAT_INTERVAL_MS` (default: 1 hour)
+## Queue & Redis
+
+The oracle uses **Bull** (backed by Redis) to reliably process randomness requests.
+
+| Setting | Value |
+|---------|-------|
+| Queue name | `randomness-queue` |
+| Retries | 5 attempts, exponential backoff (2 s base) |
+| Failed jobs | Retained in Redis for inspection (`removeOnFail: false`) |
+| Alert | `[ALERT]` log emitted when all attempts are exhausted |
+
+**Required environment variables:**
+
+```
+REDIS_HOST=localhost   # Redis server hostname
+REDIS_PORT=6379        # Redis server port
+```
+
+Redis must be running before starting the oracle. A minimal local setup:
+
+```bash
+docker run -d -p 6379:6379 redis:7-alpine
+```
 
 ## Configuration
 

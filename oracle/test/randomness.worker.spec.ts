@@ -7,6 +7,8 @@ import { TxSubmitterService } from '../src/submitter/tx-submitter.service';
 import { RandomnessRequest, RandomnessMethod } from '../src/queue/queue.types';
 import { HealthService } from '../src/health/health.service';
 import { LagMonitorService } from '../src/health/lag-monitor.service';
+import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
+import { MultiOracleCoordinatorService } from '../src/multi-oracle/multi-oracle-coordinator.service';
 
 describe('RandomnessWorker', () => {
   let worker: RandomnessWorker;
@@ -58,6 +60,24 @@ describe('RandomnessWorker', () => {
             trackRequest: jest.fn(),
             fulfillRequest: jest.fn(),
             updateCurrentLedger: jest.fn(),
+          },
+        },
+        {
+          provide: OracleRegistryService,
+          useValue: {
+            isMultiOracleMode: jest.fn().mockReturnValue(false),
+            getLocalOracleId: jest.fn().mockReturnValue('oracle-1'),
+            getLocalOracle: jest.fn(),
+            getThreshold: jest.fn().mockReturnValue(1),
+          },
+        },
+        {
+          provide: MultiOracleCoordinatorService,
+          useValue: {
+            isTracked: jest.fn().mockReturnValue(false),
+            startTracking: jest.fn(),
+            hasSubmitted: jest.fn().mockReturnValue(false),
+            recordSubmission: jest.fn().mockReturnValue({ ready: false, aggregated: null }),
           },
         },
       ],

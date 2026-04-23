@@ -13,6 +13,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@fastify/helmet": "^13.0.2",
     "@fastify/multipart": "^9.0.0",
     "@nestjs/common": "^10.4.0",
     "@nestjs/config": "^4.0.3",
@@ -20,6 +21,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-fastify": "^11.1.17",
+    "@nestjs/swagger": "^11.4.1",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^11.0.0",
     "@stellar/stellar-sdk": "^14.4.0",
@@ -27,6 +29,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "fastify": "^5.0.0",
+    "firebase-admin": "^13.8.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.18.0",
