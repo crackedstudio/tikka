@@ -155,22 +155,22 @@ export class PushNotificationService {
       data: this.mapData(payload.data),
     };
 
-    let response;
+    let response: admin.messaging.BatchResponse;
     try {
-      response = await admin.messaging().sendMulticast(message);
+      response = await admin.messaging().sendEachForMulticast(message);
     } catch (error) {
-      this.logger.error('FCM sendMulticast failed', error);
+      this.logger.error('FCM sendEachForMulticast failed', error);
       throw new InternalServerErrorException('Failed to send push notification');
     }
 
     const invalidTokens = response.responses
-      .map((r, idx) => ({ result: r, token: tokens[idx] }))
-      .filter((entry) => !entry.result.success)
-      .filter((entry) => {
-        const code = (entry.result.error as any)?.code;
+      .map((r: admin.messaging.SendResponse, idx: number) => ({ result: r, token: tokens[idx] }))
+      .filter((entry: { result: admin.messaging.SendResponse; token: string }) => !entry.result.success)
+      .filter((entry: { result: admin.messaging.SendResponse; token: string }) => {
+        const code = (entry.result.error as admin.FirebaseError | undefined)?.code;
         return code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token';
       })
-      .map((entry) => entry.token);
+      .map((entry: { result: admin.messaging.SendResponse; token: string }) => entry.token);
 
     if (invalidTokens.length > 0) {
       await this.client

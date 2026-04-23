@@ -26,8 +26,8 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("docs", app, document);
+  const document = SwaggerModule.createDocument(app as any, config);
+  SwaggerModule.setup("docs", app as any, document);
   await configureSecurity(app);
 
   // Using 'as any' bypasses the type mismatch error between Fastify versions
