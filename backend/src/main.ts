@@ -9,6 +9,7 @@ import { AppModule } from "./app.module";
 import { configureSecurity } from "./bootstrap";
 import { MAX_UPLOAD_BYTES } from "./config/upload.config";
 import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
+import { BaseExceptionFilter } from "./common/filters/base-exception.filter";
 
 async function bootstrap() {
   // Avoid generic constraints mismatch between Nest Fastify and Cors types
@@ -38,6 +39,7 @@ async function bootstrap() {
   });
 
   app.useGlobalInterceptors(new RequestLoggingInterceptor());
+  app.useGlobalFilters(new BaseExceptionFilter());
 
   await app.listen(process.env.PORT ?? 3001, "0.0.0.0");
   console.log(`Application is running on: ${await app.getUrl()}`);
