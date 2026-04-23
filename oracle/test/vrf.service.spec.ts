@@ -3,6 +3,7 @@ import { VrfService } from '../src/randomness/vrf.service';
 import { KeyService } from '../src/keys/key.service';
 import { ConfigService } from '@nestjs/config';
 import { Keypair } from 'stellar-sdk';
+import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 
 describe('VrfService', () => {
     let service: VrfService;
@@ -20,6 +21,13 @@ describe('VrfService', () => {
                     },
                 },
                 KeyService,
+                {
+                    provide: OracleRegistryService,
+                    useValue: {
+                        getOracle: jest.fn(),
+                        getLocalKeypair: jest.fn().mockReturnValue(Keypair.random()),
+                    },
+                },
             ],
         }).compile();
 

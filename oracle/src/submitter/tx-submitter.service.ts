@@ -27,7 +27,10 @@ export class TxSubmitterService {
   private readonly POLL_TIMEOUT_MS = 30000;
   private readonly POLL_INTERVAL_MS = 1000;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly feeEstimator: FeeEstimatorService,
+  ) {
     const primary =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
       'https://soroban-testnet.stellar.org';
@@ -75,6 +78,88 @@ export class TxSubmitterService {
     );
   }
 
+  async submitCommitment(raffleId: number, commitment: string): Promise<SubmitResult> {
+    if (!this.contractId || !this.oracleSecret) {
+      this.logger.error('Missing configuration for TxSubmitter.');
+      return { txHash: '', ledger: 0, success: false };
+    }
+    const kp = (StellarSdk as any).Keypair.fromSecret(this.oracleSecret);
+    return this.submitContractCall(kp, 'commit_randomness', [
+      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
+      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(commitment, 32)),
+    ]);
+  }
+
+  async submitReveal(raffleId: number, secret: string, nonce: string): Promise<SubmitResult> {
+    if (!this.contractId || !this.oracleSecret) {
+      this.logger.error('Missing configuration for TxSubmitter.');
+      return { txHash: '', ledger: 0, success: false };
+    }
+    const kp = (StellarSdk as any).Keypair.fromSecret(this.oracleSecret);
+    return this.submitContractCall(kp, 'reveal_randomness', [
+      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
+      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(secret, 32)),
+      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(nonce, 16)),
+    ]);
+  }
+
+  private async submitContractCall(kp: any, method: string, args: any[]): Promise<SubmitResult> {
+    const publicKey = kp.publicKey();
+    let feeBump = 1;
+    let attempt = 0;
+    let lastError: any = null;
+
+    while (attempt < this.MAX_RETRIES) {
+      attempt++;
+      try {
+        const account = await this.rpcServer.getAccount(publicKey);
+        const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeBump).toString();
+        const contract = new (StellarSdk as any).Contract(this.contractId);
+        const tx = new (StellarSdk as any).TransactionBuilder(account, {
+          fee,
+          networkPassphrase: this.networkPassphrase,
+        })
+          .addOperation(contract.call(method, ...args))
+          .setTimeout(30)
+          .build();
+
+        const prepared = await this.rpcServer.prepareTransaction(tx);
+        prepared.sign(kp);
+
+        const sendRes = await this.rpcServer.sendTransaction(prepared);
+        const txHash = sendRes.hash || sendRes?.transactionHash || '';
+        if (!txHash) {
+          if (this.isInsufficientFeeError(JSON.stringify(sendRes))) {
+            feeBump = Math.max(feeBump * 2, feeBump + 1);
+          }
+          lastError = new Error('sendTransaction returned no hash');
+          await this.delay(this.backoff(attempt));
+          continue;
+        }
+
+        const confirm = await this.pollForConfirmation(txHash);
+        if (confirm?.status === 'SUCCESS') {
+          return { txHash, ledger: (confirm.ledger as number) || 0, success: true };
+        }
+        if (this.isInsufficientFeeError(JSON.stringify(confirm))) {
+          feeBump = Math.max(feeBump * 2, feeBump + 1);
+        }
+        lastError = new Error(`${method} failed (status=${confirm?.status || 'UNKNOWN'})`);
+        await this.delay(this.backoff(attempt));
+      } catch (e: any) {
+        const msg = e?.message || String(e);
+        if (this.isRpcError(msg)) this.failoverRpc();
+        else if (this.isInsufficientFeeError(msg)) feeBump = Math.max(feeBump * 2, feeBump + 1);
+        this.logger.error(`Error calling ${method} (attempt ${attempt}/${this.MAX_RETRIES}): ${msg}`);
+        lastError = e;
+        await this.delay(this.backoff(attempt));
+      }
+    }
+
+    this.logger.error(`Persistent failure calling ${method} after ${this.MAX_RETRIES} attempts.`);
+    return { txHash: '', ledger: 0, success: false };
+  }
+
   async submitRandomness(raffleId: number, randomness: RandomnessResult): Promise<SubmitResult> {
     if (!this.contractId || !this.oracleSecret) {
       this.logger.error('Missing configuration for TxSubmitter (contract id or oracle secret).');
@@ -86,9 +171,10 @@ export class TxSubmitterService {
 
     let attempt = 0;
     let lastError: any = null;
+    let feeBump = 1;
     
     // Get initial fee estimate from network stats
-    const feeEstimate = await this.feeEstimator.estimateFee(rafflePrizeXLM);
+    const feeEstimate = await this.feeEstimator.estimateFee(0);
     let currentFee = feeEstimate.cappedFee;
     
     this.logger.log(
@@ -181,7 +267,7 @@ export class TxSubmitterService {
     feeStroops: number,
   ) {
     const account = await this.rpcServer.getAccount(sourceAddress);
-    const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeBump).toString();
+    const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeStroops).toString();
 
     const seedBytes = this.parseToBytes(randomness.seed, 32);
     const proofBytes = this.parseToBytes(randomness.proof, 64);

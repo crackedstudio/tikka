@@ -2,96 +2,93 @@
 
 ## Overview
 
-Commit-reveal prevents oracle front-running by requiring the oracle to commit to randomness before the raffle ends, then reveal after draw is triggered.
+Commit-reveal prevents oracle front-running by requiring the oracle to commit to randomness before the raffle ends, then reveal after the draw is triggered. The contract verifies `SHA-256(secret || nonce) == stored_commitment`.
 
-## How It Works
+## Event Flow
 
-### Commit Phase (Before end_time)
-1. Oracle generates random `secret` and `nonce`
-2. Computes `commitment = SHA-256(secret || nonce)`
-3. Submits commitment to contract via `commit_randomness(raffleId, commitment)`
-4. Stores secret/nonce locally for later reveal
+```
+RaffleCreated event
+        ↓
+CommitRevealWorker.processCommit()
+  → CommitmentService.commit(raffleId)       — generates secret + nonce, stores locally
+  → TxSubmitterService.submitCommitment()    — calls commit_randomness(raffle_id, commitment)
 
-### Reveal Phase (After draw triggered)
-1. Oracle retrieves stored secret/nonce
-2. Submits to contract via `reveal_randomness(raffleId, secret, nonce)`
-3. Contract verifies: `SHA-256(secret || nonce) == stored_commitment`
-4. If valid, uses secret as randomness seed for winner selection
-
-## Security Properties
-
-- **Front-running prevention**: Oracle cannot observe ticket purchases after committing
-- **Unpredictability**: Secret is cryptographically random
-- **Verifiability**: Anyone can verify the reveal matches the commitment
-- **Non-manipulability**: Oracle cannot change commitment after submission
-
-## Usage
-
-```typescript
-// Commit phase (before raffle ends)
-await commitRevealWorker.processCommit({
-  raffleId: 1,
-  endTime: Date.now() + 86400000,
-});
-
-// Reveal phase (after draw triggered)
-await commitRevealWorker.processReveal({
-  raffleId: 1,
-  requestId: 'req-123',
-});
+DrawTriggered event
+        ↓
+CommitRevealWorker.processReveal()
+  → CommitmentService.reveal(raffleId)       — retrieves stored secret + nonce
+  → TxSubmitterService.submitReveal()        — calls reveal_randomness(raffle_id, secret, nonce)
+  → CommitmentService.clearCommitment()      — removes local state
 ```
 
-## Contract Interface
+## Contract Interface (Required)
 
-The contract must implement:
+The Soroban contract must implement both functions:
 
 ```rust
-// Commit phase
+/// Commit phase — oracle submits hash before raffle ends
 pub fn commit_randomness(env: Env, raffle_id: u32, commitment: BytesN<32>)
 
-// Reveal phase
+/// Reveal phase — oracle reveals preimage after draw is triggered
 pub fn reveal_randomness(env: Env, raffle_id: u32, secret: BytesN<32>, nonce: BytesN<16>)
 ```
 
-Contract verification:
+Contract verification logic:
 ```rust
-let computed = sha256(secret || nonce);
-assert_eq!(computed, stored_commitment);
+let computed: BytesN<32> = env.crypto().sha256(&Bytes::from_slice(&env, &[secret.as_ref(), nonce.as_ref()].concat()));
+assert_eq!(computed, stored_commitment, "commitment mismatch");
 ```
 
-## Implementation Status
+For low-stakes raffles that use single-shot randomness, the contract must also implement:
+```rust
+pub fn receive_randomness(env: Env, raffle_id: u32, seed: BytesN<32>, proof: BytesN<64>)
+```
 
-✅ CommitmentService - Generate and store commitments  
-✅ CommitRevealWorker - Process commit and reveal phases  
-✅ Unit tests for commitment verification  
-⏳ Contract integration (waiting for contract support)  
-⏳ TxSubmitter methods for commit/reveal transactions  
+## Oracle Events Consumed
+
+| Event name | Trigger | Oracle action |
+|---|---|---|
+| `RaffleCreated` | New raffle created | `commit_randomness` |
+| `DrawTriggered` | Draw initiated | `reveal_randomness` |
+| `RandomnessRequested` | Low-stakes draw | `receive_randomness` (direct) |
+
+Event payload (XDR map):
+- `RaffleCreated`: `{ raffle_id: u32, end_time: u64 }`
+- `DrawTriggered`: `{ raffle_id: u32, request_id: string|u64|bytes }`
+- `RandomnessRequested`: `{ raffle_id: u32, request_id: string|u64|bytes }`
+
+## Security Properties
+
+- **Front-running prevention**: Oracle commits before ticket sales close; cannot observe final ticket set before choosing randomness
+- **Unpredictability**: Secret is 32 cryptographically random bytes
+- **Verifiability**: Anyone can verify `SHA-256(secret || nonce) == commitment`
+- **Non-manipulability**: Commitment is on-chain before the draw; oracle cannot change it
 
 ## Configuration
 
-Set threshold for commit-reveal vs direct randomness:
-
-```typescript
-// In worker configuration
-const USE_COMMIT_REVEAL = prizeAmount >= 500; // XLM
-
-if (USE_COMMIT_REVEAL) {
-  await commitRevealWorker.processCommit(...);
-  // Later...
-  await commitRevealWorker.processReveal(...);
-} else {
-  await randomnessWorker.processRequest(...);
-}
+```env
+# Enable commit-reveal for high-stakes raffles (prize >= threshold)
+COMMIT_REVEAL_ENABLED=true          # default: true when contract supports it
+HIGH_STAKES_THRESHOLD_XLM=500       # raffles above this use commit-reveal + VRF
 ```
 
-## Testing
+Low-stakes raffles (prize < threshold) skip commit-reveal and call `receive_randomness` directly via `RandomnessWorker`.
 
-```bash
-npm test commitment.service.spec.ts
-```
+## Implementation Status
+
+| Component | Status |
+|---|---|
+| `CommitmentService` — generate/store/verify commitments | ✅ |
+| `CommitRevealWorker` — processCommit / processReveal | ✅ |
+| `TxSubmitterService.submitCommitment` | ✅ |
+| `TxSubmitterService.submitReveal` | ✅ |
+| `EventListenerService` — `RaffleCreated` → commit | ✅ |
+| `EventListenerService` — `DrawTriggered` → reveal | ✅ |
+| Contract `commit_randomness` / `reveal_randomness` | ⏳ Pending contract deployment |
+| Persistent commitment storage (Redis/DB) | ⏳ Currently in-memory |
 
 ## Notes
 
-- Commitment storage is in-memory; consider persistent storage for production
-- Ensure commit happens before end_time to prevent front-running
-- Monitor for failed reveals and implement retry logic
+- Commitment storage is in-memory. A process restart before reveal will lose pending commitments. For production, persist to Redis or a database keyed by `raffle_id`.
+- Ensure `commit_randomness` is called before `end_time` to prevent front-running.
+- If a reveal fails after max retries, the job is retained in the Bull dead-letter queue and an `[ALERT]` log is emitted.

@@ -4,6 +4,8 @@ import type {
     ApiRaffleListItem,
     ApiRaffleListResponse,
     ApiRaffleDetail,
+    ApiUserProfile,
+    ApiUserHistoryResponse,
     RaffleListFilters,
     FormattedRaffle,
 } from "../types/types";
@@ -47,6 +49,23 @@ export async function searchRaffles(
     const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
     return api.get<ApiRaffleListResponse>(endpoint);
 }
+export async function fetchUserProfile(address: string): Promise<ApiUserProfile> {
+    const endpoint = API_CONFIG.endpoints.users.profile(encodeURIComponent(address));
+    return api.get<ApiUserProfile>(endpoint);
+}
+
+export async function fetchUserHistory(
+    address: string,
+    limit = 20,
+    offset = 0,
+): Promise<ApiUserHistoryResponse> {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    params.set("offset", String(offset));
+    const endpoint = `${API_CONFIG.endpoints.users.history(encodeURIComponent(address))}?${params.toString()}`;
+    return api.get<ApiUserHistoryResponse>(endpoint);
+}
+
 export function mapListItemToCardProps(item: ApiRaffleListItem) {
     const endTimeUnix = Math.floor(new Date(item.end_time).getTime() / 1000);
     const timeRemaining = endTimeUnix - Math.floor(Date.now() / 1000);
