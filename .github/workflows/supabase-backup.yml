@@ -1,0 +1,133 @@
+name: Supabase Database Backup
+
+on:
+  schedule:
+    # Runs daily at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual backup trigger'
+        required: false
+        default: 'Manual backup'
+
+concurrency:
+  group: supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: pg_dump → Cloudflare R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Setup ──────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Install AWS CLI (for R2 S3-compatible upload)
+        run: |
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
+          aws --version
+
+      # ── 2. Generate backup ────────────────────────────────────────────────────
+      - name: Set backup filename
+        id: filename
+        run: |
+          TIMESTAMP=$(date -u '+%Y-%m-%d-%H%M%S')
+          echo "BACKUP_FILE=tikka-backup-${TIMESTAMP}.sql.gz" >> "$GITHUB_OUTPUT"
+          echo "TIMESTAMP=${TIMESTAMP}" >> "$GITHUB_OUTPUT"
+
+      - name: Run pg_dump and compress
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "🗄️  Starting pg_dump at $(date -u)"
+          pg_dump \
+            --dbname="$SUPABASE_DB_URL" \
+            --format=plain \
+            --no-owner \
+            --no-acl \
+            --schema=public \
+          | gzip -9 > "${{ steps.filename.outputs.BACKUP_FILE }}"
+
+          BACKUP_SIZE=$(du -sh "${{ steps.filename.outputs.BACKUP_FILE }}" | cut -f1)
+          echo "✅ Backup created: ${{ steps.filename.outputs.BACKUP_FILE }} (${BACKUP_SIZE})"
+
+      # ── 3. Upload to Cloudflare R2 ────────────────────────────────────────────
+      - name: Upload backup to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          aws s3 cp \
+            "${{ steps.filename.outputs.BACKUP_FILE }}" \
+            "s3://${R2_BUCKET_NAME}/daily/${{ steps.filename.outputs.BACKUP_FILE }}" \
+            --endpoint-url "${R2_ENDPOINT_URL}" \
+            --checksum-algorithm SHA256
+
+          echo "☁️  Uploaded to R2: s3://${R2_BUCKET_NAME}/daily/${{ steps.filename.outputs.BACKUP_FILE }}"
+
+      # ── 4. Prune old backups (retain last 30 days) ────────────────────────────
+      - name: Prune backups older than 30 days
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          CUTOFF=$(date -u -d '30 days ago' '+%Y-%m-%d')
+          echo "🗑️  Pruning backups older than ${CUTOFF}..."
+
+          aws s3 ls "s3://${R2_BUCKET_NAME}/daily/" \
+            --endpoint-url "${R2_ENDPOINT_URL}" \
+          | awk '{print $4}' \
+          | grep -E '^tikka-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}' \
+          | while read -r KEY; do
+              FILE_DATE=$(echo "$KEY" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+              if [[ "$FILE_DATE" < "$CUTOFF" ]]; then
+                echo "  Deleting old backup: ${KEY}"
+                aws s3 rm "s3://${R2_BUCKET_NAME}/daily/${KEY}" \
+                  --endpoint-url "${R2_ENDPOINT_URL}"
+              fi
+            done
+
+          echo "✅ Pruning complete."
+
+      # ── 5. Cleanup local file ─────────────────────────────────────────────────
+      - name: Clean up local dump file
+        if: always()
+        run: rm -f "${{ steps.filename.outputs.BACKUP_FILE }}"
+
+      # ── 6. Job summary ────────────────────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## 🗄️ Tikka Supabase Backup Report
+
+          | Field      | Value |
+          |------------|-------|
+          | **Status** | ${{ job.status }} |
+          | **File**   | \`${{ steps.filename.outputs.BACKUP_FILE }}\` |
+          | **Bucket** | \`daily/${{ steps.filename.outputs.BACKUP_FILE }}\` |
+          | **Run at** | $(date -u) |
+          | **Trigger**| \`${{ github.event_name }}\` |
+          EOF
+
+    # ── Failure notification ───────────────────────────────────────────────────
+    # GitHub automatically notifies repository admins on scheduled workflow
+    # failures. To add Slack/email alerts, add a step here using
+    # slackapi/slack-github-action or similar.
