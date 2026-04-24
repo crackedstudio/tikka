@@ -107,7 +107,8 @@ beforeAll(async () => {
   eventRepo  = ds.getRepository(RaffleEventEntity);
 
   userProcessor   = new UserProcessor(ds, mockCacheService as any);
-  raffleProcessor = new RaffleProcessor(ds, mockCacheService as any, userProcessor);
+  const mockWebhookService = { dispatchEvent: jest.fn() };
+  raffleProcessor = new RaffleProcessor(ds, mockCacheService as any, userProcessor, mockWebhookService as any);
   ticketProcessor = new TicketProcessor(ds, mockCacheService as any, userProcessor);
 }, CONTAINER_STARTUP_MS);
 
