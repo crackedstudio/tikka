@@ -172,7 +172,10 @@ const RaffleDetails = () => {
             </div>
 
             <VerifiedBadge />
-            <ShareRaffle />
+            <ShareRaffle
+                raffleId={raffle.id}
+                title={raffle.metadata?.title || raffle.description || "Raffle"}
+            />
         </div>
     );
 };
