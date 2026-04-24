@@ -159,6 +159,32 @@ The endpoint returns **HTTP 503** when `status` is `degraded`, so orchestrators 
 
 ---
 
+## Stellar network (Testnet / Mainnet)
+
+The backend selects a Stellar network with **`STELLAR_NETWORK`** (`testnet` or `mainnet`). That value drives:
+
+- **Horizon URL** — defaults to the public Horizon for the chosen network (`https://horizon-testnet.stellar.org` or `https://horizon.stellar.org`). Override with **`STELLAR_HORIZON_URL`** if you use a proxy or custom Horizon.
+- **Network passphrase** — exposed at runtime via `env.stellar.networkPassphrase` (same constants as the Stellar SDK) for any logic that must sign or verify against a specific network.
+- **Contract ID** — defaults are empty until you deploy; set **`STELLAR_CONTRACT_ID`** to your raffle (or other) contract for the environment you are running.
+- **Indexer base URL** — if **`INDEXER_URL`** is not set, it defaults to the URL in `stellar.constants.ts` for that network (currently `http://localhost:3002` for both). In production, set **`INDEXER_URL`** explicitly to the tikka-indexer instance that indexes the same chain as **`STELLAR_NETWORK`**.
+
+Injectable services should read **`INDEXER_URL`** and **`INDEXER_TIMEOUT_MS`** from Nest **`ConfigService`** (validated at startup). For scripts or non-DI code, use **`env.indexer`** and **`env.stellar`** from `src/config/env.config.ts`.
+
+Example `.env` fragments:
+
+```dotenv
+# Local development against testnet
+STELLAR_NETWORK=testnet
+INDEXER_URL=http://localhost:3002
+
+# Production-style: mainnet Horizon defaults; point indexer at your fleet
+STELLAR_NETWORK=mainnet
+STELLAR_CONTRACT_ID=YOUR_MAINNET_CONTRACT_ID
+INDEXER_URL=https://your-indexer.example.com
+```
+
+---
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` and fill in the required values before starting the server.
@@ -186,7 +212,10 @@ These must be set or the app will refuse to start:
 | Variable                   | Default                    | Description                                      |
 | -------------------------- | -------------------------- | ------------------------------------------------ |
 | `PORT`                     | `3001`                     | HTTP port the server listens on                  |
-| `INDEXER_URL`              | `http://localhost:3002`    | Base URL of the tikka-indexer internal API       |
+| `STELLAR_NETWORK`          | `testnet`                  | `testnet` or `mainnet` — Horizon, contract, and default indexer base |
+| `STELLAR_HORIZON_URL`      | (from network)             | Override Horizon URL (optional)                  |
+| `STELLAR_CONTRACT_ID`     | (none)                     | On-chain contract id for this deployment (optional) |
+| `INDEXER_URL`              | (per `STELLAR_NETWORK`)    | Base URL of tikka-indexer; set explicitly in prod |
 | `INDEXER_TIMEOUT_MS`       | `5000`                     | HTTP timeout for indexer requests (ms)           |
 | `JWT_EXPIRES_IN`           | `7d`                       | JWT expiry duration (e.g. `1h`, `7d`)            |
 | `SIWS_DOMAIN`              | `tikka.io`                 | Domain shown in the SIWS sign-in message         |

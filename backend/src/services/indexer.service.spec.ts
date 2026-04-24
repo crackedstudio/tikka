@@ -1,13 +1,29 @@
+import { ConfigService } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
 import { IndexerError, IndexerService } from './indexer.service';
 
 describe('IndexerService', () => {
   let service: IndexerService;
   let fetchMock: jest.Mock;
 
-  beforeEach(() => {
-    service = new IndexerService();
-    (service as any).baseUrl = 'http://indexer.test';
-    (service as any).timeoutMs = 50;
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        IndexerService,
+        {
+          provide: ConfigService,
+          useValue: {
+            getOrThrow: (key: string) => {
+              if (key === 'INDEXER_URL') return 'http://indexer.test';
+              throw new Error(`unexpected key ${key}`);
+            },
+            get: (key: string, def?: number) =>
+              key === 'INDEXER_TIMEOUT_MS' ? 50 : def,
+          },
+        },
+      ],
+    }).compile();
+    service = module.get(IndexerService);
 
     fetchMock = jest.fn();
     (global as any).fetch = fetchMock;

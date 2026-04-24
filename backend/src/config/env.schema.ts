@@ -1,4 +1,46 @@
 import { z } from 'zod';
+import {
+  resolveIndexerBaseUrl,
+  resolveStellarNetworkId,
+} from './stellar.constants';
+
+function toEnvLike(config: Record<string, unknown>): Record<string, string | undefined> {
+  const merged: Record<string, string | undefined> = { ...process.env };
+  for (const [k, v] of Object.entries(config)) {
+    if (v === undefined || v === null) continue;
+    merged[k] = String(v);
+  }
+  return merged;
+}
+
+/**
+ * Normalize STELLAR_NETWORK and fill INDEXER_URL when omitted so it matches
+ * the active Stellar network (see stellar.constants).
+ */
+function preprocessStellarEnv(
+  input: Record<string, unknown>,
+): Record<string, unknown> {
+  const c = { ...input };
+  const envLike = toEnvLike(c);
+  const network = resolveStellarNetworkId(envLike);
+  c.STELLAR_NETWORK = network;
+
+  const idx = c.INDEXER_URL;
+  if (idx === undefined || idx === null || String(idx).trim() === '') {
+    c.INDEXER_URL = resolveIndexerBaseUrl({
+      ...envLike,
+      STELLAR_NETWORK: network,
+      INDEXER_URL: undefined,
+    });
+  }
+
+  const hz = c.STELLAR_HORIZON_URL;
+  if (hz === '' || hz === null) delete c.STELLAR_HORIZON_URL;
+  const cid = c.STELLAR_CONTRACT_ID;
+  if (cid === '' || cid === null) delete c.STELLAR_CONTRACT_ID;
+
+  return c;
+}
 
 /**
  * Zod schema for process.env validation.
@@ -10,7 +52,7 @@ import { z } from 'zod';
  * through without failing validation — ConfigModule passes the entire
  * process.env object to the validate function.
  */
-export const envSchema = z
+const envSchemaInner = z
   .object({
     // Server
     PORT: z.coerce.number().int().positive().default(3001),
@@ -19,8 +61,13 @@ export const envSchema = z
     SUPABASE_URL: z.string().url(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
-    // Indexer
-    INDEXER_URL: z.string().url().default('http://localhost:3002'),
+    // Stellar — network drives Horizon / contract defaults unless overridden
+    STELLAR_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
+    STELLAR_HORIZON_URL: z.string().url().optional(),
+    STELLAR_CONTRACT_ID: z.string().min(1).optional(),
+
+    // Indexer (INDEXER_URL filled in preprocess when empty)
+    INDEXER_URL: z.string().url(),
     INDEXER_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
 
     // JWT
@@ -56,7 +103,9 @@ export const envSchema = z
   })
   .passthrough();
 
-export type EnvConfig = z.infer<typeof envSchema>;
+export const envSchema = z.preprocess(preprocessStellarEnv, envSchemaInner);
+
+export type EnvConfig = z.infer<typeof envSchemaInner>;
 
 /**
  * Validate function for `ConfigModule.forRoot({ validate })`.
