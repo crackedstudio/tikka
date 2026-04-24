@@ -10,6 +10,7 @@ import { CursorManagerService } from "./cursor-manager.service";
 import { EventParserV2Service } from "./event-parser-v2.service";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
+import { MetricsService } from "../metrics/metrics.service";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -31,6 +32,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     private eventParser: EventParserV2Service,
     private dryRun: DryRunService,
     private dispatcher: IngestionDispatcherService,
+    private metrics: MetricsService,
   ) {
     const horizonUrl =
       this.configService.get<string>("HORIZON_URL") ||
@@ -218,6 +220,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         `Polling error: ${error instanceof Error ? error.message : String(error)}`,
       );
       this.scheduleReconnection();
+      this.metrics.incrementEventsProcessed(response.events.length);
     }
   }
 

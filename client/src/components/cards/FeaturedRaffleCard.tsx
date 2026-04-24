@@ -2,6 +2,7 @@
 import React from "react";
 import { ProgressBar } from "../ui/ProgressBar";
 import Line from "../../assets/svg/Line";
+import AddToCalendar from "../ui/AddToCalendar";
 
 type Countdown = {
     days: string;
@@ -17,6 +18,7 @@ type FeaturedRaffleCardProps = {
     prizeValue: string;
     prizeCurrency?: string; // default "ETH"
     countdown: Countdown;
+    endTimeUnix?: number; // Unix timestamp for calendar
     ticketPrice: string;
     entries: number;
     progress: number; // 0–100
@@ -31,6 +33,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
     prizeValue,
     prizeCurrency = "ETH",
     countdown,
+    endTimeUnix,
     ticketPrice,
     entries,
     progress,
@@ -92,6 +95,11 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                                     {countdown.seconds}s
                                 </span>
                             </div>
+                            {endTimeUnix && (
+                                <div className="mt-2 flex justify-start sm:justify-end">
+                                    <AddToCalendar title={title} endTimeUnix={endTimeUnix} />
+                                </div>
+                            )}
                         </div>
                     </div>
 

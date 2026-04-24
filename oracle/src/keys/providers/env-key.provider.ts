@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Keypair } from 'stellar-sdk';
+import { Keypair } from '@stellar/stellar-sdk';
 import { KeyProvider } from '../key-provider.interface';
 
 /**
@@ -25,8 +25,8 @@ export class EnvKeyProvider implements KeyProvider {
       this.keypair = Keypair.fromSecret(privateKey);
       this.logger.log(`EnvKeyProvider initialized for address: ${this.keypair.publicKey()}`);
     } catch (error) {
-      this.logger.error(`Failed to load keypair: ${error.message}`);
-      throw new Error('Invalid private key format');
+      this.logger.error(`Failed to load keypair from secret: ${error.message}`);
+      throw new Error(`Invalid private key format: ${error.message}`);
     }
   }
 

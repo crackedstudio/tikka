@@ -30,12 +30,12 @@ export class AuthController {
   /**
    * GET /auth/nonce?address=G... — Get signing nonce for SIWS.
    *
-   * Rate limit: 30 req / 60 s per IP  (nonce tier).
-   * Stricter than the default tier because this endpoint is stateful
-   * (each call stores a nonce in memory/DB) and could be used to
-   * exhaust nonce storage if left unlimited.
+   * Rate limit: 5 req / 60 s per IP  (nonce tier).
+   * Strict because each call allocates a nonce in storage; low limit
+   * prevents nonce-exhaustion attacks.
+   * Override via THROTTLE_NONCE_LIMIT / THROTTLE_NONCE_TTL env vars.
    */
-  @Throttle({ nonce: { limit: 30, ttl: 60000 } })
+  @Throttle({ nonce: { limit: 5, ttl: 60000 } })
   @Get("nonce")
   @ApiOperation({ summary: "Get signing nonce for SIWS" })
   @ApiQuery({ name: "address", description: "Stellar address of the user" })
@@ -48,10 +48,11 @@ export class AuthController {
    * POST /auth/verify — Verify wallet signature, issue JWT.
    * Body: { address, signature, nonce [, issuedAt] }
    *
-   * Rate limit: 10 req / 60 s per IP  (auth tier).
-   * Very strict — prevents brute-force signature/nonce guessing.
+   * Rate limit: 5 req / 60 s per IP  (auth tier).
+   * Strict brute-force protection — prevents signature/nonce guessing.
+   * Override via THROTTLE_AUTH_LIMIT / THROTTLE_AUTH_TTL env vars.
    */
-  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
   @Post("verify")
   @ApiOperation({ summary: "Verify wallet signature and issue JWT" })
   @UsePipes(new (createZodPipe(VerifyBodySchema))())

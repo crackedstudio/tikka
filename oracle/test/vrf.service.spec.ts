@@ -3,7 +3,7 @@ import { VrfService } from '../src/randomness/vrf.service';
 import { KeyService } from '../src/keys/key.service';
 import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 import { ConfigService } from '@nestjs/config';
-import { Keypair } from 'stellar-sdk';
+import { Keypair } from '@stellar/stellar-sdk';
 import { ed25519 } from '@noble/curves/ed25519';
 import * as crypto from 'crypto';
 
@@ -245,7 +245,7 @@ describe('VrfService', () => {
   describe('computeForOracle', () => {
     it('should compute VRF for specified oracle', async () => {
       const requestId = 'oracle-test';
-      const oracleId = 'oracle-1';
+      const oracleId = 'oracle-001';
       const mockKeypair = Keypair.random();
 
       (oracleRegistry.getOracle as jest.Mock).mockReturnValue({ id: oracleId });

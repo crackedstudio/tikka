@@ -21,6 +21,7 @@ import {
     ExternalLink,
     Bell
 } from "lucide-react";
+import AddToCalendar from "../components/ui/AddToCalendar";
 import Line from "../assets/svg/Line";
 import detailimage from "../assets/detailimage.png";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
@@ -239,6 +240,12 @@ const RafflePage = () => {
                                     <span className="bg-gray-300 dark:bg-white/10 px-2 py-0.5 rounded text-gray-900 dark:text-white">{countdown.minutes}m</span>
                                 </div>
                             </div>
+                            {isActive && (
+                                <AddToCalendar
+                                    title={title}
+                                    endTimeUnix={raffle.endTime}
+                                />
+                            )}
                             <Line />
                             <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">Total Participants</span>

@@ -28,7 +28,7 @@ import { HealthService } from '../src/health/health.service';
 import { LagMonitorService } from '../src/health/lag-monitor.service';
 import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../src/multi-oracle/multi-oracle-coordinator.service';
-import * as StellarSdk from 'stellar-sdk';
+import * as StellarSdk from '@stellar/stellar-sdk';
 
 // ─── Standalone Node Configuration ──────────────────────────────────────────
 const STANDALONE_RPC_URL = process.env.STANDALONE_RPC_URL || 'http://localhost:8000/soroban/rpc';
