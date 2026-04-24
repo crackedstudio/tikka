@@ -49,11 +49,13 @@ export class KeyProviderFactory {
   }
 
   private static createEnvProvider(configService: ConfigService): EnvKeyProvider {
-    const privateKey = configService.get<string>('ORACLE_PRIVATE_KEY');
+    const privateKey =
+      configService.get<string>('ORACLE_SECRET_KEY') ||
+      configService.get<string>('ORACLE_PRIVATE_KEY');
 
     if (!privateKey) {
       throw new Error(
-        'ORACLE_PRIVATE_KEY environment variable is required for env provider',
+        'ORACLE_SECRET_KEY or ORACLE_PRIVATE_KEY environment variable is required for env provider',
       );
     }
 

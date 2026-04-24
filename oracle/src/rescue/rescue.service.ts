@@ -271,7 +271,7 @@ export class RescueService {
    */
   async getFailedJobs(): Promise<JobInfo[]> {
     const failed = await this.randomnessQueue.getFailed();
-    return failed.map((job) => this.mapJobToInfo(job));
+    return Promise.all(failed.map((job) => this.mapJobToInfo(job)));
   }
 
   /**
@@ -293,11 +293,11 @@ export class RescueService {
     ]);
 
     return {
-      waiting: waiting.map((j) => this.mapJobToInfo(j)),
-      active: active.map((j) => this.mapJobToInfo(j)),
-      completed: completed.map((j) => this.mapJobToInfo(j)),
-      failed: failed.map((j) => this.mapJobToInfo(j)),
-      delayed: delayed.map((j) => this.mapJobToInfo(j)),
+      waiting: await Promise.all(waiting.map((j) => this.mapJobToInfo(j))),
+      active: await Promise.all(active.map((j) => this.mapJobToInfo(j))),
+      completed: await Promise.all(completed.map((j) => this.mapJobToInfo(j))),
+      failed: await Promise.all(failed.map((j) => this.mapJobToInfo(j))),
+      delayed: await Promise.all(delayed.map((j) => this.mapJobToInfo(j))),
     };
   }
 
@@ -315,7 +315,7 @@ export class RescueService {
     return this.rescueLogs.filter((log) => log.raffleId === raffleId);
   }
 
-  private mapJobToInfo(job: Job): JobInfo {
+  private async mapJobToInfo(job: Job): Promise<JobInfo> {
     const data = job.data as RandomnessJobPayload;
     return {
       id: job.id?.toString() || '',

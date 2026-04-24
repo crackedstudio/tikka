@@ -6,7 +6,6 @@ import { ConfigService } from '@nestjs/config';
 import { Keypair } from 'stellar-sdk';
 import { ed25519 } from '@noble/curves/ed25519';
 import * as crypto from 'crypto';
-import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 
 describe('VrfService', () => {
   let service: VrfService;
@@ -30,6 +29,7 @@ describe('VrfService', () => {
                     useValue: {
                         getOracle: jest.fn(),
                         getLocalKeypair: jest.fn().mockReturnValue(Keypair.random()),
+                        getLocalOracleId: jest.fn().mockReturnValue('oracle-001'),
                     },
                 },
             ],
@@ -38,7 +38,7 @@ describe('VrfService', () => {
     service = module.get<VrfService>(VrfService);
     keyService = module.get<KeyService>(KeyService);
     oracleRegistry = module.get<OracleRegistryService>(OracleRegistryService);
-    keyService.onModuleInit();
+    await keyService.onModuleInit();
   });
 
   describe('VRF computation', () => {
@@ -74,7 +74,7 @@ describe('VrfService', () => {
     it('should verify valid VRF proof', async () => {
       const requestId = 'verifiable-req';
       const { seed, proof } = await service.compute(requestId);
-      const publicKey = keyService.getPublicKeyBuffer().toString('hex');
+      const publicKey = (await keyService.getPublicKeyBuffer()).toString('hex');
 
       const isValid = service.verify(publicKey, requestId, proof, seed);
       expect(isValid).toBe(true);
@@ -83,7 +83,7 @@ describe('VrfService', () => {
     it('should reject tampered proof', async () => {
       const requestId = 'tamper-proof-test';
       const { seed, proof } = await service.compute(requestId);
-      const publicKey = keyService.getPublicKeyBuffer().toString('hex');
+      const publicKey = (await keyService.getPublicKeyBuffer()).toString('hex');
 
       // Tamper with proof (change last char)
       const tamperedProof = proof.substring(0, 127) + (proof[127] === '0' ? '1' : '0');
@@ -95,7 +95,7 @@ describe('VrfService', () => {
     it('should reject mismatched seed and proof', async () => {
       const requestId = 'tamper-seed-test';
       const { proof } = await service.compute(requestId);
-      const publicKey = keyService.getPublicKeyBuffer().toString('hex');
+      const publicKey = (await keyService.getPublicKeyBuffer()).toString('hex');
       const tamperedSeed = '0'.repeat(64);
 
       const isValid = service.verify(publicKey, requestId, proof, tamperedSeed);
@@ -105,7 +105,7 @@ describe('VrfService', () => {
     it('should accept public key as Buffer or hex string', async () => {
       const requestId = 'key-format-test';
       const { seed, proof } = await service.compute(requestId);
-      const publicKeyBuffer = keyService.getPublicKeyBuffer();
+      const publicKeyBuffer = await keyService.getPublicKeyBuffer();
       const publicKeyHex = publicKeyBuffer.toString('hex');
 
       const isValidHex = service.verify(publicKeyHex, requestId, proof, seed);
@@ -143,7 +143,7 @@ describe('VrfService', () => {
     it('should produce valid Ed25519 signature as proof', async () => {
       const requestId = 'ed25519-sig-test';
       const { proof } = await service.compute(requestId);
-      const publicKey = keyService.getPublicKeyBuffer();
+      const publicKey = await keyService.getPublicKeyBuffer();
 
       // Proof should be a valid Ed25519 signature
       const proofBuffer = Buffer.from(proof, 'hex');
