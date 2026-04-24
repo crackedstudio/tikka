@@ -10,9 +10,12 @@ import NotificationBellIcon from "./cards/NotificationBellIcon";
 import { Search } from "lucide-react";
 import { useWalletContext } from "../providers/WalletProvider";
 import { STELLAR_CONFIG } from "../config/stellar";
+import { useTranslation } from "react-i18next";
+import { Globe } from "lucide-react";
 
 
 const Navbar = ({ onStart }: { onStart?: () => void }) => {
+    const { t, i18n } = useTranslation();
     const [open, setOpen] = React.useState(false);
     const { isConnected, isWrongNetwork, switchNetwork } = useWalletContext();
 
@@ -55,11 +58,11 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
     }, [location.pathname]);
 
     const navItems = [
-        { label: "Discover Raffles", href: "/home" },
-        { label: "Create Raffle", href: "/create" },
-        { label: "My Raffles", href: "/my-raffles" },
-        { label: "Leaderboard", href: "/leaderboard" },
-        { label: "Settings", href: "/settings" },
+        { label: t("navbar.discover"), href: "/home" },
+        { label: t("navbar.create"), href: "/create" },
+        { label: t("navbar.myRaffles"), href: "/my-raffles" },
+        { label: t("navbar.leaderboard"), href: "/leaderboard" },
+        { label: t("navbar.settings"), href: "/settings" },
     ];
 
     const targetNetwork = STELLAR_CONFIG.network.charAt(0).toUpperCase() + STELLAR_CONFIG.network.slice(1);
@@ -81,7 +84,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                                 type="text"
                                 value={searchValue}
                                 onChange={(e) => setSearchValue(e.target.value)}
-                                placeholder="Search raffles..."
+                                placeholder={t("navbar.searchPlaceholder")}
                                 className="w-full bg-gray-200 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-600 dark:text-white/40 focus:outline-none focus:ring-1 focus:ring-[#FE3796] transition-all"
                             />
                             <Search
@@ -119,7 +122,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                                     className="flex items-center gap-2 rounded-full border border-red-500/50 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition"
                                 >
                                     <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                                    Switch to {targetNetwork}
+                                    {t("navbar.switchTo", { network: targetNetwork })}
                                 </button>
                             ) : (
                                 <div className="flex items-center gap-2 rounded-full border border-[#52E5A4]/30 bg-[#52E5A4]/5 px-3 py-1.5 text-xs font-medium text-[#52E5A4]">
@@ -129,6 +132,21 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                             )}
                         </div>
                     )}
+
+                    <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-100 dark:bg-white/5">
+                        <button
+                            onClick={() => i18n.changeLanguage("en")}
+                            className={`px-2 py-1 text-xs font-medium rounded ${i18n.language === "en" ? "bg-[#FE3796] text-white" : "text-gray-500 hover:text-gray-900 dark:text-white/60"}`}
+                        >
+                            EN
+                        </button>
+                        <button
+                            onClick={() => i18n.changeLanguage("es")}
+                            className={`px-2 py-1 text-xs font-medium rounded ${i18n.language === "es" ? "bg-[#FE3796] text-white" : "text-gray-500 hover:text-gray-900 dark:text-white/60"}`}
+                        >
+                            ES
+                        </button>
+                    </div>
 
                     <ThemeToggle />
                     <WalletButton />
@@ -170,7 +188,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                             type="text"
                             value={searchValue}
                             onChange={(e) => setSearchValue(e.target.value)}
-                            placeholder="Search raffles..."
+                            placeholder={t("navbar.searchPlaceholder")}
                             className="w-full bg-gray-200 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder:text-gray-600 dark:text-white/40 focus:outline-none"
                         />
                     </div>
@@ -199,7 +217,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                         }}
                         className="mt-2 rounded-xl px-6 py-3 text-center text-sm font-medium text-gray-900 dark:text-white hover:brightness-110 bg-[#FE3796] cursor-pointer"
                     >
-                        Get Started
+                        {t("navbar.getStarted")}
                     </a>
                     <ThemeToggle />
                 </div>
