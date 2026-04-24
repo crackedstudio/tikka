@@ -39,7 +39,7 @@ export class RaffleProcessor {
         await this.webhookService.dispatchEvent({
           eventType: "RaffleCreated",
           raffleId,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date(),
           data: { creator, ledger },
         });
       } catch (e) {
@@ -81,7 +81,7 @@ export class RaffleProcessor {
         await this.webhookService.dispatchEvent({
           eventType: "RaffleFinalized",
           raffleId,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date(),
           data: { winner, prizeAmount },
         });
       } catch (e) {
