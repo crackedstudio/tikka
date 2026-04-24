@@ -281,13 +281,37 @@ export class TransactionLifecycle {
     const backoff     = config.backoffFactor ?? 1.5;
     const maxInterval = config.maxIntervalMs ?? 10_000;
 
+    // Requirement 3.10: timeoutMs === 0 must throw immediately without any RPC calls
+    if (timeoutMs === 0) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.Timeout,
+        `Transaction ${txHash} not confirmed within ${timeoutMs}ms (0 attempts)`,
+      );
+    }
+
     const deadline = Date.now() + timeoutMs;
     let currentInterval = intervalMs;
     let attempts = 0;
 
     while (Date.now() < deadline) {
       attempts++;
-      const resp = await this.rpc.getTransaction(txHash);
+      let resp: Awaited<ReturnType<typeof this.rpc.getTransaction>>;
+      try {
+        resp = await this.rpc.getTransaction(txHash);
+      } catch (err) {
+        // Treat NetworkError and Timeout from RpcService as transient — apply backoff and retry
+        if (
+          err instanceof TikkaSdkError &&
+          (err.code === TikkaSdkErrorCode.NetworkError || err.code === TikkaSdkErrorCode.Timeout)
+        ) {
+          if (Date.now() + currentInterval >= deadline) break;
+          await this.sleep(currentInterval);
+          currentInterval = Math.min(currentInterval * backoff, maxInterval);
+          continue;
+        }
+        // All other errors propagate immediately
+        throw err;
+      }
 
       if (resp.status === rpc.Api.GetTransactionStatus.SUCCESS) {
         const ok = resp as rpc.Api.GetSuccessfulTransactionResponse;

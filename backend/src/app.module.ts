@@ -30,8 +30,12 @@ import { validate } from "./config/env.schema";
      * Tier          Limit      Window    Applies to
      * ──────────────────────────────────────────────────────────────
      * default       100 req    60 s      All public endpoints
-     * auth          10  req    60 s      POST /auth/verify
-     * nonce         30  req    60 s      GET  /auth/nonce
+     * auth            5 req    60 s      POST /auth/verify
+     * nonce           5 req    60 s      GET  /auth/nonce
+     *
+     * The auth and nonce tiers are overridden at the controller level
+     * via @Throttle() — the values here serve as the fallback defaults
+     * and can be tuned via env vars without a redeploy.
      *
      * Override limits via env vars (see .env.example):
      *   THROTTLE_DEFAULT_LIMIT / THROTTLE_DEFAULT_TTL
@@ -50,12 +54,12 @@ import { validate } from "./config/env.schema";
           },
           {
             name: "auth",
-            limit: config.get<number>("THROTTLE_AUTH_LIMIT", 10),
+            limit: config.get<number>("THROTTLE_AUTH_LIMIT", 5),
             ttl: seconds(config.get<number>("THROTTLE_AUTH_TTL", 60)),
           },
           {
             name: "nonce",
-            limit: config.get<number>("THROTTLE_NONCE_LIMIT", 30),
+            limit: config.get<number>("THROTTLE_NONCE_LIMIT", 5),
             ttl: seconds(config.get<number>("THROTTLE_NONCE_TTL", 60)),
           },
         ],

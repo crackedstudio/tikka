@@ -9,6 +9,7 @@ import { fetchRaffles } from "../services/raffleService";
 import type { ApiRaffleListItem } from "../types/types";
 import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import { useTranslation } from "react-i18next";
 
 const PAGE_SIZE = 6;
 
@@ -53,7 +54,7 @@ const Home = () => {
                     </div>
                 ) : error ? (
                     <ErrorMessage
-                        title="Failed to load raffles"
+                        title={t("home.failedToLoad")}
                         message={error.message}
                         onRetry={refetch}
                         disabled={rafflesLoading}
@@ -61,10 +62,10 @@ const Home = () => {
                 ) : allRaffles.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="text-gray-900 dark:text-white text-lg">
-                            No active raffles found
+                            {t("home.noActiveRaffles")}
                         </div>
                         <div className="text-gray-400 text-sm mt-2">
-                            Be the first to create a raffle!
+                            {t("home.beTheFirst")}
                         </div>
                     </div>
                 ) : (
@@ -79,7 +80,7 @@ const Home = () => {
                                 >
                                     <RocketLaunch />
                                     <span>
-                                        {loadingMore ? "Loading..." : "Load More"}
+                                        {loadingMore ? t("home.loading") : t("home.loadMore")}
                                     </span>
                                 </button>
                             </div>

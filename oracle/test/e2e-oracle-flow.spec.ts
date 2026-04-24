@@ -23,8 +23,11 @@ import { HealthService } from '../src/health/health.service';
 import { LagMonitorService } from '../src/health/lag-monitor.service';
 import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../src/multi-oracle/multi-oracle-coordinator.service';
-import * as StellarSdk from 'stellar-sdk';
-import { xdr } from 'stellar-sdk';
+import { CommitRevealWorker } from '../src/queue/commit-reveal.worker';
+import { KeyService } from '../src/keys/key.service';
+import { FeeEstimatorService } from '../src/submitter/fee-estimator.service';
+import * as StellarSdk from '@stellar/stellar-sdk';
+import { xdr } from '@stellar/stellar-sdk';
 
 // ─── Test Configuration ──────────────────────────────────────────────────────
 const RAFFLE_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
@@ -48,11 +51,12 @@ const mockStreamFn = jest.fn().mockImplementation((opts: { onmessage: any; onerr
 });
 
 const mockCursorFn = jest.fn().mockReturnValue({ stream: mockStreamFn });
-const mockEventsFn = jest.fn().mockReturnValue({ cursor: mockCursorFn });
+const mockForContractFn = jest.fn().mockReturnValue({ cursor: mockCursorFn });
+const mockEventsFn = jest.fn().mockReturnValue({ forContract: mockForContractFn });
 const mockHorizonServer = { events: mockEventsFn };
 
-jest.mock('stellar-sdk', () => {
-    const actual = jest.requireActual('stellar-sdk');
+jest.mock('@stellar/stellar-sdk', () => {
+    const actual = jest.requireActual('@stellar/stellar-sdk');
     return {
         ...actual,
         Horizon: {
@@ -189,6 +193,9 @@ describe('E2E Oracle Flow Integration Tests', () => {
                 LagMonitorService,
                 OracleRegistryService,
                 MultiOracleCoordinatorService,
+                KeyService,
+                FeeEstimatorService,
+                { provide: CommitRevealWorker, useValue: { processCommit: jest.fn(), processReveal: jest.fn() } },
                 { provide: ConfigService, useValue: mockConfigService },
             ],
         }).compile();
@@ -218,14 +225,14 @@ describe('E2E Oracle Flow Integration Tests', () => {
 
         vrfServiceSpy = jest.spyOn(vrfService, 'compute')
             .mockResolvedValue({
-                seed: Buffer.from('a'.repeat(64), 'hex'),
-                proof: Buffer.from('b'.repeat(128), 'hex'),
+                seed: 'a'.repeat(64),
+                proof: 'b'.repeat(128),
             });
 
         prngServiceSpy = jest.spyOn(prngService, 'compute')
-            .mockResolvedValue({
-                seed: Buffer.from('c'.repeat(64), 'hex'),
-                proof: Buffer.from('d'.repeat(128), 'hex'),
+            .mockReturnValue({
+                seed: 'c'.repeat(64),
+                proof: 'd'.repeat(128),
             });
 
         txSubmitterSpy = jest.spyOn(txSubmitter, 'submitRandomness')
@@ -278,8 +285,8 @@ describe('E2E Oracle Flow Integration Tests', () => {
         expect(txSubmitterSpy).toHaveBeenCalledWith(
             raffleId,
             expect.objectContaining({
-                seed: expect.any(Buffer),
-                proof: expect.any(Buffer),
+                seed: expect.any(String),
+                proof: expect.any(String),
             })
         );
     }, E2E_TEST_TIMEOUT);
@@ -318,8 +325,8 @@ describe('E2E Oracle Flow Integration Tests', () => {
         expect(txSubmitterSpy).toHaveBeenCalledWith(
             raffleId,
             expect.objectContaining({
-                seed: expect.any(Buffer),
-                proof: expect.any(Buffer),
+                seed: expect.any(String),
+                proof: expect.any(String),
             })
         );
     }, E2E_TEST_TIMEOUT);
