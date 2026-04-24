@@ -9,6 +9,7 @@ import { rpc } from "@stellar/stellar-sdk";
 import { CursorManagerService } from "./cursor-manager.service";
 import { EventParserService } from "./event-parser.service";
 import { DryRunService } from "./dry-run.service";
+import { MetricsService } from "../metrics/metrics.service";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -28,6 +29,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     private cursorManager: CursorManagerService,
     private eventParser: EventParserService,
     private dryRun: DryRunService,
+    private metrics: MetricsService,
   ) {
     const rpcUrl =
       this.configService.get<string>("SOROBAN_RPC_URL") ||
@@ -66,6 +68,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
           `Error polling events: ${error instanceof Error ? error.message : String(error)}`,
         );
         // Failure: backoff before retrying
+        this.metrics.incrementErrors();
         await this.sleep(this.RETRY_BACKOFF_MS);
       }
     }
@@ -143,6 +146,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
           lastPagingToken,
         );
       }
+      this.metrics.incrementEventsProcessed(response.events.length);
     }
   }
 

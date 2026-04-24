@@ -8,6 +8,7 @@ import { IngestorModule } from "./ingestor/ingestor.module";
 import { HealthModule } from "./health/health.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { ApiModule } from "./api/api.module";
+import { MetricsModule } from "./metrics/metrics.module";
 
 @Module({
   imports: [
@@ -31,6 +32,8 @@ import { ApiModule } from "./api/api.module";
     HealthModule,
     // Internal REST API (raffles, users, leaderboard, stats)
     ApiModule,
+    // Prometheus metrics exporter
+    MetricsModule,
   ],
   controllers: [],
 })
