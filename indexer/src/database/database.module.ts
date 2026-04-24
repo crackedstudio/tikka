@@ -7,6 +7,7 @@ import { TicketEntity } from "./entities/ticket.entity";
 import { UserEntity } from "./entities/user.entity";
 import { RaffleEventEntity } from "./entities/raffle-event.entity";
 import { PlatformStatEntity } from "./entities/platform-stat.entity";
+import { PlatformStateEntity } from "./entities/platform-state.entity";
 import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
 
 /**
@@ -33,6 +34,7 @@ import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
           UserEntity,
           RaffleEventEntity,
           PlatformStatEntity,
+          PlatformStateEntity,
           IndexerCursorEntity,
         ],
         migrations: [__dirname + "/migrations/*{.ts,.js}"],
@@ -47,6 +49,7 @@ import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
       UserEntity,
       RaffleEventEntity,
       PlatformStatEntity,
+      PlatformStateEntity,
       IndexerCursorEntity,
     ]),
   ],

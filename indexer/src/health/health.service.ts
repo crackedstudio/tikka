@@ -11,6 +11,7 @@ export interface HealthResult {
   lag_ledgers: number | null;
   db: 'ok' | 'error';
   redis: 'ok' | 'error';
+  redis_latency_ms: number | null;
 }
 
 @Injectable()
@@ -35,15 +36,15 @@ export class HealthService {
   }
 
   async getHealth(): Promise<HealthResult> {
-    const [dbOk, redisOk, latestLedger, cursor] = await Promise.all([
+    const [dbOk, redisLatency, latestLedger, cursor] = await Promise.all([
       this.checkDb(),
-      this.checkRedis(),
+      this.cacheService.latency(),
       this.fetchLatestLedger(),
       this.cursorManager.getCursor(),
     ]);
 
     const db: 'ok' | 'error' = dbOk ? 'ok' : 'error';
-    const redis: 'ok' | 'error' = redisOk ? 'ok' : 'error';
+    const redis: 'ok' | 'error' = redisLatency !== null ? 'ok' : 'error';
 
     let lag_ledgers: number | null = null;
     if (latestLedger != null && cursor != null && cursor.lastLedger > 0) {
@@ -55,7 +56,7 @@ export class HealthService {
     const status: 'ok' | 'degraded' =
       db === 'error' || redis === 'error' || degradedByLag ? 'degraded' : 'ok';
 
-    return { status, lag_ledgers, db, redis };
+    return { status, lag_ledgers, db, redis, redis_latency_ms: redisLatency };
   }
 
   private async checkDb(): Promise<boolean> {
@@ -66,10 +67,6 @@ export class HealthService {
     } catch {
       return false;
     }
-  }
-
-  private async checkRedis(): Promise<boolean> {
-    return this.cacheService.ping();
   }
 
   /**

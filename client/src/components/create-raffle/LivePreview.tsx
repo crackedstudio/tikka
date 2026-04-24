@@ -22,12 +22,31 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
 
             {/* Raffle Image */}
             <div className="mb-4">
-                {formData.image ? (
-                    <img
-                        src={URL.createObjectURL(formData.image)}
-                        alt="Raffle prize"
-                        className="w-full h-48 object-cover rounded-lg border-2 border-yellow-400"
-                    />
+                {formData.images.length > 0 ? (
+                    <div className="space-y-2">
+                        <img
+                            src={URL.createObjectURL(formData.images[0])}
+                            alt="Raffle prize"
+                            className="w-full h-48 object-cover rounded-lg border-2 border-yellow-400"
+                        />
+                        {formData.images.length > 1 && (
+                            <div className="flex gap-2 overflow-x-auto">
+                                {formData.images.slice(1, 4).map((img, idx) => (
+                                    <img
+                                        key={idx}
+                                        src={URL.createObjectURL(img)}
+                                        alt={`Prize ${idx + 2}`}
+                                        className="w-16 h-16 object-cover rounded border border-gray-500"
+                                    />
+                                ))}
+                                {formData.images.length > 4 && (
+                                    <div className="w-16 h-16 bg-gray-700 rounded flex items-center justify-center text-white text-xs">
+                                        +{formData.images.length - 4}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <div className="w-full h-48 bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-500">
                         <svg

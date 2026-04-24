@@ -44,7 +44,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
             {/* Clickable content area - links to details page */}
             {raffleId ? (
                 <Link
-                    to={`/details?raffle=${raffleId}`}
+                    to={`/raffles/${raffleId}`}
                     className="flex flex-col space-y-4 cursor-pointer hover:opacity-90 transition-opacity"
                 >
                     {/* Image */}

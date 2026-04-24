@@ -7,6 +7,9 @@
         "dev": "vite",
         "build": "tsc -b && vite build",
         "lint": "eslint .",
+        "test": "vitest --run",
+        "test:unit": "vitest --run",
+        "test:e2e": "playwright test",
         "preview": "vite preview",
         "validate-env": "node scripts/validate-env.js",
         "test:e2e": "playwright test",
@@ -22,11 +25,16 @@
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "react-router-dom": "^7.9.2",
+        "recharts": "^3.8.1",
+        "swiper": "^11.2.10",
         "tailwindcss": "^4.1.13"
     },
     "devDependencies": {
         "@playwright/test": "^1.50.0",
         "@eslint/js": "^9.33.0",
+        "@playwright/test": "^1.43.0",
+        "@testing-library/jest-dom": "^5.16.5",
+        "@testing-library/react": "^13.4.0",
         "@types/node": "^25.0.9",
         "@types/react": "^19.1.10",
         "@types/react-dom": "^19.1.7",
@@ -35,8 +43,11 @@
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
         "globals": "^16.3.0",
+        "jsdom": "^22.1.0",
+        "react-hook-form": "^7.72.0",
         "typescript": "~5.8.3",
         "typescript-eslint": "^8.39.1",
-        "vite": "^7.1.2"
+        "vite": "^7.1.2",
+        "vitest": "^1.4.1"
     }
 }

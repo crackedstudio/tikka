@@ -1,64 +1,49 @@
 import { Eye } from "lucide-react";
-import ps5 from "../../assets/ps5.png";
 
 import RecentlyAddedCard from "../cards/RecentlyAddedCard";
 import VerifiedBadge from "../VerifiedBadge";
+import { useRaffles, useRaffle } from "../../hooks/useRaffles";
+
+const RecentlyAddedCardWrapper: React.FC<{ raffleId: number }> = ({
+    raffleId,
+}) => {
+    const { raffle, isLoading, error } = useRaffle(raffleId);
+
+    if (isLoading) {
+        return (
+            <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4 animate-pulse">
+                <div className="w-full h-48 bg-gray-700 rounded-3xl"></div>
+                <div className="h-4 bg-gray-700 rounded"></div>
+                <div className="h-4 bg-gray-700 rounded"></div>
+                <div className="h-8 bg-gray-700 rounded"></div>
+            </div>
+        );
+    }
+
+    if (error || !raffle) {
+        return (
+            <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
+                <div className="text-red-400 text-center text-sm">
+                    Error loading raffle
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <RecentlyAddedCard
+            image={raffle.image}
+            title={raffle.metadata.title}
+            countdown={raffle.countdown}
+            ticketPrice={raffle.ticketPriceFormatted}
+            entries={raffle.entries}
+            progress={raffle.progress}
+        />
+    );
+};
 
 const RecentlyAdded = () => {
-    const recentlyAddedList = [
-        {
-            image: ps5,
-            title: "PS5 Pro Bundle",
-            countdown: {
-                days: "01",
-                hours: "12",
-                minutes: "45",
-                seconds: "33",
-            },
-            ticketPrice: "0.01 ETH",
-            entries: 335,
-            progress: 50,
-        },
-        {
-            image: ps5,
-            title: "PS5 Pro Bundle",
-            countdown: {
-                days: "01",
-                hours: "12",
-                minutes: "45",
-                seconds: "33",
-            },
-            ticketPrice: "0.01 ETH",
-            entries: 335,
-            progress: 50,
-        },
-        {
-            image: ps5,
-            title: "PS5 Pro Bundle",
-            countdown: {
-                days: "01",
-                hours: "12",
-                minutes: "45",
-                seconds: "33",
-            },
-            ticketPrice: "0.01 ETH",
-            entries: 335,
-            progress: 50,
-        },
-        {
-            image: ps5,
-            title: "PS5 Pro Bundle",
-            countdown: {
-                days: "01",
-                hours: "12",
-                minutes: "45",
-                seconds: "33",
-            },
-            ticketPrice: "0.01 ETH",
-            entries: 335,
-            progress: 50,
-        },
-    ];
+    const { raffles, isLoading, error } = useRaffles({ limit: 4 });
 
     return (
         <section className="w-full">
@@ -77,17 +62,38 @@ const RecentlyAdded = () => {
 
                 {/* Grid */}
                 <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                    {recentlyAddedList.map((raffle, index) => (
-                        <RecentlyAddedCard
-                            key={index}
-                            image={raffle.image}
-                            title={raffle.title}
-                            countdown={raffle.countdown}
-                            ticketPrice={raffle.ticketPrice}
-                            entries={raffle.entries}
-                            progress={raffle.progress}
-                        />
-                    ))}
+                    {isLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4 animate-pulse"
+                            >
+                                <div className="w-full h-48 bg-gray-700 rounded-3xl"></div>
+                                <div className="h-4 bg-gray-700 rounded"></div>
+                                <div className="h-4 bg-gray-700 rounded"></div>
+                                <div className="h-8 bg-gray-700 rounded"></div>
+                            </div>
+                        ))
+                    ) : error ? (
+                        <div className="col-span-full text-center py-12">
+                            <div className="text-red-400 text-lg">
+                                Error loading raffles: {error.message}
+                            </div>
+                        </div>
+                    ) : raffles.length === 0 ? (
+                        <div className="col-span-full text-center py-12">
+                            <div className="text-white text-lg">
+                                No raffles found yet
+                            </div>
+                        </div>
+                    ) : (
+                        raffles.map((raffle) => (
+                            <RecentlyAddedCardWrapper
+                                key={raffle.id}
+                                raffleId={raffle.id}
+                            />
+                        ))
+                    )}
                 </div>
 
                 <VerifiedBadge />

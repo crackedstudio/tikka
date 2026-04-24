@@ -48,6 +48,21 @@ export interface IndexerUserData {
   updated_at: string;
 }
 
+export interface IndexerUserHistoryItem {
+  raffle_id: number;
+  status: string;
+  tickets_bought: number;
+  purchased_at_ledger: number;
+  purchase_tx_hash: string;
+  prize_amount: string | null;
+  is_winner: boolean;
+}
+
+export interface IndexerUserHistoryResponse {
+  items: IndexerUserHistoryItem[];
+  total: number;
+}
+
 export interface IndexerLeaderboardEntry {
   address: string;
   total_tickets?: number;
@@ -58,6 +73,13 @@ export interface IndexerLeaderboardEntry {
 
 export interface IndexerLeaderboardResponse {
   entries: IndexerLeaderboardEntry[];
+}
+
+export type LeaderboardSortBy = 'wins' | 'volume' | 'tickets';
+
+export interface IndexerLeaderboardFilters {
+  by?: LeaderboardSortBy;
+  limit?: number;
 }
 
 export interface IndexerPlatformStats {
@@ -169,9 +191,33 @@ export class IndexerService {
     return this.fetchOrNull<IndexerUserData>(`/users/${encoded}`);
   }
 
-  /** Get leaderboard entries. */
-  async getLeaderboard(): Promise<IndexerLeaderboardResponse> {
-    return this.fetch<IndexerLeaderboardResponse>('/leaderboard');
+  /** Get paginated raffle participation history for a user. */
+  async getUserHistory(
+    address: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<IndexerUserHistoryResponse> {
+    const encoded = encodeURIComponent(address);
+    const params = new URLSearchParams();
+    if (limit != null) params.set('limit', String(limit));
+    if (offset != null) params.set('offset', String(offset));
+    const query = params.toString();
+    const path = query
+      ? `/users/${encoded}/history?${query}`
+      : `/users/${encoded}/history`;
+    return this.fetch<IndexerUserHistoryResponse>(path);
+  }
+
+  /** Get leaderboard entries sorted by wins, volume, or tickets. */
+  async getLeaderboard(
+    filters: IndexerLeaderboardFilters = {},
+  ): Promise<IndexerLeaderboardResponse> {
+    const params = new URLSearchParams();
+    if (filters.by) params.set('by', filters.by);
+    if (filters.limit != null) params.set('limit', String(filters.limit));
+    const query = params.toString();
+    const path = query ? `/leaderboard?${query}` : '/leaderboard';
+    return this.fetch<IndexerLeaderboardResponse>(path);
   }
 
   /** Get platform-wide aggregate stats. */

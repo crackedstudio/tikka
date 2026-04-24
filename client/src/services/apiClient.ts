@@ -1,31 +1,31 @@
 /**
  * API Client
- * 
+ *
  * Centralized HTTP client with automatic JWT token injection
  * All protected API calls should use this client
  */
 
-import { API_CONFIG } from '../config/api';
+import { API_CONFIG } from "../config/api";
 
 /**
  * Get the stored JWT token
  */
 export function getToken(): string | null {
-  return sessionStorage.getItem('tikka_auth_token');
+  return sessionStorage.getItem("tikka_auth_token");
 }
 
 /**
  * Store the JWT token
  */
 export function setToken(token: string): void {
-  sessionStorage.setItem('tikka_auth_token', token);
+  sessionStorage.setItem("tikka_auth_token", token);
 }
 
 /**
  * Clear the JWT token
  */
 export function clearToken(): void {
-  sessionStorage.removeItem('tikka_auth_token');
+  sessionStorage.removeItem("tikka_auth_token");
 }
 
 export interface RequestOptions extends RequestInit {
@@ -38,25 +38,27 @@ export interface RequestOptions extends RequestInit {
  */
 export async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<T> {
   const { requiresAuth = false, headers = {}, ...fetchOptions } = options;
-  
-  const url = endpoint.startsWith('http') 
-    ? endpoint 
+
+  const url = endpoint.startsWith("http")
+    ? endpoint
     : `${API_CONFIG.baseUrl}${endpoint}`;
 
+  const isFormData = fetchOptions.body instanceof FormData;
+
   const requestHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(headers as Record<string, string>),
   };
 
   // Add Authorization header if token exists
   const token = getToken();
   if (token) {
-    requestHeaders['Authorization'] = `Bearer ${token}`;
+    requestHeaders["Authorization"] = `Bearer ${token}`;
   } else if (requiresAuth) {
-    throw new Error('Authentication required');
+    throw new Error("Authentication required");
   }
 
   const response = await fetch(url, {
@@ -68,18 +70,18 @@ export async function apiRequest<T = any>(
     // Handle 401 Unauthorized - clear token and throw
     if (response.status === 401) {
       clearToken();
-      throw new Error('Unauthorized - please sign in again');
+      throw new Error("Unauthorized - please sign in again");
     }
 
-    const error = await response.json().catch(() => ({ 
-      message: `Request failed with status ${response.status}` 
+    const error = await response.json().catch(() => ({
+      message: `Request failed with status ${response.status}`,
     }));
-    throw new Error(error.message || 'Request failed');
+    throw new Error(error.message || "Request failed");
   }
 
   // Handle empty responses
-  const contentType = response.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
     return {} as T;
   }
 
@@ -91,22 +93,32 @@ export async function apiRequest<T = any>(
  */
 export const api = {
   get: <T = any>(endpoint: string, options?: RequestOptions) =>
-    apiRequest<T>(endpoint, { ...options, method: 'GET' }),
+    apiRequest<T>(endpoint, { ...options, method: "GET" }),
 
   post: <T = any>(endpoint: string, data?: any, options?: RequestOptions) =>
     apiRequest<T>(endpoint, {
       ...options,
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      method: "POST",
+      body:
+        data instanceof FormData
+          ? data
+          : data
+            ? JSON.stringify(data)
+            : undefined,
     }),
 
   put: <T = any>(endpoint: string, data?: any, options?: RequestOptions) =>
     apiRequest<T>(endpoint, {
       ...options,
-      method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      method: "PUT",
+      body:
+        data instanceof FormData
+          ? data
+          : data
+            ? JSON.stringify(data)
+            : undefined,
     }),
 
   delete: <T = any>(endpoint: string, options?: RequestOptions) =>
-    apiRequest<T>(endpoint, { ...options, method: 'DELETE' }),
+    apiRequest<T>(endpoint, { ...options, method: "DELETE" }),
 };

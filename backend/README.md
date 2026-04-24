@@ -118,12 +118,31 @@ done
 
 ## Structure
 
-- `src/api/rest/` — raffles, users, leaderboard, stats, search, notifications
-- `src/auth/` — SIWS (nonce, verify), JWT strategy, guards
-- `src/services/` — metadata, storage, indexer client, notifications, search
-- `src/middleware/` — rate limit, validation (Zod), CORS
-- `src/config/` — env configuration
+- `src/api/rest/` - raffles, users, leaderboard, stats, search, notifications
+- `src/auth/` - SIWS (nonce, verify), JWT strategy, guards
+- `src/services/` - metadata, storage, indexer client, notifications, search
+- `src/middleware/` - rate limit, validation (Zod), CORS
+- `src/config/` - env configuration
 
 ## Architecture
 
-Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section 4 — tikka-backend).
+Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section 4 - tikka-backend).
+
+## Image upload endpoint
+
+- `POST /raffles/upload-image`
+- Auth: Bearer token required
+- Content type: `multipart/form-data`
+- File field: first uploaded file part
+- Optional field: `raffleId` (used in storage path)
+- Response: `{ "url": "https://..." }`
+
+### Upload limits
+
+- Max file size: `5 MB` (`5242880` bytes)
+- Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`
+
+### Required environment variables
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`

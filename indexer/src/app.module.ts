@@ -6,6 +6,7 @@ import databaseConfig from "./config/database.config";
 import { DatabaseModule } from "./database/database.module";
 import { IngestorModule } from "./ingestor/ingestor.module";
 import { HealthModule } from "./health/health.module";
+import { MetricsModule } from "./metrics/metrics.module";
 
 @Module({
   imports: [
@@ -26,6 +27,8 @@ import { HealthModule } from "./health/health.module";
     ProcessorsModule,
     // Health endpoint (lag, DB, Redis)
     HealthModule,
+    // Prometheus metrics exporter
+    MetricsModule,
   ],
   controllers: [],
 })
