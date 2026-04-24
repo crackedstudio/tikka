@@ -45,7 +45,6 @@ export class WebhookService {
           },
           removeOnComplete: 10,
           removeOnFail: 50,
-          timeout: 30000, // 30s for slow receivers
         },
       );
       this.logger.log(

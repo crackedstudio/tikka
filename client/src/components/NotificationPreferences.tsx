@@ -1,13 +1,18 @@
 /**
  * NotificationPreferences Component
  *
- * Displays and manages user's notification subscriptions
- * Shows all active subscriptions with ability to unsubscribe
+ * Displays and manages the user's active notification subscriptions.
+ * Shown in the Settings page under the Notifications tab.
  */
 
 import { useEffect, useState } from 'react';
-import { Bell, Trash2, AlertCircle } from 'lucide-react';
-import { getUserSubscriptions, unsubscribeFromRaffle, type UserSubscription } from '../services/notificationService';
+import { Bell, Trash2, AlertCircle, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  getUserSubscriptions,
+  unsubscribeFromRaffle,
+  type UserSubscription,
+} from '../services/notificationService';
 import { useAuthContext } from '../providers/AuthProvider';
 
 export default function NotificationPreferences() {
@@ -40,11 +45,11 @@ export default function NotificationPreferences() {
     }
   };
 
-  const handleUnsubscribe = async (raffleId: number, subscriptionId: string) => {
+  const handleUnsubscribe = async (subscription: UserSubscription) => {
     try {
-      setRemovingId(subscriptionId);
-      await unsubscribeFromRaffle(raffleId);
-      setSubscriptions(prev => prev.filter(sub => sub.id !== subscriptionId));
+      setRemovingId(subscription.id);
+      await unsubscribeFromRaffle(subscription.raffleId);
+      setSubscriptions((prev) => prev.filter((s) => s.id !== subscription.id));
     } catch (err) {
       console.error('Error unsubscribing:', err);
       setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
@@ -92,6 +97,7 @@ export default function NotificationPreferences() {
           <div className="flex-1">
             <p className="text-red-400 text-sm">{error}</p>
             <button
+              type="button"
               onClick={() => setError(null)}
               className="text-red-300 text-xs underline hover:no-underline mt-1"
             >
@@ -102,9 +108,9 @@ export default function NotificationPreferences() {
       )}
 
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Active Subscriptions</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Active Subscriptions</h3>
         <p className="text-gray-400 text-sm">
-          You'll receive notifications when these raffles end or when you win.
+          You'll be notified when these raffles end or when you win.
         </p>
       </div>
 
@@ -113,7 +119,7 @@ export default function NotificationPreferences() {
           <Bell className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400 mb-2">No active subscriptions</p>
           <p className="text-gray-500 text-sm">
-            Subscribe to raffles to receive notifications when they end or when you win.
+            Visit a raffle and click "Notify Me" to subscribe.
           </p>
         </div>
       ) : (
@@ -121,32 +127,60 @@ export default function NotificationPreferences() {
           {subscriptions.map((subscription) => (
             <div
               key={subscription.id}
-              className="bg-gray-100 dark:bg-[#1A2238] rounded-xl p-4 flex items-center justify-between hover:bg-[#1F2847] transition-colors"
+              className="bg-gray-100 dark:bg-[#1A2238] rounded-xl p-4 flex items-center justify-between gap-4"
             >
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <Bell className="w-5 h-5 text-purple-400" />
-                  <div>
-                    <p className="text-gray-900 dark:text-white font-medium">Raffle #{subscription.raffleId}</p>
-                    <p className="text-gray-400 text-sm">
-                      Channel: {subscription.channel} • Subscribed on{' '}
-                      {new Date(subscription.createdAt).toLocaleDateString()}
+              <div className="flex items-center gap-3 min-w-0">
+                <Bell className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-gray-900 dark:text-white font-medium">
+                      Raffle #{subscription.raffleId}
                     </p>
+                    <span
+                      className={`
+                        text-xs px-2 py-0.5 rounded-full font-medium
+                        ${
+                          subscription.channel === 'push'
+                            ? 'bg-blue-500/15 text-blue-400'
+                            : 'bg-purple-500/15 text-purple-400'
+                        }
+                      `}
+                    >
+                      {subscription.channel}
+                    </span>
                   </div>
+                  <p className="text-gray-400 text-sm">
+                    Subscribed {new Date(subscription.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => handleUnsubscribe(subscription.raffleId, subscription.id)}
-                disabled={removingId === subscription.id}
-                className="ml-4 p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Unsubscribe"
-              >
-                {removingId === subscription.id ? (
-                  <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Trash2 className="w-5 h-5" />
-                )}
-              </button>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Link
+                  to={`/raffles/${subscription.raffleId}`}
+                  className="p-2 rounded-lg bg-gray-200 dark:bg-[#1F2847] hover:bg-gray-300 dark:hover:bg-[#252E50]
+                    text-gray-500 dark:text-gray-400 transition-colors"
+                  title="View raffle"
+                  aria-label={`View raffle #${subscription.raffleId}`}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleUnsubscribe(subscription)}
+                  disabled={removingId === subscription.id}
+                  className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400
+                    transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Unsubscribe"
+                  aria-label={`Unsubscribe from raffle #${subscription.raffleId}`}
+                >
+                  {removingId === subscription.id ? (
+                    <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -154,8 +188,8 @@ export default function NotificationPreferences() {
 
       <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
         <p className="text-blue-300 text-sm">
-          <strong>Note:</strong> Notifications are sent when a raffle ends or when you win. Make sure to check your email
-          and enable push notifications in your browser settings.
+          Notifications are sent when a raffle ends or when you win. Make sure your email is
+          reachable and push notifications are enabled in your browser.
         </p>
       </div>
     </div>

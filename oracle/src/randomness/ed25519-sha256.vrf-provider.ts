@@ -26,9 +26,11 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
 
   async compute(requestId: string): Promise<RandomnessResult> {
     const msg = Buffer.from(requestId, 'utf-8');
-    const privateKey = this.keyService.getSecretBuffer();
-    const proof = ed25519.sign(msg, privateKey);
+    
+    // Use KeyService.sign() for HSM compatibility
+    const proof = await this.keyService.sign(msg);
     const seed = crypto.createHash('sha256').update(proof).digest();
+    
     return {
       seed: Buffer.from(seed).toString('hex'),
       proof: Buffer.from(proof).toString('hex'),

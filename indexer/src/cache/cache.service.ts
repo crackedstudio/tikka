@@ -13,7 +13,7 @@ type CacheStats = {
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
-  private redis: Redis.Redis;
+  private redis: any;
 
   private readonly MEM_WARN_THRESHOLD = 80;
   private readonly MEM_CRIT_THRESHOLD = 90;
@@ -185,11 +185,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
   async getMemoryUsage(): Promise<{ usedMemory: number; maxMemory: number; usagePercent: number }> {
     const info = await this.redis.info('memory');
-    const parsed = info
+    const parsed: Record<string, string> = info
       .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('#'))
-      .reduce<Record<string, string>>((acc, line) => {
+      .map((line: string) => line.trim())
+      .filter((line: string) => line && !line.startsWith('#'))
+      .reduce((acc: Record<string, string>, line: string) => {
         const [k, v] = line.split(':');
         if (k && v) acc[k] = v;
         return acc;
@@ -241,68 +241,5 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       users: this.getCacheHitRate('users'),
       others: this.getCacheHitRate('others'),
     };
-  }
-}
-
-  
-  async getActiveRaffles(): Promise<any | null> {
-    return this.get('raffle:active');
-  }
-
-  async setActiveRaffles(raffles: any): Promise<void> {
-    await this.set('raffle:active', raffles, this.TTLS.ACTIVE_RAFFLES);
-  }
-
-  async invalidateActiveRaffles(): Promise<void> {
-    await this.del('raffle:active');
-  }
-
-  
-  async getRaffleDetail(id: string): Promise<any | null> {
-    return this.get(`raffle:${id}`);
-  }
-
-  async setRaffleDetail(id: string, detail: any): Promise<void> {
-    await this.set(`raffle:${id}`, detail, this.TTLS.RAFFLE_DETAIL);
-  }
-
-  async invalidateRaffleDetail(id: string): Promise<void> {
-    await this.del(`raffle:${id}`);
-  }
-
-  async getLeaderboard(): Promise<any | null> {
-    return this.get('leaderboard');
-  }
-
-  async setLeaderboard(leaderboard: any): Promise<void> {
-    await this.set('leaderboard', leaderboard, this.TTLS.LEADERBOARD);
-  }
-
-  async invalidateLeaderboard(): Promise<void> {
-    await this.del('leaderboard');
-  }
-
-  async getUserProfile(address: string): Promise<any | null> {
-    return this.get(`user:${address}`);
-  }
-
-  async setUserProfile(address: string, profile: any): Promise<void> {
-    await this.set(`user:${address}`, profile, this.TTLS.USER_PROFILE);
-  }
-
-  async invalidateUserProfile(address: string): Promise<void> {
-    await this.del(`user:${address}`);
-  }
-
-  async getPlatformStats(): Promise<any | null> {
-    return this.get('stats:platform');
-  }
-
-  async setPlatformStats(stats: any): Promise<void> {
-    await this.set('stats:platform', stats, this.TTLS.PLATFORM_STATS);
-  }
-
-  async invalidatePlatformStats(): Promise<void> {
-    await this.del('stats:platform');
   }
 }

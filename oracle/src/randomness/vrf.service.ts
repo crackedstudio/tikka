@@ -36,8 +36,8 @@ export class VrfService {
    * Used in single-oracle mode.
    */
   async compute(requestId: string): Promise<RandomnessResult> {
-    const privateKey = this.keyService.getSecretBuffer();
-    return this.computeWithKey(requestId, privateKey);
+    // Delegate to the Ed25519 provider which now uses KeyService.sign()
+    return this.ed25519Provider.compute(requestId);
   }
 
   /**
@@ -45,6 +45,8 @@ export class VrfService {
    * Core VRF computation:
    *   proof = ed25519.sign(requestId, privateKey)
    *   seed  = SHA-256(proof)
+   * 
+   * @deprecated This method exposes raw private keys. Use compute() instead.
    */
   computeWithKey(requestId: string, privateKey: Buffer): RandomnessResult {
     this.logger.debug(`Computing VRF for requestId=${requestId}`);

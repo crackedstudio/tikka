@@ -176,6 +176,7 @@ export class PushNotificationService {
       await this.client
         .from(TABLE)
         .delete()
+        .eq('user_address', userAddress)
         .in('device_token', invalidTokens);
 
       this.logger.log(`Removed ${invalidTokens.length} stale FCM token(s)`);
