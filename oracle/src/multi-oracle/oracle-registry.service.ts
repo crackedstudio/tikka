@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Keypair } from 'stellar-sdk';
+import { KeyService } from '../keys/key.service';
 import { 
   OracleConfig, 
   OracleRegistryEntry, 
@@ -20,7 +21,10 @@ export class OracleRegistryService implements OnModuleInit {
   private readonly ORACLE_CONFIG_SEPARATOR = ',';
   private readonly ORACLE_ENTRY_SEPARATOR = ':';
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly keyService: KeyService,
+  ) {}
 
   onModuleInit() {
     this.initializeOracles();
@@ -39,19 +43,13 @@ export class OracleRegistryService implements OnModuleInit {
     this.initializeMultiOracles();
   }
 
-  private initializeSingleOracle(): void {
-    const secret = this.configService.get<string>('ORACLE_PRIVATE_KEY');
-    
-    if (!secret) {
-      throw new Error('ORACLE_PRIVATE_KEY is required');
-    }
-
-    const keypair = Keypair.fromSecret(secret);
+  private async initializeSingleOracle(): Promise<void> {
+    const publicKey = await this.keyService.getPublicKey();
     const oracleId = 'oracle-001';
     
     this.oracles.set(oracleId, {
       id: oracleId,
-      publicKey: keypair.publicKey(),
+      publicKey: publicKey,
       weight: 1,
       isActive: true,
     });
@@ -59,7 +57,7 @@ export class OracleRegistryService implements OnModuleInit {
     this.localOracleId = oracleId;
     this.threshold = 1;
     
-    this.logger.log(`Single oracle mode initialized: ${oracleId} (${keypair.publicKey()})`);
+    this.logger.log(`Single oracle mode initialized: ${oracleId} (${publicKey})`);
   }
 
   private initializeMultiOracles(): void {
@@ -153,7 +151,8 @@ export class OracleRegistryService implements OnModuleInit {
 
   getLocalPrivateKey(): string | undefined {
     if (this.mode === MultiOracleMode.SINGLE) {
-      return this.configService.get<string>('ORACLE_PRIVATE_KEY');
+      return this.configService.get<string>('ORACLE_SECRET_KEY') || 
+             this.configService.get<string>('ORACLE_PRIVATE_KEY');
     }
     
     const oracleSecretsRaw = this.configService.get<string>('ORACLE_SECRETS', '');

@@ -71,8 +71,11 @@ export class VrfService {
       throw new Error(`Oracle not found: ${oracleId}`);
     }
 
-    const privateKey = this.oracleRegistry.getLocalKeypair().rawSecretKey();
-    return this.computeWithKey(requestId, privateKey);
+    if (oracleId === this.oracleRegistry.getLocalOracleId()) {
+      return this.compute(requestId);
+    }
+
+    throw new Error('computeForOracle only supported for local oracle in multi-oracle mode currently');
   }
 
   /**

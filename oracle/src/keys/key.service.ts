@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { KeyProvider } from './key-provider.interface';
 import { KeyProviderFactory } from './key-provider.factory';
 import { EnvKeyProvider } from './providers/env-key.provider';
+import * as StellarSdk from 'stellar-sdk';
 
 /**
  * KeyService — manages the oracle's Ed25519 keypair using pluggable providers.
@@ -88,6 +89,18 @@ export class KeyService implements OnModuleInit {
    */
   async sign(data: Buffer): Promise<Buffer> {
     return this.provider.sign(data);
+  }
+
+  /**
+   * Signs a Stellar Transaction or FeeBumpTransaction.
+   * This method is provider-agnostic and works with both Env and HSM providers.
+   * 
+   * @param tx The transaction to sign
+   */
+  async signTransaction(tx: StellarSdk.Transaction | StellarSdk.FeeBumpTransaction): Promise<void> {
+    const publicKey = await this.getPublicKey();
+    const signature = await this.sign(tx.hash());
+    tx.addSignature(publicKey, signature.toString('base64'));
   }
 
   /**

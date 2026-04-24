@@ -239,7 +239,7 @@ See [RESCUE_GUIDE.md](./RESCUE_GUIDE.md) for detailed usage and [ON_CALL_TROUBLE
 **Development (Insecure):**
 ```bash
 KEY_PROVIDER=env
-ORACLE_PRIVATE_KEY=S...
+ORACLE_SECRET_KEY=S... # or ORACLE_PRIVATE_KEY
 ```
 
 **Production (Secure):**

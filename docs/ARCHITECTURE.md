@@ -615,7 +615,7 @@ This prevents the oracle from observing ticket purchases after committing, elimi
 | **Non-manipulability** | Oracle cannot choose the seed — it's deterministic from input |
 | **Front-running resistance** | Commit-reveal: oracle commits before end_time, reveals after |
 | **Liveness** | Bull queue with retry; fallback alert if reveal not submitted within N ledgers |
-| **Key security** | Oracle keypair stored in HSM or secrets manager (not in env) |
+| **Key security** | Oracle keypair managed by `KeyService` with pluggable providers (HSM, Secrets Manager, or Env) |
 
 ### Oracle Monitoring
 

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from 'stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
 import { FeeEstimatorService } from './fee-estimator.service';
+import { KeyService } from '../keys/key.service';
 
 export interface SubmitResult {
   txHash: string;
@@ -20,7 +21,6 @@ export class TxSubmitterService {
 
   private readonly contractId: string;
   private readonly networkPassphrase: string;
-  private readonly oracleSecret: string;
 
   private readonly MAX_RETRIES = 5;
   private readonly INITIAL_BACKOFF_MS = 1000;
@@ -30,6 +30,7 @@ export class TxSubmitterService {
   constructor(
     private readonly configService: ConfigService,
     private readonly feeEstimator: FeeEstimatorService,
+    private readonly keyService: KeyService,
   ) {
     const primary =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
@@ -50,16 +51,9 @@ export class TxSubmitterService {
       this.configService.get<string>('NETWORK_PASSPHRASE') ||
       (StellarSdk as any).Networks?.TESTNET ||
       'Test SDF Network ; September 2015';
-    this.oracleSecret =
-      this.configService.get<string>('ORACLE_SECRET_KEY') ||
-      this.configService.get<string>('ORACLE_SECRET') ||
-      '';
 
     if (!this.contractId) {
       this.logger.warn('RAFFLE_CONTRACT_ID not configured; TxSubmitter will fail to submit.');
-    }
-    if (!this.oracleSecret) {
-      this.logger.warn('ORACLE_SECRET_KEY not configured; TxSubmitter cannot sign transactions.');
     }
   }
 
@@ -79,32 +73,30 @@ export class TxSubmitterService {
   }
 
   async submitCommitment(raffleId: number, commitment: string): Promise<SubmitResult> {
-    if (!this.contractId || !this.oracleSecret) {
-      this.logger.error('Missing configuration for TxSubmitter.');
+    if (!this.contractId) {
+      this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    const kp = (StellarSdk as any).Keypair.fromSecret(this.oracleSecret);
-    return this.submitContractCall(kp, 'commit_randomness', [
+    return this.submitContractCall('commit_randomness', [
       (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
       (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(commitment, 32)),
     ]);
   }
 
   async submitReveal(raffleId: number, secret: string, nonce: string): Promise<SubmitResult> {
-    if (!this.contractId || !this.oracleSecret) {
-      this.logger.error('Missing configuration for TxSubmitter.');
+    if (!this.contractId) {
+      this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    const kp = (StellarSdk as any).Keypair.fromSecret(this.oracleSecret);
-    return this.submitContractCall(kp, 'reveal_randomness', [
+    return this.submitContractCall('reveal_randomness', [
       (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
       (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(secret, 32)),
       (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(nonce, 16)),
     ]);
   }
 
-  private async submitContractCall(kp: any, method: string, args: any[]): Promise<SubmitResult> {
-    const publicKey = kp.publicKey();
+  private async submitContractCall(method: string, args: any[]): Promise<SubmitResult> {
+    const publicKey = await this.keyService.getPublicKey();
     let feeBump = 1;
     let attempt = 0;
     let lastError: any = null;
@@ -124,7 +116,7 @@ export class TxSubmitterService {
           .build();
 
         const prepared = await this.rpcServer.prepareTransaction(tx);
-        prepared.sign(kp);
+        await this.keyService.signTransaction(prepared);
 
         const sendRes = await this.rpcServer.sendTransaction(prepared);
         const txHash = sendRes.hash || sendRes?.transactionHash || '';
@@ -161,13 +153,12 @@ export class TxSubmitterService {
   }
 
   async submitRandomness(raffleId: number, randomness: RandomnessResult): Promise<SubmitResult> {
-    if (!this.contractId || !this.oracleSecret) {
-      this.logger.error('Missing configuration for TxSubmitter (contract id or oracle secret).');
+    if (!this.contractId) {
+      this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
 
-    const kp = (StellarSdk as any).Keypair.fromSecret(this.oracleSecret);
-    const publicKey = kp.publicKey();
+    const publicKey = await this.keyService.getPublicKey();
 
     let attempt = 0;
     let lastError: any = null;
@@ -186,7 +177,7 @@ export class TxSubmitterService {
       attempt++;
       try {
         const prepared = await this.buildPreparedTx(publicKey, raffleId, randomness, feeBump);
-        prepared.sign(kp);
+        await this.keyService.signTransaction(prepared);
 
         const sendRes = await this.rpcServer.sendTransaction(prepared);
         const txHash = sendRes.hash || sendRes?.transactionHash || '';
