@@ -128,7 +128,7 @@ export class RafflesController {
   async uploadImage(
     @Req() request: FastifyRequestWithMultipart,
     @CurrentUser("address") address: string,
-  ): Promise<{ url: string }> {
+  ): Promise<{ url: string; variantUrls: string[] }> {
     const file = await request.file();
     if (!file) {
       throw new BadRequestException("Image file is required");
@@ -156,7 +156,7 @@ export class RafflesController {
       uploaderId: address,
     });
 
-    return { url: upload.url };
+    return { url: upload.url, variantUrls: upload.variantUrls };
   }
 
   private extractRaffleId(file: MultipartFile): string {

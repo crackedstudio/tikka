@@ -34,9 +34,13 @@ describe('RafflesController — uploadImage', () => {
   beforeEach(async () => {
     storageService = {
       uploadRaffleImage: jest.fn().mockResolvedValue({
-        url: 'https://cdn.example.com/42/addr/uuid.png',
-        path: '42/addr/uuid.png',
+        url: 'https://cdn.example.com/42/addr/uuid.webp',
+        path: '42/addr/uuid.webp',
         bucket: 'raffle-images',
+        variantUrls: [
+          'https://cdn.example.com/42/addr/uuid-400w.webp',
+          'https://cdn.example.com/42/addr/uuid-800w.webp',
+        ],
       }),
     };
 
@@ -57,13 +61,49 @@ describe('RafflesController — uploadImage', () => {
 
     const result = await controller.uploadImage(request, 'GABC123');
 
-    expect(result).toEqual({ url: 'https://cdn.example.com/42/addr/uuid.png' });
+    expect(result).toEqual({
+      url: 'https://cdn.example.com/42/addr/uuid.webp',
+      variantUrls: [
+        'https://cdn.example.com/42/addr/uuid-400w.webp',
+        'https://cdn.example.com/42/addr/uuid-800w.webp',
+      ],
+    });
     expect(storageService.uploadRaffleImage).toHaveBeenCalledWith({
       fileBuffer: expect.any(Buffer),
       mimeType: 'image/png',
       raffleId: 'draft',
       uploaderId: 'GABC123',
     });
+  });
+
+  it('includes variantUrls in the upload response', async () => {
+    const file = createMockFile();
+    const request = createMockRequest(file);
+
+    const result = await controller.uploadImage(request, 'GABC123');
+
+    expect(result).toHaveProperty('variantUrls');
+    expect(Array.isArray(result.variantUrls)).toBe(true);
+    expect(result.variantUrls).toEqual([
+      'https://cdn.example.com/42/addr/uuid-400w.webp',
+      'https://cdn.example.com/42/addr/uuid-800w.webp',
+    ]);
+  });
+
+  it('returns empty variantUrls array when no variants were generated', async () => {
+    storageService.uploadRaffleImage.mockResolvedValueOnce({
+      url: 'https://cdn.example.com/42/addr/uuid.webp',
+      path: '42/addr/uuid.webp',
+      bucket: 'raffle-images',
+      variantUrls: [],
+    });
+
+    const file = createMockFile();
+    const request = createMockRequest(file);
+
+    const result = await controller.uploadImage(request, 'GABC123');
+
+    expect(result.variantUrls).toEqual([]);
   });
 
   it('extracts raffleId from multipart fields', async () => {

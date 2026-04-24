@@ -134,4 +134,30 @@ describe('env.schema validate()', () => {
     expect(result.STELLAR_CONTRACT_ID).toBe('CCONTRACTTEST1234567890123456789012');
     expect(result.STELLAR_HORIZON_URL).toBe('https://horizon-custom.example.com');
   });
+
+  // Sentry env var tests — Requirements 1.4, 1.5
+
+  it('parses successfully when SENTRY_DSN is absent (Sentry disabled path)', () => {
+    const { SENTRY_DSN: _, ...withoutDsn } = { ...validEnv, SENTRY_DSN: 'https://key@sentry.io/1' };
+    // validEnv does not include SENTRY_DSN, so just validate without it
+    const result = validate(validEnv);
+    expect(result.SENTRY_DSN).toBeUndefined();
+  });
+
+  it('coerces SENTRY_TRACES_SAMPLE_RATE to a number and defaults to 0.1 when absent', () => {
+    const result = validate(validEnv);
+    expect(result.SENTRY_TRACES_SAMPLE_RATE).toBe(0.1);
+
+    const resultWithRate = validate({ ...validEnv, SENTRY_TRACES_SAMPLE_RATE: '0.5' });
+    expect(resultWithRate.SENTRY_TRACES_SAMPLE_RATE).toBe(0.5);
+  });
+
+  it('rejects SENTRY_TRACES_SAMPLE_RATE values outside [0, 1]', () => {
+    expect(() => validate({ ...validEnv, SENTRY_TRACES_SAMPLE_RATE: '-0.1' })).toThrow(
+      'Environment validation failed',
+    );
+    expect(() => validate({ ...validEnv, SENTRY_TRACES_SAMPLE_RATE: '1.1' })).toThrow(
+      'Environment validation failed',
+    );
+  });
 });
