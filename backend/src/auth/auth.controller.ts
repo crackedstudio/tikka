@@ -16,7 +16,9 @@ import { createZodPipe } from "../api/rest/raffles/pipes/zod-validation.pipe";
 import {
   GetNonceQuerySchema,
   VerifyBodySchema,
+  RefreshBodySchema,
   VerifyBodyDto,
+  RefreshBodyDto,
 } from "./auth.schema";
 
 @ApiTags("Authentication")
@@ -64,6 +66,23 @@ export class AuthController {
     } catch (err) {
       throw new BadRequestException(
         err instanceof Error ? err.message : "Verification failed",
+      );
+    }
+  }
+
+  /**
+   * POST /auth/refresh — Exchange a refresh token for new tokens.
+   */
+  @Throttle({ auth: { limit: 30, ttl: 60000 } })
+  @Post("refresh")
+  @ApiOperation({ summary: "Exchange refresh token for new access + refresh tokens" })
+  @UsePipes(new (createZodPipe(RefreshBodySchema))())
+  async refresh(@Body() body: RefreshBodyDto) {
+    try {
+      return await this.authService.refresh(body.refreshToken);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Refresh failed",
       );
     }
   }
