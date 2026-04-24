@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useRaffle } from "../hooks/useRaffles";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import VerifiedBadge from "../components/VerifiedBadge";
+import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
 import {
     Ticket,
     Users,
@@ -16,7 +18,8 @@ import {
     User,
     Wallet,
     Calendar,
-    ExternalLink
+    ExternalLink,
+    Bell
 } from "lucide-react";
 import Line from "../assets/svg/Line";
 import detailimage from "../assets/detailimage.png";
@@ -309,6 +312,27 @@ const RafflePage = () => {
                             <p className="text-sm font-bold text-gray-900 dark:text-white">Provably Fair</p>
                             <p className="text-xs text-gray-500 leading-relaxed">Winner selection uses Soroban VRF for ultimate transparency and fairness.</p>
                         </div>
+                    </div>
+
+                    {/* Notification Subscription Card */}
+                    <div className="bg-white dark:bg-[#11172E]/50 border border-gray-200 dark:border-white/5 rounded-3xl p-6 space-y-4">
+                        <div className="flex items-center space-x-3">
+                            <div className="bg-purple-500/20 p-2 rounded-lg">
+                                <Bell className="w-5 h-5 text-purple-400" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">Stay Updated</p>
+                                <p className="text-xs text-gray-500">Get notified when this raffle ends or you win</p>
+                            </div>
+                        </div>
+                        <NotificationSubscribeButton
+                            raffleId={raffleId}
+                            onAuthRequired={() =>
+                                toast.info('Sign in required', {
+                                    description: 'Connect your wallet and sign in to subscribe to notifications.',
+                                })
+                            }
+                        />
                     </div>
                 </div>
             </div>
