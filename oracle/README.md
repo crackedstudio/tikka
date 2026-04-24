@@ -229,4 +229,44 @@ See [RESCUE_GUIDE.md](./RESCUE_GUIDE.md) for detailed usage and [ON_CALL_TROUBLE
 2. Implement Ed25519 VRF (e.g., using `@noble/curves`)
 3. Implement Soroban transaction building and signing
 4. Add integration tests against Stellar testnet
-5. Configure oracle keypair management (HSM/secrets)
+
+## Security: Key Management
+
+⚠️ **IMPORTANT:** The oracle now supports secure HSM-backed key management to eliminate the risk of exposing private keys in environment variables.
+
+### Quick Start
+
+**Development (Insecure):**
+```bash
+KEY_PROVIDER=env
+ORACLE_PRIVATE_KEY=S...
+```
+
+**Production (Secure):**
+```bash
+# AWS KMS
+KEY_PROVIDER=aws-kms
+AWS_REGION=us-east-1
+AWS_KMS_KEY_ID=arn:aws:kms:...
+
+# OR Google Cloud KMS
+KEY_PROVIDER=gcp-kms
+GCP_PROJECT_ID=my-project
+GCP_KEY_RING_ID=oracle-keys
+GCP_KEY_ID=oracle-signing-key
+```
+
+### Documentation
+
+- 📖 [Key Management Guide](./docs/KEY_MANAGEMENT.md) - Comprehensive setup and configuration
+- 🚀 [Quick Start](./docs/KEY_MANAGEMENT_QUICK_START.md) - Get started in 5 minutes
+- 🔄 [Migration Guide](./docs/MIGRATION_TO_HSM.md) - Migrate from env vars to HSM
+- 📋 [Implementation Summary](./docs/HSM_IMPLEMENTATION_SUMMARY.md) - Technical details
+
+### Benefits
+
+✅ Private keys never exposed in memory  
+✅ All signing operations audited  
+✅ Centralized key management  
+✅ Automated key rotation  
+✅ Compliance with security standards
