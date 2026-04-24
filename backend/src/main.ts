@@ -1,3 +1,4 @@
+import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import {
@@ -10,8 +11,11 @@ import { configureSecurity } from "./bootstrap";
 import { MAX_UPLOAD_BYTES } from "./config/upload.config";
 import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
 import { BaseExceptionFilter } from "./common/filters/base-exception.filter";
+import { initSentry } from "./sentry/sentry";
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  initSentry(logger);
   // Avoid generic constraints mismatch between Nest Fastify and Cors types
   const app = (await NestFactory.create(
     AppModule,

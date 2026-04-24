@@ -70,6 +70,12 @@ const envSchemaInner = z
     INDEXER_URL: z.string().url(),
     INDEXER_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
 
+    // Backfill service
+    BACKFILL_MAX_RANGE: z.coerce.number().int().positive().default(10000),
+    BACKFILL_RETRY_COUNT: z.coerce.number().int().positive().default(3),
+    BACKFILL_RETRY_DELAY_MS: z.coerce.number().int().positive().default(1000),
+    BACKFILL_HORIZON_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+
     // JWT
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRES_IN: z.string().default('7d'),
@@ -92,6 +98,10 @@ const envSchemaInner = z
     // Geolocation
     GEO_PROVIDER_URL: z.string().url().default('http://ip-api.com/json'),
     GEO_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+
+    // Sentry — optional; when absent the SDK is not initialized
+    SENTRY_DSN: z.string().url().optional(),
+    SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
 
     // Throttle — all optional with sensible defaults
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().positive().default(100),

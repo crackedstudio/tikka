@@ -19,6 +19,7 @@ import { GeoModule } from "./services/geo.module";
 import { GeoMiddleware } from "./middleware/geo.middleware";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
+import { IndexerBackfillModule } from "./services/indexer-backfill.module";
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { validate } from "./config/env.schema";
     SupportModule,
     HealthModule,
     MonitorModule,
+    IndexerBackfillModule,
   ],
   providers: [
     // 1. JWT guard first — authenticates the request (sets req.user)
