@@ -8,12 +8,15 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
+import { HelmetProvider } from 'react-helmet-async'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
+    <HelmetProvider>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </HelmetProvider>
   </StrictMode>,
 )
 

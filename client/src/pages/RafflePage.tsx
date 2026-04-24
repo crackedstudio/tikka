@@ -24,6 +24,7 @@ import {
 import Line from "../assets/svg/Line";
 import detailimage from "../assets/detailimage.png";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
+import { Helmet } from "react-helmet-async";
 
 const Skeleton = ({ className }: { className?: string }) => (
     <div className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`} />
@@ -106,6 +107,19 @@ const RafflePage = () => {
 
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <Helmet>
+                <title>{title} | Tikka Raffles</title>
+                <meta name="description" content={description || "Join this raffle on Tikka!"} />
+                <meta property="og:title" content={title} />
+                <meta property="og:description" content={description || "Join this raffle on Tikka!"} />
+                <meta property="og:image" content={image || detailimage} />
+                <meta property="og:url" content={window.location.href} />
+                <meta property="og:type" content="website" />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={title} />
+                <meta name="twitter:description" content={description || "Join this raffle on Tikka!"} />
+                <meta name="twitter:image" content={image || detailimage} />
+            </Helmet>
             <Breadcrumbs
                 items={[
                     { label: 'Home', href: '/home' },
