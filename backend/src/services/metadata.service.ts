@@ -84,12 +84,27 @@ export class MetadataService {
     limit = 20,
     offset = 0,
   ): Promise<SearchMetadataResult> {
-    const pattern = `%${query}%`;
+    // If query is empty, fall back to basic listing or return empty
+    if (!query.trim()) {
+      const { data, error, count } = await this.client
+        .from(TABLE)
+        .select('*', { count: 'exact' })
+        .order('updated_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
+      if (error) throw new Error(`Fetch failed: ${error.message}`);
+      return { matches: (data ?? []) as RaffleMetadata[], total: count ?? 0 };
+    }
+
+    // Use PostgreSQL full-text search via the search_vector column and GIN index
+    // 'websearch' type allows for intuitive query syntax (e.g., quotes for phrases, - for exclusion)
     const { data, error, count } = await this.client
       .from(TABLE)
       .select('*', { count: 'exact' })
-      .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
+      .textSearch('search_vector', query, {
+        config: 'english',
+        type: 'websearch',
+      })
       .range(offset, offset + limit - 1);
 
     if (error) {
