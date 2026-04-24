@@ -233,3 +233,65 @@ Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+
+---
+
+## Database Backups & Restore
+
+Data persistence in Supabase is critical. We use a multi-layered backup strategy.
+
+### 1. Automated Backups (GitHub Actions)
+
+A GitHub Action (`.github/workflows/supabase-backup.yml`) runs daily at 02:00 UTC.
+- **Process:** Runs `pg_dump`, compresses to `.sql.gz`, and uploads to **Cloudflare R2**.
+- **Retention:** Backups are retained for 30 days.
+- **Trigger:** Can be manually triggered via GitHub Actions tab.
+
+**Required Secrets:**
+- `SUPABASE_DB_URL`: Full Postgres URI.
+- `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT_URL`.
+
+### 2. Manual Local Backups
+
+Use the provided script for local dumps before migrations or major changes.
+
+```bash
+# Set your DB URL (or add to .env)
+export SUPABASE_DB_URL="postgresql://postgres:<pwd>@db.<ref>.supabase.co:5432/postgres"
+
+# Run the backup script
+bash scripts/backup.sh
+```
+
+- **Output:** `backups/tikka-backup-YYYY-MM-DD-HHmmss.dump` (Postgres custom format).
+- **Upload:** Optionally uploads to R2 if credentials are set in `.env`.
+
+### 3. Point-in-Time Recovery (PITR)
+
+For production environments, ensure **Supabase PITR** is enabled in the dashboard:
+- Go to **Settings** -> **Database** -> **Backups**.
+- Enable PITR (requires Pro plan or higher).
+
+### 4. Restore Process
+
+#### From a Local `.dump` file (Custom Format)
+The custom format is recommended as it allows selective restores and is compressed.
+
+```bash
+pg_restore \
+  --dbname=$SUPABASE_DB_URL \
+  --no-owner --no-acl \
+  --schema=public \
+  --verbose \
+  backups/tikka-backup-TIMESTAMP.dump
+```
+
+#### From a `.sql.gz` file (Plain Text)
+Used by the automated GitHub workflow.
+
+```bash
+gunzip -c tikka-backup-TIMESTAMP.sql.gz | psql $SUPABASE_DB_URL
+```
+
+> [!CAUTION]
+> Restoring a database can overwrite existing data. Always verify the backup and the target environment before proceeding.

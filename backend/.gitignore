@@ -5,3 +5,6 @@
 *.log
 package-lock.json
 package.json
+
+# Backups
+/backups/
