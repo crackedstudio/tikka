@@ -2,7 +2,14 @@ export interface RaffleCreatedEvent {
   type: "RaffleCreated";
   raffle_id: number;
   creator: string;
-  params: any;
+  params: {
+    ticket_price: string;
+    max_tickets: number;
+    end_time: number;
+    asset: string;
+    metadata_cid: string;
+    allow_multiple: boolean;
+  };
 }
 
 export interface TicketPurchasedEvent {
@@ -76,6 +83,10 @@ export interface AdminTransferAcceptedEvent {
   new_admin: string;
 }
 
+/**
+ * Discriminated union of all supported domain events.
+ * Used by processors to branch logic based on the 'type' tag.
+ */
 export type DomainEvent =
   | RaffleCreatedEvent
   | TicketPurchasedEvent
