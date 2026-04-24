@@ -13,6 +13,7 @@ export interface RawSorobanEvent {
   type: string; // e.g. 'contract'
   topics: string[]; // base64 encoded XDR scVals
   value: string; // base64 encoded XDR scVal
+  contractId?: string; // The address of the contract that emitted the event
 }
 
 @Injectable()
@@ -107,7 +108,7 @@ export class EventParserService {
   private parseRaffleCreated(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): RaffleCreatedEvent {
     // Assuming topics[1] is raffle_id, topics[2] is creator
     // Assuming value is RaffleParams map/struct
     const raffleId = Number(scValToNative(topics[1]));
@@ -119,8 +120,12 @@ export class EventParserService {
       raffle_id: raffleId,
       creator: creator,
       params: {
-        price: Number(params.price),
-        max_tickets: Number(params.max_tickets),
+        ticket_price: (params.ticket_price || params.price || 0).toString(),
+        max_tickets: Number(params.max_tickets || params.maxTickets || 0),
+        end_time: Number(params.end_time || params.endTime || 0),
+        asset: params.asset || "XLM",
+        metadata_cid: params.metadata_cid || params.metadataCid || "",
+        allow_multiple: !!(params.allow_multiple ?? params.allowMultiple ?? true),
       },
     };
   }
@@ -128,7 +133,7 @@ export class EventParserService {
   private parseTicketPurchased(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): TicketPurchasedEvent {
     // Assuming topics[1] = raffle_id, topics[2] = buyer
     // Assuming value is a map/struct with { ticket_ids, total_paid }
     const raffleId = Number(scValToNative(topics[1]));
@@ -139,58 +144,58 @@ export class EventParserService {
       type: "TicketPurchased",
       raffle_id: raffleId,
       buyer: buyer,
-      ticket_ids: data.ticket_ids.map(Number),
-      total_paid: data.total_paid.toString(),
+      ticket_ids: (data.ticket_ids || []).map(Number),
+      total_paid: (data.total_paid || 0).toString(),
     };
   }
 
   private parseDrawTriggered(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): DrawTriggeredEvent {
     const raffleId = Number(scValToNative(topics[1]));
     const data = scValToNative(value);
 
     return {
       type: "DrawTriggered",
       raffle_id: raffleId,
-      ledger: Number(data.ledger),
+      ledger: Number(data.ledger || 0),
     };
   }
 
   private parseRandomnessRequested(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): RandomnessRequestedEvent {
     const raffleId = Number(scValToNative(topics[1]));
     const data = scValToNative(value);
 
     return {
       type: "RandomnessRequested",
       raffle_id: raffleId,
-      request_id: Number(data.request_id),
+      request_id: Number(data.request_id || 0),
     };
   }
 
   private parseRandomnessReceived(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): RandomnessReceivedEvent {
     const raffleId = Number(scValToNative(topics[1]));
     const data = scValToNative(value);
 
     return {
       type: "RandomnessReceived",
       raffle_id: raffleId,
-      seed: Buffer.from(data.seed).toString("hex"),
-      proof: Buffer.from(data.proof).toString("hex"),
+      seed: data.seed ? Buffer.from(data.seed).toString("hex") : "",
+      proof: data.proof ? Buffer.from(data.proof).toString("hex") : "",
     };
   }
 
   private parseRaffleFinalized(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): RaffleFinalizedEvent {
     const raffleId = Number(scValToNative(topics[1]));
     const winner = scValToNative(topics[2]);
     const data = scValToNative(value);
@@ -199,29 +204,29 @@ export class EventParserService {
       type: "RaffleFinalized",
       raffle_id: raffleId,
       winner: winner,
-      winning_ticket_id: Number(data.winning_ticket_id),
-      prize_amount: data.prize_amount.toString(),
+      winning_ticket_id: Number(data.winning_ticket_id || 0),
+      prize_amount: (data.prize_amount || 0).toString(),
     };
   }
 
   private parseRaffleCancelled(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): RaffleCancelledEvent {
     const raffleId = Number(scValToNative(topics[1]));
     const data = scValToNative(value);
 
     return {
       type: "RaffleCancelled",
       raffle_id: raffleId,
-      reason: data.reason,
+      reason: data.reason || "Unknown reason",
     };
   }
 
   private parseTicketRefunded(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-  ): DomainEvent {
+  ): TicketRefundedEvent {
     const raffleId = Number(scValToNative(topics[1]));
     const ticketId = Number(scValToNative(topics[2]));
     const data = scValToNative(value);
@@ -230,8 +235,8 @@ export class EventParserService {
       type: "TicketRefunded",
       raffle_id: raffleId,
       ticket_id: ticketId,
-      recipient: data.recipient,
-      amount: data.amount.toString(),
+      recipient: data.recipient || "",
+      amount: (data.amount || 0).toString(),
     };
   }
 

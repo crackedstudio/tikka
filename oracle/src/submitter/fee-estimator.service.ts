@@ -43,7 +43,7 @@ export class FeeEstimatorService {
     
     // Use @stellar/stellar-sdk
     const StellarSdk = require('@stellar/stellar-sdk');
-    this.rpcServer = new StellarSdk.SorobanRpc.Server(rpcUrl);
+    this.rpcServer = new StellarSdk.rpc.Server(rpcUrl);
     
     // Fee cap: default 10 XLM = 100,000,000 stroops
     this.MAX_FEE_CAP_STROOPS = parseInt(

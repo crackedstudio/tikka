@@ -2,11 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EventListenerService } from '../src/listener/event-listener.service';
 import { RandomnessWorker } from '../src/queue/randomness.worker';
-import * as StellarSdk from 'stellar-sdk';
-import { xdr } from 'stellar-sdk';
+import * as StellarSdk from '@stellar/stellar-sdk';
+import { xdr } from '@stellar/stellar-sdk';
 import * as fc from 'fast-check';
 import { HealthService } from '../src/health/health.service';
 import { LagMonitorService } from '../src/health/lag-monitor.service';
+import { CommitRevealWorker } from '../src/queue/commit-reveal.worker';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const RAFFLE_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
@@ -29,13 +30,14 @@ const mockStreamFn = jest.fn().mockImplementation((opts: { onmessage: any; onerr
 });
 
 const mockCursorFn = jest.fn().mockReturnValue({ stream: mockStreamFn });
-const mockEventsFn = jest.fn().mockReturnValue({ cursor: mockCursorFn });
+const mockForContractFn = jest.fn().mockReturnValue({ cursor: mockCursorFn });
+const mockEventsFn = jest.fn().mockReturnValue({ forContract: mockForContractFn });
 
 const mockHorizonServer = { events: mockEventsFn };
 
 // ─── Task 2.1: Wire MockHorizonServer into jest.mock ─────────────────────────
-jest.mock('stellar-sdk', () => {
-    const actual = jest.requireActual('stellar-sdk');
+jest.mock('@stellar/stellar-sdk', () => {
+    const actual = jest.requireActual('@stellar/stellar-sdk');
     return {
         ...actual,
         Horizon: {
@@ -105,6 +107,7 @@ function buildMockEvent(
 describe('EventListenerService', () => {
     let service: EventListenerService;
     let mockRandomnessWorker: jest.Mocked<Pick<RandomnessWorker, 'processRequest'>>;
+    let mockCommitRevealWorker: jest.Mocked<Pick<CommitRevealWorker, 'processCommit' | 'processReveal'>>;
     let mockLagMonitor: jest.Mocked<Pick<LagMonitorService, 'trackRequest' | 'updateCurrentLedger' | 'fulfillRequest'>>;
     let mockHealthService: jest.Mocked<Pick<HealthService, 'updateQueueDepth' | 'recordSuccess' | 'recordFailure'>>;
 
@@ -127,6 +130,11 @@ describe('EventListenerService', () => {
 
         mockRandomnessWorker = {
             processRequest: jest.fn().mockResolvedValue(undefined),
+        };
+
+        mockCommitRevealWorker = {
+            processCommit: jest.fn().mockResolvedValue(undefined),
+            processReveal: jest.fn().mockResolvedValue(undefined),
         };
 
         mockLagMonitor = {
@@ -156,6 +164,7 @@ describe('EventListenerService', () => {
                 EventListenerService,
                 { provide: ConfigService, useValue: mockConfigService },
                 { provide: RandomnessWorker, useValue: mockRandomnessWorker },
+                { provide: CommitRevealWorker, useValue: mockCommitRevealWorker },
                 { provide: HealthService, useValue: mockHealthService },
                 { provide: LagMonitorService, useValue: mockLagMonitor },
             ],

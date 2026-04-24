@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as StellarSdk from 'stellar-sdk';
+import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
 import { FeeEstimatorService } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
@@ -236,7 +236,7 @@ export class TxSubmitterService {
   }
 
   private buildServer(url: string) {
-    return new (StellarSdk as any).SorobanRpc.Server(url);
+    return new StellarSdk.rpc.Server(url);
   }
 
   private isRpcError(message: string): boolean {

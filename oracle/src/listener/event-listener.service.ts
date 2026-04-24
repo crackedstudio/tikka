@@ -1,10 +1,8 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as StellarSdk from 'stellar-sdk';
-import { Subject, Subscription } from 'rxjs';
+import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessWorker } from '../queue/randomness.worker';
 import { CommitRevealWorker } from '../queue/commit-reveal.worker';
-import { RandomnessRequest } from '../queue/queue.types';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { InjectQueue } from '@nestjs/bull';
@@ -21,8 +19,10 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     private closeStream: (() => void) | null = null;
     private reconnectTimeout: NodeJS.Timeout | null = null;
     private retryCount = 0;
-    private readonly MAX_RETRY_DELAY = 60000; // 1 minute
-    private readonly INITIAL_RETRY_DELAY = 1000; // 1 second
+    
+    // Configurable retry delays
+    private readonly INITIAL_RETRY_DELAY: number;
+    private readonly MAX_RETRY_DELAY: number;
 
     // Bull queue depth (approximate)
     private currentQueueDepth = 0;
@@ -39,199 +39,217 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         const horizonUrl = this.configService.get<string>('HORIZON_URL', 'https://horizon-testnet.stellar.org');
         this.networkPassphrase = this.configService.get<string>('NETWORK_PASSPHRASE', StellarSdk.Networks.TESTNET);
         this.raffleContractId = this.configService.get<string>('RAFFLE_CONTRACT_ID', '');
+        
+        this.INITIAL_RETRY_DELAY = this.configService.get<number>('EVENT_LISTENER_INITIAL_RETRY_DELAY', 1000);
+        this.MAX_RETRY_DELAY = this.configService.get<number>('EVENT_LISTENER_MAX_RETRY_DELAY', 60000);
 
         if (!this.raffleContractId) {
-            this.logger.warn('RAFFLE_CONTRACT_ID is not set. Event listener might not work properly without a valid contract ID.');
+            this.logger.warn('RAFFLE_CONTRACT_ID is not set. Event listener will not start.');
         }
 
         this.horizonServer = new StellarSdk.Horizon.Server(horizonUrl);
     }
 
     onModuleInit() {
-        this.logger.log(`Initializing EventListenerService against contract: ${this.raffleContractId}`);
+        if (!this.raffleContractId) {
+            this.logger.error('Cannot start EventListenerService: RAFFLE_CONTRACT_ID missing.');
+            return;
+        }
 
-        // Start SSE stream
+        this.logger.log(`Initializing EventListenerService for contract: ${this.raffleContractId}`);
         this.startListening();
     }
 
     onModuleDestroy() {
+        this.stopListening();
+    }
+
+    private stopListening() {
         if (this.closeStream) {
             this.logger.log('Closing Horizon SSE stream');
             this.closeStream();
+            this.closeStream = null;
         }
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
         }
     }
 
     private startListening() {
-        if (!this.raffleContractId) {
-            this.logger.warn('Skipping event listening due to missing RAFFLE_CONTRACT_ID.');
-            return;
-        }
+        if (!this.raffleContractId) return;
 
-        this.logger.log('Starting Horizon event stream...');
+        this.logger.log('Starting Horizon event stream with server-side filtering...');
         this.retryCount = 0;
 
         try {
+            // Using forContract() to filter events at the Horizon level
+            // Note: Horizon events endpoint might not be in the current types, using 'as any'
             this.closeStream = (this.horizonServer as any).events()
-                // We only care about events involving our raffle contract
-                // Note: Horizon filtering by contract is limited; usually you filter client-side for specific event topics, 
-                // however stellar-sdk event filtering builder isn't fully robust for contract ID sometimes. 
-                // We'll fetch all events for now, and filter by our contract in the handler.
-                // A more advanced polling indexer is used in tikka-indexer; here we can rely on basic Horizon SSE for MVP.
+                .forContract(this.raffleContractId)
                 .cursor('now')
                 .stream({
-                    onmessage: this.handleEvent.bind(this),
-                    onerror: this.handleStreamError.bind(this),
+                    onmessage: (event: any) => this.handleEvent(event),
+                    onerror: (err: any) => this.handleStreamError(err),
                 });
-        } catch (err) {
-            this.logger.error('Failed to start SSE stream', err);
+            
+            this.logger.log('Successfully connected to Horizon event stream.');
+        } catch (err: any) {
+            this.logger.error(`Failed to start SSE stream: ${err.message}`, err.stack);
             this.scheduleReconnect();
         }
     }
 
     private handleEvent(eventResponse: any) {
-        // 1. Filter by Raffle Contract
+        // Double check contract ID just in case, though Horizon should filter it
         if (eventResponse.contractId !== this.raffleContractId) {
             return;
         }
 
-        // 2. Decode XDR event payload
         try {
-            // Update current ledger in lag monitor
+            // Update lag monitor with current ledger
             if (eventResponse.ledger) {
                 this.lagMonitor.updateCurrentLedger(eventResponse.ledger);
             }
 
             // Decode the raw XDR to see topics and value
             const eventXdr = StellarSdk.xdr.ContractEvent.fromXDR(eventResponse.value, 'base64');
-
             const topics = (eventResponse.topic || []).map((t: string) => StellarSdk.xdr.ScVal.fromXDR(t, 'base64'));
 
-            // Match the topic pattern
-            // RandomnessRequested { raffle_id, request_id }
-            // The exact topic structure depends on the rust event string, e.g., Symbol("RandomnessRequested")
+            if (topics.length === 0) return;
 
-            if (topics.length > 0) {
-                const primaryTopic = topics[0];
+            const primaryTopic = topics[0];
+            if (primaryTopic.switch() !== StellarSdk.xdr.ScValType.scvSymbol()) return;
 
-                // Check if the topic is a Symbol
-                if (primaryTopic.switch() === StellarSdk.xdr.ScValType.scvSymbol()) {
-                    const eventName = primaryTopic.sym().toString();
+            const eventName = primaryTopic.sym().toString();
+            this.logger.debug(`Received event: ${eventName} for raffle ${this.raffleContractId}`);
 
-                    if (eventName === 'RaffleCreated') {
-                        const scVal = (eventXdr as any).body().v0().data();
-                        let raffleId: number | undefined;
-                        let endTime: number | undefined;
-
-                        if (scVal.switch() === StellarSdk.xdr.ScValType.scvMap()) {
-                            for (const entry of scVal.map() ?? []) {
-                                const key = entry.key().sym().toString();
-                                if (key === 'raffle_id') raffleId = entry.val().u32();
-                                else if (key === 'end_time') endTime = Number(entry.val().u64().toString());
-                            }
-                        }
-
-                        if (raffleId !== undefined) {
-                            this.logger.log(`RaffleCreated: raffle=${raffleId}, scheduling commit`);
-                            this.commitRevealWorker.processCommit({ raffleId, endTime: endTime ?? 0 }).catch(err =>
-                                this.logger.error(`Commit failed for raffle ${raffleId}: ${err.message}`),
-                            );
-                        }
-                    }
-
-                    if (eventName === 'DrawTriggered') {
-                        const scVal = (eventXdr as any).body().v0().data();
-                        let raffleId: number | undefined;
-                        let requestId: string | undefined;
-
-                        if (scVal.switch() === StellarSdk.xdr.ScValType.scvMap()) {
-                            for (const entry of scVal.map() ?? []) {
-                                const key = entry.key().sym().toString();
-                                if (key === 'raffle_id') raffleId = entry.val().u32();
-                                else if (key === 'request_id') requestId = this.parseRequestId(entry.val());
-                            }
-                        }
-
-                        if (raffleId !== undefined && requestId !== undefined) {
-                            this.logger.log(`DrawTriggered: raffle=${raffleId}, scheduling reveal`);
-                            this.commitRevealWorker.processReveal({ raffleId, requestId }).catch(err =>
-                                this.logger.error(`Reveal failed for raffle ${raffleId}: ${err.message}`),
-                            );
-                        }
-                    }
-
-                    if (eventName === 'RandomnessRequested') {
-                        this.logger.log(`Received RandomnessRequested event for contract ${this.raffleContractId}`);
-
-                        // The value should contain a map or struct with raffle_id and request_id.
-                        // Standard access: eventXdr.body().v0().data()
-                        const scVal = (eventXdr as any).body().v0().data();
-
-                        let raffleId: number | undefined;
-                        let requestId: string | undefined;
-
-                        // Example of parsing struct/map fields:
-                        if (scVal.switch() === StellarSdk.xdr.ScValType.scvMap()) {
-                            const mapEntries = scVal.map();
-                            for (const entry of mapEntries ?? []) {
-                                const keySym = entry.key().sym().toString();
-                                if (keySym === 'raffle_id') {
-                                    raffleId = entry.val().u32();
-                                } else if (keySym === 'request_id') {
-                                    // Usually bytes or string or u64 - assuming u64 string representation or a byte array for this prototype
-                                    // Let's assume depending on the struct it might be a u64 cast into a string.
-                                    requestId = this.parseRequestId(entry.val());
-                                }
-                            }
-                        } else if (scVal.switch() === StellarSdk.xdr.ScValType.scvVec()) {
-                            // Sometimes payloads are vecs if it's a tuple. We need exact alignment.
-                            // Assuming simple map object as standard for tikka
-                        }
-
-                        if (raffleId !== undefined && requestId !== undefined) {
-                            this.logger.log(`Enqueueing RandomnessRequest: raffle=${raffleId}, request=${requestId}`);
-                            this.lagMonitor.trackRequest(requestId, raffleId, eventResponse.ledger || 0);
-
-                            if (this.randomnessQueue) {
-                                this.randomnessQueue.add({
-                                    raffleId,
-                                    requestId,
-                                }).then(() => {
-                                    this.currentQueueDepth++;
-                                    this.healthService.updateQueueDepth(this.currentQueueDepth);
-                                }).catch(err => {
-                                    this.logger.error(`Failed to enqueue job for raffle ${raffleId}: ${err.message}`);
-                                });
-                            } else {
-                                this.randomnessWorker.processRequest({ raffleId, requestId }).catch(err => {
-                                    this.logger.error(`Failed to process request for raffle ${raffleId}: ${err.message}`);
-                                });
-                            }
-                        } else {
-                            this.logger.warn(`Could not completely parse RandomnessRequested payload. Value: ${scVal.toXDR('base64')}`);
-                        }
-                    }
-                }
+            switch (eventName) {
+                case 'RaffleCreated':
+                    this.handleRaffleCreated(eventXdr);
+                    break;
+                case 'DrawTriggered':
+                    this.handleDrawTriggered(eventXdr);
+                    break;
+                case 'RandomnessRequested':
+                    this.handleRandomnessRequested(eventXdr, eventResponse.ledger || 0);
+                    break;
+                default:
+                    this.logger.debug(`Unhandled event type: ${eventName}`);
             }
 
-        } catch (e) {
-            this.logger.error(`Error parsing event XDR: ${e.message}`, eventResponse);
+        } catch (e: any) {
+            this.logger.error(`Error processing event: ${e.message}`, { event: eventResponse });
         }
     }
 
-    private handleStreamError(err: Error) {
-        this.logger.error('Horizon SSE Stream Error', err);
-        if (this.closeStream) {
-            this.closeStream();
+    private handleRaffleCreated(eventXdr: StellarSdk.xdr.ContractEvent) {
+        const payload = this.parseEventData(eventXdr);
+        const raffleId = payload['raffle_id'];
+        const endTime = payload['end_time'];
+
+        if (raffleId !== undefined) {
+            this.logger.log(`[RaffleCreated] raffle=${raffleId}, scheduling commit`);
+            this.commitRevealWorker.processCommit({ 
+                raffleId, 
+                endTime: endTime ? Number(endTime) : 0 
+            }).catch(err =>
+                this.logger.error(`Commit processing failed for raffle ${raffleId}: ${err.message}`)
+            );
         }
+    }
+
+    private handleDrawTriggered(eventXdr: StellarSdk.xdr.ContractEvent) {
+        const payload = this.parseEventData(eventXdr);
+        const raffleId = payload['raffle_id'];
+        const requestId = payload['request_id'];
+
+        if (raffleId !== undefined && requestId !== undefined) {
+            this.logger.log(`[DrawTriggered] raffle=${raffleId}, scheduling reveal`);
+            this.commitRevealWorker.processReveal({ 
+                raffleId, 
+                requestId: String(requestId) 
+            }).catch(err =>
+                this.logger.error(`Reveal processing failed for raffle ${raffleId}: ${err.message}`)
+            );
+        }
+    }
+
+    private handleRandomnessRequested(eventXdr: StellarSdk.xdr.ContractEvent, ledger: number) {
+        const payload = this.parseEventData(eventXdr);
+        const raffleId = payload['raffle_id'];
+        const requestId = payload['request_id'];
+
+        if (raffleId !== undefined && requestId !== undefined) {
+            const reqIdStr = String(requestId);
+            this.logger.log(`[RandomnessRequested] raffle=${raffleId}, request=${reqIdStr}`);
+            
+            // Track in lag monitor for health alerting
+            this.lagMonitor.trackRequest(reqIdStr, raffleId, ledger);
+
+            if (this.randomnessQueue) {
+                this.randomnessQueue.add({
+                    raffleId,
+                    requestId: reqIdStr,
+                }).then(() => {
+                    this.currentQueueDepth++;
+                    this.healthService.updateQueueDepth(this.currentQueueDepth);
+                }).catch(err => {
+                    this.logger.error(`Failed to enqueue randomness job for raffle ${raffleId}: ${err.message}`);
+                });
+            } else {
+                // Fallback for environments without Redis
+                this.randomnessWorker.processRequest({ raffleId, requestId: reqIdStr }).catch(err => {
+                    this.logger.error(`Direct request processing failed for raffle ${raffleId}: ${err.message}`);
+                });
+            }
+        } else {
+            this.logger.warn(`Could not parse RandomnessRequested payload: ${JSON.stringify(payload)}`);
+        }
+    }
+
+    private parseEventData(eventXdr: StellarSdk.xdr.ContractEvent): Record<string, any> {
+        const data = (eventXdr as any).body().v0().data();
+        const result: Record<string, any> = {};
+
+        if (data.switch() === StellarSdk.xdr.ScValType.scvMap()) {
+            for (const entry of data.map() ?? []) {
+                const key = entry.key().sym().toString();
+                result[key] = this.decodeScVal(entry.val());
+            }
+        }
+        return result;
+    }
+
+    private decodeScVal(val: StellarSdk.xdr.ScVal): any {
+        switch (val.switch()) {
+            case StellarSdk.xdr.ScValType.scvU32(): return val.u32();
+            case StellarSdk.xdr.ScValType.scvU64(): return val.u64().toString();
+            case StellarSdk.xdr.ScValType.scvI32(): return val.i32();
+            case StellarSdk.xdr.ScValType.scvI64(): return val.i64().toString();
+            case StellarSdk.xdr.ScValType.scvSymbol(): return val.sym().toString();
+            case StellarSdk.xdr.ScValType.scvString(): return val.str().toString();
+            case StellarSdk.xdr.ScValType.scvBytes(): return val.bytes().toString('hex');
+            case StellarSdk.xdr.ScValType.scvAddress(): 
+                const addr = val.address();
+                if (addr.switch() === StellarSdk.xdr.ScAddressType.scAddressTypeAccount()) {
+                    return StellarSdk.Address.account(Buffer.from(addr.accountId().ed25519() as any)).toString();
+                } else {
+                    return StellarSdk.Address.contract(Buffer.from(addr.contractId() as any)).toString();
+                }
+            case StellarSdk.xdr.ScValType.scvBool(): return val.b();
+            default: return null;
+        }
+    }
+
+    private handleStreamError(err: any) {
+        this.logger.error(`Horizon SSE Stream Error: ${err.message || 'Unknown error'}`);
+        this.stopListening();
         this.scheduleReconnect();
     }
 
     private scheduleReconnect() {
         this.retryCount++;
-        // Exponential backoff
         const delay = Math.min(this.INITIAL_RETRY_DELAY * Math.pow(2, this.retryCount), this.MAX_RETRY_DELAY);
 
         this.logger.log(`Scheduling SSE reconnect in ${delay}ms (attempt ${this.retryCount})...`);
@@ -243,21 +261,5 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         this.reconnectTimeout = setTimeout(() => {
             this.startListening();
         }, delay);
-    }
-
-    /**
-     * Helper to parse request_id strictly depending on the contract type
-     */
-    private parseRequestId(val: StellarSdk.xdr.ScVal): string {
-        switch (val.switch()) {
-            case StellarSdk.xdr.ScValType.scvU64():
-                return val.u64().toString();
-            case StellarSdk.xdr.ScValType.scvString():
-                return val.str().toString();
-            case StellarSdk.xdr.ScValType.scvBytes():
-                return val.bytes().toString('hex');
-            default:
-                return JSON.stringify(val.value());
-        }
     }
 }

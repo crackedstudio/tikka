@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import * as Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 
 type CacheBucket = 'raffles' | 'users' | 'others';
@@ -32,7 +32,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     const port = this.configService.get<number>('REDIS_PORT', 6379);
 
     // @ts-ignore
-    this.redis = new Redis.default({
+    this.redis = new Redis({
       host,
       port,
     });
@@ -185,11 +185,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
   async getMemoryUsage(): Promise<{ usedMemory: number; maxMemory: number; usagePercent: number }> {
     const info = await this.redis.info('memory');
-    const parsed: Record<string, string> = info
+    const parsed = (info as string)
       .split('\n')
       .map((line: string) => line.trim())
       .filter((line: string) => line && !line.startsWith('#'))
-      .reduce((acc: Record<string, string>, line: string) => {
+      .reduce<Record<string, string>>((acc: Record<string, string>, line: string) => {
         const [k, v] = line.split(':');
         if (k && v) acc[k] = v;
         return acc;

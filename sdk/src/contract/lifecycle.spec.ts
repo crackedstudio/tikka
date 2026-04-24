@@ -650,3 +650,367 @@ describe('simulate() with memo', () => {
     expect(result.assembledXdr).toBeTruthy();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tasks 6.1–6.5 & 7.1–7.2: Additional poll() unit tests + property-based tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+import * as fc from 'fast-check';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 6.1 — Additional poll() unit tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('poll() — Task 6.1 additional unit tests', () => {
+  it('throws Timeout immediately when timeoutMs is 0 (no RPC calls)', async () => {
+    const lc = buildLifecycle();
+    await expect(
+      lc.poll(TX_HASH, { timeoutMs: 0 }),
+    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.Timeout });
+
+    expect(rpcService.getTransaction).not.toHaveBeenCalled();
+  });
+
+  it('retries on NetworkError then succeeds', async () => {
+    rpcService.getTransaction
+      .mockRejectedValueOnce(
+        new TikkaSdkError(TikkaSdkErrorCode.NetworkError, 'RPC unreachable'),
+      )
+      .mockResolvedValue(makeGetSuccess(210) as any);
+
+    const lc = buildLifecycle();
+    jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+
+    const result = await lc.poll(TX_HASH, {
+      timeoutMs: 60_000,
+      intervalMs: 100,
+      backoffFactor: 1.0,
+    });
+
+    expect(rpcService.getTransaction).toHaveBeenCalledTimes(2);
+    expect(result.ledger).toBe(210);
+  });
+
+  it('throws Timeout after exhausting retries (all NOT_FOUND)', async () => {
+    rpcService.getTransaction.mockResolvedValue(makeGetNotFound() as any);
+
+    const lc = buildLifecycle();
+    jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+
+    await expect(
+      lc.poll(TX_HASH, { timeoutMs: 1, intervalMs: 100, backoffFactor: 1.0 }),
+    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.Timeout });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 6.2 — Property 6: Poll SUCCESS path always returns complete SubmitResult
+// Validates: Requirements 3.3
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Property 6: Poll SUCCESS path always returns complete SubmitResult', () => {
+  it('returns SubmitResult with correct txHash and ledger for any valid SUCCESS response', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.record({
+          txHash: fc.stringMatching(/^[0-9a-f]{64}$/),
+          ledger: fc.nat({ max: 1_000_000 }),
+          returnValue: fc.option(fc.anything()),
+        }),
+        async ({ txHash, ledger }) => {
+          rpcService.getTransaction.mockReset();
+          rpcService.getTransaction.mockResolvedValue({
+            status: rpc.Api.GetTransactionStatus.SUCCESS,
+            ledger,
+            returnValue: undefined,
+            createdAt: Date.now(),
+            applicationOrder: 1,
+            txHash,
+            envelopeXdr: '',
+            resultXdr: '',
+            resultMetaXdr: '',
+          } as any);
+
+          const lc = buildLifecycle();
+          jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+
+          const result = await lc.poll(txHash, { timeoutMs: 60_000 });
+
+          expect(result.txHash).toBe(txHash);
+          expect(result.ledger).toBe(ledger);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 6.3 — Property 7: Poll FAILED path always throws ContractError or ExternalContractError
+// Validates: Requirements 3.4, 3.5, 4.5
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Property 7: Poll FAILED path always throws ContractError or ExternalContractError', () => {
+  it('throws TikkaSdkError with correct code and does not retry after FAILED', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.record({
+          txHash: fc.stringMatching(/^[0-9a-f]{64}$/),
+          resultXdr: fc.oneof(
+            fc.constant(''),
+            fc.constant('HostError: some error'),
+            fc.constant('WASM trap'),
+            fc.constant('cross-contract call failed'),
+            fc.string(),
+          ),
+        }),
+        async ({ txHash, resultXdr }) => {
+          rpcService.getTransaction.mockReset();
+          rpcService.getTransaction.mockResolvedValue({
+            status: rpc.Api.GetTransactionStatus.FAILED,
+            ledger: 101,
+            resultXdr,
+            txHash,
+          } as any);
+
+          const lc = buildLifecycle();
+
+          let caughtError: TikkaSdkError | undefined;
+          try {
+            await lc.poll(txHash, { timeoutMs: 60_000 });
+          } catch (err) {
+            caughtError = err as TikkaSdkError;
+          }
+
+          // Must throw a TikkaSdkError
+          expect(caughtError).toBeInstanceOf(TikkaSdkError);
+
+          const hasExternalMarker =
+            resultXdr.includes('HostError') ||
+            resultXdr.includes('WASM') ||
+            resultXdr.includes('cross-contract');
+
+          if (hasExternalMarker) {
+            expect(caughtError!.code).toBe(TikkaSdkErrorCode.ExternalContractError);
+          } else {
+            expect(caughtError!.code).toBe(TikkaSdkErrorCode.ContractError);
+          }
+
+          // FAILED is terminal — getTransaction called exactly once
+          expect(rpcService.getTransaction).toHaveBeenCalledTimes(1);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 6.4 — Property 8: Backoff interval grows by factor and is capped
+// Validates: Requirements 3.7
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Property 8: Backoff interval grows by factor and is capped', () => {
+  it('sleep intervals match min(intervalMs * backoffFactor^n, maxIntervalMs)', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.record({
+          intervalMs: fc.integer({ min: 100, max: 5_000 }),
+          backoffFactor: fc.float({ min: 1.0, max: 3.0, noNaN: true }),
+          maxIntervalMs: fc.integer({ min: 1_000, max: 30_000 }),
+          notFoundCount: fc.integer({ min: 1, max: 5 }),
+        }),
+        async ({ intervalMs, backoffFactor, maxIntervalMs, notFoundCount }) => {
+          rpcService.getTransaction.mockReset();
+
+          // Return NOT_FOUND notFoundCount times, then SUCCESS
+          for (let i = 0; i < notFoundCount; i++) {
+            rpcService.getTransaction.mockResolvedValueOnce(makeGetNotFound() as any);
+          }
+          rpcService.getTransaction.mockResolvedValue(makeGetSuccess(200) as any);
+
+          const lc = buildLifecycle();
+          const sleepSpy = jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+
+          await lc.poll(TX_HASH, {
+            timeoutMs: 999_999_999,
+            intervalMs,
+            backoffFactor,
+            maxIntervalMs,
+          });
+
+          // Verify each sleep call matches the expected backoff formula
+          let expectedInterval = intervalMs;
+          for (let n = 0; n < sleepSpy.mock.calls.length; n++) {
+            const actualSleep = sleepSpy.mock.calls[n][0] as number;
+            expect(actualSleep).toBe(expectedInterval);
+            expectedInterval = Math.min(expectedInterval * backoffFactor, maxIntervalMs);
+          }
+
+          // Number of sleep calls should equal notFoundCount
+          expect(sleepSpy).toHaveBeenCalledTimes(notFoundCount);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 6.5 — Property 9: Transient RPC errors are retried with backoff
+// Validates: Requirements 4.1, 4.2, 4.3
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Property 9: Transient RPC errors are retried with backoff', () => {
+  it('retries on NetworkError/Timeout and returns SubmitResult on eventual SUCCESS', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.record({
+          errorCode: fc.constantFrom(
+            TikkaSdkErrorCode.NetworkError,
+            TikkaSdkErrorCode.Timeout,
+          ),
+          errorCount: fc.integer({ min: 1, max: 3 }),
+        }),
+        async ({ errorCode, errorCount }) => {
+          rpcService.getTransaction.mockReset();
+
+          for (let i = 0; i < errorCount; i++) {
+            rpcService.getTransaction.mockRejectedValueOnce(
+              new TikkaSdkError(errorCode, `transient error ${i}`),
+            );
+          }
+          rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300) as any);
+
+          const lc = buildLifecycle();
+          jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+
+          const result = await lc.poll(TX_HASH, {
+            timeoutMs: 999_999_999,
+            intervalMs: 100,
+            backoffFactor: 1.0,
+          });
+
+          // poll() must return SubmitResult without throwing
+          expect(result).toBeDefined();
+          expect(result.txHash).toBe(TX_HASH);
+
+          // getTransaction called errorCount + 1 times (errors + final SUCCESS)
+          expect(rpcService.getTransaction).toHaveBeenCalledTimes(errorCount + 1);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 7.1 — Additional invoke() unit tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('invoke() — Task 7.1 additional unit tests', () => {
+  function setupHappyPathFull() {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300) as any);
+  }
+
+  it('throws WalletNotInstalled when no wallet adapter is set', async () => {
+    const lc = buildLifecycle(false);
+    await expect(
+      lc.invoke(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1]),
+    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.WalletNotInstalled });
+
+    expect(rpcService.simulateTransaction).not.toHaveBeenCalled();
+  });
+
+  it('passes PollConfig from InvokeLifecycleOptions.poll to the poll phase', async () => {
+    setupHappyPathFull();
+
+    const lc = buildLifecycle();
+    const pollSpy = jest.spyOn(lc, 'poll');
+
+    const pollConfig = { timeoutMs: 45_000, intervalMs: 3_000, backoffFactor: 2.0, maxIntervalMs: 15_000 };
+    await lc.invoke(ContractFn.BUY_TICKET, [1], {
+      sourcePublicKey: SOURCE_KEY,
+      poll: pollConfig,
+    });
+
+    expect(pollSpy).toHaveBeenCalledWith(TX_HASH, pollConfig);
+  });
+
+  it('uses default PollConfig when no poll field is provided', async () => {
+    setupHappyPathFull();
+
+    const lc = buildLifecycle();
+    const pollSpy = jest.spyOn(lc, 'poll');
+
+    await lc.invoke(ContractFn.BUY_TICKET, [1], { sourcePublicKey: SOURCE_KEY });
+
+    // poll should be called with undefined config (defaults applied inside poll())
+    expect(pollSpy).toHaveBeenCalledWith(TX_HASH, undefined);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 7.2 — Property 10: TikkaSdkError propagates unchanged through invoke
+// Validates: Requirements 5.5
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Property 10: TikkaSdkError propagates unchanged through invoke', () => {
+  it('propagates TikkaSdkError from any phase with same code and message', async () => {
+    // For the poll phase we mock poll() directly to avoid the transient-retry loop.
+    // For simulate/sign/submit we mock the underlying RPC/wallet methods.
+    // The sign phase is also mocked directly because sign() re-wraps wallet errors.
+    await fc.assert(
+      fc.asyncProperty(
+        fc.record({
+          code: fc.constantFrom(...(Object.values(TikkaSdkErrorCode) as TikkaSdkErrorCode[])),
+          message: fc.string({ minLength: 1 }),
+          phase: fc.constantFrom('simulate', 'sign', 'submit', 'poll'),
+        }),
+        async ({ code, message, phase }) => {
+          rpcService.simulateTransaction.mockReset();
+          rpcService.sendTransaction.mockReset();
+          rpcService.getTransaction.mockReset();
+          wallet.signTransaction.mockReset();
+
+          const thrownError = new TikkaSdkError(code, message);
+          const lc = buildLifecycle();
+
+          if (phase === 'simulate') {
+            rpcService.simulateTransaction.mockRejectedValue(thrownError);
+          } else if (phase === 'sign') {
+            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+            jest.spyOn(lc, 'sign').mockRejectedValue(thrownError);
+          } else if (phase === 'submit') {
+            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+            jest.spyOn(lc, 'sign').mockResolvedValue(SIGNED_XDR);
+            jest.spyOn(lc, 'submit').mockRejectedValue(thrownError);
+          } else {
+            // poll phase — mock poll() directly to avoid transient-retry loop
+            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+            jest.spyOn(lc, 'sign').mockResolvedValue(SIGNED_XDR);
+            jest.spyOn(lc, 'submit').mockResolvedValue(TX_HASH);
+            jest.spyOn(lc, 'poll').mockRejectedValue(thrownError);
+          }
+
+          let caughtError: unknown;
+          try {
+            await lc.invoke('test_method', [], { sourcePublicKey: SOURCE_KEY });
+          } catch (err) {
+            caughtError = err;
+          }
+
+          expect(caughtError).toBeInstanceOf(TikkaSdkError);
+          const sdkError = caughtError as TikkaSdkError;
+          expect(sdkError.code).toBe(code);
+          expect(sdkError.message).toBe(message);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+});

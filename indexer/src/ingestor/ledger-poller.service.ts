@@ -5,150 +5,256 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { rpc } from "@stellar/stellar-sdk";
+import { Horizon } from "@stellar/stellar-sdk";
 import { CursorManagerService } from "./cursor-manager.service";
-import { EventParserService } from "./event-parser.service";
+import { EventParserV2Service } from "./event-parser-v2.service";
 import { DryRunService } from "./dry-run.service";
+import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
+import { MetricsService } from "../metrics/metrics.service";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LedgerPollerService.name);
-  private rpcServer: rpc.Server;
-  private contractId: string;
-  private isPolling = false;
-  private timeoutId?: NodeJS.Timeout;
+  private horizonServer: Horizon.Server;
+  private contractIds: string[];
+  private isRunning = false;
+  private sseCloseFn?: () => void;
+  private pollingTimeout?: NodeJS.Timeout;
 
-  // Polling settings
-  private readonly POLL_INTERVAL_MS = 3000;
-  private readonly MAX_EVENTS_PER_REQ = 100;
-  private readonly RETRY_BACKOFF_MS = 5000;
+  // Reconnection & Backoff
+  private retryAttempt = 0;
+  private readonly MAX_RETRY_DELAY = 30000;
+  private readonly BASE_RETRY_DELAY = 2000;
 
   constructor(
     private configService: ConfigService,
     private cursorManager: CursorManagerService,
-    private eventParser: EventParserService,
+    private eventParser: EventParserV2Service,
     private dryRun: DryRunService,
+    private dispatcher: IngestionDispatcherService,
+    private metrics: MetricsService,
   ) {
-    const rpcUrl =
-      this.configService.get<string>("SOROBAN_RPC_URL") ||
-      "https://soroban-testnet.stellar.org";
-    this.rpcServer = new rpc.Server(rpcUrl);
+    const horizonUrl =
+      this.configService.get<string>("HORIZON_URL") ||
+      "https://horizon-testnet.stellar.org";
+    this.horizonServer = new Horizon.Server(horizonUrl);
 
-    // Provide a default contract ID format for testing if not set
-    this.contractId =
-      this.configService.get<string>("TIKKA_CONTRACT_ID") ||
-      "CDLZFC3SYJYDZT7K67VZ75HPJVIEWBEIFGDXY7CZZPNOYWVNNNEM5F2D";
+    const idsString = this.configService.get<string>("TIKKA_CONTRACT_ID") || "";
+    this.contractIds = idsString
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
   }
 
   async onModuleInit() {
-    this.logger.log(`Starting Horizon poller for contract: ${this.contractId}`);
-    this.isPolling = true;
-    this.startPollingLoop();
+    if (this.contractIds.length === 0) {
+      this.logger.warn(
+        "No contract IDs configured. Indexer will not ingest events.",
+      );
+      return;
+    }
+    this.logger.log(
+      `Starting Ledger Poller for contracts: ${this.contractIds.join(", ")}`,
+    );
+    this.isRunning = true;
+    this.startIngestion();
   }
 
   onModuleDestroy() {
-    this.logger.log("Stopping Horizon poller...");
-    this.isPolling = false;
-    if (this.timeoutId) {
-      clearTimeout(this.timeoutId);
-    }
+    this.logger.log("Stopping Ledger Poller...");
+    this.isRunning = false;
+    this.stopIngestion();
   }
 
-  private async startPollingLoop() {
-    while (this.isPolling) {
-      try {
-        await this.pollOnce();
+  /**
+   * Main entry point for starting the ingestion process.
+   * Attempts to use SSE for real-time updates.
+   */
+  private async startIngestion() {
+    if (!this.isRunning) return;
 
-        // Success: wait standard interval before polling again
-        await this.sleep(this.POLL_INTERVAL_MS);
-      } catch (error) {
-        this.logger.error(
-          `Error polling events: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        // Failure: backoff before retrying
-        await this.sleep(this.RETRY_BACKOFF_MS);
-      }
-    }
-  }
+    try {
+      const cursor = await this.cursorManager.getCursor();
+      const lastToken = cursor?.lastPagingToken || "now";
 
-  private async pollOnce() {
-    // 1. Get the starting cursor (last known ledger)
-    const cursor = await this.cursorManager.getCursor();
-    const startLedger = cursor ? cursor.lastLedger + 1 : undefined;
-
-    // 2. Build the request parameters
-    const request: any = {
-      filters: [
-        {
-          type: "contract",
-          contractIds: [this.contractId],
-        },
-      ],
-      limit: this.MAX_EVENTS_PER_REQ,
-    };
-
-    if (cursor?.lastPagingToken) {
-      request.cursor = cursor.lastPagingToken;
-    } else {
-      request.startLedger = startLedger;
-    }
-
-    // 3. Fetch events from RPC
-    this.logger.debug(`Fetching events from ledger ${startLedger ?? "latest"}`);
-    const response = await this.rpcServer.getEvents(request);
-
-    if (!response.events || response.events.length === 0) {
-      return; // No new events
-    }
-
-    this.logger.log(`Received ${response.events.length} events from Horizon`);
-
-    let highestLedgerProcessed = cursor?.lastLedger || 0;
-    let lastPagingToken = cursor?.lastPagingToken;
-
-    // 4. Process each event
-    for (const rawEvent of response.events) {
-      const parsedEvent = this.eventParser.parse({
-        type: rawEvent.type,
-        topics: rawEvent.topic.map((t) => t.toXDR("base64")),
-        value: rawEvent.value.toXDR("base64"),
-      });
-
-      if (parsedEvent) {
-        this.logger.log(
-          `Parsed DomainEvent: [${parsedEvent.type}] from ledger ${rawEvent.ledger}`,
-        );
-
-        // NOTE: In the future, this is where we'd dispatch to processors
-        // (e.g. RaffleProcessor, TicketProcessor) to persist to PostgreSQL
-      }
-
-      // Track the highest ledger we successfully processed in this batch
-      highestLedgerProcessed = Math.max(
-        highestLedgerProcessed,
-        rawEvent.ledger,
+      this.logger.log(`Starting ingestion from cursor: ${lastToken}`);
+      this.startSse(lastToken);
+    } catch (error) {
+      this.logger.error(
+        `Failed to start ingestion: ${error instanceof Error ? error.message : String(error)}`,
       );
-      lastPagingToken = (rawEvent as any).pagingToken || lastPagingToken;
-    }
-
-    // 5. Save the updated cursor after the batch is processed successfully
-    if (response.events.length > 0) {
-      if (this.dryRun.enabled) {
-        this.logger.log(
-          `[DRY-RUN] Would save cursor: ledger=${highestLedgerProcessed} pagingToken=${lastPagingToken}`,
-        );
-      } else {
-        await this.cursorManager.saveCursor(
-          highestLedgerProcessed,
-          lastPagingToken,
-        );
-      }
+      this.scheduleReconnection();
     }
   }
 
-  private sleep(ms: number) {
-    return new Promise((resolve) => {
-      this.timeoutId = setTimeout(resolve, ms);
-    });
+  /**
+   * Connects to the Horizon SSE stream for events.
+   */
+  private startSse(cursor: string) {
+    this.stopIngestion();
+
+    this.logger.log(`Connecting to Horizon SSE stream...`);
+
+    try {
+      // Subscribe to the Horizon /events stream. 
+      // Note: We filter by contract_id in the message handler to support multiple contracts.
+      this.sseCloseFn = (this.horizonServer as any)
+        .events()
+        .cursor(cursor)
+        .stream({
+          onmessage: (event: any) => this.handleRawEvent(event),
+          onerror: (error: any) => {
+            this.logger.warn(
+              `SSE Stream Error or Disconnect. Falling back to polling...`,
+            );
+            this.logger.debug(`SSE Error details: ${JSON.stringify(error)}`);
+            this.schedulePollingFallback();
+          },
+        });
+    } catch (error) {
+      this.logger.error(`Failed to initialize SSE: ${error.message}`);
+      this.schedulePollingFallback();
+    }
+  }
+
+  /**
+   * Internal handler for raw event payloads from Horizon.
+   */
+  private handleRawEvent(rawEvent: any) {
+    // Filter by contract IDs if configured
+    const eventContractId =
+      rawEvent.contract_id || rawEvent.contractId || rawEvent.address;
+
+    if (this.contractIds.length > 0 && !this.contractIds.includes(eventContractId)) {
+      return;
+    }
+
+    this.logger.debug(
+      `Received event: ${rawEvent.id} (Ledger ${rawEvent.ledger})`,
+    );
+    this.processEvent(rawEvent);
+  }
+
+  /**
+   * Decodes, parses, and dispatches the event, then updates the cursor.
+   */
+  private async processEvent(rawEvent: any) {
+    try {
+      // Map Horizon event fields to the format expected by EventParserService
+      const rawSorobanEvent = {
+        type: rawEvent.type || "contract",
+        topics: rawEvent.topic || rawEvent.topics || [],
+        value: rawEvent.value || "",
+        contractId: rawEvent.contract_id || rawEvent.contractId || rawEvent.address,
+      };
+
+      const parsed = this.eventParser.parse(rawSorobanEvent as any);
+
+      if (parsed) {
+        // Dispatch to processors for DB updates
+        await this.dispatcher.dispatch(parsed, rawEvent);
+
+        this.logger.log(
+          `Processed and dispatched ${parsed.type} event from ledger ${rawEvent.ledger}`,
+        );
+
+        // Advance cursor only after successful processing and parsing
+        const nextToken = rawEvent.paging_token || rawEvent.id;
+        
+        if (this.dryRun.enabled) {
+          this.logger.log(
+            `[DRY-RUN] Would save cursor: ledger=${rawEvent.ledger} token=${nextToken}`,
+          );
+        } else {
+          await this.cursorManager.saveCursor(rawEvent.ledger, nextToken);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to process event ${rawEvent.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Switches to polling mode if SSE fails.
+   */
+  private schedulePollingFallback() {
+    if (!this.isRunning) return;
+    this.stopIngestion();
+    this.logger.warn(`Switching to polling fallback loop...`);
+    this.pollOnce();
+  }
+
+  /**
+   * A single polling request to Horizon /events.
+   */
+  private async pollOnce() {
+    if (!this.isRunning) return;
+
+    try {
+      const cursor = await this.cursorManager.getCursor();
+      const lastToken = cursor?.lastPagingToken || "now";
+
+      const response = await (this.horizonServer as any)
+        .events()
+        .cursor(lastToken)
+        .limit(100)
+        .call();
+
+      if (response.records && response.records.length > 0) {
+        this.logger.log(`Polled ${response.records.length} events from Horizon`);
+        for (const record of response.records) {
+          this.handleRawEvent(record);
+        }
+      }
+
+      // Reset retry attempt on any successful communication
+      this.retryAttempt = 0;
+
+      // If we got a full page, poll again soon; otherwise wait 5 seconds
+      const nextDelay = response.records.length === 100 ? 500 : 5000;
+      this.pollingTimeout = setTimeout(() => this.pollOnce(), nextDelay);
+    } catch (error) {
+      this.logger.error(
+        `Polling error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.scheduleReconnection();
+      this.metrics.incrementEventsProcessed(response.events.length);
+    }
+  }
+
+  /**
+   * Schedules a reconnection attempt with exponential backoff.
+   */
+  private scheduleReconnection() {
+    if (!this.isRunning) return;
+    this.stopIngestion();
+    
+    const delay = Math.min(
+      this.BASE_RETRY_DELAY * Math.pow(2, this.retryAttempt),
+      this.MAX_RETRY_DELAY,
+    );
+    
+    this.logger.log(
+      `Reconnecting in ${delay}ms (attempt ${this.retryAttempt + 1})...`,
+    );
+    this.retryAttempt++;
+
+    this.pollingTimeout = setTimeout(() => this.startIngestion(), delay);
+  }
+
+  /**
+   * Cleans up active listeners and timers.
+   */
+  private stopIngestion() {
+    if (this.sseCloseFn) {
+      this.sseCloseFn();
+      this.sseCloseFn = undefined;
+    }
+    if (this.pollingTimeout) {
+      clearTimeout(this.pollingTimeout);
+      this.pollingTimeout = undefined;
+    }
   }
 }

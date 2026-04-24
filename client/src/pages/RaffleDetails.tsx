@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import confetti from "canvas-confetti";
+import { useWalletContext } from "../providers/WalletProvider";
 import { useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useRaffle } from "../hooks/useRaffles";
@@ -16,6 +18,8 @@ const RaffleDetails = () => {
     const [searchParams] = useSearchParams();
     const raffleId = id ?? searchParams.get("raffle");
     const parsedRaffleId = raffleId ? parseInt(raffleId, 10) : 0;
+    const { address } = useWalletContext();
+    const hasCelebrated = useRef(false);
 
     const { raffle, error, isLoading, refetch } = useRaffle(parsedRaffleId);
 
@@ -24,6 +28,30 @@ const RaffleDetails = () => {
         window.addEventListener("focus", handleFocus);
         return () => window.removeEventListener("focus", handleFocus);
     }, [refetch]);
+
+    useEffect(() => {
+        if (raffle?.winner && address === raffle.winner && !hasCelebrated.current) {
+            const duration = 3 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+            const interval: any = setInterval(function () {
+                const timeLeft = animationEnd - Date.now();
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                const particleCount = 50 * (timeLeft / duration);
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+            }, 250);
+
+            hasCelebrated.current = true;
+        }
+    }, [raffle?.winner, address]);
 
     const statusLabel = raffle?.status?.toUpperCase() || "UNKNOWN";
     const lowerStatus = raffle?.status?.toLowerCase() || "";
@@ -80,6 +108,20 @@ const RaffleDetails = () => {
                     ]}
                 />
             </div>
+
+            {raffle?.winner && address === raffle.winner && (
+                <div className="bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 p-1 rounded-3xl mb-6 animate-pulse">
+                    <div className="bg-white dark:bg-[#11172E] rounded-[22px] p-8 text-center shadow-2xl">
+                        <div className="text-5xl mb-4">🏆</div>
+                        <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
+                            CONGRATULATIONS!
+                        </h2>
+                        <p className="text-lg text-gray-600 dark:text-pink-200 font-medium">
+                            You are the winner of this raffle! 🎉
+                        </p>
+                    </div>
+                </div>
+            )}
 
             <RaffleDetailsCard
                 image={raffle.image || detailimage}
