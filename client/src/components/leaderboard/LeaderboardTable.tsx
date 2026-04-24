@@ -54,9 +54,9 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ players }) => {
     };
 
     return (
-        <div className="bg-[#1E1932] rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-[#1E1932] rounded-xl overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-4 gap-4 px-6 py-4 bg-[#2A264A] text-gray-300 text-sm font-medium">
+            <div className="grid grid-cols-4 gap-4 px-6 py-4 bg-gray-200 dark:bg-[#2A264A] text-gray-700 dark:text-gray-300 text-sm font-medium">
                 <div>Rank</div>
                 <div>Player</div>
                 <div>Wins</div>
@@ -74,7 +74,7 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ players }) => {
                     >
                         {/* Rank */}
                         <div className="flex items-center">
-                            <span className="text-white font-semibold">
+                            <span className="text-gray-900 dark:text-white font-semibold">
                                 {player.rank}
                             </span>
                         </div>
@@ -89,7 +89,7 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ players }) => {
                             {/* Name and Badges */}
                             <div className="flex flex-col">
                                 <div className="flex items-center space-x-2">
-                                    <span className="text-white font-medium">
+                                    <span className="text-gray-900 dark:text-white font-medium">
                                         {player.name}
                                     </span>
                                     {player.badges?.map((badge) => (
@@ -113,12 +113,12 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ players }) => {
 
                         {/* Wins */}
                         <div className="flex items-center">
-                            <span className="text-white">{player.wins}</span>
+                            <span className="text-gray-900 dark:text-white">{player.wins}</span>
                         </div>
 
                         {/* ETH won */}
                         <div className="flex items-center">
-                            <span className="text-white">{player.xpWon}XP</span>
+                            <span className="text-gray-900 dark:text-white">{player.xpWon}XP</span>
                         </div>
                     </div>
                 ))}

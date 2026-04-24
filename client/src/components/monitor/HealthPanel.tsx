@@ -13,7 +13,7 @@ interface StatCardProps {
 
 function StatCard({ label, value, accent }: StatCardProps) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-[#2A264A] bg-[#15102A] p-5">
+    <div className="flex flex-col gap-1 rounded-xl border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] p-5">
       <span className="text-sm text-gray-400">{label}</span>
       <span className={`text-3xl font-bold ${accent}`}>{value}</span>
     </div>

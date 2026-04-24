@@ -37,6 +37,11 @@ export const envSchema = z
     ADMIN_TOKEN: z.string().min(1),
     ADMIN_IP_ALLOWLIST: z.string().default(''),
 
+    // Push notifications (FCM)
+    FCM_ENABLED: z.coerce.boolean().default(false),
+    FCM_SERVICE_ACCOUNT_JSON: z.string().optional(),
+    FCM_SERVICE_ACCOUNT_PATH: z.string().optional(),
+
     // Throttle — all optional with sensible defaults
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().positive().default(100),
     THROTTLE_DEFAULT_TTL: z.coerce.number().int().positive().default(60),

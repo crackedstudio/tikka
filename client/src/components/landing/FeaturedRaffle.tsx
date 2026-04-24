@@ -8,7 +8,7 @@ interface FeaturedRaffleProps {
 
 const FeaturedRaffle = ({ isSignedIn }: FeaturedRaffleProps) => {
     return (
-        <section className="w-full bg-[#11172E] py-12">
+        <section className="w-full bg-white dark:bg-[#11172E] py-12">
             <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-16">
                 {/* Heading */}
                 <h1 className="text-3xl md:text-4xl font-semibold text-center md:text-left">
@@ -43,7 +43,7 @@ and activities for two people.`}
                     <div className="mt-12 flex flex-col items-center gap-4 md:flex-row md:items-center md:gap-8">
                         <a
                             href="#get-started"
-                            className="rounded-xl px-10 py-4 text-white font-medium inline-flex items-center justify-center gap-3 transition hover:brightness-110 bg-[#FE3796]"
+                            className="rounded-xl px-10 py-4 text-gray-900 dark:text-white font-medium inline-flex items-center justify-center gap-3 transition hover:brightness-110 bg-[#FE3796]"
                         >
                             <RocketLaunch />
                             <span>Get Started</span>
