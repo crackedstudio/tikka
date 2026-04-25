@@ -6,6 +6,6 @@ export enum VrfAlgorithm {
 
 export interface IVrfProvider {
   readonly algorithm: VrfAlgorithm;
-  compute(requestId: string): Promise<RandomnessResult>;
-  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string): boolean;
+  compute(requestId: string, raffleId?: number): Promise<RandomnessResult>;
+  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string, raffleId?: number): boolean;
 }
