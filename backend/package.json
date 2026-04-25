@@ -13,7 +13,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@sentry/node": "8.55.1",
+    "@sentry/nestjs": "8.55.1",
+    "@sentry/profiling-node": "8.55.1",
     "@fastify/helmet": "^13.0.2",
     "@fastify/multipart": "^9.0.0",
     "@nestjs/common": "^10.4.0",
