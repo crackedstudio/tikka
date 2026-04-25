@@ -162,9 +162,129 @@ describe("RaffleService", () => {
       expect(contractService.invoke).toHaveBeenCalledWith(
         ContractFn.CANCEL_RAFFLE,
         [raffleId],
-        expect.anything(), // Add this to handle the metadata object
+        expect.anything(),
       );
       expect(result).toEqual(mockInvokeResult);
+    });
+
+    it("should pass memo to invoke", async () => {
+      contractService.invoke.mockResolvedValue({ result: undefined, txHash: "h", ledger: 1 });
+
+      await service.cancel({ raffleId: 2, memo: { type: "text", value: "cancel-ref" } });
+
+      expect(contractService.invoke).toHaveBeenCalledWith(
+        ContractFn.CANCEL_RAFFLE,
+        [2],
+        { memo: { type: "text", value: "cancel-ref" } },
+      );
+    });
+
+    it("should throw if raffleId is zero", async () => {
+      await expect(service.cancel({ raffleId: 0 })).rejects.toThrow(
+        "raffleId must be a positive integer",
+      );
+    });
+
+    it("should throw if raffleId is negative", async () => {
+      await expect(service.cancel({ raffleId: -5 })).rejects.toThrow(
+        "raffleId must be a positive integer",
+      );
+    });
+  });
+
+  describe("create — additional edge cases", () => {
+    const baseParams = {
+      ticketPrice: "5",
+      maxTickets: 50,
+      endTime: Date.now() + 3600000,
+      allowMultiple: false,
+      asset: "XLM",
+    };
+
+    it("should pass memo to invoke", async () => {
+      contractService.invoke.mockResolvedValue({ result: 7, txHash: "tx7", ledger: 42 });
+
+      await service.create({ ...baseParams, memo: { type: "id", value: "99" } });
+
+      expect(contractService.invoke).toHaveBeenCalledWith(
+        ContractFn.CREATE_RAFFLE,
+        expect.any(Array),
+        { memo: { type: "id", value: "99" } },
+      );
+    });
+
+    it("should default metadataCid to empty string when omitted", async () => {
+      contractService.invoke.mockResolvedValue({ result: 3, txHash: "tx3", ledger: 10 });
+
+      const result = await service.create(baseParams);
+      expect(result.raffleId).toBe(3);
+    });
+
+    it("should throw if maxTickets is a float", async () => {
+      await expect(
+        service.create({ ...baseParams, maxTickets: 1.5 }),
+      ).rejects.toThrow("maxTickets must be a positive integer");
+    });
+  });
+
+  describe("get — additional edge cases", () => {
+    it("should map optional winner fields when present", async () => {
+      contractService.simulateReadOnly.mockResolvedValue({
+        creator: "GABC",
+        status: 2,
+        ticket_price: BigInt(500),
+        max_tickets: 10,
+        tickets_sold: 10,
+        end_time: BigInt(1000000),
+        asset: "XLM",
+        allow_multiple: false,
+        metadata_cid: "",
+        winner: "GWIN",
+        winning_ticket_id: 7,
+        prize_amount: BigInt(4500),
+      });
+
+      const result = await service.get(1);
+      expect(result.winner).toBe("GWIN");
+      expect(result.winningTicketId).toBe(7);
+      expect(result.prizeAmount).toBe("4500");
+    });
+
+    it("should leave winner fields undefined when absent", async () => {
+      contractService.simulateReadOnly.mockResolvedValue({
+        creator: "GABC",
+        status: 0,
+        ticket_price: BigInt(100),
+        max_tickets: 5,
+        tickets_sold: 0,
+        end_time: BigInt(9999999),
+        asset: "XLM",
+        allow_multiple: true,
+        metadata_cid: "",
+      });
+
+      const result = await service.get(1);
+      expect(result.winner).toBeUndefined();
+      expect(result.winningTicketId).toBeUndefined();
+      expect(result.prizeAmount).toBeUndefined();
+    });
+
+    it("should throw if raffleId is zero", async () => {
+      await expect(service.get(0)).rejects.toThrow("raffleId must be a positive integer");
+    });
+  });
+
+  describe("listActive — edge cases", () => {
+    it("should return empty array when no active raffles", async () => {
+      contractService.simulateReadOnly.mockResolvedValue([]);
+      expect(await service.listActive()).toEqual([]);
+    });
+  });
+
+  describe("listAll — edge cases", () => {
+    it("should return empty array when no raffles exist", async () => {
+      contractService.simulateReadOnly.mockResolvedValue([]);
+      expect(await service.listAll()).toEqual([]);
     });
   });
 });
