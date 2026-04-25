@@ -78,13 +78,15 @@ describe('RaffleProcessor', () => {
       const creator = 'GAAAA';
       const ledger = 500;
 
-      await processor.handleRaffleCreated(raffleId, creator, ledger);
+      const result = await processor.handleRaffleCreated(raffleId, creator, ledger);
 
       expect(dataSource.createQueryRunner).toHaveBeenCalled();
       expect(mockQueryRunner.connect).toHaveBeenCalled();
       expect(mockQueryRunner.startTransaction).toHaveBeenCalled();
       expect(userProcessor.handleRaffleCreated).toHaveBeenCalledWith(creator, ledger, mockQueryRunner);
-      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      // Processor returns QueryRunner without committing — caller (LedgerPoller) commits
+      expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled();
+      expect(result).toBe(mockQueryRunner);
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
     });
 
@@ -119,7 +121,7 @@ describe('RaffleProcessor', () => {
       const winner = 'GBBBB';
       const prizeAmount = '100000000';
 
-      await processor.handleRaffleFinalized(raffleId, winner, prizeAmount);
+      const result = await processor.handleRaffleFinalized(raffleId, winner, prizeAmount);
 
       expect(dataSource.createQueryRunner).toHaveBeenCalled();
       expect(mockQueryRunner.connect).toHaveBeenCalled();
@@ -130,7 +132,9 @@ describe('RaffleProcessor', () => {
         prizeAmount,
         mockQueryRunner,
       );
-      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      // Processor returns QueryRunner without committing — caller (LedgerPoller) commits
+      expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled();
+      expect(result).toBe(mockQueryRunner);
       expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('2');
       expect(cacheService.invalidateLeaderboard).toHaveBeenCalled();
     });
@@ -214,7 +218,8 @@ describe('RaffleProcessor', () => {
         status: RaffleStatus.CANCELLED,
         finalizedLedger: ledger,
       });
-      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      // Processor returns QueryRunner without committing — caller (LedgerPoller) commits
+      expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled();
       expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
     });
