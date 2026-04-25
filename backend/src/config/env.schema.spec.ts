@@ -34,6 +34,7 @@ describe('env.schema validate()', () => {
     };
     const result = validate(minimal);
     expect(result.PORT).toBe(3001);
+    expect(result.MAINTENANCE_MODE).toBe(false);
     expect(result.INDEXER_URL).toBe('http://localhost:3002');
     expect(result.INDEXER_TIMEOUT_MS).toBe(5000);
     expect(result.JWT_EXPIRES_IN).toBe('7d');
@@ -71,6 +72,11 @@ describe('env.schema validate()', () => {
   it('coerces PORT from string to number', () => {
     const result = validate({ ...validEnv, PORT: '4000' });
     expect(result.PORT).toBe(4000);
+  });
+
+  it('coerces MAINTENANCE_MODE from string to boolean', () => {
+    const result = validate({ ...validEnv, MAINTENANCE_MODE: 'true' });
+    expect(result.MAINTENANCE_MODE).toBe(true);
   });
 
   it('passes through unknown system env vars', () => {

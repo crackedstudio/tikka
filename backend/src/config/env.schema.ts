@@ -56,6 +56,7 @@ const envSchemaInner = z
   .object({
     // Server
     PORT: z.coerce.number().int().positive().default(3001),
+    MAINTENANCE_MODE: z.coerce.boolean().default(false),
 
     // Supabase — required for metadata and storage
     SUPABASE_URL: z.string().url(),

@@ -20,6 +20,8 @@ import { GeoMiddleware } from "./middleware/geo.middleware";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
 import { IndexerBackfillModule } from "./services/indexer-backfill.module";
+import { MaintenanceModeGuard } from "./maintenance/maintenance-mode.guard";
+import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
 
 @Module({
   imports: [
@@ -80,11 +82,14 @@ import { IndexerBackfillModule } from "./services/indexer-backfill.module";
     HealthModule,
     MonitorModule,
     IndexerBackfillModule,
+    MaintenanceModeModule,
   ],
   providers: [
-    // 1. JWT guard first — authenticates the request (sets req.user)
+    // 1. Maintenance guard first — blocks requests when MAINTENANCE_MODE is enabled
+    { provide: APP_GUARD, useClass: MaintenanceModeGuard },
+    // 2. JWT guard second — authenticates the request (sets req.user)
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // 2. Throttler guard second — rate limits by IP across all named tiers
+    // 3. Throttler guard third — rate limits by IP across all named tiers
     { provide: APP_GUARD, useClass: TikkaThrottlerGuard },
   ],
 })
