@@ -150,7 +150,7 @@ Data monitored:
 ### Cache hit/miss tracking
 
 `CacheService` tracks per bucket:
-- `raffles`, `users`, `others`
+- `raffles`, `users`, `stats`, `others`
 - `hits`, `misses`, `requests`
 - `hit rate` (percent) via `getAllCacheHitRates()`
 
@@ -222,6 +222,13 @@ src/
 ├── ingestor/
 │   ├── cursor-manager.service.ts
 │   └── ingestor.module.ts
+├── api/
+│   ├── api.module.ts            # Internal HTTP API
+│   └── controllers/
+│       ├── raffles.controller.ts
+│       ├── users.controller.ts
+│       ├── leaderboard.controller.ts
+│       └── stats.controller.ts
 ├── processors/
 │   ├── processors.module.ts
 │   ├── raffle.processor.ts

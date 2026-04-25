@@ -52,6 +52,7 @@ export class RaffleProcessor {
 
     // Invalidate caches
     await this.cacheService.invalidateActiveRaffles();
+    await this.cacheService.invalidatePlatformStats();
   }
 
   /**
@@ -95,6 +96,7 @@ export class RaffleProcessor {
     // Invalidate caches
     await this.cacheService.invalidateRaffleDetail(raffleId.toString());
     await this.cacheService.invalidateLeaderboard();
+    await this.cacheService.invalidatePlatformStats();
   }
 
   async handleRaffleCancelled(
