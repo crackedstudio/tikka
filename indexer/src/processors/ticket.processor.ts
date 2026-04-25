@@ -80,6 +80,7 @@ export class TicketProcessor {
       await this.cacheService.invalidateUserProfile(buyer);
 
       return queryRunner;
+      await this.cacheService.invalidatePlatformStats();
     } catch (error) {
       await queryRunner.rollbackTransaction();
       await queryRunner.release();

@@ -70,4 +70,25 @@ describe('CacheService', () => {
     lb = await service.getLeaderboard();
     expect(lb).toBeNull();
   });
+
+  it('should handle user profile', async () => {
+    const address = 'GUSER';
+    await service.setUserProfile(address, { wins: 2 });
+    let profile = await service.getUserProfile(address);
+    expect(profile.wins).toBe(2);
+
+    await service.invalidateUserProfile(address);
+    profile = await service.getUserProfile(address);
+    expect(profile).toBeNull();
+  });
+
+  it('should handle platform stats', async () => {
+    await service.setPlatformStats({ totalRaffles: 100 });
+    let stats = await service.getPlatformStats();
+    expect(stats.totalRaffles).toBe(100);
+
+    await service.invalidatePlatformStats();
+    stats = await service.getPlatformStats();
+    expect(stats).toBeNull();
+  });
 });
