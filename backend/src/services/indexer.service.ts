@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { captureIngestionError } from '../sentry/sentry';
+import { BackfillLock } from './backfill-lock';
 
 // ── Response types aligned with indexer API (ARCHITECTURE §3) ─────────────────
 
@@ -105,12 +107,28 @@ export class IndexerError extends Error {
 export class IndexerService {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
+  private readonly logger = new Logger(IndexerService.name);
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly backfillLock?: BackfillLock,
+  ) {
     this.baseUrl = this.config
       .getOrThrow<string>('INDEXER_URL')
       .replace(/\/$/, '');
     this.timeoutMs = this.config.get<number>('INDEXER_TIMEOUT_MS', 5000);
+  }
+
+  /**
+   * Returns true if the backfill lock is currently held, meaning the active
+   * poller should skip its current cycle to avoid concurrent writes.
+   */
+  isBackfillLockHeld(): boolean {
+    if (this.backfillLock?.isLocked()) {
+      this.logger.debug('Skipping polling cycle — backfill lock is held');
+      return true;
+    }
+    return false;
   }
 
   private async fetch<T>(
@@ -225,5 +243,23 @@ export class IndexerService {
   /** Get platform-wide aggregate stats. */
   async getPlatformStats(): Promise<IndexerPlatformStats> {
     return this.fetch<IndexerPlatformStats>('/stats/platform');
+  }
+
+  /** Submit a ledger and its transactions for re-indexing (backfill). */
+  async submitLedger(ledgerData: unknown, ledgerSequence?: number): Promise<void> {
+    try {
+      await this.fetch<void>('/ingest/ledger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ledgerData),
+      });
+    } catch (err) {
+      this.logger.error(
+        `submitLedger failed${ledgerSequence !== undefined ? ` for ledger ${ledgerSequence}` : ''}`,
+        err,
+      );
+      captureIngestionError(err, { ledger: ledgerSequence, ledgerPayload: ledgerData });
+      throw err;
+    }
   }
 }

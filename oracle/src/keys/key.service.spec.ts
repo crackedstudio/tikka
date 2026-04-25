@@ -2,14 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { KeyService } from './key.service';
 import { EnvKeyProvider } from './providers/env-key.provider';
+import * as StellarSdk from '@stellar/stellar-sdk';
 
 describe('KeyService', () => {
   let service: KeyService;
   let configService: ConfigService;
 
   // Test Stellar keypair
-  const TEST_SECRET = 'SBZVMB74YWMVED3F6X3LQJZCOQKDIZHIVSKRK6JKHFXX2XQIMKPEKLM3';
-  const TEST_PUBLIC = 'GDQERENWDDSQZS7R7WKHZI3BSOYMV3U3YDVYA7XQFVQVXQZQXQZQXQZQ';
+  const TEST_KEYPAIR = StellarSdk.Keypair.random();
+  const TEST_SECRET = TEST_KEYPAIR.secret();
+  const TEST_PUBLIC = TEST_KEYPAIR.publicKey();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

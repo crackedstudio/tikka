@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { KeyProvider } from './key-provider.interface';
 import { KeyProviderFactory } from './key-provider.factory';
 import { EnvKeyProvider } from './providers/env-key.provider';
-import * as StellarSdk from 'stellar-sdk';
+import * as StellarSdk from '@stellar/stellar-sdk';
 
 /**
  * KeyService — manages the oracle's Ed25519 keypair using pluggable providers.

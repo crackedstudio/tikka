@@ -69,6 +69,7 @@ export class TicketProcessor {
       await this.userProcessor.handleTicketPurchased(
         raffleId,
         buyer,
+        ticketIds.length,
         ledger,
         txHash,
         queryRunner,

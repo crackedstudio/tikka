@@ -28,7 +28,7 @@ describe('HealthController', () => {
       lag_ledgers: 5,
       db: 'ok',
       redis: 'ok',
-      redis_latency_ms: 10,
+      redis_latency_ms: 0,
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
@@ -42,7 +42,7 @@ describe('HealthController', () => {
       lag_ledgers: 250,
       db: 'ok',
       redis: 'ok',
-      redis_latency_ms: 5,
+      redis_latency_ms: 0,
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -57,7 +57,7 @@ describe('HealthController', () => {
       lag_ledgers: 150,
       db: 'error',
       redis: 'ok',
-      redis_latency_ms: 8,
+      redis_latency_ms: 0,
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -78,7 +78,7 @@ describe('HealthController', () => {
       lag_ledgers: 0,
       db: 'ok',
       redis: 'ok',
-      redis_latency_ms: 2,
+      redis_latency_ms: 0,
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
