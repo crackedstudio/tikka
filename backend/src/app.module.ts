@@ -3,6 +3,7 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerModule, seconds } from "@nestjs/throttler";
+import { LoggerModule } from "nestjs-pino";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { RafflesModule } from "./api/rest/raffles/raffles.module";
@@ -26,6 +27,34 @@ import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate }),
+    LoggerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const nodeEnv = config.get<string>("NODE_ENV", "development");
+        const isProd = nodeEnv === "production";
+
+        return {
+          pinoHttp: {
+            level: config.get<string>("LOG_LEVEL", isProd ? "info" : "debug"),
+            transport: isProd
+              ? undefined
+              : {
+                  target: "pino-pretty",
+                  options: {
+                    colorize: true,
+                    translateTime: "SYS:standard",
+                    singleLine: true,
+                  },
+                },
+            redact: [
+              "req.headers.authorization",
+              "req.headers.x-admin-token",
+            ],
+          },
+        };
+      },
+    }),
 
     /**
      * Named throttler tiers — each applied by the TikkaThrottlerGuard.

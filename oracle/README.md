@@ -189,6 +189,13 @@ The service requires the following environment variables for queue operations:
 
 - `REDIS_HOST`: Redis server host (default: `localhost`)
 - `REDIS_PORT`: Redis server port (default: `6379`)
+- `SOROBAN_RPC_URL`: primary Soroban RPC endpoint for submission
+- `SOROBAN_RPC_FALLBACK_URLS`: optional comma-separated fallback RPC endpoints
+- `RAFFLE_CONTRACT_ID`: raffle contract address
+- `NETWORK_PASSPHRASE`: Stellar network passphrase
+- `TX_SUBMIT_MAX_ATTEMPTS`: max tx submit attempts (default: `5`)
+- `TX_SUBMIT_INITIAL_BACKOFF_MS`: initial backoff delay (default: `1000`)
+- `TX_SUBMIT_ALERT_WEBHOOK_URL`: optional alert webhook for persistent submit failures
 
 ## Implementation Status
 
@@ -196,9 +203,9 @@ The service requires the following environment variables for queue operations:
 ✅ VRF/PRNG branching  
 ✅ Bull Queue integration (Redis-backed)  
 ✅ Unit tests with mocks  
-⏳ ContractService RPC calls need Stellar SDK integration  
-⏳ VrfService needs Ed25519 VRF library  
-⏳ TxSubmitterService needs Soroban transaction building  
+✅ ContractService RPC calls integrated  
+✅ VrfService integration scaffolded  
+✅ TxSubmitterService builds/signs/submits `receive_randomness` with retry/backoff  
 
 ## Manual Rescue Tool
 
@@ -225,10 +232,10 @@ See [RESCUE_GUIDE.md](./RESCUE_GUIDE.md) for detailed usage and [ON_CALL_TROUBLE
 
 ## Next Steps
 
-1. Integrate Stellar SDK for contract RPC calls
-2. Implement Ed25519 VRF (e.g., using `@noble/curves`)
-3. Implement Soroban transaction building and signing
-4. Add integration tests against Stellar testnet
+1. Expand integration tests against live Stellar testnet and failure modes
+2. Wire alert webhook to on-call paging workflow
+3. Add additional metrics for retry/failure counts by error class
+4. Harden idempotency behavior for duplicate submission races
 
 ## Security: Key Management
 
