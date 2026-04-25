@@ -12,6 +12,7 @@ import { MAX_UPLOAD_BYTES } from "./config/upload.config";
 import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
 import { BaseExceptionFilter } from "./common/filters/base-exception.filter";
 import { initSentry } from "./sentry/sentry";
+import { Logger as PinoLogger } from "nestjs-pino";
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -20,7 +21,9 @@ async function bootstrap() {
   const app = (await NestFactory.create(
     AppModule,
     new FastifyAdapter() as any,
+    { bufferLogs: true },
   )) as NestFastifyApplication;
+  app.useLogger(app.get(PinoLogger));
 
   const config = new DocumentBuilder()
     .setTitle("Tikka API")
@@ -46,6 +49,6 @@ async function bootstrap() {
   app.useGlobalFilters(new BaseExceptionFilter());
 
   await app.listen(process.env.PORT ?? 3001, "0.0.0.0");
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  logger.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();

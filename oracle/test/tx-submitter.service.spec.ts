@@ -45,6 +45,7 @@ describe('TxSubmitterService', () => {
     }).compile();
 
     service = module.get<TxSubmitterService>(TxSubmitterService);
+    jest.spyOn(service as any, 'delay').mockResolvedValue(undefined);
 
     // Inject mock RPC server
     const { rpc } = mockRpcFactory();
@@ -93,5 +94,18 @@ describe('TxSubmitterService', () => {
     expect(spyFailover).toHaveBeenCalled();
     expect(res.success).toBe(true);
     expect(res.txHash).toBe('post-failover');
+  });
+
+  it('should stop retrying on non-retriable invalid transaction errors', async () => {
+    const rpc: any = (service as any).rpcServer;
+    rpc.sendTransaction.mockImplementationOnce(async () => {
+      throw new Error('transaction invalid: malformed');
+    });
+
+    const randomness = { seed: 'aa', proof: 'bb' } as any;
+    const res = await service.submitRandomness(4, randomness);
+
+    expect(res.success).toBe(false);
+    expect(rpc.sendTransaction).toHaveBeenCalledTimes(1);
   });
 });

@@ -22,10 +22,11 @@ export class TxSubmitterService {
   private readonly contractId: string;
   private readonly networkPassphrase: string;
 
-  private readonly MAX_RETRIES = 5;
-  private readonly INITIAL_BACKOFF_MS = 1000;
+  private readonly maxAttempts: number;
+  private readonly initialBackoffMs: number;
   private readonly POLL_TIMEOUT_MS = 30000;
   private readonly POLL_INTERVAL_MS = 1000;
+  private readonly alertWebhookUrl?: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -55,6 +56,10 @@ export class TxSubmitterService {
     if (!this.contractId) {
       this.logger.warn('RAFFLE_CONTRACT_ID not configured; TxSubmitter will fail to submit.');
     }
+
+    this.maxAttempts = this.configService.get<number>('TX_SUBMIT_MAX_ATTEMPTS', 5);
+    this.initialBackoffMs = this.configService.get<number>('TX_SUBMIT_INITIAL_BACKOFF_MS', 1000);
+    this.alertWebhookUrl = this.configService.get<string>('TX_SUBMIT_ALERT_WEBHOOK_URL');
   }
 
   /** Returns status of all configured RPC endpoints. */
@@ -99,9 +104,9 @@ export class TxSubmitterService {
     const publicKey = await this.keyService.getPublicKey();
     let feeBump = 1;
     let attempt = 0;
-    let lastError: any = null;
+    let lastError: unknown = null;
 
-    while (attempt < this.MAX_RETRIES) {
+    while (attempt < this.maxAttempts) {
       attempt++;
       try {
         const account = await this.rpcServer.getAccount(publicKey);
@@ -125,7 +130,7 @@ export class TxSubmitterService {
             feeBump = Math.max(feeBump * 2, feeBump + 1);
           }
           lastError = new Error('sendTransaction returned no hash');
-          await this.delay(this.backoff(attempt));
+          await this.logRetryAndBackoff(method, attempt, lastError);
           continue;
         }
 
@@ -133,22 +138,35 @@ export class TxSubmitterService {
         if (confirm?.status === 'SUCCESS') {
           return { txHash, ledger: (confirm.ledger as number) || 0, success: true };
         }
-        if (this.isInsufficientFeeError(JSON.stringify(confirm))) {
+        const confirmMessage = JSON.stringify(confirm);
+        if (this.isInsufficientFeeError(confirmMessage)) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
         }
-        lastError = new Error(`${method} failed (status=${confirm?.status || 'UNKNOWN'})`);
-        await this.delay(this.backoff(attempt));
+        const failure = new Error(`${method} failed (status=${confirm?.status || 'UNKNOWN'})`);
+        lastError = failure;
+        if (!this.isRetriableError(failure, confirmMessage)) {
+          break;
+        }
+        await this.logRetryAndBackoff(method, attempt, lastError);
       } catch (e: any) {
         const msg = e?.message || String(e);
         if (this.isRpcError(msg)) this.failoverRpc();
         else if (this.isInsufficientFeeError(msg)) feeBump = Math.max(feeBump * 2, feeBump + 1);
-        this.logger.error(`Error calling ${method} (attempt ${attempt}/${this.MAX_RETRIES}): ${msg}`);
+        this.logger.error(`Error calling ${method} (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
         lastError = e;
-        await this.delay(this.backoff(attempt));
+        if (!this.isRetriableError(e, msg)) {
+          break;
+        }
+        await this.logRetryAndBackoff(method, attempt, lastError);
       }
     }
 
-    this.logger.error(`Persistent failure calling ${method} after ${this.MAX_RETRIES} attempts.`);
+    await this.handleFinalFailure(
+      method,
+      attempt,
+      lastError,
+      `Persistent failure calling ${method} after ${attempt} attempts.`,
+    );
     return { txHash: '', ledger: 0, success: false };
   }
 
@@ -161,19 +179,17 @@ export class TxSubmitterService {
     const publicKey = await this.keyService.getPublicKey();
 
     let attempt = 0;
-    let lastError: any = null;
+    let lastError: unknown = null;
     let feeBump = 1;
-    
+
     // Get initial fee estimate from network stats
     const feeEstimate = await this.feeEstimator.estimateFee(0);
-    let currentFee = feeEstimate.cappedFee;
-    
     this.logger.log(
-      `Submitting randomness for raffle ${raffleId} with fee ${currentFee} stroops ` +
+      `Submitting randomness for raffle ${raffleId} with fee ${feeEstimate.cappedFee} stroops ` +
       `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
     );
 
-    while (attempt < this.MAX_RETRIES) {
+    while (attempt < this.maxAttempts) {
       attempt++;
       try {
         const prepared = await this.buildPreparedTx(publicKey, raffleId, randomness, feeBump);
@@ -186,11 +202,11 @@ export class TxSubmitterService {
           const msg = JSON.stringify(sendRes);
           if (this.isInsufficientFeeError(msg)) {
             feeBump = Math.max(feeBump * 2, feeBump + 1);
-            await this.delay(this.backoff(attempt));
+            await this.logRetryAndBackoff('receive_randomness', attempt, msg);
             continue;
           }
           lastError = new Error('sendTransaction returned no hash');
-          await this.delay(this.backoff(attempt));
+          await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
           continue;
         }
 
@@ -202,14 +218,17 @@ export class TxSubmitterService {
 
         if (confirm && this.isInsufficientFeeError(JSON.stringify(confirm))) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
-          await this.delay(this.backoff(attempt));
+          await this.logRetryAndBackoff('receive_randomness', attempt, JSON.stringify(confirm));
           continue;
         }
 
         lastError = new Error(
           `Transaction failed or not confirmed (status=${confirm?.status || 'UNKNOWN'})`,
         );
-        await this.delay(this.backoff(attempt));
+        if (!this.isRetriableError(lastError, JSON.stringify(confirm))) {
+          break;
+        }
+        await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
       } catch (e: any) {
         const msg = e?.message || String(e);
         if (this.isRpcError(msg)) {
@@ -217,13 +236,21 @@ export class TxSubmitterService {
         } else if (this.isInsufficientFeeError(msg)) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
         }
-        this.logger.error(`Error submitting randomness (attempt ${attempt}/${this.MAX_RETRIES}): ${msg}`);
+        this.logger.error(`Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
         lastError = e;
-        await this.delay(this.backoff(attempt));
+        if (!this.isRetriableError(e, msg)) {
+          break;
+        }
+        await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
       }
     }
 
-    this.logger.error(`Persistent failure submitting randomness after ${this.MAX_RETRIES} attempts.`);
+    await this.handleFinalFailure(
+      'receive_randomness',
+      attempt,
+      lastError,
+      `Persistent failure submitting randomness for raffle ${raffleId} after ${attempt} attempts.`,
+    );
     return { txHash: '', ledger: 0, success: false };
   }
 
@@ -300,17 +327,100 @@ export class TxSubmitterService {
     return m.includes('insufficient fee') || m.includes('tx_insufficient_fee');
   }
 
-  /**
-   * Bumps the fee by 50% with a cap to avoid runaway costs.
-   */
-  private bumpFee(currentFee: number, maxCap: number): number {
-    const bumped = Math.floor(currentFee * 1.5);
-    return Math.min(bumped, maxCap);
+  private isRetriableError(error: unknown, message?: string): boolean {
+    const normalized = (message || (error as any)?.message || String(error)).toLowerCase();
+
+    if (this.isInsufficientFeeError(normalized) || this.isRpcError(normalized)) {
+      return true;
+    }
+
+    if (
+      normalized.includes('timeout') ||
+      normalized.includes('temporarily unavailable') ||
+      normalized.includes('try again') ||
+      normalized.includes('rate limit') ||
+      normalized.includes('too many requests')
+    ) {
+      return true;
+    }
+
+    if (
+      normalized.includes('invalid') ||
+      normalized.includes('malformed') ||
+      normalized.includes('unauthorized') ||
+      normalized.includes('forbidden') ||
+      normalized.includes('revert') ||
+      normalized.includes('failed (status=failed)')
+    ) {
+      return false;
+    }
+
+    return false;
   }
 
   private backoff(attempt: number): number {
-    const base = this.INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1);
-    return Math.min(base + Math.floor(Math.random() * 250), 60_000);
+    if (attempt <= 0) return 0;
+    const base = this.initialBackoffMs * Math.pow(2, attempt - 1);
+    return Math.min(base, 60_000);
+  }
+
+  private async logRetryAndBackoff(operation: string, attempt: number, reason: unknown): Promise<void> {
+    if (attempt >= this.maxAttempts) {
+      return;
+    }
+
+    const waitMs = this.backoff(attempt);
+    const reasonText = this.errorToString(reason);
+    this.logger.warn(
+      `Retrying ${operation} (attempt ${attempt + 1}/${this.maxAttempts}) in ${waitMs}ms: ${reasonText}`,
+    );
+    await this.delay(waitMs);
+  }
+
+  private async handleFinalFailure(
+    operation: string,
+    attempts: number,
+    error: unknown,
+    logMessage: string,
+  ): Promise<void> {
+    this.logger.error(`${logMessage} Last error: ${this.errorToString(error)}`);
+    await this.sendFailureAlert(operation, attempts, error);
+  }
+
+  private async sendFailureAlert(operation: string, attempts: number, error: unknown): Promise<void> {
+    if (!this.alertWebhookUrl) {
+      return;
+    }
+
+    try {
+      await fetch(this.alertWebhookUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          source: 'tikka-oracle',
+          operation,
+          attempts,
+          error: this.errorToString(error),
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (alertError) {
+      this.logger.error(`Failed to send tx submitter alert webhook: ${this.errorToString(alertError)}`);
+    }
+  }
+
+  private errorToString(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
   }
 
   private delay(ms: number) {
