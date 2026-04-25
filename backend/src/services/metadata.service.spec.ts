@@ -4,7 +4,7 @@ describe('MetadataService', () => {
   let service: MetadataService;
   let queryBuilder: {
     select: jest.Mock;
-    or: jest.Mock;
+    textSearch: jest.Mock;
     range: jest.Mock;
     eq: jest.Mock;
     maybeSingle: jest.Mock;
@@ -16,7 +16,7 @@ describe('MetadataService', () => {
   beforeEach(() => {
     queryBuilder = {
       select: jest.fn().mockReturnThis(),
-      or: jest.fn().mockReturnThis(),
+      textSearch: jest.fn().mockReturnThis(),
       range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
       eq: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
@@ -31,11 +31,16 @@ describe('MetadataService', () => {
     service = new MetadataService(client as any);
   });
 
-  it('searches metadata with ilike pattern', async () => {
+  it('searches metadata using full-text search vector', async () => {
     await service.searchMetadata('raffle');
 
-    expect(queryBuilder.or).toHaveBeenCalledWith(
-      expect.stringContaining('%raffle%'),
+    expect(queryBuilder.textSearch).toHaveBeenCalledWith(
+      'search_vector',
+      'raffle',
+      expect.objectContaining({
+        config: 'english',
+        type: 'websearch',
+      }),
     );
   });
 
@@ -54,6 +59,27 @@ describe('MetadataService', () => {
 
     expect(queryBuilder.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ category: 'Art' }),
+      expect.any(Object),
+    );
+  });
+
+  it('normalizes image_urls before upserting metadata', async () => {
+    const selectBuilder = {
+      single: jest.fn().mockResolvedValue({
+        data: { raffle_id: 1, image_urls: ['https://a.com/x.png'] },
+        error: null,
+      }),
+    };
+    queryBuilder.upsert.mockReturnValue({
+      select: jest.fn().mockReturnValue(selectBuilder),
+    });
+
+    await service.upsertMetadata(1, {
+      image_urls: [' https://a.com/x.png ', '   ', ''],
+    });
+
+    expect(queryBuilder.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ image_urls: ['https://a.com/x.png'] }),
       expect.any(Object),
     );
   });
