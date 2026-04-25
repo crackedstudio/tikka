@@ -34,7 +34,7 @@ function makeMocks(overrides: {
   };
 
   const mockCacheService = {
-    ping: jest.fn().mockResolvedValue(redisPingOk),
+    latency: jest.fn().mockResolvedValue(redisPingOk ? 10 : null),
   };
 
   const mockCursorManager = {

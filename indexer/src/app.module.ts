@@ -8,6 +8,7 @@ import { IngestorModule } from "./ingestor/ingestor.module";
 import { HealthModule } from "./health/health.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { MetricsModule } from "./metrics/metrics.module";
+import { ApiModule } from "./api/api.module";
 
 @Module({
   imports: [
@@ -22,6 +23,8 @@ import { MetricsModule } from "./metrics/metrics.module";
     DatabaseModule,
     // Redis cache layer
     CacheModule,
+    // Internal API layer for backend/frontend reads
+    ApiModule,
     // Cursor management for ledger ingestion
     IngestorModule,
     // Event processors (raffle, ticket, user, stats)

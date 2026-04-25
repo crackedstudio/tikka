@@ -79,6 +79,7 @@ export class TicketProcessor {
       // Invalidate relevant caches
       await this.cacheService.invalidateRaffleDetail(raffleId.toString());
       await this.cacheService.invalidateUserProfile(buyer);
+      await this.cacheService.invalidatePlatformStats();
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(
