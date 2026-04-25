@@ -166,6 +166,7 @@ describe('TicketProcessor', () => {
       expect(userProcessor.handleTicketPurchased).toHaveBeenCalledWith(
         raffleId,
         buyer,
+        ticketIds.length,
         ledger,
         txHash,
         mockQueryRunner,

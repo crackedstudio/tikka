@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { QueryRunner } from "typeorm";
 import { RaffleProcessor } from "../processors/raffle.processor";
 import { TicketProcessor } from "../processors/ticket.processor";
 import { UserProcessor } from "../processors/user.processor";
@@ -24,11 +25,15 @@ export class IngestionDispatcherService {
 
   /**
    * Dispatches a parsed domain event to the appropriate processor.
-   * 
+   *
+   * Returns the QueryRunner used for the event write, or null for log-only events.
+   * The caller (LedgerPoller) is responsible for commit and release.
+   * On error, the QueryRunner is released by the processor before re-throwing.
+   *
    * @param event The parsed DomainEvent
    * @param rawEvent The original raw event from Horizon (containing ledger, txHash, etc.)
    */
-  async dispatch(event: DomainEvent, rawEvent: any): Promise<void> {
+  async dispatch(event: DomainEvent, rawEvent: any): Promise<QueryRunner | null> {
     const ledger = Number(rawEvent.ledger);
     const txHash = rawEvent.id || rawEvent.paging_token;
 
@@ -37,15 +42,14 @@ export class IngestionDispatcherService {
     try {
       switch (event.type) {
         case "RaffleCreated":
-          await this.raffleProcessor.handleRaffleCreated(
+          return await this.raffleProcessor.handleRaffleCreated(
             event.raffle_id,
             event.creator,
             ledger,
           );
-          break;
 
         case "TicketPurchased":
-          await this.ticketProcessor.handleTicketPurchased(
+          return await this.ticketProcessor.handleTicketPurchased(
             event.raffle_id,
             event.buyer,
             event.ticket_ids,
@@ -53,83 +57,76 @@ export class IngestionDispatcherService {
             ledger,
             txHash,
           );
-          break;
 
         case "RaffleFinalized":
-          await this.raffleProcessor.handleRaffleFinalized(
+          return await this.raffleProcessor.handleRaffleFinalized(
             event.raffle_id,
             event.winner,
             event.prize_amount,
           );
-          break;
 
         case "RaffleCancelled":
-          await this.raffleProcessor.handleRaffleCancelled(
+          return await this.raffleProcessor.handleRaffleCancelled(
             event.raffle_id,
             event.reason,
             ledger,
             txHash,
           );
-          break;
 
         case "TicketRefunded":
-          await this.ticketProcessor.handleTicketRefunded(
+          return await this.ticketProcessor.handleTicketRefunded(
             event.raffle_id,
             event.ticket_id,
             event.recipient,
             event.amount,
             txHash,
           );
-          break;
 
         case "ContractPaused":
-          await this.adminProcessor.handleContractPaused(event.admin, ledger, txHash);
-          break;
+          return await this.adminProcessor.handleContractPaused(event.admin, ledger, txHash);
 
         case "ContractUnpaused":
-          await this.adminProcessor.handleContractUnpaused(event.admin, ledger, txHash);
-          break;
+          return await this.adminProcessor.handleContractUnpaused(event.admin, ledger, txHash);
 
         case "AdminTransferProposed":
-          await this.adminProcessor.handleAdminTransferProposed(
+          return await this.adminProcessor.handleAdminTransferProposed(
             event.current_admin,
             event.proposed_admin,
             ledger,
             txHash,
           );
-          break;
 
         case "AdminTransferAccepted":
-          await this.adminProcessor.handleAdminTransferAccepted(
+          return await this.adminProcessor.handleAdminTransferAccepted(
             event.old_admin,
             event.new_admin,
             ledger,
             txHash,
           );
-          break;
 
         case "DrawTriggered":
           this.logger.log(`DrawTriggered for raffle ${event.raffle_id} at ledger ${event.ledger}`);
-          // Currently, this might just be logged or used for internal state tracking
-          break;
+          return null;
 
         case "RandomnessRequested":
           this.logger.log(`RandomnessRequested for raffle ${event.raffle_id}, request ID ${event.request_id}`);
-          break;
+          return null;
 
         case "RandomnessReceived":
           this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
-          break;
+          return null;
 
         default:
           this.logger.warn(`No processor method found for event type: ${(event as any).type}`);
+          return null;
       }
     } catch (error: any) {
       this.logger.error(
         `Failed to dispatch event ${event.type} for tx ${txHash}: ${error.message}`,
         error.stack,
       );
-      throw error; // Re-throw to allow LedgerPoller to handle retry/backoff
+      // QueryRunner already released by processor on error
+      throw error;
     }
   }
 }

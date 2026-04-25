@@ -136,9 +136,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Decodes, parses, and dispatches the event, then updates the cursor.
+   * Decodes, parses, and dispatches the event, then updates the cursor atomically.
    */
-  private async processEvent(rawEvent: any) {
+  private async processEvent(rawEvent: any): Promise<void> {
     try {
       // Map Horizon event fields to the format expected by EventParserService
       const rawSorobanEvent = {
@@ -149,27 +149,31 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       };
 
       const parsed = this.eventParser.parse(rawSorobanEvent as any);
+      if (!parsed) return;
 
-      if (parsed) {
-        // Dispatch to processors for DB updates
-        await this.dispatcher.dispatch(parsed, rawEvent);
+      const queryRunner = await this.dispatcher.dispatch(parsed, rawEvent);
 
+      const nextToken = rawEvent.paging_token || rawEvent.id;
+
+      if (this.dryRun.enabled) {
         this.logger.log(
-          `Processed and dispatched ${parsed.type} event from ledger ${rawEvent.ledger}`,
+          `[DRY-RUN] Would save cursor: ledger=${rawEvent.ledger} token=${nextToken}`,
         );
-
-        // Advance cursor only after successful processing and parsing
-        const nextToken = rawEvent.paging_token || rawEvent.id;
-        
-        if (this.dryRun.enabled) {
-          this.logger.log(
-            `[DRY-RUN] Would save cursor: ledger=${rawEvent.ledger} token=${nextToken}`,
-          );
-        } else {
-          await this.cursorManager.saveCursor(rawEvent.ledger, nextToken);
+        if (queryRunner) {
+          await queryRunner.rollbackTransaction();
+          await queryRunner.release();
         }
+        return;
+      }
+
+      await this.cursorManager.saveCursor(rawEvent.ledger, nextToken, queryRunner ?? undefined);
+
+      if (queryRunner) {
+        await queryRunner.commitTransaction();
+        await queryRunner.release();
       }
     } catch (error) {
+      // queryRunner already released by dispatcher on error
       this.logger.warn(
         `Failed to process event ${rawEvent.id}: ${error instanceof Error ? error.message : String(error)}`,
       );
