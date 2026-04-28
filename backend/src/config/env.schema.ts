@@ -111,6 +111,14 @@ const envSchemaInner = z
     THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(60),
     THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(30),
     THROTTLE_NONCE_TTL: z.coerce.number().int().positive().default(60),
+
+    // Metadata cache (Redis) — optional; empty REDIS_URL disables cache-aside
+    REDIS_URL: z.string().default(''),
+    METADATA_CACHE_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(600),
   })
   .passthrough();
 
