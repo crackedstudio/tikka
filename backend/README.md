@@ -116,6 +116,122 @@ done
 
 ---
 
+## Health Check
+
+### GET /health
+
+Returns the live status of all backend dependencies. No authentication required.
+
+```bash
+curl http://localhost:3001/health
+```
+
+**Response — all healthy (HTTP 200):**
+
+```json
+{
+  "status": "ok",
+  "indexer": "ok",
+  "supabase": "ok",
+  "timestamp": "2026-04-23T11:00:00.000Z"
+}
+```
+
+**Response — dependency down (HTTP 503):**
+
+```json
+{
+  "status": "degraded",
+  "indexer": "error",
+  "supabase": "ok",
+  "timestamp": "2026-04-23T11:00:00.000Z"
+}
+```
+
+| Field       | Values              | Description                                      |
+| ----------- | ------------------- | ------------------------------------------------ |
+| `status`    | `ok` / `degraded`   | Overall health — `degraded` if any check fails   |
+| `indexer`   | `ok` / `error`      | Reachability of tikka-indexer `/health`          |
+| `supabase`  | `ok` / `error`      | Reachability of Supabase REST endpoint           |
+| `timestamp` | ISO 8601 string     | Time the check was performed                     |
+
+The endpoint returns **HTTP 503** when `status` is `degraded`, so orchestrators (Kubernetes, Railway, Fly.io) can detect unhealthy instances automatically.
+
+---
+
+## Stellar network (Testnet / Mainnet)
+
+The backend selects a Stellar network with **`STELLAR_NETWORK`** (`testnet` or `mainnet`). That value drives:
+
+- **Horizon URL** — defaults to the public Horizon for the chosen network (`https://horizon-testnet.stellar.org` or `https://horizon.stellar.org`). Override with **`STELLAR_HORIZON_URL`** if you use a proxy or custom Horizon.
+- **Network passphrase** — exposed at runtime via `env.stellar.networkPassphrase` (same constants as the Stellar SDK) for any logic that must sign or verify against a specific network.
+- **Contract ID** — defaults are empty until you deploy; set **`STELLAR_CONTRACT_ID`** to your raffle (or other) contract for the environment you are running.
+- **Indexer base URL** — if **`INDEXER_URL`** is not set, it defaults to the URL in `stellar.constants.ts` for that network (currently `http://localhost:3002` for both). In production, set **`INDEXER_URL`** explicitly to the tikka-indexer instance that indexes the same chain as **`STELLAR_NETWORK`**.
+
+Injectable services should read **`INDEXER_URL`** and **`INDEXER_TIMEOUT_MS`** from Nest **`ConfigService`** (validated at startup). For scripts or non-DI code, use **`env.indexer`** and **`env.stellar`** from `src/config/env.config.ts`.
+
+Example `.env` fragments:
+
+```dotenv
+# Local development against testnet
+STELLAR_NETWORK=testnet
+INDEXER_URL=http://localhost:3002
+
+# Production-style: mainnet Horizon defaults; point indexer at your fleet
+STELLAR_NETWORK=mainnet
+STELLAR_CONTRACT_ID=YOUR_MAINNET_CONTRACT_ID
+INDEXER_URL=https://your-indexer.example.com
+```
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in the required values before starting the server.
+
+```bash
+cp .env.example .env
+```
+
+The app validates all variables at startup using Zod. Missing or invalid required vars cause an immediate startup failure with a clear error message listing every invalid field.
+
+### Required
+
+These must be set or the app will refuse to start:
+
+| Variable                   | Description                                                  |
+| -------------------------- | ------------------------------------------------------------ |
+| `SUPABASE_URL`             | Full URL of your Supabase project (e.g. `https://xyz.supabase.co`) |
+| `SUPABASE_SERVICE_ROLE_KEY`| Supabase service role key (not the anon key)                 |
+| `JWT_SECRET`               | Secret for signing JWTs — **minimum 32 characters**          |
+| `VITE_FRONTEND_URL`        | Frontend origin allowed by CORS (e.g. `https://app.tikka.io`) |
+| `ADMIN_TOKEN`              | Bearer token for `/admin/*` endpoints                        |
+
+### Optional (with defaults)
+
+| Variable                   | Default                    | Description                                      |
+| -------------------------- | -------------------------- | ------------------------------------------------ |
+| `PORT`                     | `3001`                     | HTTP port the server listens on                  |
+| `STELLAR_NETWORK`          | `testnet`                  | `testnet` or `mainnet` — Horizon, contract, and default indexer base |
+| `STELLAR_HORIZON_URL`      | (from network)             | Override Horizon URL (optional)                  |
+| `STELLAR_CONTRACT_ID`     | (none)                     | On-chain contract id for this deployment (optional) |
+| `INDEXER_URL`              | (per `STELLAR_NETWORK`)    | Base URL of tikka-indexer; set explicitly in prod |
+| `INDEXER_TIMEOUT_MS`       | `5000`                     | HTTP timeout for indexer requests (ms)           |
+| `JWT_EXPIRES_IN`           | `7d`                       | JWT expiry duration (e.g. `1h`, `7d`)            |
+| `SIWS_DOMAIN`              | `tikka.io`                 | Domain shown in the SIWS sign-in message         |
+| `ADMIN_IP_ALLOWLIST`       | `""` (allow all)           | Comma-separated CIDRs/IPs for admin access       |
+| `FCM_ENABLED`              | `false`                    | Enable Firebase Cloud Messaging push notifications |
+| `FCM_SERVICE_ACCOUNT_JSON` | —                          | FCM service account JSON string (for CI/secrets) |
+| `FCM_SERVICE_ACCOUNT_PATH` | —                          | Path to FCM service account JSON file            |
+| `THROTTLE_DEFAULT_LIMIT`   | `100`                      | Max requests per window for public endpoints     |
+| `THROTTLE_DEFAULT_TTL`     | `60`                       | Rate-limit window size in seconds                |
+| `THROTTLE_AUTH_LIMIT`      | `10`                       | Max requests per window for `POST /auth/verify`  |
+| `THROTTLE_AUTH_TTL`        | `60`                       | Rate-limit window for auth tier (seconds)        |
+| `THROTTLE_NONCE_LIMIT`     | `30`                       | Max requests per window for `GET /auth/nonce`    |
+| `THROTTLE_NONCE_TTL`       | `60`                       | Rate-limit window for nonce tier (seconds)       |
+
+---
+
 ## Structure
 
 - `src/api/rest/` - raffles, users, leaderboard, stats, search, notifications
@@ -151,3 +267,64 @@ Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section
 - **CPU**: 100m requests, 500m limits
 - **Memory**: 256Mi requests, 512Mi limits
 These resources are managed by HPA targeting 70% CPU usage.
+---
+
+## Database Backups & Restore
+
+Data persistence in Supabase is critical. We use a multi-layered backup strategy.
+
+### 1. Automated Backups (GitHub Actions)
+
+A GitHub Action (`.github/workflows/supabase-backup.yml`) runs daily at 02:00 UTC.
+- **Process:** Runs `pg_dump`, compresses to `.sql.gz`, and uploads to **Cloudflare R2**.
+- **Retention:** Backups are retained for 30 days.
+- **Trigger:** Can be manually triggered via GitHub Actions tab.
+
+**Required Secrets:**
+- `SUPABASE_DB_URL`: Full Postgres URI.
+- `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT_URL`.
+
+### 2. Manual Local Backups
+
+Use the provided script for local dumps before migrations or major changes.
+
+```bash
+# Set your DB URL (or add to .env)
+export SUPABASE_DB_URL="postgresql://postgres:<pwd>@db.<ref>.supabase.co:5432/postgres"
+
+# Run the backup script
+bash scripts/backup.sh
+```
+
+- **Output:** `backups/tikka-backup-YYYY-MM-DD-HHmmss.dump` (Postgres custom format).
+- **Upload:** Optionally uploads to R2 if credentials are set in `.env`.
+
+### 3. Point-in-Time Recovery (PITR)
+
+For production environments, ensure **Supabase PITR** is enabled in the dashboard:
+- Go to **Settings** -> **Database** -> **Backups**.
+- Enable PITR (requires Pro plan or higher).
+
+### 4. Restore Process
+
+#### From a Local `.dump` file (Custom Format)
+The custom format is recommended as it allows selective restores and is compressed.
+
+```bash
+pg_restore \
+  --dbname=$SUPABASE_DB_URL \
+  --no-owner --no-acl \
+  --schema=public \
+  --verbose \
+  backups/tikka-backup-TIMESTAMP.dump
+```
+
+#### From a `.sql.gz` file (Plain Text)
+Used by the automated GitHub workflow.
+
+```bash
+gunzip -c tikka-backup-TIMESTAMP.sql.gz | psql $SUPABASE_DB_URL
+```
+
+> [!CAUTION]
+> Restoring a database can overwrite existing data. Always verify the backup and the target environment before proceeding.

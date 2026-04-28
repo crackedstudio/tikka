@@ -4,6 +4,11 @@ import {
   CreateSubscriptionPayload,
   NotificationSubscription,
 } from '../../../services/notification.service';
+import {
+  PushNotificationService,
+  PushNotificationPayload,
+  PushTokenRecord,
+} from '../../../services/push-notification.service';
 
 /** API response format (camelCase for frontend) */
 export interface SubscriptionResponse {
@@ -16,7 +21,10 @@ export interface SubscriptionResponse {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly pushNotificationService: PushNotificationService,
+  ) {}
 
   /**
    * Transform database record to API response format
@@ -59,5 +67,30 @@ export class NotificationsService {
    */
   async isSubscribed(raffleId: number, userAddress: string): Promise<boolean> {
     return this.notificationService.isSubscribed(raffleId, userAddress);
+  }
+
+  /**
+   * Register a device token for push notifications
+   */
+  async registerDeviceToken(
+    userAddress: string,
+    deviceToken: string,
+    platform = 'fcm',
+  ): Promise<PushTokenRecord> {
+    return this.pushNotificationService.registerDeviceToken(userAddress, deviceToken, platform);
+  }
+
+  /**
+   * Unregister a device token
+   */
+  async unregisterDeviceToken(userAddress: string, deviceToken: string): Promise<void> {
+    return this.pushNotificationService.unregisterDeviceToken(userAddress, deviceToken);
+  }
+
+  /**
+   * Deliver push notification to user
+   */
+  async sendPushToUser(userAddress: string, payload: PushNotificationPayload) {
+    return this.pushNotificationService.sendToUser(userAddress, payload);
   }
 }

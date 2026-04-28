@@ -6,6 +6,7 @@ import { useWalletContext } from "../providers/WalletProvider";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { MetadataService } from "../services/metadataService";
 import { createRaffle } from "../services/contractService";
+import { useAuthContext } from "../providers/AuthProvider";
 
 interface CreateRaffleButtonProps {
   // Form data for metadata
@@ -46,11 +47,14 @@ const CreateRaffleButton = ({
   imageFile,
   onSuccess,
   onError,
-  className = "bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200",
+  className = "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200",
   children = "Publish Raffle",
 }: CreateRaffleButtonProps) => {
   const { isConnected, isWrongNetwork, connect, switchNetwork } =
     useWalletContext();
+  const { isAuthenticated } = useAuthContext();
+  const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
+  const effectiveIsAuthenticated = isTestMode || isAuthenticated;
   const [isLoading, setIsLoading] = useState(false);
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -73,6 +77,11 @@ const CreateRaffleButton = ({
 
     if (isWrongNetwork) {
       await switchNetwork();
+      return;
+    }
+
+    if (!effectiveIsAuthenticated) {
+      onError?.("Please sign in before creating a raffle.");
       return;
     }
 
@@ -159,6 +168,7 @@ const CreateRaffleButton = ({
     if (isLoading) return "Creating...";
     if (!isConnected) return "Connect Wallet to Publish";
     if (isWrongNetwork) return `Switch to ${targetNetwork}`;
+    if (!effectiveIsAuthenticated) return "Sign in to Publish";
     return children;
   };
 

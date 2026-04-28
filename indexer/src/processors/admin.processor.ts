@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
 import { PlatformStateEntity } from '../database/entities/platform-state.entity';
 import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
@@ -17,7 +17,7 @@ export class AdminProcessor {
     admin: string,
     ledger: number,
     txHash: string,
-  ): Promise<void> {
+  ): Promise<QueryRunner> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -44,13 +44,12 @@ export class AdminProcessor {
         .where('id = :id', { id: 'global' })
         .execute();
 
-      await queryRunner.commitTransaction();
       this.logger.log(`Contract paused by ${admin} at ledger ${ledger}`);
+      return queryRunner;
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
       await queryRunner.release();
+      throw error;
     }
   }
 
@@ -58,7 +57,7 @@ export class AdminProcessor {
     admin: string,
     ledger: number,
     txHash: string,
-  ): Promise<void> {
+  ): Promise<QueryRunner> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -85,13 +84,12 @@ export class AdminProcessor {
         .where('id = :id', { id: 'global' })
         .execute();
 
-      await queryRunner.commitTransaction();
       this.logger.log(`Contract unpaused by ${admin} at ledger ${ledger}`);
+      return queryRunner;
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
       await queryRunner.release();
+      throw error;
     }
   }
 
@@ -100,7 +98,7 @@ export class AdminProcessor {
     proposedAdmin: string,
     ledger: number,
     txHash: string,
-  ): Promise<void> {
+  ): Promise<QueryRunner> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -127,13 +125,12 @@ export class AdminProcessor {
         .where('id = :id', { id: 'global' })
         .execute();
 
-      await queryRunner.commitTransaction();
       this.logger.log(`Admin transfer proposed: ${currentAdmin} → ${proposedAdmin}`);
+      return queryRunner;
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
       await queryRunner.release();
+      throw error;
     }
   }
 
@@ -142,7 +139,7 @@ export class AdminProcessor {
     newAdmin: string,
     ledger: number,
     txHash: string,
-  ): Promise<void> {
+  ): Promise<QueryRunner> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -173,13 +170,12 @@ export class AdminProcessor {
         .where('id = :id', { id: 'global' })
         .execute();
 
-      await queryRunner.commitTransaction();
       this.logger.log(`Admin transfer accepted: ${oldAdmin} → ${newAdmin}`);
+      return queryRunner;
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
       await queryRunner.release();
+      throw error;
     }
   }
 }

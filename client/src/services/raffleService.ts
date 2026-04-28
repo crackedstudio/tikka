@@ -1,11 +1,11 @@
 import { api } from "./apiClient";
 import { API_CONFIG } from "../config/api";
-import { env } from "../config/env";
-import { demoRaffles } from "../data/demoRaffles";
 import type {
     ApiRaffleListItem,
     ApiRaffleListResponse,
     ApiRaffleDetail,
+    ApiUserProfile,
+    ApiUserHistoryResponse,
     RaffleListFilters,
     FormattedRaffle,
 } from "../types/types";
@@ -24,55 +24,11 @@ function buildQueryString(filters: RaffleListFilters): string {
     return query ? `?${query}` : "";
 }
 
-function mapDemoToListItem(
-    demo: (typeof demoRaffles)[number]
-): ApiRaffleListItem {
-    return {
-        id: demo.id,
-        creator: "demo",
-        status: demo.isActive ? "open" : "closed",
-        ticket_price: String(demo.ticketPriceEth),
-        asset: "ETH",
-        max_tickets: demo.maxTickets,
-        tickets_sold: demo.totalTicketsSold,
-        end_time: new Date(demo.endTime * 1000).toISOString(),
-        winner: null,
-        prize_amount: demo.prizeValue,
-        created_ledger: 0,
-        finalized_ledger: null,
-        metadata_cid: null,
-        created_at: new Date().toISOString(),
-    };
-}
-
-function mapDemoToDetail(
-    demo: (typeof demoRaffles)[number]
-): ApiRaffleDetail {
-    return {
-        ...mapDemoToListItem(demo),
-        title: demo.title,
-        description: demo.description,
-        image_url: demo.image,
-        category: demo.tags[0] || null,
-    };
-}
-
 // --- Exported Functions ---
 
 export async function fetchRaffles(
     filters: RaffleListFilters = {}
 ): Promise<ApiRaffleListResponse> {
-    if (env.dev.useDemoData) {
-        let items = demoRaffles.map(mapDemoToListItem);
-        if (filters.status === "open") {
-            items = items.filter((r) => r.status === "open");
-        }
-        const offset = filters.offset ?? 0;
-        const limit = filters.limit ?? items.length;
-        const sliced = items.slice(offset, offset + limit);
-        return { raffles: sliced, total: items.length };
-    }
-
     const queryString = buildQueryString(filters);
     const endpoint = API_CONFIG.endpoints.raffles.list + queryString;
     return api.get<ApiRaffleListResponse>(endpoint);
@@ -81,14 +37,6 @@ export async function fetchRaffles(
 export async function fetchRaffleDetail(
     id: number
 ): Promise<ApiRaffleDetail> {
-    if (env.dev.useDemoData) {
-        const demo = demoRaffles.find((r) => r.id === id);
-        if (!demo) {
-            throw new Error(`Demo raffle ${id} not found`);
-        }
-        return mapDemoToDetail(demo);
-    }
-
     const endpoint = API_CONFIG.endpoints.raffles.detail(String(id));
     return api.get<ApiRaffleDetail>(endpoint);
 }
@@ -97,23 +45,27 @@ export async function fetchRaffleDetail(
 export async function searchRaffles(
     query: string
 ): Promise<ApiRaffleListResponse> {
-    const trimmedQuery = query.trim().toLowerCase();
-
-    if (env.dev.useDemoData) {
-        if (!trimmedQuery) return { raffles: [], total: 0 };
-        const filtered = demoRaffles
-            .filter(r => 
-                r.title.toLowerCase().includes(trimmedQuery) || 
-                r.description.toLowerCase().includes(trimmedQuery) ||
-                r.tags.some(tag => tag.toLowerCase().includes(trimmedQuery))
-            )
-            .map(mapDemoToListItem);
-        return { raffles: filtered, total: filtered.length };
-    }
-
+    const trimmedQuery = query.trim();
     const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
     return api.get<ApiRaffleListResponse>(endpoint);
 }
+export async function fetchUserProfile(address: string): Promise<ApiUserProfile> {
+    const endpoint = API_CONFIG.endpoints.users.profile(encodeURIComponent(address));
+    return api.get<ApiUserProfile>(endpoint);
+}
+
+export async function fetchUserHistory(
+    address: string,
+    limit = 20,
+    offset = 0,
+): Promise<ApiUserHistoryResponse> {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    params.set("offset", String(offset));
+    const endpoint = `${API_CONFIG.endpoints.users.history(encodeURIComponent(address))}?${params.toString()}`;
+    return api.get<ApiUserHistoryResponse>(endpoint);
+}
+
 export function mapListItemToCardProps(item: ApiRaffleListItem) {
     const endTimeUnix = Math.floor(new Date(item.end_time).getTime() / 1000);
     const timeRemaining = endTimeUnix - Math.floor(Date.now() / 1000);
@@ -161,6 +113,7 @@ export function mapDetailToFormattedRaffle(
     return {
         id: detail.id,
         creator: detail.creator,
+        status: detail.status,
         description: detail.title || `Raffle #${detail.id}`,
         endTime: endTimeUnix,
         maxTickets: detail.max_tickets,

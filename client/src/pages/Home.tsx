@@ -9,11 +9,14 @@ import { useState, useCallback } from "react";
 import { useRaffles } from "../hooks/useRaffles";
 import { fetchRaffles } from "../services/raffleService";
 import type { ApiRaffleListItem } from "../types/types";
+import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
+import ErrorMessage from "../components/ui/ErrorMessage";
+import { useTranslation } from "react-i18next";
 
 const PAGE_SIZE = 6;
 
 const Home = () => {
-    const { raffles, total, error, isLoading: rafflesLoading } = useRaffles({
+    const { raffles, total, error, isLoading: rafflesLoading, refetch } = useRaffles({
         status: "open",
         limit: PAGE_SIZE,
     });
@@ -41,36 +44,30 @@ const Home = () => {
     }, [allRaffles.length]);
 
     return (
-        <div className="bg-[#060C23] text-white flex flex-col space-y-16">
+        <div className="bg-gray-50 dark:bg-[#060C23] text-gray-900 dark:text-white flex flex-col space-y-16">
             <BrowseRaffles />
             <FeaturedRaffle isSignedIn={true} />
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
                 {rafflesLoading ? (
-                    <div className="text-center py-12">
-                    <div className="w-full animation-pulse">
-                        <FeaturedRaffleCardSkeleton />
-                        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                            <RaffleCardSkeleton />
-                            <RaffleCardSkeleton />
-                            <RaffleCardSkeleton />
-                            <RaffleCardSkeleton />
-                            <RaffleCardSkeleton />
-                            <RaffleCardSkeleton />
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                            <RaffleCardSkeleton key={i} />
+                        ))}
                     </div>
                 ) : error ? (
-                    <div className="text-center py-12">
-                        <div className="text-red-400 text-lg">
-                            Error loading raffles: {error.message}
-                        </div>
-                    </div>
+                    <ErrorMessage
+                        title={t("home.failedToLoad")}
+                        message={error.message}
+                        onRetry={refetch}
+                        disabled={rafflesLoading}
+                    />
                 ) : allRaffles.length === 0 ? (
                     <div className="text-center py-12">
-                        <div className="text-white text-lg">
-                            No active raffles found
+                        <div className="text-gray-900 dark:text-white text-lg">
+                            {t("home.noActiveRaffles")}
                         </div>
                         <div className="text-gray-400 text-sm mt-2">
-                            Be the first to create a raffle!
+                            {t("home.beTheFirst")}
                         </div>
                     </div>
                 ) : (
@@ -85,7 +82,7 @@ const Home = () => {
                                 >
                                     <RocketLaunch />
                                     <span>
-                                        {loadingMore ? "Loading..." : "Load More"}
+                                        {loadingMore ? t("home.loading") : t("home.loadMore")}
                                     </span>
                                 </button>
                             </div>
@@ -101,3 +98,5 @@ const Home = () => {
 };
 
 export default Home;
+
+

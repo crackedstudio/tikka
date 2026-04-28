@@ -28,7 +28,7 @@ const RecentlyAddedCard: React.FC<RecentlyAddedCardProps> = ({
     progress,
 }) => {
     return (
-        <div className="w-full bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
+        <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
             {/* Image */}
             <div className="w-full">
                 <img
@@ -62,11 +62,11 @@ const RecentlyAddedCard: React.FC<RecentlyAddedCardProps> = ({
             {/* Ticket & Entries */}
             <div className="flex justify-between">
                 <div>
-                    <p className="text-[#9CA3AF] text-[12px]">Ticket price</p>
+                    <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">Ticket price</p>
                     <p>{ticketPrice}</p>
                 </div>
                 <div>
-                    <p className="text-[#9CA3AF] text-[12px]">Entries</p>
+                    <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">Entries</p>
                     <p>{entries}</p>
                 </div>
             </div>

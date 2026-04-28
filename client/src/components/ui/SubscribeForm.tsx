@@ -33,7 +33,7 @@ const SubscribeForm: React.FC = () => {
                 {/* Button */}
                 <button
                     type="submit"
-                    className="px-6 py-3 text-white font-medium transition bg-[#FE3796] hover:brightness-110 active:scale-[0.98]"
+                    className="px-6 py-3 text-gray-900 dark:text-white font-medium transition bg-[#FE3796] hover:brightness-110 active:scale-[0.98]"
                 >
                     Subscribe
                 </button>

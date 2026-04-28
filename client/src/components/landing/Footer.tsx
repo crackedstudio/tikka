@@ -10,7 +10,7 @@ import Line from "../../assets/svg/Line";
 
 const Footer = () => {
     return (
-        <footer className="w-full bg-[#11172E] fixed-bottom">
+        <footer className="w-full bg-white dark:bg-[#11172E] fixed-bottom">
             <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-12 md:py-16">
                 {/* Top grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 text-[#CCCCCC] mb-10">
@@ -20,12 +20,12 @@ const Footer = () => {
                             <img
                                 src={logo}
                                 alt="VeriWin logo"
-                                className="h-7 w-auto"
+                                className="h-7 w-auto invert dark:invert-0"
                             />
                             <img
                                 src={tikka}
                                 alt="VeriWin wordmark"
-                                className="h-5 w-auto mt-1"
+                                className="h-5 w-auto invert dark:invert-0 mt-1"
                             />
                         </div>
 
@@ -70,22 +70,22 @@ const Footer = () => {
 
                     {/* Explore */}
                     <nav aria-label="Explore">
-                        <h2 className="text-white text-lg md:text-[22px] font-bold mb-4">
+                        <h2 className="text-gray-900 dark:text-white text-lg md:text-[22px] font-bold mb-4">
                             Explore
                         </h2>
                         <ul className="flex flex-col gap-3">
                             <li>
-                                <a href="#" className="hover:text-white">
+                                <a href="#" className="hover:text-gray-900 dark:text-white">
                                     Marketplace
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white">
+                                <a href="#" className="hover:text-gray-900 dark:text-white">
                                     Rankings
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white">
+                                <a href="#" className="hover:text-gray-900 dark:text-white">
                                     Demo mode
                                 </a>
                             </li>
@@ -94,23 +94,28 @@ const Footer = () => {
 
                     {/* Resources */}
                     <nav aria-label="Resources">
-                        <h2 className="text-white text-lg md:text-[22px] font-bold mb-4">
+                        <h2 className="text-gray-900 dark:text-white text-lg md:text-[22px] font-bold mb-4">
                             Resources
                         </h2>
                         <ul className="flex flex-col gap-3">
                             <li>
-                                <a href="#" className="hover:text-white">
+                                <a href="#" className="hover:text-gray-900 dark:text-white">
                                     Documentation
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white">
+                                <a href="#" className="hover:text-gray-900 dark:text-white">
                                     Platform updates
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white">
+                                <a href="#" className="hover:text-gray-900 dark:text-white">
                                     Community
+                                </a>
+                            </li>
+                            <li >
+                                <a href="/faq" className="hover:text-white">
+                                    FAQ
                                 </a>
                             </li>
                         </ul>
@@ -118,7 +123,7 @@ const Footer = () => {
 
                     {/* Digest */}
                     <div className="space-y-6">
-                        <h2 className="text-white text-lg md:text-[22px] font-bold">
+                        <h2 className="text-gray-900 dark:text-white text-lg md:text-[22px] font-bold">
                             Join Our Weekly Digest
                         </h2>
                         <p className="text-sm max-w-md">
@@ -139,10 +144,10 @@ const Footer = () => {
                     <span className="text-[#5A5E6E]">Ⓒ Tikka.</span>
                     <span className="text-[#5A5E6E]">All rights reserved.</span>
 
-                    <a href="#" className="hover:text-white">
+                    <a href="#" className="hover:text-gray-900 dark:text-white">
                         Terms of Service
                     </a>
-                    <a href="#" className="hover:text-white">
+                    <a href="#" className="hover:text-gray-900 dark:text-white">
                         Privacy Policy
                     </a>
                 </div>

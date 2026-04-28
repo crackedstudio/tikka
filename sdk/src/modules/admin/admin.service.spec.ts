@@ -33,7 +33,7 @@ describe('AdminService', () => {
 
       const result = await service.pause();
 
-      expect(contractService.invoke).toHaveBeenCalledWith('pause', []);
+      expect(contractService.invoke).toHaveBeenCalledWith('pause', [], expect.anything());
       expect(result).toEqual({ txHash: 'abc123', ledger: 100 });
     });
   });
@@ -48,7 +48,7 @@ describe('AdminService', () => {
 
       const result = await service.unpause();
 
-      expect(contractService.invoke).toHaveBeenCalledWith('unpause', []);
+     expect(contractService.invoke).toHaveBeenCalledWith('unpause', [], expect.anything());
       expect(result).toEqual({ txHash: 'def456', ledger: 101 });
     });
   });
@@ -95,7 +95,7 @@ describe('AdminService', () => {
 
       const result = await service.transferAdmin(newAdmin);
 
-      expect(contractService.invoke).toHaveBeenCalledWith('transfer_admin', [newAdmin]);
+      expect(contractService.invoke).toHaveBeenCalledWith('transfer_admin', [newAdmin], expect.anything());
       expect(result).toEqual({ txHash: 'ghi789', ledger: 102 });
     });
 
@@ -114,7 +114,7 @@ describe('AdminService', () => {
 
       const result = await service.acceptAdmin();
 
-      expect(contractService.invoke).toHaveBeenCalledWith('accept_admin', []);
+      expect(contractService.invoke).toHaveBeenCalledWith('accept_admin', [], expect.anything());
       expect(result).toEqual({ txHash: 'jkl012', ledger: 103 });
     });
   });

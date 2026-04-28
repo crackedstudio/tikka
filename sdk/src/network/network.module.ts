@@ -12,20 +12,24 @@ import {
 @Module({})
 export class NetworkModule {
   static forRoot(
-    networkOrConfig: TikkaNetwork | NetworkConfig,
+    networkOrConfig: TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork }),
     rpcConfig?: RpcConfig,
   ): DynamicModule {
     const networkConfig = resolveNetworkConfig(networkOrConfig);
+    const resolvedRpcConfig: RpcConfig = {
+      ...rpcConfig,
+      endpoint: rpcConfig?.endpoint ?? networkConfig.rpcUrl,
+    };
 
     return {
       module: NetworkModule,
       providers: [
         { provide: 'NETWORK_CONFIG', useValue: networkConfig },
-        { provide: 'RPC_CONFIG', useValue: rpcConfig },
+        { provide: 'RPC_CONFIG', useValue: resolvedRpcConfig },
 
         {
           provide: RpcService,
-          useFactory: () => new RpcService(networkConfig, rpcConfig),
+          useFactory: () => new RpcService(networkConfig, resolvedRpcConfig),
         },
         {
           provide: HorizonService,

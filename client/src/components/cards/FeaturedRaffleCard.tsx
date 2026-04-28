@@ -2,6 +2,7 @@
 import React from "react";
 import { ProgressBar } from "../ui/ProgressBar";
 import Line from "../../assets/svg/Line";
+import AddToCalendar from "../ui/AddToCalendar";
 
 type Countdown = {
     days: string;
@@ -17,6 +18,7 @@ type FeaturedRaffleCardProps = {
     prizeValue: string;
     prizeCurrency?: string; // default "ETH"
     countdown: Countdown;
+    endTimeUnix?: number; // Unix timestamp for calendar
     ticketPrice: string;
     entries: number;
     progress: number; // 0–100
@@ -31,6 +33,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
     prizeValue,
     prizeCurrency = "ETH",
     countdown,
+    endTimeUnix,
     ticketPrice,
     entries,
     progress,
@@ -38,7 +41,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
     onEnter,
 }) => {
     return (
-        <div className="w-full bg-[#11172E] p-4 md:p-6 lg:p-8 rounded-3xl border border-[#1F263F] my-5">
+        <div className="w-full bg-white dark:bg-[#11172E] p-4 md:p-6 lg:p-8 rounded-3xl border border-gray-200 dark:border-[#1F263F] my-5">
             <div className="flex flex-col gap-6 md:flex-row md:gap-8 items-stretch">
                 {/* Image (stacks on top for mobile) */}
                 <div className="w-full md:w-1/2">
@@ -56,7 +59,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                         <p className="text-2xl md:text-3xl font-bold">
                             {title}
                         </p>
-                        <p className="text-sm md:text-base text-[#9CA3AF] mt-3">
+                        <p className="text-sm md:text-base text-gray-600 dark:text-[#9CA3AF] mt-3">
                             {body}
                         </p>
                     </div>
@@ -66,16 +69,16 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                     {/* Prize + Countdown */}
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <p className="text-[#9CA3AF] text-sm">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
                                 Prize Value:
                             </p>
-                            <p className="font-bold text-[#FFD700] text-xl md:text-2xl">
+                            <p className="font-bold text-yellow-600 dark:text-[#FFD700] text-xl md:text-2xl">
                                 {prizeValue} {prizeCurrency}
                             </p>
                         </div>
 
                         <div className="sm:text-right">
-                            <p className="text-xs text-[#9CA3AF] mb-2">
+                            <p className="text-xs text-gray-600 dark:text-[#9CA3AF] mb-2">
                                 Ends In
                             </p>
                             <div className="flex justify-start sm:justify-end gap-1">
@@ -92,6 +95,11 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                                     {countdown.seconds}s
                                 </span>
                             </div>
+                            {endTimeUnix && (
+                                <div className="mt-2 flex justify-start sm:justify-end">
+                                    <AddToCalendar title={title} endTimeUnix={endTimeUnix} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -100,7 +108,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                     {/* Ticket & Entries */}
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <p className="text-[#9CA3AF] text-[12px]">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Ticket price
                             </p>
                             <p className="text-sm md:text-base">
@@ -108,7 +116,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                             </p>
                         </div>
                         <div>
-                            <p className="text-[#9CA3AF] text-[12px]">
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Entries
                             </p>
                             <p className="text-sm md:text-base">{entries}</p>
@@ -121,7 +129,7 @@ const FeaturedRaffleCard: React.FC<FeaturedRaffleCardProps> = ({
                     {/* CTA */}
                     <button
                         onClick={onEnter}
-                        className="w-full self-stretch md:self-start px-8 py-4 rounded-xl text-white font-medium transition"
+                        className="w-full self-stretch md:self-start px-8 py-4 rounded-xl text-gray-900 dark:text-white font-medium transition"
                         style={{
                             background:
                                 "linear-gradient(100.92deg, #A259FF 13.57%, #FF6250 97.65%)",

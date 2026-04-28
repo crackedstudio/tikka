@@ -9,6 +9,7 @@ export enum WalletName {
   XBull = 'xbull',
   Albedo = 'albedo',
   LOBSTR = 'lobstr',
+  Mock = 'mock',
 }
 
 export interface WalletAdapterOptions {

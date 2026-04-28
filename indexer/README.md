@@ -129,6 +129,43 @@ Caching logic is wired into the processors in `src/processors/` to ensure consis
 
 ---
 
+## Redis Memory Management and Monitoring
+
+- Config file: `indexer/redis.conf`
+- `maxmemory 4gb`, `maxmemory-policy allkeys-lru`, `maxmemory-samples 5`.
+- Eviction policy: `allkeys-lru`, to keep frequently-accessed data and evict least recently used keys across all key namespaces.
+- TTLs are still used in CacheService for key lifecycle control.
+
+### Monitoring
+
+CacheService periodically calls Redis `INFO memory` and logs:
+- WARNING when usage >= 80%
+- CRITICAL when usage >= 90%
+
+Data monitored:
+- `used_memory`
+- `maxmemory`
+- `memory usage percentage`
+
+### Cache hit/miss tracking
+
+`CacheService` tracks per bucket:
+- `raffles`, `users`, `stats`, `others`
+- `hits`, `misses`, `requests`
+- `hit rate` (percent) via `getAllCacheHitRates()`
+
+Use this data to detect hot sets and to tune TTLs per data type.
+
+### Best practice
+
+1. Set `maxmemory` to ~50% of host RAM for dedicated cache nodes.
+2. Use `allkeys-lru` for general purpose cache with mixed TTL keys.
+3. Enable Redis slowlog & keyspace notifications for degraded performance debugging.
+4. Scale horizontally with Redis Cluster if items exceed node limit.
+
+---
+
+
 ## Health Endpoint
 
 `GET /health` is intended for orchestration and monitoring. It reports indexer lag, DB connectivity, and Redis connectivity.
@@ -185,6 +222,13 @@ src/
 ├── ingestor/
 │   ├── cursor-manager.service.ts
 │   └── ingestor.module.ts
+├── api/
+│   ├── api.module.ts            # Internal HTTP API
+│   └── controllers/
+│       ├── raffles.controller.ts
+│       ├── users.controller.ts
+│       ├── leaderboard.controller.ts
+│       └── stats.controller.ts
 ├── processors/
 │   ├── processors.module.ts
 │   ├── raffle.processor.ts

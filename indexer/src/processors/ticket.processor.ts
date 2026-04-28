@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { DataSource } from "typeorm";
+import { DataSource, QueryRunner } from "typeorm";
 import { TicketEntity } from "../database/entities/ticket.entity";
 import { RaffleEntity } from "../database/entities/raffle.entity";
 import { CacheService } from "../cache/cache.service";
@@ -26,7 +26,7 @@ export class TicketProcessor {
     totalCost: string,
     ledger: number,
     txHash: string,
-  ) {
+  ): Promise<QueryRunner> {
     this.logger.log(
       `Handling TicketPurchased for raffle ${raffleId} by ${buyer}`,
     );
@@ -69,25 +69,26 @@ export class TicketProcessor {
       await this.userProcessor.handleTicketPurchased(
         raffleId,
         buyer,
+        ticketIds.length,
         ledger,
         txHash,
         queryRunner,
       );
 
-      await queryRunner.commitTransaction();
-
       // Invalidate relevant caches
       await this.cacheService.invalidateRaffleDetail(raffleId.toString());
       await this.cacheService.invalidateUserProfile(buyer);
+
+      return queryRunner;
+      await this.cacheService.invalidatePlatformStats();
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      await queryRunner.release();
       this.logger.error(
         `Error processing TicketPurchased for txHash ${txHash}`,
         error,
       );
       throw error;
-    } finally {
-      await queryRunner.release();
     }
   }
 
@@ -101,7 +102,7 @@ export class TicketProcessor {
     recipient: string,
     amount: string,
     txHash: string,
-  ) {
+  ): Promise<QueryRunner> {
     this.logger.log(
       `Handling TicketRefunded for raffle ${raffleId}, ticket ${ticketId}`,
     );
@@ -129,20 +130,19 @@ export class TicketProcessor {
       // but usually refund means the raffle was cancelled, so `ticketsSold` doesn't matter much.
       // If we do want to decrement, we can add it here.
 
-      await queryRunner.commitTransaction();
-
       // Invalidate caches
       await this.cacheService.invalidateRaffleDetail(raffleId.toString());
       await this.cacheService.invalidateUserProfile(recipient);
+
+      return queryRunner;
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      await queryRunner.release();
       this.logger.error(
         `Error processing TicketRefunded for txHash ${txHash}`,
         error,
       );
       throw error;
-    } finally {
-      await queryRunner.release();
     }
   }
 }

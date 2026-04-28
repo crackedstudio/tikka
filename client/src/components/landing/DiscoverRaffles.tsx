@@ -3,8 +3,10 @@ import TrendingRaffles from "./TrendingRaffles";
 import { useRaffles } from "../../hooks/useRaffles";
 import RaffleCardSkeleton from "../ui/RaffleCardSkeleton";
 import ErrorMessage from "../ui/ErrorMessage";
+import { useTranslation } from "react-i18next";
 
 const DiscoverRaffles = () => {
+    const { t } = useTranslation();
     const { raffles, error, isLoading } = useRaffles({ status: "open" });
 
     return (
@@ -14,19 +16,19 @@ const DiscoverRaffles = () => {
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 className="text-3xl md:text-4xl font-semibold mb-1">
-                            Catch Your Next Opportunity
+                            {t("home.catchNextOpportunity")}
                         </h2>
-                        <p className="text-white/70">
-                            Explore New Trending Raffles
+                        <p className="text-gray-600 dark:text-white/70">
+                            {t("home.exploreTrending")}
                         </p>
                     </div>
 
                     <button
                         type="button"
-                        className="inline-flex items-center gap-3 rounded-xl px-6 py-3 text-sm font-medium text-white transition hover:brightness-110 border border-[#FE3796]"
+                        className="inline-flex items-center gap-3 rounded-xl px-6 py-3 text-sm font-medium text-gray-900 dark:text-white transition hover:brightness-110 border border-[#FE3796]"
                     >
                         <Eye className="h-5 w-5" />
-                        <span>See All</span>
+                        <span>{t("home.seeAll")}</span>
                     </button>
                 </div>
 
@@ -40,16 +42,16 @@ const DiscoverRaffles = () => {
                         </div>
                     ) : error ? (
                         <ErrorMessage
-                            title="Error loading raffles"
+                            title={t("home.failedToLoad")}
                             message={(error as Error)?.message}
                         />
                     ) : raffles.length === 0 ? (
                         <div className="text-center py-12">
-                            <div className="text-white text-lg">
-                                No active raffles found
+                            <div className="text-gray-900 dark:text-white text-lg">
+                                {t("home.noActiveRaffles")}
                             </div>
                             <div className="text-gray-400 text-sm mt-2">
-                                Be the first to create a raffle!
+                                {t("home.beTheFirst")}
                             </div>
                         </div>
                     ) : (

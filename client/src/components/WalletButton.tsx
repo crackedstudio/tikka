@@ -33,7 +33,7 @@ const WalletButton: React.FC = () => {
     // Show error state if there's an error
     if (error && !isConnecting) {
         return (
-            <div className="flex items-center gap-2 rounded-full border border-red-500/50 bg-[#15102A] px-4 py-2 text-sm text-red-400">
+            <div className="flex items-center gap-2 rounded-full border border-red-500/50 bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-red-400">
                 <span className="inline-flex h-2 w-2 rounded-full bg-red-500" />
                 Error
             </div>
@@ -46,7 +46,7 @@ const WalletButton: React.FC = () => {
             <button
                 onClick={handleClick}
                 disabled={isDisconnecting}
-                className="flex items-center gap-2 rounded-full border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-full border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-900 dark:text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A] disabled:opacity-50 disabled:cursor-not-allowed"
                 title={address}
             >
                 <span className="inline-flex h-2 w-2 rounded-full bg-[#52E5A4]" />
@@ -60,7 +60,7 @@ const WalletButton: React.FC = () => {
         return (
             <button
                 disabled
-                className="flex items-center gap-2 rounded-full border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-white opacity-50 cursor-not-allowed"
+                className="flex items-center gap-2 rounded-full border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-900 dark:text-white opacity-50 cursor-not-allowed"
             >
                 <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
                 Connecting...
@@ -73,7 +73,7 @@ const WalletButton: React.FC = () => {
         <button
             onClick={handleClick}
             disabled={!isWalletAvailable}
-            className="flex items-center gap-2 rounded-full border border-[#2A264A] bg-[#15102A] px-4 py-2 text-sm text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-full border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-900 dark:text-white transition-colors hover:border-[#3A356A] hover:bg-[#1A153A] disabled:opacity-50 disabled:cursor-not-allowed"
             title={
                 !isWalletAvailable
                     ? "Please install a Stellar wallet (e.g., Freighter) to continue"

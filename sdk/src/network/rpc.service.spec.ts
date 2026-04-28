@@ -12,6 +12,12 @@ describe('RpcService', () => {
     networkPassphrase: Networks.TESTNET,
   };
   const mockFailover = 'https://backup.rpc.com';
+  const mainnetNetwork: NetworkConfig = {
+    network: 'mainnet' as TikkaNetwork,
+    rpcUrl: 'https://soroban.stellar.org',
+    horizonUrl: 'https://horizon.stellar.org',
+    networkPassphrase: Networks.PUBLIC,
+  };
 
   beforeEach(() => {
     service = new RpcService(mockNetwork, { endpoint: mockNetwork.rpcUrl });
@@ -78,5 +84,91 @@ describe('RpcService', () => {
 
     const mockTx = { toXDR: () => 'mock-xdr' };
     await expect(service.simulateTransaction(mockTx)).rejects.toThrow(TikkaSdkError);
+  });
+
+  it('should retry on retryable http statuses', async () => {
+    const mockFetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ result: { status: 'ok-after-retry' } }),
+      });
+
+    service.configure({
+      fetchClient: mockFetch as any,
+      maxRetryAttempts: 2,
+      retryBaseDelayMs: 1,
+    });
+
+    const mockTx = { toXDR: () => 'mock-xdr' };
+    const result = await service.simulateTransaction(mockTx);
+    expect(result).toEqual({ status: 'ok-after-retry' });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('should allow disabling retries per call', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+    });
+
+    service.configure({
+      fetchClient: mockFetch as any,
+      maxRetryAttempts: 3,
+      retryBaseDelayMs: 1,
+    });
+
+    const mockTx = { toXDR: () => 'mock-xdr' };
+    await expect(service.simulateTransaction(mockTx, { disableRetries: true })).rejects.toThrow(TikkaSdkError);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should default endpoint from network config when not provided', async () => {
+    const mainnetService = new RpcService(mainnetNetwork);
+    expect((mainnetService as any).rpcConfig.endpoint).toBe(mainnetNetwork.rpcUrl);
+  });
+
+  it('should expose getLedger method', async () => {
+    const mockResult = { sequence: 12345 };
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ result: mockResult }),
+    });
+
+    service.configure({ fetchClient: mockFetch as any });
+    const result = await service.getLedger();
+    expect(result).toEqual(mockResult);
+    expect(mockFetch).toHaveBeenCalledWith(
+      mockNetwork.rpcUrl,
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"method":"getLatestLedger"'),
+      }),
+    );
+  });
+
+  it('getTransaction makes a single request and returns the raw response', async () => {
+    const mockResp = { status: 'NOT_FOUND' };
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ result: mockResp }),
+    });
+
+    service.configure({ fetchClient: mockFetch as any });
+    const result = await service.getTransaction('abc123');
+
+    expect(result).toEqual(mockResp);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      mockNetwork.rpcUrl,
+      expect.objectContaining({
+        body: expect.stringContaining('"method":"getTransaction"'),
+      }),
+    );
   });
 });

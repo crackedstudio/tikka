@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { rpc } from '@stellar/stellar-sdk';
-import { NetworkConfig, RpcConfig, DEFAULT_RPC_CONFIG } from './network.config';
+import { DEFAULT_RPC_CONFIG } from './network.config';
+import type { NetworkConfig, RpcConfig } from './network.config';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+
+interface RequestOptions {
+  disableRetries?: boolean;
+}
 
 /**
  * RpcService
@@ -16,7 +21,11 @@ export class RpcService {
     private readonly networkConfig: NetworkConfig,
     rpcConfig?: RpcConfig,
   ) {
-    this.rpcConfig = { ...DEFAULT_RPC_CONFIG, ...rpcConfig };
+    this.rpcConfig = this.normalizeConfig({
+      ...DEFAULT_RPC_CONFIG,
+      ...rpcConfig,
+      endpoint: rpcConfig?.endpoint ?? networkConfig.rpcUrl,
+    });
 
     this.server = new rpc.Server(networkConfig.rpcUrl, {
       allowHttp: networkConfig.rpcUrl.startsWith('http://'),
@@ -30,7 +39,7 @@ export class RpcService {
 
   /** Update RPC config at runtime */
   configure(config: Partial<RpcConfig>): void {
-    this.rpcConfig = { ...this.rpcConfig, ...config };
+    this.rpcConfig = this.normalizeConfig({ ...this.rpcConfig, ...config });
   }
 
   /** Override RPC endpoint */
@@ -62,54 +71,54 @@ export class RpcService {
   /** Simulate transaction with automatic failover */
   async simulateTransaction(
     tx: any,
+    options: RequestOptions = {},
   ): Promise<rpc.Api.SimulateTransactionResponse> {
-    return this.request('simulateTransaction', [tx.toXDR()]);
+    return this.request('simulateTransaction', [tx.toXDR()], options);
   }
 
   /** Send transaction with automatic failover */
   async sendTransaction(
     tx: any,
+    options: RequestOptions = {},
   ): Promise<rpc.Api.SendTransactionResponse> {
-    return this.request('sendTransaction', [tx.toXDR()]);
+    return this.request('sendTransaction', [tx.toXDR()], options);
   }
 
-  /** Poll transaction status */
+  /** Fetch latest ledger from Soroban RPC */
+  async getLedger(
+    options: RequestOptions = {},
+  ): Promise<rpc.Api.GetLatestLedgerResponse> {
+    return this.request('getLatestLedger', [], options);
+  }
+
+  /**
+   * Get a single transaction status from the RPC node (single-shot).
+   * Returns NOT_FOUND if the tx is not yet indexed — caller owns the retry loop.
+   * Transient transport errors (429, 5xx) are still retried by `executeRequest()`.
+   */
   async getTransaction(
     hash: string,
-    timeoutMs = this.rpcConfig.timeoutMs ?? 30_000,
-    intervalMs = 2_000,
   ): Promise<rpc.Api.GetTransactionResponse> {
-    const deadline = Date.now() + timeoutMs;
-
-    while (Date.now() < deadline) {
-      try {
-        const resp = await this.request<rpc.Api.GetTransactionResponse>('getTransaction', [hash]);
-        if (resp.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
-          return resp;
-        }
-      } catch {
-        // If it's a transport error, we might want to failover inside request()
-        // so we don't need extra logic here.
-      }
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-
-    throw new TikkaSdkError(
-      TikkaSdkErrorCode.Timeout,
-      `Transaction ${hash} not confirmed within ${timeoutMs}ms`,
-    );
+    return this.request('getTransaction', [hash]);
   }
 
   /**
    * Internal request handler with automatic failover and custom transport.
    */
-  private async request<T>(method: string, params: any[] = []): Promise<T> {
-    const endpoints = [this.rpcConfig.endpoint, ...(this.rpcConfig.failoverEndpoints || [])];
+  private async request<T>(
+    method: string,
+    params: any[] = [],
+    options: RequestOptions = {},
+  ): Promise<T> {
+    const endpoints = [
+      this.rpcConfig.endpoint ?? this.networkConfig.rpcUrl,
+      ...(this.rpcConfig.failoverEndpoints || []),
+    ];
     let lastError: any = null;
 
     for (const url of endpoints) {
       try {
-        return await this.executeRequest<T>(url, method, params);
+        return await this.executeRequest<T>(url, method, params, options);
       } catch (error) {
         lastError = error;
         continue;
@@ -128,8 +137,48 @@ export class RpcService {
     url: string,
     method: string,
     params: any[],
+    options: RequestOptions = {},
   ): Promise<T> {
-    const fetchClient = this.rpcConfig.fetchClient || fetch;
+    const retriesEnabled = this.rpcConfig.enableRetries !== false && !options.disableRetries;
+    const maxAttempts = retriesEnabled ? Math.max(1, this.rpcConfig.maxRetryAttempts ?? 3) : 1;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await this.executeSingleRequest<T>(url, method, params);
+        if (attempt > 1) {
+          console.info(`[RpcService] ${method} succeeded on retry ${attempt}/${maxAttempts} (${url})`);
+        }
+        return result;
+      } catch (error: any) {
+        lastError = error;
+        const shouldRetry = attempt < maxAttempts && this.shouldRetry(error);
+
+        if (!shouldRetry) {
+          break;
+        }
+
+        const delay = Math.round(
+          (this.rpcConfig.retryBaseDelayMs ?? 300) *
+          Math.pow(this.rpcConfig.retryBackoffFactor ?? 2, attempt - 1),
+        );
+        console.warn(
+          `[RpcService] ${method} retry ${attempt}/${maxAttempts} in ${delay}ms (${url}): ${error?.message ?? error}`,
+        );
+        await this.sleep(delay);
+      }
+    }
+
+    console.error(`[RpcService] ${method} failed after ${maxAttempts} attempt(s) (${url})`);
+    throw lastError;
+  }
+
+  private async executeSingleRequest<T>(
+    url: string,
+    method: string,
+    params: any[],
+  ): Promise<T> {
+    const fetchClient = this.resolveFetchClient();
     const timeoutMs = this.rpcConfig.timeoutMs ?? 30_000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -154,14 +203,14 @@ export class RpcService {
         throw new TikkaSdkError(
           TikkaSdkErrorCode.NetworkError,
           `RPC request failed: ${response.statusText}`,
-          { status: response.status }
+          { status: response.status },
         );
       }
 
       const payload = await response.json();
       if (payload.error) {
         throw new TikkaSdkError(
-          TikkaSdkErrorCode.SimulationFailed, // Generic for RPC errors
+          TikkaSdkErrorCode.SimulationFailed,
           payload.error.message || 'Unknown RPC error',
           payload.error,
         );
@@ -173,12 +222,45 @@ export class RpcService {
         throw new TikkaSdkError(
           TikkaSdkErrorCode.Timeout,
           `Request timed out after ${timeoutMs}ms`,
-          error
+          error,
         );
       }
       throw error;
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private resolveFetchClient(): typeof fetch {
+    if (this.rpcConfig.fetchClient) return this.rpcConfig.fetchClient;
+    const runtimeFetch = (globalThis as any).fetch;
+    if (typeof runtimeFetch === 'function') {
+      return runtimeFetch;
+    }
+    throw new TikkaSdkError(
+      TikkaSdkErrorCode.NetworkError,
+      'No fetch implementation found. Provide rpcConfig.fetchClient (required in some React Native and older Node runtimes).',
+    );
+  }
+
+  private shouldRetry(error: any): boolean {
+    if (error?.code === TikkaSdkErrorCode.Timeout) return true;
+    const status = error?.cause?.status ?? error?.status;
+    if (typeof status === 'number') {
+      return (this.rpcConfig.retryableStatusCodes ?? []).includes(status);
+    }
+    return error?.code === TikkaSdkErrorCode.NetworkError;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private normalizeConfig(config: RpcConfig): RpcConfig {
+    return {
+      ...config,
+      failoverEndpoints: [...(config.failoverEndpoints ?? [])],
+      retryableStatusCodes: [...(config.retryableStatusCodes ?? [])],
+    };
   }
 }

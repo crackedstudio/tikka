@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export const GetNonceQuerySchema = z.object({
   address: z
@@ -19,4 +20,27 @@ export const VerifyBodySchema = z.object({
   issuedAt: z.string().optional(),
 });
 
-export type VerifyBodyDto = z.infer<typeof VerifyBodySchema>;
+export const RefreshBodySchema = z.object({
+  refreshToken: z
+    .string({ required_error: "refreshToken is required" })
+    .min(1, "refreshToken cannot be empty"),
+});
+
+export class VerifyBodyDto {
+  @ApiProperty({ description: "Stellar address of the user" })
+  address: string;
+
+  @ApiProperty({ description: "Wallet signature of the SIWS message" })
+  signature: string;
+
+  @ApiProperty({ description: "Nonce obtained from /auth/nonce" })
+  nonce: string;
+
+  @ApiPropertyOptional({ description: "Timestamp the signature was issued" })
+  issuedAt?: string;
+}
+
+export class RefreshBodyDto {
+  @ApiProperty({ description: "Refresh token previously issued by the server" })
+  refreshToken: string;
+}

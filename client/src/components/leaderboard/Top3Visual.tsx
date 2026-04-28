@@ -81,10 +81,10 @@ const Top3Visual: React.FC<Top3VisualProps> = ({ players }) => {
                         )} flex flex-col justify-between`}
                     >
                         <div className="text-center">
-                            <h3 className="text-white font-semibold text-sm">
+                            <h3 className="text-gray-900 dark:text-white font-semibold text-sm">
                                 {player.name}
                             </h3>
-                            <p className="text-white/80 text-xs">
+                            <p className="text-gray-600 dark:text-white/80 text-xs">
                                 {player.xp.toLocaleString()} XP
                             </p>
                         </div>
@@ -96,7 +96,7 @@ const Top3Visual: React.FC<Top3VisualProps> = ({ players }) => {
                                     player.rank
                                 )} w-8 h-8 rounded-full flex items-center justify-center`}
                             >
-                                <span className="text-white font-bold text-lg">
+                                <span className="text-gray-900 dark:text-white font-bold text-lg">
                                     {player.rank}
                                 </span>
                             </div>

@@ -39,6 +39,14 @@ export class UserEntity {
   @Column({ type: "integer", name: "first_seen_ledger" })
   firstSeenLedger!: number;
 
+  /**
+   * Transaction hash of the last event applied to this user row.
+   * Acts as an idempotency key — processors skip re-applying an event
+   * whose tx_hash matches this value.
+   */
+  @Column({ type: "varchar", length: 64, nullable: true, name: "last_tx_hash" })
+  lastTxHash!: string | null;
+
   @UpdateDateColumn({ type: "timestamptz", name: "updated_at" })
   updatedAt!: Date;
 }

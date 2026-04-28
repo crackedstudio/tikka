@@ -33,15 +33,9 @@ export class CommitRevealWorker {
     this.logger.log(`Processing commit for raffle ${raffleId}`);
 
     try {
-      // Generate commitment
       const commitment = this.commitmentService.commit(raffleId);
-      
-      // Submit commitment to contract
-      // TODO: Implement contract call to commit_randomness(raffleId, commitment)
       this.logger.log(`Commitment for raffle ${raffleId}: ${commitment}`);
-      
-      // When contract supports commit_randomness:
-      // await this.txSubmitter.submitCommitment(raffleId, commitment);
+      await this.txSubmitter.submitCommitment(raffleId, commitment);
       
     } catch (error) {
       this.logger.error(
@@ -70,14 +64,8 @@ export class CommitRevealWorker {
       }
       
       const { secret, nonce } = reveal;
-      
-      // Submit reveal to contract
-      // Contract will verify: SHA-256(secret || nonce) == stored commitment
-      // TODO: Implement contract call to reveal_randomness(raffleId, secret, nonce)
       this.logger.log(`Revealing for raffle ${raffleId}`);
-      
-      // When contract supports reveal_randomness:
-      // await this.txSubmitter.submitReveal(raffleId, secret, nonce);
+      await this.txSubmitter.submitReveal(raffleId, secret, nonce);
       
       // Clear commitment after successful reveal
       this.commitmentService.clearCommitment(raffleId);

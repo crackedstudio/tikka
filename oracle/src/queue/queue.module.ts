@@ -8,6 +8,7 @@ import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
 import { CommitmentService } from '../randomness/commitment.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
+import { FeeEstimatorService } from '../submitter/fee-estimator.service';
 import { HealthModule } from '../health/health.module';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
@@ -30,11 +31,9 @@ import { RANDOMNESS_QUEUE } from './randomness.queue';
       name: RANDOMNESS_QUEUE,
       defaultJobOptions: {
         attempts: 5,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
+        backoff: { type: 'exponential', delay: 2000 },
         removeOnComplete: true,
+        removeOnFail: false,
       },
     }),
   ],
@@ -46,9 +45,10 @@ import { RANDOMNESS_QUEUE } from './randomness.queue';
     PrngService,
     CommitmentService,
     TxSubmitterService,
+    FeeEstimatorService,
     HealthService,
     LagMonitorService,
   ],
-  exports: [RandomnessWorker, CommitRevealWorker, BullModule],
+  exports: [RandomnessWorker, CommitRevealWorker, BullModule.registerQueue({ name: RANDOMNESS_QUEUE })],
 })
 export class QueueModule { }

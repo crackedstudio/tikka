@@ -8,6 +8,7 @@ export interface RaffleFormData {
     title: string;
     description: string;
     image: File | null;
+    images: File[];
     pricePerTicket: number;
     totalTickets: number;
     duration: {
@@ -126,7 +127,8 @@ export interface WalletInfo {
 export interface RaffleMetadata {
     title: string;
     description: string;
-    image: string; // IPFS URL or Supabase storage URL
+    image: string; // IPFS URL or Supabase storage URL (primary/legacy)
+    images?: string[]; // Multiple images for physical prizes
     prizeName: string;
     prizeValue: string;
     prizeCurrency: string;
@@ -210,7 +212,7 @@ export interface ContractResponse<T> {
  */
 export const ContractErrorType = {
     NETWORK_ERROR: "NETWORK_ERROR",
-    CONTRACT_ERROR: "CONTRACT_ERROR", 
+    CONTRACT_ERROR: "CONTRACT_ERROR",
     WALLET_ERROR: "WALLET_ERROR",
     VALIDATION_ERROR: "VALIDATION_ERROR",
     INSUFFICIENT_FUNDS: "INSUFFICIENT_FUNDS",
@@ -323,6 +325,8 @@ export interface RaffleListFilters {
 export interface FormattedRaffle {
     id: number;
     creator: string;
+    title?: string;
+    status: string;
     description: string;
     endTime: number;
     maxTickets: number;
@@ -352,6 +356,7 @@ export interface FormattedRaffle {
         title: string;
         description: string;
         image: string;
+        images?: string[];
         prizeName: string;
         prizeValue: string;
         prizeCurrency: string;
@@ -361,6 +366,38 @@ export interface FormattedRaffle {
         createdAt: number;
         updatedAt: number;
     };
+}
+
+// ============================================
+// USER API TYPES
+// ============================================
+
+/** User profile from GET /users/:address */
+export interface ApiUserProfile {
+    address: string;
+    total_tickets_bought: number;
+    total_raffles_entered: number;
+    total_raffles_won: number;
+    total_prize_xlm: string;
+    first_seen_ledger: number;
+    updated_at: string;
+}
+
+/** Single history item from GET /users/:address/history */
+export interface ApiUserHistoryItem {
+    raffle_id: number;
+    status: string;
+    tickets_bought: number;
+    purchased_at_ledger: number;
+    purchase_tx_hash: string;
+    prize_amount: string | null;
+    is_winner: boolean;
+}
+
+/** Response from GET /users/:address/history */
+export interface ApiUserHistoryResponse {
+    items: ApiUserHistoryItem[];
+    total: number;
 }
 
 // ============================================

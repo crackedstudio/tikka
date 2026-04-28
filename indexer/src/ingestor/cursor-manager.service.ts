@@ -1,4 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, EntityManager, QueryRunner } from 'typeorm';
+import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
 
 /**
  * Interface representing the cursor data stored in the database.
@@ -12,13 +15,10 @@ export interface IndexerCursor {
 export class CursorManagerService {
     private readonly logger = new Logger(CursorManagerService.name);
 
-    // In a real implementation, this would be injected with a database repository or client.
-    // For now, we will maintain an in-memory state that simulates db persistence as requested
-    // for the scaffolding phase.
-    private currentCursor: IndexerCursor = {
-        lastLedger: 0,
-        lastPagingToken: undefined,
-    };
+    constructor(
+        @InjectRepository(IndexerCursorEntity)
+        private readonly cursorRepo: Repository<IndexerCursorEntity>,
+    ) {}
 
     /**
      * Loads the last processed ledger (and optional paging token) from storage.
@@ -26,25 +26,37 @@ export class CursorManagerService {
      */
     async getCursor(): Promise<IndexerCursor | null> {
         this.logger.debug('Fetching cursor from storage...');
-        // Replace with actual DB call: `return await this.cursorRepo.findOne(...)`
-        return this.currentCursor.lastLedger > 0 ? this.currentCursor : null;
+        const cursor = await this.cursorRepo.findOne({ where: { id: 1 } });
+        
+        if (cursor && cursor.lastLedger > 0) {
+            return {
+                lastLedger: cursor.lastLedger,
+                lastPagingToken: cursor.lastPagingToken,
+            };
+        }
+        return null;
     }
 
     /**
      * Updates the cursor after events are successfully written to the DB.
-     * This should be called within the same transaction as event writes to ensure atomicity.
      *
      * @param ledger The highest ledger processed in the batch.
      * @param token The paging token of the last event processed.
+     * @param queryRunner Optional QueryRunner to execute in an existing transaction.
      */
-    async saveCursor(ledger: number, token?: string): Promise<void> {
+    async saveCursor(ledger: number, token?: string, queryRunner?: QueryRunner): Promise<void> {
         this.logger.debug(`Saving cursor: ledger=${ledger}, token=${token}`);
 
-        // Replace with actual DB update:
-        // await this.cursorRepo.upsert({ id: 'default', lastLedger: ledger, lastPagingToken: token })
-        this.currentCursor = {
-            lastLedger: ledger,
-            lastPagingToken: token,
-        };
+        const manager: EntityManager = queryRunner ? queryRunner.manager : this.cursorRepo.manager;
+
+        await manager.upsert(
+            IndexerCursorEntity,
+            {
+                id: 1,
+                lastLedger: ledger,
+                lastPagingToken: token || "",
+            },
+            ['id'] // conflict paths
+        );
     }
 }

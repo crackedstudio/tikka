@@ -228,6 +228,46 @@ const active  = await tikka.raffle.listActive();
 simulate tx → estimate fee → build XDR → request wallet signature → submit → poll confirmation
 ```
 
+### Fee Estimation
+
+Call `FeeEstimatorService.estimateFee({ method, params })` before asking the user to sign.
+Returns `{ xlm, stroops, resources }` — no wallet needed (falls back to an anonymous source key).
+Re-call whenever inputs change; each call runs a fresh `simulateTransaction`.
+
+```ts
+const estimate = await feeEstimator.estimateFee({
+  method: ContractFn.BUY_TICKET,
+  params: [raffleId, buyerPublicKey, quantity],
+});
+// estimate.xlm        → "0.0051000" (human-readable)
+// estimate.stroops    → "51000"
+// estimate.resources  → { cpuInstructions, diskReadBytes, … }
+```
+
+### Confirmation Polling
+
+After submit, `lifecycle.poll()` polls `getTransaction` with exponential backoff until the
+transaction reaches `SUCCESS` or `FAILED`. `RpcService.getTransaction()` is single-shot;
+the retry loop and backoff live entirely in `lifecycle.poll()`.
+
+| Parameter | Default | Override via |
+|---|---|---|
+| Timeout | 60 s | `PollConfig.timeoutMs` |
+| Initial interval | 2 s | `PollConfig.intervalMs` |
+| Backoff factor | 1.5× | `PollConfig.backoffFactor` |
+| Max interval | 10 s | `PollConfig.maxIntervalMs` |
+
+Pass `poll` inside `InvokeLifecycleOptions` to override per-call:
+
+```ts
+await lifecycle.invoke(ContractFn.BUY_TICKET, params, {
+  poll: { timeoutMs: 90_000, intervalMs: 3_000 },
+});
+```
+
+RPC-level transient errors (429, 500–504) are retried separately by `RpcService.executeRequest()`
+and do not consume the poll timeout.
+
 ### Wallet Adapters
 
 | Wallet | Priority | Notes |
@@ -575,7 +615,7 @@ This prevents the oracle from observing ticket purchases after committing, elimi
 | **Non-manipulability** | Oracle cannot choose the seed — it's deterministic from input |
 | **Front-running resistance** | Commit-reveal: oracle commits before end_time, reveals after |
 | **Liveness** | Bull queue with retry; fallback alert if reveal not submitted within N ledgers |
-| **Key security** | Oracle keypair stored in HSM or secrets manager (not in env) |
+| **Key security** | Oracle keypair managed by `KeyService` with pluggable providers (HSM, Secrets Manager, or Env) |
 
 ### Oracle Monitoring
 

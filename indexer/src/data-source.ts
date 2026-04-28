@@ -6,6 +6,7 @@ import { RaffleEventEntity } from "./database/entities/raffle-event.entity";
 import { PlatformStatEntity } from "./database/entities/platform-stat.entity";
 import { PlatformStateEntity } from "./database/entities/platform-state.entity";
 import { IndexerCursorEntity } from "./database/entities/indexer-cursor.entity";
+import { WebhookEntity } from "./database/entities/webhook.entity";
 
 /**
  * Standalone DataSource for the TypeORM CLI.
@@ -33,6 +34,7 @@ const options: DataSourceOptions = {
     PlatformStatEntity,
     PlatformStateEntity,
     IndexerCursorEntity,
+    WebhookEntity,
   ],
   migrations: [__dirname + "/database/migrations/*{.ts,.js}"],
   synchronize: false,

@@ -1,11 +1,11 @@
 /**
  * useNotifications Hook
  *
- * Custom hook for managing notification subscriptions
- * Provides methods to subscribe, unsubscribe, and check subscription status
+ * Custom hook for managing notification subscriptions for a specific raffle.
+ * Provides subscribe / unsubscribe actions and tracks loading / error state.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   subscribeToRaffle,
   unsubscribeFromRaffle,
@@ -24,108 +24,97 @@ export interface UseNotificationsReturn {
   clearError: () => void;
 }
 
-/**
- * Hook to manage notification subscriptions for raffles
- */
 export function useNotifications(raffleId?: number): UseNotificationsReturn {
   const { isAuthenticated } = useAuthContext();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Check if user is subscribed to the raffle
-   */
-  const checkSubscription = useCallback(async (id: number) => {
-    if (!isAuthenticated) {
-      setIsSubscribed(false);
-      return;
-    }
+  // Track the latest request so stale responses are ignored
+  const requestId = useRef(0);
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      const subscriptions = await getUserSubscriptions();
-      const subscribed = subscriptions.some(sub => sub.raffleId === id);
-      setIsSubscribed(subscribed);
-    } catch (err) {
-      console.error('Error checking subscription:', err);
-      setError(err instanceof Error ? err.message : 'Failed to check subscription');
-      setIsSubscribed(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated]);
+  const checkSubscription = useCallback(
+    async (id: number) => {
+      if (!isAuthenticated) {
+        setIsSubscribed(false);
+        return;
+      }
 
-  /**
-   * Subscribe to raffle notifications
-   */
-  const subscribe = useCallback(async (id: number, channel: NotificationChannel = 'email') => {
-    if (!isAuthenticated) {
-      setError('Please sign in to subscribe to notifications');
-      return;
-    }
+      const current = ++requestId.current;
+      try {
+        setIsLoading(true);
+        setError(null);
+        const subscriptions = await getUserSubscriptions();
+        if (current !== requestId.current) return;
+        setIsSubscribed(subscriptions.some((sub) => sub.raffleId === id));
+      } catch (err) {
+        if (current !== requestId.current) return;
+        console.error('Error checking subscription:', err);
+        setError(err instanceof Error ? err.message : 'Failed to check subscription');
+        setIsSubscribed(false);
+      } finally {
+        if (current === requestId.current) setIsLoading(false);
+      }
+    },
+    [isAuthenticated]
+  );
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      await subscribeToRaffle({ raffleId: id, channel });
-      setIsSubscribed(true);
-    } catch (err) {
-      console.error('Error subscribing:', err);
-      setError(err instanceof Error ? err.message : 'Failed to subscribe');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated]);
+  const subscribe = useCallback(
+    async (id: number, channel: NotificationChannel = 'email') => {
+      if (!isAuthenticated) {
+        setError('Please sign in to subscribe to notifications');
+        return;
+      }
 
-  /**
-   * Unsubscribe from raffle notifications
-   */
-  const unsubscribe = useCallback(async (id: number) => {
-    if (!isAuthenticated) {
-      setError('Please sign in to manage subscriptions');
-      return;
-    }
+      try {
+        setIsLoading(true);
+        setError(null);
+        await subscribeToRaffle({ raffleId: id, channel });
+        setIsSubscribed(true);
+      } catch (err) {
+        console.error('Error subscribing:', err);
+        setError(err instanceof Error ? err.message : 'Failed to subscribe');
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated]
+  );
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      await unsubscribeFromRaffle(id);
-      setIsSubscribed(false);
-    } catch (err) {
-      console.error('Error unsubscribing:', err);
-      setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated]);
+  const unsubscribe = useCallback(
+    async (id: number) => {
+      if (!isAuthenticated) {
+        setError('Please sign in to manage subscriptions');
+        return;
+      }
 
-  /**
-   * Clear error state
-   */
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
+      try {
+        setIsLoading(true);
+        setError(null);
+        await unsubscribeFromRaffle(id);
+        setIsSubscribed(false);
+      } catch (err) {
+        console.error('Error unsubscribing:', err);
+        setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated]
+  );
 
-  // Check subscription status on mount if raffleId is provided
+  const clearError = useCallback(() => setError(null), []);
+
+  // Check subscription status whenever raffleId or auth state changes
   useEffect(() => {
     if (raffleId && isAuthenticated) {
       checkSubscription(raffleId);
     } else {
       setIsSubscribed(false);
     }
-  }, [raffleId, isAuthenticated, checkSubscription]);
+  }, [raffleId, isAuthenticated]); // intentionally omit checkSubscription — it's stable
 
-  return {
-    isSubscribed,
-    isLoading,
-    error,
-    subscribe,
-    unsubscribe,
-    checkSubscription,
-    clearError,
-  };
+  return { isSubscribed, isLoading, error, subscribe, unsubscribe, checkSubscription, clearError };
 }

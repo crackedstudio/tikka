@@ -124,7 +124,7 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
             <div className="flex justify-end mb-4 sm:mb-6">
                 <button
                     onClick={onClose}
-                    className="text-white hover:text-gray-300 transition-colors"
+                    className="text-gray-900 dark:text-white hover:text-gray-700 dark:text-gray-300 transition-colors"
                     aria-label="Close modal"
                 >
                     <X size={20} className="sm:w-6 sm:h-6" />
@@ -132,20 +132,20 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
             </div>
 
             {/* Main Content */}
-            <div className="bg-[#1E1932] rounded-xl p-6 sm:p-8">
+            <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6 sm:p-8">
                 {/* Title */}
                 <div className="text-center mb-6">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                         You Won!
                     </h2>
-                    <p className="text-white text-sm sm:text-base">
+                    <p className="text-gray-900 dark:text-white text-sm sm:text-base">
                         {prizeName}
                     </p>
                 </div>
 
                 {/* Prize Value */}
                 <div className="text-center mb-6">
-                    <span className="text-white text-sm">Valued at</span>
+                    <span className="text-gray-900 dark:text-white text-sm">Valued at</span>
                     <div className="text-yellow-400 text-xl sm:text-2xl font-bold">
                         {prizeValue}
                     </div>
@@ -155,15 +155,15 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
                 <div className="mb-6">
                     <div className="flex items-start space-x-3 mb-3">
                         <div className="w-6 h-6 bg-blue-400 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-white text-sm font-bold">
+                            <span className="text-gray-900 dark:text-white text-sm font-bold">
                                 i
                             </span>
                         </div>
                         <div>
-                            <h3 className="text-white font-semibold text-sm sm:text-base">
+                            <h3 className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">
                                 Claim Instructions
                             </h3>
-                            <p className="text-white text-xs sm:text-sm mt-1">
+                            <p className="text-gray-900 dark:text-white text-xs sm:text-sm mt-1">
                                 Your prize will be transferred to your connected
                                 wallet address. Please verify your details
                                 below.
@@ -173,13 +173,13 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
                 </div>
 
                 {/* Wallet Details */}
-                <div className="bg-[#2A264A] rounded-lg p-4 mb-6">
+                <div className="bg-gray-200 dark:bg-[#2A264A] rounded-lg p-4 mb-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                             {/* Metamask Logo */}
                             <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
                                 <svg
-                                    className="w-6 h-6 text-white"
+                                    className="w-6 h-6 text-gray-900 dark:text-white"
                                     fill="currentColor"
                                     viewBox="0 0 24 24"
                                 >
@@ -202,7 +202,7 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
                                 </svg>
                             </div>
                             <div>
-                                <div className="text-white font-medium text-sm">
+                                <div className="text-gray-900 dark:text-white font-medium text-sm">
                                     {walletAddress}
                                 </div>
                                 <div className="text-gray-400 text-xs">
@@ -211,10 +211,10 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
                             </div>
                         </div>
                         <div className="text-right">
-                            <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium mb-1">
+                            <div className="bg-green-500 text-gray-900 dark:text-white px-3 py-1 rounded-full text-xs font-medium mb-1">
                                 Connected
                             </div>
-                            <button className="text-white text-xs hover:text-gray-300 transition-colors">
+                            <button className="text-gray-900 dark:text-white text-xs hover:text-gray-700 dark:text-gray-300 transition-colors">
                                 Change
                             </button>
                         </div>
@@ -225,7 +225,7 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
                 <div className="mb-8">
                     <button
                         onClick={onClaimPrize}
-                        className="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200"
+                        className="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200"
                     >
                         Claim Your Prize
                     </button>
@@ -234,7 +234,7 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
 
             {/* Social Sharing */}
             <div className="text-center mt-8">
-                <h3 className="text-white font-bold text-lg mb-4">
+                <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-4">
                     Share Your Victory!
                 </h3>
                 <div className="flex justify-center space-x-4">
@@ -242,7 +242,7 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
                         <button
                             key={platform.id}
                             onClick={() => handleSocialShare(platform)}
-                            className={`w-12 h-12 ${platform.color} rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity duration-200`}
+                            className={`w-12 h-12 ${platform.color} rounded-full flex items-center justify-center text-gray-900 dark:text-white hover:opacity-80 transition-opacity duration-200`}
                             aria-label={`Share on ${platform.name}`}
                         >
                             {getSocialIcon(platform.icon)}
@@ -255,7 +255,7 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
             <div className="text-center mt-8">
                 <button
                     onClick={onBackToHome}
-                    className="bg-[#2A264A] hover:bg-[#3A365A] text-white px-6 py-3 rounded-lg flex items-center space-x-2 mx-auto transition-colors duration-200"
+                    className="bg-gray-200 dark:bg-[#2A264A] hover:bg-gray-300 dark:bg-[#3A365A] text-gray-900 dark:text-white px-6 py-3 rounded-lg flex items-center space-x-2 mx-auto transition-colors duration-200"
                 >
                     <svg
                         className="w-4 h-4"

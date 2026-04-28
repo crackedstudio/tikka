@@ -12,41 +12,41 @@ interface EnvConfig {
         horizonUrl: string;
         networkPassphrase: string;
     };
-    
+
     // Soroban Contract
     soroban: {
         rpcUrl: string;
         contractAddress?: string;
         deploymentHash?: string;
     };
-    
+
     // Supabase
     supabase: {
         url: string;
         anonKey: string;
         table: string;
     };
-    
+
     // Wallet
     wallet: {
         defaultProvider: string;
         autoConnect: boolean;
     };
-    
+
     // Application
     app: {
         env: 'development' | 'staging' | 'production';
         debugMode: boolean;
         apiTimeout: number;
     };
-    
+
     // Feature Flags
     features: {
         leaderboard: boolean;
         socialShare: boolean;
         emailNotifications: boolean;
     };
-    
+
     // Development
     dev: {
         useDemoData: boolean;
@@ -59,7 +59,7 @@ interface EnvConfig {
  */
 function getEnvVar(key: string, required: boolean = false, defaultValue?: string): string {
     const value = import.meta.env[key] || defaultValue;
-    
+
     if (required && !value) {
         throw new Error(
             `Missing required environment variable: ${key}\n` +
@@ -67,7 +67,7 @@ function getEnvVar(key: string, required: boolean = false, defaultValue?: string
             `See .env.example for reference.`
         );
     }
-    
+
     return value || '';
 }
 
@@ -95,21 +95,21 @@ function getNumberEnvVar(key: string, defaultValue: number): number {
  */
 function validateStellarConfig() {
     const network = getEnvVar('VITE_STELLAR_NETWORK', false, 'testnet');
-    
+
     if (network !== 'testnet' && network !== 'mainnet') {
         console.warn(
             `Invalid VITE_STELLAR_NETWORK: ${network}. Defaulting to 'testnet'.\n` +
             `Valid values are: 'testnet' or 'mainnet'`
         );
     }
-    
+
     const horizonUrl = getEnvVar('VITE_STELLAR_HORIZON_URL', false, 'https://horizon-testnet.stellar.org');
     const networkPassphrase = getEnvVar(
         'VITE_STELLAR_NETWORK_PASSPHRASE',
         false,
         'Test SDF Network ; September 2015'
     );
-    
+
     return {
         network: (network === 'mainnet' ? 'mainnet' : 'testnet') as 'testnet' | 'mainnet',
         horizonUrl,
@@ -124,14 +124,14 @@ function validateSorobanConfig() {
     const rpcUrl = getEnvVar('VITE_SOROBAN_RPC_URL', false, 'https://soroban-testnet.stellar.org');
     const contractAddress = getEnvVar('VITE_RAFFLE_CONTRACT_ADDRESS', false);
     const deploymentHash = getEnvVar('VITE_CONTRACT_DEPLOYMENT_HASH', false);
-    
+
     if (!contractAddress) {
         console.warn(
             'VITE_RAFFLE_CONTRACT_ADDRESS is not set.\n' +
             'Contract interactions will not work until you deploy a contract and set this variable.'
         );
     }
-    
+
     return {
         rpcUrl,
         contractAddress,
@@ -146,7 +146,7 @@ function validateSupabaseConfig() {
     const url = getEnvVar('VITE_SUPABASE_URL', false);
     const anonKey = getEnvVar('VITE_SUPABASE_ANON_KEY', false);
     const table = getEnvVar('VITE_SUPABASE_TABLE', false, 'raffle_metadata');
-    
+
     if (!url || !anonKey) {
         console.warn(
             'Supabase configuration incomplete.\n' +
@@ -154,7 +154,7 @@ function validateSupabaseConfig() {
             'See DEVELOPMENT.md for setup instructions.'
         );
     }
-    
+
     return {
         url: url || 'https://your-project.supabase.co',
         anonKey: anonKey || 'your-anon-key',

@@ -5,7 +5,7 @@
  * Provides SIWS authentication state and methods across the application
  */
 
-import { createContext, useContext, type ReactNode, useEffect } from "react";
+import { createContext, useContext, type ReactNode, useEffect, useState } from "react";
 import { useAuth, type UseAuthReturn } from "../hooks/useAuth";
 import { useWalletContext } from "./WalletProvider";
 
@@ -21,21 +21,31 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const auth = useAuth();
   const { address, isConnected } = useWalletContext();
+  const [didInitialAuthCheck, setDidInitialAuthCheck] = useState(false);
 
-  // Auto-logout when wallet disconnects
-  useEffect(() => {
-    if (!isConnected && auth.isAuthenticated) {
-      auth.logout();
-    }
-  }, [isConnected, auth.isAuthenticated]);
+  // Auto-logout when wallet disconnects.
+  // Skip the first render to allow wallet state to initialize.
+  const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
+  const { isAuthenticated, address: authAddress, logout } = auth;
 
-  // Update auth address when wallet address changes
   useEffect(() => {
-    if (address && auth.isAuthenticated && auth.address !== address) {
-      // Address mismatch - logout for security
-      auth.logout();
+    if (!didInitialAuthCheck) {
+      setDidInitialAuthCheck(true);
+      return;
     }
-  }, [address, auth.isAuthenticated, auth.address]);
+
+    if (!isTestMode && !isConnected && isAuthenticated) {
+      logout();
+    }
+  }, [isConnected, isAuthenticated, didInitialAuthCheck, logout, isTestMode]);
+
+  // Auto-logout when wallet address changes to a different non-null value.
+  // Null address is handled by the disconnect watcher above.
+  useEffect(() => {
+    if (authAddress && address && isAuthenticated && authAddress !== address) {
+      logout();
+    }
+  }, [address, isAuthenticated, authAddress, logout]);
 
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }

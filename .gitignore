@@ -1,3 +1,15 @@
+# Dependencies
+node_modules/
+**/node_modules/
 package-lock.json
+
+# Tooling
 .claude/
 CLAUDE.md
+
+# Docs
+sdk/docs/
+node_modules/
+dist/
+.env
+*.log

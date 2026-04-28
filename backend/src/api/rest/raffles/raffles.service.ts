@@ -50,6 +50,15 @@ export class RafflesService {
   }
 
   /**
+   * Fetch metadata for multiple raffle IDs in one query.
+   * Returns an array of found records; IDs with no metadata are omitted.
+   */
+  async getBatchMetadata(raffleIds: number[]): Promise<RaffleMetadata[]> {
+    const map = await this.metadataService.getBatchMetadata(raffleIds);
+    return Array.from(map.values());
+  }
+
+  /**
    * Create or update raffle metadata (title, description, image_url, category, metadata_cid).
    */
   async upsertMetadata(raffleId: number, payload: UpsertMetadataPayload) {

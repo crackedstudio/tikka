@@ -1,0 +1,2 @@
+# This file ensures the backups/ directory is tracked by git.
+# Actual dump files (*.dump, *.sql, *.sql.gz) are excluded via .gitignore.

@@ -4,11 +4,12 @@ import { RafflesService } from './raffles.service';
 import { MetadataService } from '../../../services/metadata.service';
 import { IndexerModule } from '../../../services/indexer.module';
 import { StorageService } from '../../../services/storage.service';
+import { ImageOptimizerService } from '../../../services/image-optimizer.service';
 
 @Module({
   imports: [IndexerModule],
   controllers: [RafflesController],
-  providers: [RafflesService, MetadataService, StorageService],
+  providers: [RafflesService, MetadataService, StorageService, ImageOptimizerService],
   exports: [RafflesService],
 })
 export class RafflesModule {}

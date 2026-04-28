@@ -12,6 +12,14 @@ This repository is the **Tikka ecosystem**: frontend, SDK, backend, indexer, and
 | [**indexer**](./indexer/) | Blockchain event ingestion — Horizon → decode → PostgreSQL (+ Redis cache). NestJS. |
 | [**oracle**](./oracle/) | Randomness oracle — listens for draw requests, computes VRF/PRNG, submits to contract. NestJS. |
 
+## SDK API Docs
+
+Auto-generated TypeDoc reference for `@tikka/sdk`:
+**[crackedstudio.github.io/tikka](https://crackedstudio.github.io/tikka)**
+
+Covers all public APIs organized by module: Raffle · Ticket · Wallet · User · Network · Utils.
+To regenerate locally: `cd sdk && npm run docs`
+
 ## Architecture
 
 Full ecosystem specification: **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — diagram, data flows, contract interface, API design, and roadmap.

@@ -6,23 +6,42 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc -b && vite build",
+        "analyze": "ANALYZE=1 vite build",
         "lint": "eslint .",
+        "test": "vitest --run",
+        "test:unit": "vitest --run",
+        "test:e2e": "playwright test",
         "preview": "vite preview",
-        "validate-env": "node scripts/validate-env.js"
+        "validate-env": "node scripts/validate-env.js",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:headed": "playwright test --headed"
     },
     "dependencies": {
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
         "@stellar/stellar-sdk": "^14.4.3",
         "@supabase/supabase-js": "^2.76.1",
         "@tailwindcss/vite": "^4.1.13",
+        "canvas-confetti": "^1.9.4",
+        "i18next": "^26.0.7",
+        "i18next-browser-languagedetector": "^8.2.1",
+        "i18next-http-backend": "^3.0.6",
         "lucide-react": "^0.544.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
-        "react-router-dom": "^7.9.2",
+        "react-helmet-async": "^3.0.0",
+        "react-i18next": "^17.0.4",
+        "react-router-dom": "^7.13.2",
+        "recharts": "^3.8.1",
+        "sonner": "^2.0.7",
+        "swiper": "^11.2.10",
         "tailwindcss": "^4.1.13"
     },
     "devDependencies": {
         "@eslint/js": "^9.33.0",
+        "@playwright/test": "^1.43.0",
+        "@testing-library/jest-dom": "^5.16.5",
+        "@testing-library/react": "^13.4.0",
+        "@types/canvas-confetti": "^1.9.0",
         "@types/node": "^25.0.9",
         "@types/react": "^19.1.10",
         "@types/react-dom": "^19.1.7",
@@ -30,9 +49,14 @@
         "eslint": "^9.33.0",
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
+        "fast-check": "^4.7.0",
         "globals": "^16.3.0",
+        "jsdom": "^22.1.0",
+        "react-hook-form": "^7.72.0",
+        "rollup-plugin-visualizer": "^7.0.1",
         "typescript": "~5.8.3",
         "typescript-eslint": "^8.39.1",
-        "vite": "^7.1.2"
+        "vite": "^7.1.2",
+        "vitest": "^1.4.1"
     }
 }

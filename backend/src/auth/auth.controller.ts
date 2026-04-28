@@ -1,3 +1,4 @@
+
 import {
   Controller,
   Get,
@@ -6,6 +7,7 @@ import {
   Query,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { Public } from "./decorators/public.decorator";
 import { Throttle } from "../middleware/throttle.decorator";
@@ -14,9 +16,12 @@ import { createZodPipe } from "../api/rest/raffles/pipes/zod-validation.pipe";
 import {
   GetNonceQuerySchema,
   VerifyBodySchema,
+  RefreshBodySchema,
   VerifyBodyDto,
+  RefreshBodyDto,
 } from "./auth.schema";
 
+@ApiTags("Authentication")
 @Controller("auth")
 @Public()
 export class AuthController {
@@ -25,13 +30,15 @@ export class AuthController {
   /**
    * GET /auth/nonce?address=G... — Get signing nonce for SIWS.
    *
-   * Rate limit: 30 req / 60 s per IP  (nonce tier).
-   * Stricter than the default tier because this endpoint is stateful
-   * (each call stores a nonce in memory/DB) and could be used to
-   * exhaust nonce storage if left unlimited.
+   * Rate limit: 5 req / 60 s per IP  (nonce tier).
+   * Strict because each call allocates a nonce in storage; low limit
+   * prevents nonce-exhaustion attacks.
+   * Override via THROTTLE_NONCE_LIMIT / THROTTLE_NONCE_TTL env vars.
    */
-  @Throttle({ nonce: { limit: 30, ttl: 60000 } })
+  @Throttle({ nonce: { limit: 5, ttl: 60000 } })
   @Get("nonce")
+  @ApiOperation({ summary: "Get signing nonce for SIWS" })
+  @ApiQuery({ name: "address", description: "Stellar address of the user" })
   @UsePipes(new (createZodPipe(GetNonceQuerySchema))())
   async getNonce(@Query("address") address: string) {
     return this.authService.getNonce(address);
@@ -41,11 +48,13 @@ export class AuthController {
    * POST /auth/verify — Verify wallet signature, issue JWT.
    * Body: { address, signature, nonce [, issuedAt] }
    *
-   * Rate limit: 10 req / 60 s per IP  (auth tier).
-   * Very strict — prevents brute-force signature/nonce guessing.
+   * Rate limit: 5 req / 60 s per IP  (auth tier).
+   * Strict brute-force protection — prevents signature/nonce guessing.
+   * Override via THROTTLE_AUTH_LIMIT / THROTTLE_AUTH_TTL env vars.
    */
-  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
   @Post("verify")
+  @ApiOperation({ summary: "Verify wallet signature and issue JWT" })
   @UsePipes(new (createZodPipe(VerifyBodySchema))())
   async verify(@Body() payload: VerifyBodyDto) {
     try {
@@ -58,6 +67,23 @@ export class AuthController {
     } catch (err) {
       throw new BadRequestException(
         err instanceof Error ? err.message : "Verification failed",
+      );
+    }
+  }
+
+  /**
+   * POST /auth/refresh — Exchange a refresh token for new tokens.
+   */
+  @Throttle({ auth: { limit: 30, ttl: 60000 } })
+  @Post("refresh")
+  @ApiOperation({ summary: "Exchange refresh token for new access + refresh tokens" })
+  @UsePipes(new (createZodPipe(RefreshBodySchema))())
+  async refresh(@Body() body: RefreshBodyDto) {
+    try {
+      return await this.authService.refresh(body.refreshToken);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Refresh failed",
       );
     }
   }

@@ -1,20 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Vite + React + TS</title>
-        <script>
-            // Polyfill for 'global' - required by some Node.js packages in browser
-            if (typeof global === 'undefined') {
-                var global = globalThis;
-            }
-        </script>
-    </head>
-    <body>
-        <div id="root"></div>
-        <div id="modal-root"></div>
-        <script type="module" src="/src/main.tsx"></script>
-    </body>
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="apple-touch-icon" href="/vite.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Tikka | Decentralized Raffles on Stellar</title>
+    <meta name="description" content="Transparent, secure, and provably fair raffles powered by Soroban smart contracts on the Stellar network." />
+    <meta property="og:title" content="Tikka | Decentralized Raffles on Stellar" />
+    <meta property="og:description" content="Transparent, secure, and provably fair raffles powered by Soroban smart contracts." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+        // Apply dark class immediately to avoid flash of wrong theme
+        document.documentElement.classList.toggle(
+            "dark",
+            localStorage.theme === "dark" ||
+            (!("theme" in localStorage) &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches)
+        );
+    </script>
+
+    <script>
+        // Polyfill for 'global' - required by some Node.js packages in browser
+        if (typeof global === 'undefined') {
+            var global = globalThis;
+        }
+    </script>
+</head>
+
+<body>
+    <div id="root"></div>
+    <div id="modal-root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
