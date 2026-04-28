@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
+import { PinningService } from './pinning.service';
 
 /** Raffle metadata stored off-chain in Supabase (title, description, image, category, metadata_cid) */
 export interface RaffleMetadata {
@@ -36,6 +37,7 @@ const TABLE = 'raffle_metadata';
 export class MetadataService {
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+    private readonly pinningService: PinningService,
   ) {}
 
   /**
@@ -129,9 +131,15 @@ export class MetadataService {
       ?.map((url) => url?.trim())
       .filter((url): url is string => Boolean(url));
 
+    const metadataCid = await this.pinningService.pin({
+      raffle_id: raffleId,
+      ...payload,
+    });
+
     const row = {
       raffle_id: raffleId,
       ...payload,
+      metadata_cid: metadataCid || payload.metadata_cid,
       image_urls:
         normalizedImageUrls && normalizedImageUrls.length > 0
           ? normalizedImageUrls

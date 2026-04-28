@@ -20,20 +20,17 @@ import { TransactionLifecycle } from './lifecycle';
 import type { TxMemo, PollConfig } from './lifecycle';
 export type { TxMemo } from './lifecycle';
 
+import { ContractResponse } from './response';
+
 export interface InvokeOptions {
   sourcePublicKey?: string;
   simulateOnly?: boolean;
-  fee?: string;
+  feeOverride?: number;
+  fee?: string; // Kept for backwards compatibility
   /** Optional memo attached to the transaction envelope. */
   memo?: TxMemo;
   /** Optional polling configuration override. */
   poll?: PollConfig;
-}
-
-export interface InvokeResult<T = any> {
-  result: T;
-  txHash: string;
-  ledger: number;
 }
 
 /**
@@ -48,18 +45,13 @@ export interface UnsignedTxResult<T = any> {
   /** Base64-encoded unsigned (but fee-bumped & auth-populated) transaction XDR */
   unsignedXdr: string;
   /** Simulated return value — lets the caller review the outcome before signing */
-  simulatedResult: T;
+  simulatedResult: ContractResponse<T>;
   /** Estimated fee in stroops */
   fee: string;
   /** Network passphrase — must be passed to the signer so it signs the right network */
   networkPassphrase: string;
 }
 
-export interface SubmitSignedResult<T = any> {
-  result: T;
-  txHash: string;
-  ledger: number;
-}
 
 /**
  * Detects if an error message indicates a failure in an external contract
@@ -96,7 +88,7 @@ export class ContractService {
 
   /* ---------------- READ ONLY ---------------- */
 
-  async simulateReadOnly<T>(method: ContractFnName | string, params: any[]): Promise<T> {
+  async simulateReadOnly<T>(method: ContractFnName | string, params: any[]): Promise<ContractResponse<T>> {
     const sourceKey = this.wallet
       ? await this.wallet.getPublicKey()
       : 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
@@ -137,7 +129,10 @@ export class ContractService {
       );
     }
 
-    return scValToNative(result) as T;
+    return {
+      success: true,
+      value: scValToNative(result) as T,
+    };
   }
 
   /* ---------------- FULL INVOKE ---------------- */
@@ -146,25 +141,38 @@ export class ContractService {
     method: ContractFnName | string,
     params: any[],
     options: InvokeOptions = {},
-  ): Promise<InvokeResult<T>> {
-    if (!this.wallet && !options.simulateOnly) {
-      throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required');
+  ): Promise<ContractResponse<T>> {
+    try {
+      if (!this.wallet && !options.simulateOnly) {
+        throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required');
+      }
+
+      const sim = await this.lifecycle.simulate<T>(method, params, {
+        sourcePublicKey: options.sourcePublicKey,
+        fee: options.feeOverride ? String(options.feeOverride) : options.fee,
+        memo: options.memo,
+      });
+
+      if (options.simulateOnly) {
+        return { success: true, value: sim.returnValue as T, transactionHash: '', ledger: 0 };
+      }
+
+      const signedXdr = await this.lifecycle.sign(sim.assembledXdr, sim.networkPassphrase);
+      const txHash    = await this.lifecycle.submit(signedXdr);
+      const polled = await this.lifecycle.poll<T>(txHash, options.poll);
+
+      return {
+        success: true,
+        value: polled.returnValue as T,
+        transactionHash: polled.txHash,
+        ledger: polled.ledger,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || String(error),
+      };
     }
-
-    const sim = await this.lifecycle.simulate<T>(method, params, {
-      sourcePublicKey: options.sourcePublicKey,
-      fee: options.fee,
-      memo: options.memo,
-    });
-
-    if (options.simulateOnly) {
-      return { result: sim.returnValue as T, txHash: '', ledger: 0 };
-    }
-
-    const signedXdr = await this.lifecycle.sign(sim.assembledXdr, sim.networkPassphrase);
-    const txHash    = await this.lifecycle.submit(signedXdr);
-    const polled    = await this.lifecycle.poll<T>(txHash, options.poll);
-    return { result: polled.returnValue as T, txHash: polled.txHash, ledger: polled.ledger };
   }
 
   /* ---------------- OFFLINE / COLD-WALLET SIGNING ---------------- */
@@ -176,7 +184,7 @@ export class ContractService {
     method: ContractFnName | string,
     params: any[],
     sourcePublicKey: string,
-    fee?: string,
+    feeOverride?: number,
   ): Promise<UnsignedTxResult<T>> {
     if (!sourcePublicKey) {
       throw new TikkaSdkError(
@@ -185,10 +193,13 @@ export class ContractService {
       );
     }
 
-    const sim = await this.lifecycle.simulate<T>(method, params, { sourcePublicKey, fee });
+    const sim = await this.lifecycle.simulate<T>(method, params, { 
+      sourcePublicKey, 
+      fee: feeOverride ? String(feeOverride) : undefined 
+    });
     return {
       unsignedXdr:      sim.assembledXdr,
-      simulatedResult:  sim.returnValue as T,
+      simulatedResult:  { success: true, value: sim.returnValue as T },
       fee:              sim.minResourceFee,
       networkPassphrase: sim.networkPassphrase,
     };
@@ -197,7 +208,7 @@ export class ContractService {
   /**
    * Submits a signed transaction XDR that was previously built with buildUnsigned().
    */
-  async submitSigned<T = any>(signedXdr: string): Promise<SubmitSignedResult<T>> {
+  async submitSigned<T = any>(signedXdr: string): Promise<ContractResponse<T>> {
     if (!signedXdr) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
@@ -207,7 +218,7 @@ export class ContractService {
 
     const txHash = await this.lifecycle.submit(signedXdr);
     const polled = await this.lifecycle.poll<T>(txHash);
-    return { result: polled.returnValue as T, txHash: polled.txHash, ledger: polled.ledger };
+    return { success: true, value: polled.returnValue as T, transactionHash: polled.txHash, ledger: polled.ledger };
   }
 
   /* ---------------- HELPERS ---------------- */

@@ -111,6 +111,9 @@ const envSchemaInner = z
     THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(60),
     THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(30),
     THROTTLE_NONCE_TTL: z.coerce.number().int().positive().default(60),
+
+    // Pinata - optional for IPFS metadata pinning
+    PINATA_JWT: z.string().optional(),
   })
   .passthrough();
 

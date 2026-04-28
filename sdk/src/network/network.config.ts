@@ -34,8 +34,10 @@ export interface RpcConfig {
   retryBaseDelayMs?: number;
   /** Exponential backoff factor */
   retryBackoffFactor?: number;
+  /** Maximum retry delay in ms (default: 8000) */
+  maxRetryDelayMs?: number;
   /** HTTP status codes that should trigger retry */
-  retryableStatusCodes?: number[];
+  retryableStatusCodes?: (number | string)[];
 }
 
 export const DEFAULT_RPC_CONFIG: RpcConfig = {
