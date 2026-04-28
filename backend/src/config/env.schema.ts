@@ -99,6 +99,7 @@ const envSchemaInner = z
     // Geolocation
     GEO_PROVIDER_URL: z.string().url().default('http://ip-api.com/json'),
     GEO_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+    BLOCKED_COUNTRIES: z.string().default(''),
 
     // Sentry — optional; when absent the SDK is not initialized
     SENTRY_DSN: z.string().url().optional(),
