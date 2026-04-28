@@ -6,8 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import * as fc from 'fast-check';
-import React from 'react';
-import { AuthProvider, useAuthContext } from './AuthProvider';
+import { AuthProvider } from './AuthProvider';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -50,14 +49,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
-
-// ── Helper: render AuthProvider and get context ───────────────────────────────
-
-function TestConsumer({ onContext }: { onContext: (ctx: ReturnType<typeof useAuthContext>) => void }) {
-  const ctx = useAuthContext();
-  onContext(ctx);
-  return null;
-}
 
 // ── P11: Wallet disconnect triggers logout ────────────────────────────────────
 

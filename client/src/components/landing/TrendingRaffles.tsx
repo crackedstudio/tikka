@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useRaffle } from "../../hooks/useRaffles";
 import RaffleCardSkeleton from "../ui/RaffleCardSkeleton";
 import ErrorMessage from "../ui/ErrorMessage";
+import Modal from "../modals/Modal";
+import SuccessfulTicket from "../modals/SuccessfulTicket";
 
 interface TrendingRafflesProps {
     raffleIds: number[];
