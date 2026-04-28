@@ -89,24 +89,45 @@ export class VrfService {
     proof: string,
     seed: string,
   ): boolean {
+    const verifiedProof = this.verifyProof({
+      publicKey,
+      requestId,
+      proof,
+    });
+    if (!verifiedProof.valid || !verifiedProof.seed) return false;
+
     try {
-      const pubKeyBuf = typeof publicKey === 'string' ? Buffer.from(publicKey, 'hex') : publicKey;
-      const proofBuf = Buffer.from(proof, 'hex');
-      const seedBuf = Buffer.from(seed, 'hex');
-      const msgBuf = Buffer.from(requestId, 'utf-8');
-
-      // Verify the proof is a valid Ed25519 signature
-      const isSignatureValid = ed25519.verify(proofBuf, msgBuf, pubKeyBuf);
-      if (!isSignatureValid) {
-        return false;
-      }
-
-      // Verify the seed is SHA-256(proof)
-      const expectedSeed = crypto.createHash('sha256').update(proofBuf).digest();
-      return Buffer.compare(expectedSeed, seedBuf) === 0;
-    } catch (error) {
-      this.logger.error(`VRF verification failed: ${error.message}`);
+      const expectedSeed = Buffer.from(verifiedProof.seed, 'hex');
+      const providedSeed = Buffer.from(seed, 'hex');
+      return Buffer.compare(expectedSeed, providedSeed) === 0;
+    } catch {
       return false;
     }
+  }
+
+  /**
+   * Verify a VRF proof and derive the seed when valid.
+   */
+  verifyProof(input: {
+    requestId: string;
+    proof: string;
+    publicKey: string | Buffer;
+  }): { valid: boolean; seed?: string } {
+    return this.ed25519Provider.verifyProof(
+      input.publicKey,
+      input.requestId,
+      input.proof,
+    );
+  }
+
+  /**
+   * Return the local oracle's public key in common encodings.
+   */
+  async getPublicKey(): Promise<{ hex: string; base64: string }> {
+    const keyBuffer = await this.keyService.getPublicKeyBuffer();
+    return {
+      hex: keyBuffer.toString('hex'),
+      base64: keyBuffer.toString('base64'),
+    };
   }
 }

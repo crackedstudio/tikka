@@ -37,15 +37,35 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
     };
   }
 
-  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string): boolean {
+  verifyProof(
+    publicKey: string | Buffer,
+    requestId: string,
+    proof: string,
+  ): { valid: boolean; seed?: string } {
     try {
       const pubKeyBuf = typeof publicKey === 'string' ? Buffer.from(publicKey, 'hex') : publicKey;
       const proofBuf = Buffer.from(proof, 'hex');
-      const seedBuf = Buffer.from(seed, 'hex');
       const msgBuf = Buffer.from(requestId, 'utf-8');
 
-      if (!ed25519.verify(proofBuf, msgBuf, pubKeyBuf)) return false;
-      const expectedSeed = crypto.createHash('sha256').update(proofBuf).digest();
+      if (!ed25519.verify(proofBuf, msgBuf, pubKeyBuf)) {
+        return { valid: false };
+      }
+
+      const seed = crypto.createHash('sha256').update(proofBuf).digest('hex');
+      return { valid: true, seed };
+    } catch (error) {
+      this.logger.error(`VRF proof verification failed: ${error.message}`);
+      return { valid: false };
+    }
+  }
+
+  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string): boolean {
+    try {
+      const proofVerification = this.verifyProof(publicKey, requestId, proof);
+      if (!proofVerification.valid || !proofVerification.seed) return false;
+
+      const seedBuf = Buffer.from(seed, 'hex');
+      const expectedSeed = Buffer.from(proofVerification.seed, 'hex');
       return Buffer.compare(expectedSeed, seedBuf) === 0;
     } catch (error) {
       this.logger.error(`VRF verification failed: ${error.message}`);
