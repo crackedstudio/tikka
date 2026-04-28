@@ -8,6 +8,7 @@ export interface RaffleMetadata {
   title: string;
   description: string;
   image_url: string | null;
+  image_urls: string[] | null;
   category: string | null;
   metadata_cid: string | null;
   created_at: string;
@@ -24,6 +25,7 @@ export interface UpsertMetadataPayload {
   title?: string;
   description?: string;
   image_url?: string | null;
+  image_urls?: string[] | null;
   category?: string | null;
   metadata_cid?: string | null;
 }
@@ -123,9 +125,17 @@ export class MetadataService {
     raffleId: number,
     payload: UpsertMetadataPayload,
   ): Promise<RaffleMetadata> {
+    const normalizedImageUrls = payload.image_urls
+      ?.map((url) => url?.trim())
+      .filter((url): url is string => Boolean(url));
+
     const row = {
       raffle_id: raffleId,
       ...payload,
+      image_urls:
+        normalizedImageUrls && normalizedImageUrls.length > 0
+          ? normalizedImageUrls
+          : null,
       category: payload.category?.trim() || null,
       updated_at: new Date().toISOString(),
     };

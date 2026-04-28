@@ -93,10 +93,11 @@ export class RafflesController {
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
   async upsertMetadata(
     @Param("raffleId", ParseIntPipe) raffleId: number,
+    @CurrentUser("address") address: string,
     @Body(new (createZodPipe(UpsertMetadataSchema))())
     payload: UpsertMetadataDto,
   ) {
-    return this.rafflesService.upsertMetadata(raffleId, payload);
+    return this.rafflesService.upsertMetadata(raffleId, payload, address);
   }
 
   /**
