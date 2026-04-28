@@ -16,14 +16,17 @@ describe('TxSubmitterService', () => {
       getTransaction: jest.fn(async () => ({ status: 'SUCCESS', ledger: 42 })),
       prepareTransaction: jest.fn(async (tx: any) => ({ prepared: true, tx })),
       simulateTransaction: jest.fn(async () => ({ result: 'ok' })),
-      getAccount: jest.fn(async () => ({ accountId: 'GABC', sequence: '1' })),
+      getAccount: jest.fn(async () => {
+        const Account = require('@stellar/stellar-sdk').Account;
+        return new Account('GAKOTQ5JCSC2XBYVVOBM3VSBLULXBLX64XJIY7JJ2TZXZROUW2IHKPVD', '1');
+      }),
     };
     return { rpc, calls };
   };
 
   beforeEach(async () => {
     keyService = {
-      getPublicKey: jest.fn().mockResolvedValue('GTESTPUBLIC'),
+      getPublicKey: jest.fn().mockResolvedValue('GAKOTQ5JCSC2XBYVVOBM3VSBLULXBLX64XJIY7JJ2TZXZROUW2IHKPVD'),
       signTransaction: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -34,10 +37,10 @@ describe('TxSubmitterService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TxSubmitterService,
-        { provide: ConfigService, useValue: { get: jest.fn().mockImplementation((k: string) => {
-          if (k === 'RAFFLE_CONTRACT_ID') return 'CONTRACT_ID';
+        { provide: ConfigService, useValue: { get: jest.fn().mockImplementation((k: string, defaultVal?: any) => {
+          if (k === 'RAFFLE_CONTRACT_ID') return 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
           if (k === 'SOROBAN_RPC_URL') return 'https://example.com';
-          return undefined;
+          return defaultVal !== undefined ? defaultVal : undefined;
         }) } },
         { provide: FeeEstimatorService, useValue: feeEstimator },
         { provide: KeyService, useValue: keyService },
@@ -53,7 +56,7 @@ describe('TxSubmitterService', () => {
   });
 
   it('should call KeyService.signTransaction and return success on submitRandomness', async () => {
-    const randomness = { seed: 'aa', proof: 'bb' } as any;
+    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
 
     const res = await service.submitRandomness(1, randomness);
 
@@ -70,7 +73,7 @@ describe('TxSubmitterService', () => {
     // Second call succeeds
     rpc.sendTransaction.mockImplementationOnce(async () => ({ hash: 'after-retry' }));
 
-    const randomness = { seed: 'aa', proof: 'bb' } as any;
+    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
     const res = await service.submitRandomness(2, randomness);
 
     expect(res.success).toBe(true);
@@ -88,7 +91,7 @@ describe('TxSubmitterService', () => {
 
     const spyFailover = jest.spyOn(service as any, 'failoverRpc');
 
-    const randomness = { seed: 'aa', proof: 'bb' } as any;
+    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
     const res = await service.submitRandomness(3, randomness);
 
     expect(spyFailover).toHaveBeenCalled();
@@ -102,7 +105,7 @@ describe('TxSubmitterService', () => {
       throw new Error('transaction invalid: malformed');
     });
 
-    const randomness = { seed: 'aa', proof: 'bb' } as any;
+    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
     const res = await service.submitRandomness(4, randomness);
 
     expect(res.success).toBe(false);
