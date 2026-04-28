@@ -58,7 +58,7 @@ function TestConsumer({ onContext }: { onContext: (ctx: ReturnType<typeof useAut
   onContext(ctx);
   return null;
 }
-
+ 
 // ── P11: Wallet disconnect triggers logout ────────────────────────────────────
 
 describe('P11: Wallet disconnect triggers logout', () => {
