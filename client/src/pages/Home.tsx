@@ -1,4 +1,6 @@
 import BrowseRaffles from "../components/home/BrowseRaffles";
+import RaffleCardSkeleton from "../components/cards/RaffleCardSkeleton";
+import FeaturedRaffleCardSkeleton from "../components/cards/FeaturedRaffleCardSkeleton";
 import FeaturedRaffle from "../components/landing/FeaturedRaffle";
 import TrendingRaffles from "../components/landing/TrendingRaffles";
 import VerifiedBadge from "../components/VerifiedBadge";
@@ -45,8 +47,15 @@ const Home = () => {
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
                 {rafflesLoading ? (
                     <div className="text-center py-12">
-                        <div className="text-white text-lg">
-                            Loading raffles...
+                    <div className="w-full animation-pulse">
+                        <FeaturedRaffleCardSkeleton />
+                        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                            <RaffleCardSkeleton />
+                            <RaffleCardSkeleton />
+                            <RaffleCardSkeleton />
+                            <RaffleCardSkeleton />
+                            <RaffleCardSkeleton />
+                            <RaffleCardSkeleton />
                         </div>
                     </div>
                 ) : error ? (

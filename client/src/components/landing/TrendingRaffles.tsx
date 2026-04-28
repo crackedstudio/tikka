@@ -1,4 +1,5 @@
 import RaffleCard from "../cards/RaffleCard";
+import RaffleCardSkeleton from "../cards/RaffleCardSkeleton";
 import TrendingTab from "./TrendingTab";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
