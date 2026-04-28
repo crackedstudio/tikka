@@ -111,6 +111,12 @@ const envSchemaInner = z
     THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(60),
     THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(30),
     THROTTLE_NONCE_TTL: z.coerce.number().int().positive().default(60),
+    RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+    RAFFLE_CREATE_RATE_WINDOW_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(600),
   })
   .passthrough();
 
