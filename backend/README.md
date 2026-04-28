@@ -146,3 +146,8 @@ Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+
+## Resource Guidelines
+- **CPU**: 100m requests, 500m limits
+- **Memory**: 256Mi requests, 512Mi limits
+These resources are managed by HPA targeting 70% CPU usage.

@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tikka-indexer
+  labels:
+    app: tikka-indexer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tikka-indexer
+  template:
+    metadata:
+      labels:
+        app: tikka-indexer
+    spec:
+      containers:
+      - name: tikka-indexer
+        image: tikka-indexer:latest
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"

@@ -206,3 +206,8 @@ src/
         ├── 1700000000004-CreatePlatformStats.ts
         └── 1700000000005-CreateIndexerCursor.ts
 ```
+
+## Resource Guidelines
+- **CPU**: 200m requests, 1000m limits
+- **Memory**: 512Mi requests, 1Gi limits
+Indexer is optimized for single-replica execution.

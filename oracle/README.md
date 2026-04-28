@@ -128,3 +128,8 @@ The service requires the following environment variables for queue operations:
 3. Implement Soroban transaction building and signing
 4. Add integration tests against Stellar testnet
 5. Configure oracle keypair management (HSM/secrets)
+
+## Resource Guidelines
+- **CPU**: 100m requests, 500m limits
+- **Memory**: 256Mi requests, 512Mi limits
+These resources are managed by HPA targeting 70% CPU usage.
