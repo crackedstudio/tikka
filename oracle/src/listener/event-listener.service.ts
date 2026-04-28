@@ -5,6 +5,7 @@ import { RandomnessWorker } from '../queue/randomness.worker';
 import { CommitRevealWorker } from '../queue/commit-reveal.worker';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
+import { CircuitBreakerService } from './circuit-breaker.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
@@ -33,6 +34,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         private readonly lagMonitor: LagMonitorService,
         private readonly randomnessWorker: RandomnessWorker,
         private readonly commitRevealWorker: CommitRevealWorker,
+        private readonly circuitBreaker: CircuitBreakerService,
         @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue<RandomnessJobPayload>,
     ) {
         // Config parsing
@@ -79,6 +81,20 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     private startListening() {
         if (!this.raffleContractId) return;
 
+        // Task 4.2: Gate with circuit breaker before any Horizon SSE API call
+        if (!this.circuitBreaker.canAttempt()) {
+            this.healthService.updateStreamStatus('disconnected');
+            const cooldown = this.circuitBreaker.getRemainingCooldownMs() || this.INITIAL_RETRY_DELAY;
+            this.logger.debug(`Circuit breaker open. Scheduling retry in ${cooldown}ms.`);
+            if (this.reconnectTimeout) {
+                clearTimeout(this.reconnectTimeout);
+            }
+            this.reconnectTimeout = setTimeout(() => {
+                this.startListening();
+            }, cooldown);
+            return;
+        }
+
         this.logger.log('Starting Horizon event stream with server-side filtering...');
         this.retryCount = 0;
 
@@ -93,9 +109,13 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                     onerror: (err: any) => this.handleStreamError(err),
                 });
             
+            // Task 4.3: Record success after stream is opened
+            this.circuitBreaker.recordSuccess();
             this.logger.log('Successfully connected to Horizon event stream.');
         } catch (err: any) {
             this.logger.error(`Failed to start SSE stream: ${err.message}`, err.stack);
+            // Task 4.4: Record failure in catch block
+            this.circuitBreaker.recordFailure();
             this.scheduleReconnect();
         }
     }
@@ -245,6 +265,8 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     private handleStreamError(err: any) {
         this.logger.error(`Horizon SSE Stream Error: ${err.message || 'Unknown error'}`);
         this.stopListening();
+        // Task 4.4: Record failure before scheduling reconnect
+        this.circuitBreaker.recordFailure();
         this.scheduleReconnect();
     }
 
