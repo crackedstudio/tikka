@@ -78,7 +78,7 @@ export class RandomnessWorker {
       const method = this.determineMethod(finalPrizeAmount);
       this.logger.log(`Raffle ${raffleId}: prize=${finalPrizeAmount} XLM, method=${method}`);
 
-      const randomness = await this.computeRandomness(method, requestId);
+      const randomness = await this.computeRandomness(method, requestId, raffleId);
       const result = await this.txSubmitter.submitRandomness(raffleId, randomness);
 
       if (!result.success) {
@@ -136,7 +136,7 @@ export class RandomnessWorker {
       }
 
       const method = this.determineMethod(finalPrizeAmount);
-      const randomness = await this.computeRandomness(method, requestId);
+      const randomness = await this.computeRandomness(method, requestId, raffleId);
 
       const localOracle = this.oracleRegistry.getLocalOracle();
       if (!localOracle) {
@@ -212,11 +212,11 @@ export class RandomnessWorker {
       : RandomnessMethod.PRNG;
   }
 
-  private async computeRandomness(method: RandomnessMethod, requestId: string) {
+  private async computeRandomness(method: RandomnessMethod, requestId: string, raffleId?: number) {
     if (method === RandomnessMethod.VRF) {
-      return await this.vrfService.compute(requestId);
+      return await this.vrfService.compute(requestId, raffleId);
     } else {
-      return await this.prngService.compute(requestId);
+      return await this.prngService.compute(requestId, raffleId);
     }
   }
 }

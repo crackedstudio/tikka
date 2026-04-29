@@ -6,12 +6,10 @@ import tikka from "../assets/svg/Tikka.svg";
 import WalletButton from "./WalletButton";
 import ThemeToggle from "./ThemeToggle";
 import SignInButton from "./SignInButton";
-import NotificationBellIcon from "./cards/NotificationBellIcon";
 import { Search } from "lucide-react";
 import { useWalletContext } from "../providers/WalletProvider";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { useTranslation } from "react-i18next";
-import { Globe } from "lucide-react";
 
 
 const Navbar = ({ onStart }: { onStart?: () => void }) => {

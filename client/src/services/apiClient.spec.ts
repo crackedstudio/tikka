@@ -3,9 +3,7 @@
  * Feature: siws-auth
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as fc from 'fast-check';
-import { getToken, setToken, clearToken, apiRequest } from './apiClient';
+import { vi, beforeEach, afterEach } from 'vitest';
 
 beforeEach(() => {
   sessionStorage.clear();
