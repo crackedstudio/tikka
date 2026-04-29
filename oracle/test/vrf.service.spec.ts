@@ -68,6 +68,32 @@ describe('VrfService', () => {
       const { proof } = await service.compute('test-req');
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
+
+    it('should produce different seed when raffleId is included', async () => {
+      const requestId = 'raffle-id-test';
+      const withoutRaffleId = await service.compute(requestId);
+      const withRaffleId = await service.compute(requestId, 42);
+
+      expect(withoutRaffleId.seed).not.toBe(withRaffleId.seed);
+      expect(withoutRaffleId.proof).not.toBe(withRaffleId.proof);
+    });
+
+    it('should produce different seeds for different raffleIds with same requestId', async () => {
+      const requestId = 'shared-request';
+      const raffle1 = await service.compute(requestId, 1);
+      const raffle2 = await service.compute(requestId, 2);
+
+      expect(raffle1.seed).not.toBe(raffle2.seed);
+    });
+
+    it('should be deterministic with same requestId and raffleId', async () => {
+      const requestId = 'deterministic-raffle';
+      const result1 = await service.compute(requestId, 99);
+      const result2 = await service.compute(requestId, 99);
+
+      expect(result1.seed).toBe(result2.seed);
+      expect(result1.proof).toBe(result2.proof);
+    });
   });
 
   describe('VRF verification', () => {
@@ -122,6 +148,24 @@ describe('VrfService', () => {
 
       const isValid = service.verify(invalidPublicKey, requestId, proof, seed);
       expect(isValid).toBe(false);
+    });
+
+    it('should verify proof computed with raffleId', async () => {
+      const requestId = 'raffle-verify-test';
+      const raffleId = 42;
+      const { seed, proof } = await service.compute(requestId, raffleId);
+      const publicKey = (await keyService.getPublicKeyBuffer()).toString('hex');
+
+      expect(service.verify(publicKey, requestId, proof, seed, raffleId)).toBe(true);
+    });
+
+    it('should reject verify when raffleId mismatch', async () => {
+      const requestId = 'raffle-mismatch-test';
+      const { seed, proof } = await service.compute(requestId, 1);
+      const publicKey = (await keyService.getPublicKeyBuffer()).toString('hex');
+
+      // Proof was computed with raffleId=1, verify with raffleId=2 must fail
+      expect(service.verify(publicKey, requestId, proof, seed, 2)).toBe(false);
     });
   });
 

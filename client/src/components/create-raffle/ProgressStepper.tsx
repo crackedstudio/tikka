@@ -7,7 +7,8 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
 }) => {
     return (
         <div className="w-full max-w-4xl mx-auto px-6">
-            <div className="flex items-center justify-between relative">
+            <nav aria-label="Raffle creation steps">
+                <div className="flex items-center justify-between relative">
                 {/* Progress line */}
                 <div className="absolute top-6 left-12 right-12 h-0.5 bg-gray-600 z-0">
                     <div
@@ -20,7 +21,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                     />
                 </div>
 
-                {steps.map((step) => (
+                {steps.map((step, index) => (
                     <div
                         key={step.id}
                         className="flex flex-col items-center relative z-10"
@@ -28,7 +29,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                         {/* Step circle */}
                         <div
                             className={`
-                            w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300
+                            w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF389C]
                             ${
                                 step.completed
                                     ? "bg-green-500 border-green-500"
@@ -37,12 +38,17 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                                     : "bg-transparent border-gray-600"
                             }
                         `}
+                            role="button"
+                            tabIndex={0}
+                            aria-current={step.active ? "step" : undefined}
+                            aria-label={`Step ${index + 1}: ${step.title}${step.completed ? " (completed)" : step.active ? " (current)" : ""}`}
                         >
                             {step.completed || step.active ? (
                                 <svg
                                     className="w-6 h-6 text-gray-900 dark:text-white"
                                     fill="currentColor"
                                     viewBox="0 0 20 20"
+                                    aria-hidden="true"
                                 >
                                     {step.icon === "document" && (
                                         <path
@@ -85,6 +91,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                                     className="w-6 h-6 text-gray-400"
                                     fill="currentColor"
                                     viewBox="0 0 20 20"
+                                    aria-hidden="true"
                                 >
                                     {step.icon === "document" && (
                                         <path
@@ -140,7 +147,8 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                         </span>
                     </div>
                 ))}
-            </div>
+                </div>
+            </nav>
         </div>
     );
 };
