@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 export interface ErrorResponse {
@@ -65,6 +66,7 @@ export class BaseExceptionFilter implements ExceptionFilter {
       'Unhandled exception',
       exception instanceof Error ? exception.stack : String(exception),
     );
+    Sentry.captureException(exception);
 
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
