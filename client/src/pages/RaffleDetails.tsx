@@ -124,6 +124,7 @@ const RaffleDetails = () => {
             )}
 
             <RaffleDetailsCard
+                raffleId={raffle.id}
                 image={raffle.image || detailimage}
                 images={raffle.metadata?.images}
                 title={raffle.metadata?.title || raffle.description}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useRaffle } from "../hooks/useRaffles";
 import { ProgressBar } from "../components/ui/ProgressBar";
@@ -187,8 +187,18 @@ const RafflePage = () => {
                             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gray-900 dark:text-white">{title}</h1>
                             <div className="flex items-center space-x-3 text-gray-400">
                                 <User className="w-4 h-4" />
-                                <span className="text-sm">{t("raffle.createdBy")} <span className="text-gray-900 dark:text-white font-medium">{creator.slice(0, 6)}...{creator.slice(-4)}</span></span>
-                                <ExternalLink className="w-3 h-3 hover:text-gray-900 dark:text-white cursor-pointer" />
+                                <span className="text-sm">
+                                    {t("raffle.createdBy")}{" "}
+                                    <Link
+                                        to={`/creators/${creator}`}
+                                        className="text-gray-900 dark:text-white font-medium hover:text-[#FE3796] dark:hover:text-[#FE3796] transition-colors"
+                                    >
+                                        {creator.slice(0, 6)}...{creator.slice(-4)}
+                                    </Link>
+                                </span>
+                                <Link to={`/creators/${creator}`}>
+                                    <ExternalLink className="w-3 h-3 hover:text-[#FE3796] cursor-pointer transition-colors" />
+                                </Link>
                             </div>
                         </div>
 

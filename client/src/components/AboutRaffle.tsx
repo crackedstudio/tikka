@@ -2,10 +2,29 @@ import { Ticket, Users } from "lucide-react";
 import { ProgressBar } from "./ui/ProgressBar";
 import Avatar from "../assets/Avatar.png";
 import Tag from "./ui/Tag";
+import { Link } from "react-router-dom";
 
 const tags = ["Holiday", "Travel", "Mad Raffle", "Easy", "Lfg"];
 
-const AboutRaffle = () => {
+interface AboutRaffleProps {
+    description?: string;
+    participants?: number;
+    maxParticipants?: number;
+    ticketsSold?: number;
+    progress?: number;
+    creator?: string;
+    creatorName?: string;
+}
+
+const AboutRaffle: React.FC<AboutRaffleProps> = ({
+    description,
+    participants = 0,
+    maxParticipants = 0,
+    ticketsSold = 0,
+    progress = 0,
+    creator = "Orbitian",
+    creatorName = "Orbitian",
+}) => {
     return (
         <div className="w-full flex flex-col space-y-5">
             <h3 className="font-semibold text-[22px] text-[#858584]">
@@ -13,9 +32,7 @@ const AboutRaffle = () => {
             </h3>
 
             <p className="font-semibold text-base md:text-lg">
-                Win this amazing Lamborghini Aventador 2023 Limited Edition! One
-                lucky winner will drive away with this dream supercar valued at
-                over $500,000.
+                {description || "Win this amazing prize! One lucky winner will drive away with this dream item."}
             </p>
 
             {/* Stats: stack on xs, row on sm+ */}
@@ -26,7 +43,7 @@ const AboutRaffle = () => {
                         <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                             Participants
                         </p>
-                        <p className="font-semibold">2,458 / 5,000</p>
+                        <p className="font-semibold">{participants.toLocaleString()} / {maxParticipants.toLocaleString()}</p>
                     </div>
                 </div>
 
@@ -36,14 +53,14 @@ const AboutRaffle = () => {
                         <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                             Tickets Sold
                         </p>
-                        <p className="font-semibold">14,782</p>
+                        <p className="font-semibold">{ticketsSold.toLocaleString()}</p>
                     </div>
                 </div>
             </div>
 
             {/* Progress */}
             <div className="w-full">
-                <ProgressBar value={49} />
+                <ProgressBar value={progress} />
             </div>
 
             {/* Creator */}
@@ -51,14 +68,17 @@ const AboutRaffle = () => {
                 <h2 className="text-[#858584] font-semibold text-[22px]">
                     Created By
                 </h2>
-                <div className="mt-3 flex items-center gap-3">
+                <Link to={`/creators/${creator}`} className="mt-3 flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <img
                         src={Avatar}
                         alt="Creator avatar"
                         className="h-12 w-12 rounded-full object-cover"
                     />
-                    <p className="font-semibold">Orbitian</p>
-                </div>
+                    <div>
+                        <p className="font-semibold text-gray-900 dark:text-white">{creatorName}</p>
+                        <p className="text-xs text-gray-500 font-mono">{creator.slice(0, 6)}...{creator.slice(-4)}</p>
+                    </div>
+                </Link>
             </div>
 
             {/* Tags */}

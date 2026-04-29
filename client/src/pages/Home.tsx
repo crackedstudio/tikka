@@ -96,6 +96,7 @@ const Home = () => {
     return (
         <div className="bg-gray-50 dark:bg-[#060C23] text-gray-900 dark:text-white flex flex-col space-y-16">
             <BrowseRaffles />
+            <FollowedCreatorsRaffles />
             <FeaturedRaffle isSignedIn={true} />
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col min-h-[50vh]">
                 {rafflesLoading ? (

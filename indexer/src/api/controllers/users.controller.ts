@@ -90,6 +90,37 @@ export class UsersController {
     const user = await this.userRepo.findOne({ where: { address } });
     if (!user) throw new NotFoundException(`User ${address} not found`);
 
+    // Fetch creator stats
+    const rafflesCreated = await this.raffleRepo.count({ where: { creator: address } });
+
+    const totals = await this.raffleRepo
+      .createQueryBuilder("r")
+      .select("SUM(r.ticketsSold)", "totalTicketsSold")
+      .addSelect("SUM(CAST(r.ticketsSold AS DECIMAL) * CAST(r.ticketPrice AS DECIMAL))", "totalRaised")
+      .where("r.creator = :address", { address })
+      .getRawOne();
+
+    const participantCountResult = await this.ticketRepo
+      .createQueryBuilder("t")
+      .innerJoin("raffles", "r", "t.raffleId = r.id")
+      .select("COUNT(DISTINCT t.owner)", "count")
+      .where("r.creator = :address", { address })
+      .getRawOne();
+
+    const participantCount = parseInt(participantCountResult?.count ?? "0", 10);
+
+    const winnerCountResult = await this.raffleRepo
+      .createQueryBuilder("r")
+      .select("COUNT(DISTINCT r.winner)", "count")
+      .where("r.creator = :address AND r.winner IS NOT NULL", { address })
+      .getRawOne();
+
+    const winnerCount = parseInt(winnerCountResult?.count ?? "0", 10);
+
+    const participantWinRate = participantCount > 0
+      ? (winnerCount / participantCount) * 100
+      : 0;
+
     const result = {
       address: user.address,
       total_tickets_bought: user.totalTicketsBought,
@@ -98,6 +129,12 @@ export class UsersController {
       total_prize_xlm: user.totalPrizeXlm,
       first_seen_ledger: user.firstSeenLedger,
       updated_at: user.updatedAt,
+      creator_stats: {
+        raffles_created: rafflesCreated,
+        total_tickets_sold: parseInt(totals?.totalTicketsSold ?? "0", 10),
+        total_xlm_raised: totals?.totalRaised ?? "0",
+        participant_win_rate: parseFloat(participantWinRate.toFixed(2)),
+      }
     };
 
     await this.cacheService.setUserProfile(address, result);
