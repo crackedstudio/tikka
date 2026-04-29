@@ -124,6 +124,7 @@ const RaffleDetails = () => {
             )}
 
             <RaffleDetailsCard
+                raffleId={raffle.id}
                 image={raffle.image || detailimage}
                 images={raffle.metadata?.images}
                 title={raffle.metadata?.title || raffle.description}
@@ -133,6 +134,11 @@ const RaffleDetails = () => {
                 prizeValue={raffle.prizeValue}
                 prizeCurrency={raffle.prizeCurrency}
                 countdown={raffle.countdown}
+                creator={raffle.creator}
+                participants={raffle.entries}
+                maxParticipants={raffle.maxTickets}
+                ticketsSold={raffle.totalTicketsSold}
+                progress={raffle.progress}
                 onEnter={() => {
                     console.log("Raffle CTA:", ctaLabel, raffle.id);
                 }}

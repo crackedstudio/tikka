@@ -48,6 +48,12 @@ export interface IndexerUserData {
   total_prize_xlm: string;
   first_seen_ledger: number;
   updated_at: string;
+  creator_stats?: {
+    raffles_created: number;
+    total_tickets_sold: number;
+    total_xlm_raised: string;
+    participant_win_rate: number;
+  };
 }
 
 export interface IndexerUserHistoryItem {
