@@ -30,6 +30,15 @@ export interface SearchResponse {
   total: number;
 }
 
+export interface SearchOptions {
+  query: string;
+  limit?: number;
+  offset?: number;
+  category?: string;
+  /** Filter by on-chain raffle status (e.g. "active", "ended", "cancelled") */
+  status?: string;
+}
+
 @Injectable()
 export class SearchService {
   constructor(
@@ -37,27 +46,31 @@ export class SearchService {
     private readonly indexerService: IndexerService,
   ) {}
 
-  async search(
-    query: string,
-    limit = 20,
-    offset = 0,
-  ): Promise<SearchResponse> {
-    const { matches, total } = await this.metadataService.searchMetadata(
+  async search(options: SearchOptions): Promise<SearchResponse> {
+    const { query, limit = 20, offset = 0, category, status } = options;
+
+    const { matches, total } = await this.metadataService.searchMetadata({
       query,
       limit,
       offset,
-    );
+      category,
+    });
 
     if (matches.length === 0) {
       return { raffles: [], total };
     }
 
-    // Fetch on-chain data for all matched raffles in parallel
-    const raffles = await Promise.all(
-      matches.map(async (meta) => this.mergeWithIndexer(meta)),
+    // Merge with on-chain data in parallel
+    const merged = await Promise.all(
+      matches.map((meta) => this.mergeWithIndexer(meta)),
     );
 
-    return { raffles, total };
+    // Apply status filter post-merge (status lives on-chain in the indexer)
+    const raffles = status
+      ? merged.filter((r) => r.status?.toLowerCase() === status.toLowerCase())
+      : merged;
+
+    return { raffles, total: status ? raffles.length : total };
   }
 
   private async mergeWithIndexer(meta: RaffleMetadata): Promise<SearchResult> {

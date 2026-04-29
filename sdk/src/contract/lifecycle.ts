@@ -399,9 +399,15 @@ export class TransactionLifecycle {
       incrementSequenceNumber: () => {},
     } as any));
 
+    let finalFee = fee;
+    if (!finalFee) {
+      const { suggestedFee } = await this.rpc.estimateFee();
+      finalFee = String(suggestedFee);
+    }
+
     const contract = new Contract(this.contractId);
     const builder = new TransactionBuilder(account, {
-      fee: fee ?? BASE_FEE,
+      fee: finalFee,
       networkPassphrase: this.networkConfig.networkPassphrase,
     }).addOperation(
       contract.call(method, ...params.map((p) => this.toScVal(p))),

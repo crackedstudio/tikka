@@ -1,5 +1,5 @@
 import * as fc from 'fast-check';
-import * as Sentry from '@sentry/node';
+import * as Sentry from '@sentry/nestjs';
 import { Logger } from '@nestjs/common';
 import {
   buildSentryOptions,

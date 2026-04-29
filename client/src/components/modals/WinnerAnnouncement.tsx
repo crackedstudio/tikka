@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import confetti from "canvas-confetti";
 import type {
     WinnerAnnouncementProps,
     SocialPlatform,
@@ -14,6 +15,58 @@ const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
     walletAddress = "0x330cd8fec...8b7c",
     isVisible = true,
 }) => {
+    const hasFiredRef = useRef(false);
+
+    useEffect(() => {
+        if (!isVisible) return;
+        if (hasFiredRef.current) return;
+
+        const prefersReducedMotion = window.matchMedia(
+            "(prefers-reduced-motion: reduce)"
+        ).matches;
+        if (prefersReducedMotion) return;
+
+        hasFiredRef.current = true;
+
+        const duration = 3 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = {
+            startVelocity: 30,
+            spread: 360,
+            ticks: 60,
+            zIndex: 0,
+        };
+
+        const randomInRange = (min: number, max: number) =>
+            Math.random() * (max - min) + min;
+
+        const interval: ReturnType<typeof setInterval> = setInterval(() => {
+            const timeLeft = animationEnd - Date.now();
+
+            if (timeLeft <= 0) {
+                clearInterval(interval);
+                return;
+            }
+
+            const particleCount = 50 * (timeLeft / duration);
+            confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+            });
+            confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+            });
+        }, 250);
+
+        return () => {
+            clearInterval(interval);
+            confetti.reset();
+        };
+    }, [isVisible]);
+
     if (!isVisible) return null;
 
     const socialPlatforms: SocialPlatform[] = [

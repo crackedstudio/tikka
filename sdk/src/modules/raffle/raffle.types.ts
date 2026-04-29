@@ -1,18 +1,35 @@
 import { RaffleStatus } from '../../contract/bindings';
 import { TxMemo } from '../../contract/contract.service';
 
+/**
+ * Structured asset descriptor for ticket pricing.
+ * Use `{ code: 'XLM' }` for native lumens, or provide `issuer` for SEP-41 tokens.
+ */
+export interface AssetDescriptor {
+  /** Asset code, e.g. "XLM", "USDC", "yXLM" */
+  code: string;
+  /** Issuer account for non-native assets. Omit for XLM. */
+  issuer?: string;
+}
+
 /** Parameters for creating a new raffle. */
 export interface RaffleParams {
-  /** Ticket price in XLM (string to avoid float precision issues) */
+  /** Ticket price amount (string to avoid float precision issues) */
   ticketPrice: string;
+  /**
+   * Asset used for ticket pricing.
+   * Accepts either a plain asset code string (e.g. "XLM") for backwards
+   * compatibility, or a structured `AssetDescriptor` for non-native assets.
+   *
+   * @example { code: 'USDC', issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN' }
+   */
+  asset: string | AssetDescriptor;
   /** Maximum number of tickets */
   maxTickets: number;
   /** Raffle end time — Unix timestamp in milliseconds */
   endTime: number;
   /** Whether a single address can buy multiple tickets */
   allowMultiple: boolean;
-  /** Asset code — 'XLM' or a SEP-41 token contract address */
-  asset: string;
   /** IPFS CID linking to off-chain metadata (title, image, etc.) */
   metadataCid?: string;
   /**
@@ -38,7 +55,10 @@ export interface RaffleData {
   maxTickets: number;
   ticketsSold: number;
   endTime: number;
+  /** Resolved asset code, e.g. "XLM" or "USDC" */
   asset: string;
+  /** Issuer account when asset is non-native */
+  assetIssuer?: string;
   allowMultiple: boolean;
   metadataCid: string;
   winner?: string;

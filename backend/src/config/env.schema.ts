@@ -99,6 +99,7 @@ const envSchemaInner = z
     // Geolocation
     GEO_PROVIDER_URL: z.string().url().default('http://ip-api.com/json'),
     GEO_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+    BLOCKED_COUNTRIES: z.string().default(''),
 
     // Sentry — optional; when absent the SDK is not initialized
     SENTRY_DSN: z.string().url().optional(),
@@ -111,6 +112,18 @@ const envSchemaInner = z
     THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(60),
     THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(30),
     THROTTLE_NONCE_TTL: z.coerce.number().int().positive().default(60),
+
+    // Pinata - optional for IPFS metadata pinning
+    PINATA_JWT: z.string().optional(),
+    // Metadata cache (Redis) — optional; empty REDIS_URL disables cache-aside
+    REDIS_URL: z.string().default(''),
+    METADATA_CACHE_TTL_SECONDS: z.coerce
+    RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+    RAFFLE_CREATE_RATE_WINDOW_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(600),
   })
   .passthrough();
 
