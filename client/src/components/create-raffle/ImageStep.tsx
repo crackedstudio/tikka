@@ -103,7 +103,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
             {/* Upload Area */}
             <div
                 className={`
-                    border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 cursor-pointer
+                    border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FF389C]
                     ${isDragOver
                         ? "border-pink-500 dark:border-[#FF389C] bg-[#FF389C]/10"
                         : "border-gray-500 hover:border-gray-400"
@@ -113,6 +113,15 @@ const ImageStep: React.FC<StepComponentProps> = ({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={handleUploadClick}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleUploadClick();
+                    }
+                }}
+                aria-label="Upload prize images"
             >
                 {formData.images.length > 0 ? (
                     <div className="space-y-4">
@@ -138,7 +147,10 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                 Drag & Drop your prize images here
                             </p>
                             <p className="text-gray-400 mb-4">or</p>
-                            <button className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                            <button 
+                                onClick={handleUploadClick}
+                                className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
+                            >
                                 Upload images
                             </button>
                         </div>
@@ -178,7 +190,8 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                                 e.stopPropagation();
                                                 setPrimaryImage(index);
                                             }}
-                                            className="bg-white text-black px-3 py-1 rounded text-sm hover:bg-gray-200"
+                                            aria-label={`Set image ${index + 1} as primary`}
+                                            className="bg-white text-black px-3 py-1 rounded text-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C]"
                                         >
                                             Set Primary
                                         </button>
@@ -188,7 +201,8 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                             e.stopPropagation();
                                             removeImage(index);
                                         }}
-                                        className="bg-red-500 text-white p-2 rounded hover:bg-red-600"
+                                        aria-label={`Remove image ${index + 1}`}
+                                        className="bg-red-500 text-white p-2 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-[#FF389C]"
                                     >
                                         <X size={16} />
                                     </button>
@@ -273,18 +287,18 @@ const ImageStep: React.FC<StepComponentProps> = ({
             </div>
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8">
+            <div className="flex justify-between mt-8 gap-4">
                 <button
                     onClick={onBack}
-                    className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:bg-[#3A365A] transition-colors duration-200"
+                    className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-[#3A365A] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
                 >
                     Back
                 </button>
                 <button
                     onClick={onNext}
                     disabled={!canContinue}
-                    className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${canContinue
-                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white"
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#0B1220] ${canContinue
+                            ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white focus:ring-[#FF389C]"
                             : "bg-gray-600 text-gray-400 cursor-not-allowed"
                         }`}
                 >
