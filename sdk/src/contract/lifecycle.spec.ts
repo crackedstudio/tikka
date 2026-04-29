@@ -149,6 +149,7 @@ beforeEach(() => {
     simulateTransaction: jest.fn(),
     sendTransaction: jest.fn(),
     getTransaction: jest.fn(),
+    estimateFee: jest.fn().mockResolvedValue({ minFee: 100, suggestedFee: 100 }),
   } as unknown as jest.Mocked<RpcService>;
 
   horizonService = {

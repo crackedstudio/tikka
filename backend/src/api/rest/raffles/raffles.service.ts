@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   MetadataService,
   RaffleMetadata,
@@ -32,6 +32,7 @@ export interface RaffleDetailResponse {
   title?: string;
   description?: string;
   image_url?: string | null;
+  image_urls?: string[] | null;
   category?: string | null;
 }
 
@@ -61,7 +62,22 @@ export class RafflesService {
   /**
    * Create or update raffle metadata (title, description, image_url, category, metadata_cid).
    */
-  async upsertMetadata(raffleId: number, payload: UpsertMetadataPayload) {
+  async upsertMetadata(
+    raffleId: number,
+    payload: UpsertMetadataPayload,
+    requesterAddress: string,
+  ) {
+    const raffle = await this.indexerService.getRaffle(raffleId);
+    if (!raffle) {
+      throw new NotFoundException(`Raffle ${raffleId} not found`);
+    }
+
+    if (raffle.creator.toLowerCase() !== requesterAddress.toLowerCase()) {
+      throw new ForbiddenException(
+        `Only raffle creator ${raffle.creator} can update metadata for raffle ${raffleId}`,
+      );
+    }
+
     return this.metadataService.upsertMetadata(raffleId, payload);
   }
 
@@ -108,6 +124,7 @@ export class RafflesService {
       response.title = metadata.title;
       response.description = metadata.description;
       response.image_url = metadata.image_url;
+      response.image_urls = metadata.image_urls;
       response.category = metadata.category;
       // Prefer metadata_cid from metadata if contract doesn't have it
       if (!response.metadata_cid && metadata.metadata_cid) {

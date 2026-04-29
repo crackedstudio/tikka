@@ -19,6 +19,8 @@ type RaffleCardProps = {
     prizeCurrency?: string; // default "ETH"
     countdown: Countdown;
     ticketPrice: string;
+    /** Asset symbol displayed next to ticket price, e.g. "XLM", "USDC" */
+    ticketAsset?: string;
     entries: number;
     progress: number; // 0–100
     buttonText?: string;
@@ -33,6 +35,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
     prizeCurrency = "ETH",
     countdown,
     ticketPrice,
+    ticketAsset = "XLM",
     entries,
     progress,
     buttonText = "Enter Raffle",
@@ -96,7 +99,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                             <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Ticket price
                             </p>
-                            <p>{ticketPrice}</p>
+                            <p>{ticketPrice} <span className="text-xs text-gray-500 dark:text-[#9CA3AF]">{ticketAsset}</span></p>
                         </div>
                         <div>
                             <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
@@ -160,7 +163,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                             <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
                                 Ticket price
                             </p>
-                            <p>{ticketPrice}</p>
+                            <p>{ticketPrice} <span className="text-xs text-gray-500 dark:text-[#9CA3AF]">{ticketAsset}</span></p>
                         </div>
                         <div>
                             <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">

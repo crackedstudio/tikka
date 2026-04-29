@@ -1,6 +1,16 @@
 import { xdr, scValToNative } from "@stellar/stellar-sdk";
 import { Injectable, Logger } from "@nestjs/common";
-import { DomainEvent } from "./event.types";
+import {
+  DomainEvent,
+  RaffleCreatedEvent,
+  TicketPurchasedEvent,
+  DrawTriggeredEvent,
+  RandomnessRequestedEvent,
+  RandomnessReceivedEvent,
+  RaffleFinalizedEvent,
+  RaffleCancelledEvent,
+  TicketRefundedEvent,
+} from "./event.types";
 
 // Version map for contract addresses
 const CONTRACT_VERSION_MAP: Record<string, "v1" | "v2"> = {
@@ -219,7 +229,7 @@ export class EventParserService {
     return {
       type: "RaffleCancelled",
       raffle_id: raffleId,
-      reason: data.reason || "Unknown reason",
+      reason: data.reason ?? "Unknown reason",
     };
   }
 

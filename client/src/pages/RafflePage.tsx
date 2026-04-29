@@ -27,6 +27,7 @@ import detailimage from "../assets/detailimage.png";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
+import { CountdownTimer } from "../components/ui/CountdownTimer";
 
 const Skeleton = ({ className }: { className?: string }) => (
     <div className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`} />
@@ -260,11 +261,7 @@ const RafflePage = () => {
                         <div className="p-4 bg-gray-200 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/5 space-y-4">
                              <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">{t("raffle.endsIn")}</span>
-                                <div className="flex space-x-2 font-mono text-sm">
-                                    <span className="bg-gray-300 dark:bg-white/10 px-2 py-0.5 rounded text-gray-900 dark:text-white">{countdown.days}d</span>
-                                    <span className="bg-gray-300 dark:bg-white/10 px-2 py-0.5 rounded text-gray-900 dark:text-white">{countdown.hours}h</span>
-                                    <span className="bg-gray-300 dark:bg-white/10 px-2 py-0.5 rounded text-gray-900 dark:text-white">{countdown.minutes}m</span>
-                                </div>
+                                <CountdownTimer endTime={raffle.endTime} />
                             </div>
                             {isActive && (
                                 <AddToCalendar
