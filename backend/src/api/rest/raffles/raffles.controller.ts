@@ -9,9 +9,10 @@ import {
   Post,
   Query,
   Req,
+  UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
@@ -23,6 +24,8 @@ import {
   ListRafflesQueryDto,
   BatchMetadataQuerySchema,
   type BatchMetadataQueryDto,
+  PurchaseTicketSchema,
+  PurchaseTicketDto,
 } from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
@@ -35,6 +38,8 @@ import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
+import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
+import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
@@ -46,6 +51,7 @@ export class RafflesController {
   constructor(
     private readonly rafflesService: RafflesService,
     private readonly storageService: StorageService,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
 
   /**
@@ -98,6 +104,25 @@ export class RafflesController {
     payload: UpsertMetadataDto,
   ) {
     return this.rafflesService.upsertMetadata(raffleId, payload, address);
+  }
+
+  /**
+   * POST /raffles/:raffleId/purchase — Purchase tickets for a raffle.
+   * Idempotent: supply Idempotency-Key header to safely retry on network failure.
+   * Requires JWT (SIWS).
+   */
+  @ApiBearerAuth()
+  @Post(":raffleId/purchase")
+  @ApiOperation({ summary: "Purchase tickets for a raffle" })
+  @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+  @UseInterceptors(IdempotencyInterceptor)
+  async purchaseTickets(
+    @Param("raffleId", ParseIntPipe) raffleId: number,
+    @CurrentUser("address") address: string,
+    @Body(new (createZodPipe(PurchaseTicketSchema))()) payload: PurchaseTicketDto,
+  ) {
+    return this.rafflesService.purchaseTickets(raffleId, payload, address);
   }
 
   /**

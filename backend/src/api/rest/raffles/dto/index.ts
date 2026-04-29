@@ -7,3 +7,10 @@ export {
   BatchMetadataQuerySchema,
   type BatchMetadataQueryDto,
 } from './batch-metadata-query.dto';
+
+export {
+  PurchaseTicketSchema,
+  PurchaseTicketDto,
+  type PurchaseTicketPayload,
+} from './purchase-ticket.dto';
+
