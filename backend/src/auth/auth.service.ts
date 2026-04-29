@@ -6,16 +6,10 @@ import { SUPABASE_CLIENT } from '../services/supabase.provider';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '../config/env.config';
 
-/** In-memory nonce store (use Redis in production for multi-instance). */
-const nonces = new Map<
-  string,
-  { nonce: string; issuedAt: string; expiresAt: number }
->();
-
-const NONCE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
 @Injectable()
 export class AuthService {
+  private readonly NONCE_TTL_MS = env.siws.nonceTtlSeconds * 1000;
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly siwsService: SiwsService,
@@ -26,21 +20,34 @@ export class AuthService {
    * Generate nonce for SIWS.
    * Returns nonce, expiresAt, and issuedAt. Client must include issuedAt in the message they sign.
    */
-  getNonce(address: string): {
+  async getNonce(address: string): Promise<{
     nonce: string;
     expiresAt: string;
     issuedAt: string;
     message: string;
-  } {
+  }> {
     const nonce = randomBytes(16).toString('hex');
     const issuedAt = new Date().toISOString();
-    const expiresAt = Date.now() + NONCE_TTL_MS;
+    const expiresAt = new Date(Date.now() + this.NONCE_TTL_MS).toISOString();
     const message = this.siwsService.buildMessage(address, nonce, issuedAt);
 
-    nonces.set(address, { nonce, issuedAt, expiresAt });
+    const { error } = await this.client.from('siws_nonces').insert([
+      {
+        address,
+        nonce,
+        issued_at: issuedAt,
+        expires_at: expiresAt,
+        consumed: false,
+      },
+    ]);
+
+    if (error) {
+      throw new Error('Failed to store nonce');
+    }
+
     return {
       nonce,
-      expiresAt: new Date(expiresAt).toISOString(),
+      expiresAt,
       issuedAt,
       message,
     };
@@ -55,17 +62,31 @@ export class AuthService {
     nonce: string,
     issuedAt?: string,
   ): Promise<{ accessToken: string }> {
-    const stored = nonces.get(address);
-    if (!stored || stored.nonce !== nonce) {
-      throw new Error('Invalid or expired nonce');
+    const { data: stored, error: fetchError } = await this.client
+      .from('siws_nonces')
+      .select('*')
+      .eq('address', address)
+      .eq('nonce', nonce)
+      .eq('consumed', false)
+      .maybeSingle();
+
+    if (fetchError || !stored) {
+      throw new Error('Invalid or used nonce');
     }
-    if (Date.now() > stored.expiresAt) {
-      nonces.delete(address);
+
+    if (new Date() > new Date(stored.expires_at)) {
       throw new Error('Nonce expired');
     }
-    nonces.delete(address);
 
-    const messageIssuedAt = issuedAt ?? stored.issuedAt;
+    const messageIssuedAt = issuedAt ?? stored.issued_at;
+    const issuedAtDate = new Date(messageIssuedAt);
+    const now = new Date();
+    const diffSeconds = (now.getTime() - issuedAtDate.getTime()) / 1000;
+
+    if (diffSeconds > env.siws.nonceTtlSeconds || diffSeconds < -60) {
+      throw new Error('Nonce expired');
+    }
+
     const message = this.siwsService.buildMessage(
       address,
       nonce,
@@ -74,6 +95,15 @@ export class AuthService {
 
     if (!signature || !this.siwsService.verify(address, message, signature)) {
       throw new Error('Invalid signature');
+    }
+
+    const { error: updateError } = await this.client
+      .from('siws_nonces')
+      .update({ consumed: true })
+      .eq('id', stored.id);
+
+    if (updateError) {
+      throw new Error('Failed to invalidate nonce');
     }
 
     // issue both access + refresh tokens and persist refresh token hash
