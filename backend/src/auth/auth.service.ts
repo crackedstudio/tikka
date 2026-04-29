@@ -112,8 +112,7 @@ export class AuthService {
           expires_at: expiresAtIso,
           revoked: false,
         },
-      ],
-      { upsert: false },
+      ]
     );
 
     if (error) {
