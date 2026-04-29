@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 const PAGE_SIZE = 6;
 
 const Home = () => {
+    const { t } = useTranslation();
     const { raffles, total, error, isLoading: rafflesLoading, refetch } = useRaffles({
         status: "open",
         limit: PAGE_SIZE,

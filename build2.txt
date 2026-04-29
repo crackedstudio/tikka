@@ -1,0 +1,5 @@
+
+> tikka@0.0.0 build
+> tsc -b && vite build
+
+src/providers/AuthProvider.spec.tsx(9,24): error TS6133: 'useAuthContext' is declared but its value is never read.
