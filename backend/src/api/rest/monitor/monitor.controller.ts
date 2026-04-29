@@ -5,6 +5,7 @@ import {
   Put,
   Query,
   UseGuards,
+  UseInterceptors,
   UsePipes,
 } from '@nestjs/common';
 import { SkipThrottle } from '../../../middleware/throttle.decorator';
@@ -23,10 +24,15 @@ import {
   ErrorsQuerySchema,
   type ErrorsQueryDto,
 } from './dto/errors-query.dto';
+import {
+  AuditQuerySchema,
+  type AuditQueryDto,
+} from './dto/audit-query.dto';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
 import { z } from 'zod';
 import { MaintenanceModeService } from '../../../maintenance/maintenance-mode.service';
 import { SkipMaintenance } from '../../../maintenance/skip-maintenance.decorator';
+import { AuditLogInterceptor } from './audit-log.interceptor';
 
 const SetMaintenanceModeSchema = z.object({
   enabled: z.coerce.boolean(),
@@ -36,6 +42,7 @@ type SetMaintenanceModeDto = z.infer<typeof SetMaintenanceModeSchema>;
 
 @Controller('monitor')
 @UseGuards(AdminGuard)
+@UseInterceptors(AuditLogInterceptor)
 @Public()
 @SkipThrottle()
 export class MonitorController {
@@ -65,6 +72,12 @@ export class MonitorController {
   @UsePipes(new (createZodPipe(ErrorsQuerySchema))())
   async getErrors(@Query() query: ErrorsQueryDto) {
     return this.monitorService.getErrors(query);
+  }
+
+  @Get('audit')
+  @UsePipes(new (createZodPipe(AuditQuerySchema))())
+  async getAuditLogs(@Query() query: AuditQueryDto) {
+    return this.monitorService.getAuditLogs(query);
   }
 
   @Get('maintenance')

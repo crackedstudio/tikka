@@ -16,6 +16,15 @@ import {
 import { JobsQueryDto } from './dto/jobs-query.dto';
 import { LatencyQueryDto } from './dto/latency-query.dto';
 import { ErrorsQueryDto } from './dto/errors-query.dto';
+import { AuditQueryDto } from './dto/audit-query.dto';
+
+export interface AuditLogEntry {
+  adminId: string;
+  route: string;
+  method: string;
+  statusCode: number;
+  timestamp: string;
+}
 
 @Injectable()
 export class MonitorService {
@@ -169,6 +178,55 @@ export class MonitorService {
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
       throw new ServiceUnavailableException('Failed to fetch errors');
+    }
+  }
+
+  async logAudit(entry: AuditLogEntry): Promise<void> {
+    const { error } = await this.supabase.from('audit_logs').insert([
+      {
+        admin_id: entry.adminId,
+        route: entry.route,
+        method: entry.method,
+        status_code: entry.statusCode,
+        timestamp: entry.timestamp,
+      },
+    ]);
+
+    if (error) {
+      throw new ServiceUnavailableException('Failed to persist audit log');
+    }
+  }
+
+  async getAuditLogs(query: AuditQueryDto): Promise<AuditLogEntry[]> {
+    const limit = query.limit ?? 200;
+
+    try {
+      let dbQuery = this.supabase
+        .from('audit_logs')
+        .select('admin_id, route, method, status_code, timestamp')
+        .order('timestamp', { ascending: false })
+        .limit(limit);
+
+      if (query.from) {
+        dbQuery = dbQuery.gte('timestamp', query.from);
+      }
+      if (query.to) {
+        dbQuery = dbQuery.lte('timestamp', query.to);
+      }
+
+      const { data, error } = await dbQuery;
+      if (error) throw error;
+
+      return (data ?? []).map((row) => ({
+        adminId: row.admin_id ?? 'unknown-admin',
+        route: row.route,
+        method: row.method,
+        statusCode: row.status_code,
+        timestamp: row.timestamp,
+      }));
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new ServiceUnavailableException('Failed to fetch audit logs');
     }
   }
 }
