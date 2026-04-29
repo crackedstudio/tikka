@@ -210,6 +210,104 @@ export class ContractService {
     return { result: polled.returnValue as T, txHash: polled.txHash, ledger: polled.ledger };
   }
 
+  /* ---------------- BATCH INVOKE ---------------- */
+
+  async batchBuyTickets<T = any>(
+    raffleId: number,
+    count: number,
+    options: InvokeOptions = {},
+  ): Promise<InvokeResult<T[]>> {
+    if (!this.wallet && !options.simulateOnly) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.WalletNotInstalled,
+        'Wallet required'
+      );
+    }
+
+    const sourceKey =
+      options.sourcePublicKey ??
+      (this.wallet ? await this.wallet.getPublicKey() : undefined);
+
+    if (!sourceKey) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.InvalidParams,
+        'Missing source public key'
+      );
+    }
+
+    const account = await this.horizon.loadAccount(sourceKey);
+    const contract = new Contract(this.contractId);
+    
+    let txBuilder = new TransactionBuilder(account, {
+      fee: options.fee ?? BASE_FEE,
+      networkPassphrase: this.networkConfig.networkPassphrase,
+    });
+
+    const params = [raffleId];
+    for (let i = 0; i < count; i++) {
+        txBuilder = txBuilder.addOperation(contract.call(ContractFn.BUY_TICKET, ...params.map((p) => this.toScVal(p))));
+    }
+    
+    const tx = txBuilder.setTimeout(30).build();
+
+    const simResponse = await this.rpc.simulateTransaction(tx);
+
+    if (rpc.Api.isSimulationError(simResponse)) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.SimulationFailed,
+        `Batch simulation failed`
+      );
+    }
+
+    const successSim = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
+    const preparedTx = rpc.assembleTransaction(tx, successSim).build();
+
+    // With multiple ops, result is typically an array of results, but for now we just handle it generically.
+    const simResult = successSim.results
+      ? successSim.results.map(r => r.retval ? scValToNative(r.retval) : undefined)
+      : [];
+
+    if (options.simulateOnly) {
+      return { result: simResult as any, txHash: '', ledger: 0 };
+    }
+
+    const { signedXdr } = await this.wallet!.signTransaction(
+      preparedTx.toXDR(),
+      { networkPassphrase: this.networkConfig.networkPassphrase }
+    );
+
+    const signedTx = TransactionBuilder.fromXDR(
+      signedXdr,
+      this.networkConfig.networkPassphrase
+    );
+
+    const sendResp = await this.rpc.sendTransaction(signedTx);
+
+    if (sendResp.status === 'ERROR') {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.SubmissionFailed,
+        'Batch submission failed'
+      );
+    }
+
+    const txResp = await this.rpc.getTransaction(sendResp.hash);
+
+    if (txResp.status === rpc.Api.GetTransactionStatus.FAILED) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.ContractError,
+        'Batch transaction failed'
+      );
+    }
+
+    const successTx = txResp as rpc.Api.GetSuccessfulTransactionResponse;
+
+    return {
+      result: (successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult) as any,
+      txHash: sendResp.hash,
+      ledger: successTx.ledger,
+    };
+  }
+
   /* ---------------- HELPERS ---------------- */
 
   private toScVal(val: any): xdr.ScVal {
