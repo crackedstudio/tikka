@@ -1,0 +1,29 @@
+groups:
+  - name: tikka-indexer-alerts
+    rules:
+      - alert: IndexerFallingBehind
+        expr: tikka_indexer_lag_ledgers > 20
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Indexer is lagging behind the Stellar network"
+          description: "The indexer is currently {{ $value }} ledgers behind the Horizon tip. This has persisted for more than 5 minutes."
+
+      - alert: IndexerHighLatency
+        expr: rate(tikka_indexer_poll_duration_seconds_sum[5m]) / rate(tikka_indexer_poll_duration_seconds_count[5m]) > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High polling latency detected"
+          description: "The average poll duration is {{ $value }}s, which is above the threshold of 10s."
+
+      - alert: IndexerErrors
+        expr: rate(tikka_indexer_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Indexer encountering errors"
+          description: "The indexer is encountering errors at a rate of {{ $value }} per second."
