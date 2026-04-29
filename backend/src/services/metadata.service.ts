@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
+import { PinningService } from './pinning.service';
 import { MetadataRedisService } from './metadata-redis.service';
 import { MetadataCacheMetricsService } from './metadata-cache-metrics.service';
 
@@ -43,6 +44,7 @@ function cacheKeyForRaffle(raffleId: number): string {
 export class MetadataService {
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+    private readonly pinningService: PinningService,
     private readonly config: ConfigService,
     private readonly metadataRedis: MetadataRedisService,
     private readonly metadataCacheMetrics: MetadataCacheMetricsService,
@@ -170,9 +172,15 @@ export class MetadataService {
       ?.map((url) => url?.trim())
       .filter((url): url is string => Boolean(url));
 
+    const metadataCid = await this.pinningService.pin({
+      raffle_id: raffleId,
+      ...payload,
+    });
+
     const row = {
       raffle_id: raffleId,
       ...payload,
+      metadata_cid: metadataCid || payload.metadata_cid,
       image_urls:
         normalizedImageUrls && normalizedImageUrls.length > 0
           ? normalizedImageUrls

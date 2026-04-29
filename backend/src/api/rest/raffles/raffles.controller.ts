@@ -5,10 +5,12 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  NotFoundException,
   PayloadTooLargeException,
   Post,
   Query,
   Req,
+  Res,
   UsePipes,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth } from "@nestjs/swagger";
@@ -87,6 +89,22 @@ export class RafflesController {
   @ApiParam({ name: "id", description: "Internal raffle ID" })
   async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
+  }
+
+  /**
+   * GET /raffles/:id/ipfs — Redirect to IPFS metadata for the raffle.
+   */
+  @Public()
+  @Get(":id/ipfs")
+  @ApiOperation({ summary: "Redirect to IPFS metadata" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
+  async redirectToIpfs(@Param("id", ParseIntPipe) id: number, @Res() res: any) {
+    const detail = await this.rafflesService.getById(id);
+    if (!detail.metadata_cid) {
+      throw new NotFoundException(`IPFS metadata not found for raffle ${id}`);
+    }
+    const gateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs/';
+    res.redirect(`${gateway}${detail.metadata_cid}`);
   }
 
   /**

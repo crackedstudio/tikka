@@ -5,12 +5,20 @@ import { MetadataModule } from '../../../services/metadata.module';
 import { IndexerModule } from '../../../services/indexer.module';
 import { StorageService } from '../../../services/storage.service';
 import { ImageOptimizerService } from '../../../services/image-optimizer.service';
+import { PinningService } from '../../../services/pinning.service';
 
 @Module({
   imports: [IndexerModule, MetadataModule],
   controllers: [RafflesController],
-  providers: [RafflesService, StorageService, ImageOptimizerService],
+  providers: [
+    RafflesService,
+    MetadataService,
+    StorageService,
+    ImageOptimizerService,
+    PinningService,
+  ],
   exports: [RafflesService],
 })
 export class RafflesModule {}
+
 
