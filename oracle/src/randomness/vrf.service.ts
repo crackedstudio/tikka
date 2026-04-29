@@ -93,6 +93,45 @@ export class VrfService {
     seed: string,
     raffleId?: number,
   ): boolean {
-    return this.ed25519Provider.verify(publicKey, requestId, proof, seed, raffleId);
+    const verifiedProof = this.verifyProof({
+      publicKey,
+      requestId,
+      proof,
+    });
+    if (!verifiedProof.valid || !verifiedProof.seed) return false;
+
+    try {
+      const expectedSeed = Buffer.from(verifiedProof.seed, 'hex');
+      const providedSeed = Buffer.from(seed, 'hex');
+      return Buffer.compare(expectedSeed, providedSeed) === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Verify a VRF proof and derive the seed when valid.
+   */
+  verifyProof(input: {
+    requestId: string;
+    proof: string;
+    publicKey: string | Buffer;
+  }): { valid: boolean; seed?: string } {
+    return this.ed25519Provider.verifyProof(
+      input.publicKey,
+      input.requestId,
+      input.proof,
+    );
+  }
+
+  /**
+   * Return the local oracle's public key in common encodings.
+   */
+  async getPublicKey(): Promise<{ hex: string; base64: string }> {
+    const keyBuffer = await this.keyService.getPublicKeyBuffer();
+    return {
+      hex: keyBuffer.toString('hex'),
+      base64: keyBuffer.toString('base64'),
+    };
   }
 }
