@@ -7,6 +7,7 @@ import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
+import { PriorityClassifierService } from './priority-classifier.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';

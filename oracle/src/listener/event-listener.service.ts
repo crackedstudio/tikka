@@ -37,6 +37,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         private readonly commitRevealWorker: CommitRevealWorker,
         private readonly circuitBreaker: CircuitBreakerService,
         @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue<RandomnessJobPayload>,
+        @Optional() private readonly priorityClassifier?: PriorityClassifierService,
     ) {
         // Config parsing
         const horizonUrl = this.configService.get<string>('HORIZON_URL', 'https://horizon-testnet.stellar.org');
