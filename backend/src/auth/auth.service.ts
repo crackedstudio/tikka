@@ -54,7 +54,7 @@ export class AuthService {
     signature: string,
     nonce: string,
     issuedAt?: string,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const stored = nonces.get(address);
     if (!stored || stored.nonce !== nonce) {
       throw new Error('Invalid or expired nonce');
