@@ -113,16 +113,23 @@ const RafflePage = () => {
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <Helmet>
                 <title>{title} | Tikka Raffles</title>
-                <meta name="description" content={description || "Join this raffle on Tikka!"} />
-                <meta property="og:title" content={title} />
-                <meta property="og:description" content={description || "Join this raffle on Tikka!"} />
-                <meta property="og:image" content={image || detailimage} />
+                <meta name="description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
+                
+                {/* Open Graph */}
+                <meta property="og:title" content={`${title} | Tikka Raffles`} />
+                <meta property="og:description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
+                <meta property="og:image" content={image || `${window.location.origin}/og-image.png`} />
                 <meta property="og:url" content={window.location.href} />
                 <meta property="og:type" content="website" />
+                <meta property="og:site_name" content="Tikka" />
+                
+                {/* Twitter Card */}
                 <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content={title} />
-                <meta name="twitter:description" content={description || "Join this raffle on Tikka!"} />
-                <meta name="twitter:image" content={image || detailimage} />
+                <meta name="twitter:title" content={`${title} | Tikka Raffles`} />
+                <meta name="twitter:description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
+                <meta name="twitter:image" content={image || `${window.location.origin}/og-image.png`} />
+                <meta name="twitter:site" content="@tikaborofficial" />
+                <meta name="twitter:creator" content="@tikaborofficial" />
             </Helmet>
             <Breadcrumbs
                 items={[
