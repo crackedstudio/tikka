@@ -11,6 +11,7 @@ import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } fr
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
@@ -28,6 +29,7 @@ export class RandomnessWorker {
     private readonly lagMonitor: LagMonitorService,
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Process()
@@ -49,7 +51,9 @@ export class RandomnessWorker {
       return;
     }
 
-    const isMultiOracle = this.oracleRegistry.isMultiOracleMode();
+    // Support ORACLE_MODE=multi env toggle as well as legacy isMultiOracleMode()
+    const oracleMode = this.configService.get<string>('ORACLE_MODE', 'single').toLowerCase();
+    const isMultiOracle = oracleMode === 'multi' || this.oracleRegistry.isMultiOracleMode();
     const localOracleId = this.oracleRegistry.getLocalOracleId();
 
     if (isMultiOracle) {
@@ -113,15 +117,6 @@ export class RandomnessWorker {
       `Multi-oracle mode: raffle=${raffleId}, request=${requestId}, localOracle=${localOracleId}, threshold=${threshold}`
     );
 
-    if (!this.multiOracleCoordinator.isTracked(raffleId, requestId)) {
-      await this.multiOracleCoordinator.startTracking(raffleId, requestId);
-    }
-
-    if (this.multiOracleCoordinator.hasSubmitted(raffleId, requestId, localOracleId)) {
-      this.logger.log(`Local oracle ${localOracleId} already submitted for ${requestId}`);
-      return;
-    }
-
     try {
       const alreadySubmitted = await this.contractService.isRandomnessSubmitted(raffleId);
       if (alreadySubmitted) {
@@ -136,34 +131,50 @@ export class RandomnessWorker {
       }
 
       const method = this.determineMethod(finalPrizeAmount);
+      this.logger.log(`Raffle ${raffleId}: prize=${finalPrizeAmount} XLM, method=${method}`);
       const randomness = await this.computeRandomness(method, requestId, raffleId);
 
-      const localOracle = this.oracleRegistry.getLocalOracle();
-      if (!localOracle) {
-        throw new Error(`Local oracle not found: ${localOracleId}`);
-      }
+      // Compute local oracle's VRF output
+      const localRandomness = await this.computeRandomness(method, requestId);
 
-      const { ready, aggregated } = this.multiOracleCoordinator.recordSubmission(
-        raffleId,
-        requestId,
-        localOracleId,
-        localOracle.publicKey,
-        randomness,
-      );
+      // Broadcast to peers and collect responses; aggregate via XOR
+      const { aggregated, usedOracles, fellBack } =
+        await this.multiOracleCoordinator.broadcastAndCollect(requestId, localRandomness);
 
-      this.logger.log(
-        `Recorded submission from ${localOracleId} for raffle ${raffleId}: ready=${ready}`
-      );
-
-      this.processedRequestIds.add(`${requestId}:${localOracleId}`);
-      this.healthService.recordSuccess(`${requestId}:${localOracleId}`);
-      this.lagMonitor.fulfillRequest(requestId);
-
-      if (ready && aggregated) {
+      if (fellBack) {
+        this.logger.warn(
+          `Raffle ${raffleId}: fell back to single-oracle (threshold not met in time)`
+        );
+      } else {
         this.logger.log(
-          `Threshold reached for raffle ${raffleId}: ${aggregated.submittedBy.length}/${threshold} oracles`
+          `Raffle ${raffleId}: consensus from [${usedOracles.join(', ')}], submitting aggregated seed`
         );
       }
+
+      const result = await this.txSubmitter.submitRandomness(raffleId, aggregated);
+
+      if (!result.success) {
+        throw new Error(`Transaction submission failed for raffle ${raffleId}`);
+      }
+
+      this.processedRequestIds.add(requestId);
+
+      // Record in coordinator for observability
+      if (!this.multiOracleCoordinator.isTracked(raffleId, requestId)) {
+        await this.multiOracleCoordinator.startTracking(raffleId, requestId);
+      }
+      const localOracle = this.oracleRegistry.getLocalOracle();
+      if (localOracle) {
+        this.multiOracleCoordinator.recordSubmission(
+          raffleId, requestId, localOracleId, localOracle.publicKey, aggregated, result.txHash,
+        );
+      }
+
+      this.logger.log(
+        `Successfully submitted multi-oracle randomness for raffle ${raffleId}: tx=${result.txHash}, ledger=${result.ledger}`
+      );
+      this.healthService.recordSuccess(requestId);
+      this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
         `Failed to process multi-oracle request for raffle ${raffleId}: ${error.message}`,
