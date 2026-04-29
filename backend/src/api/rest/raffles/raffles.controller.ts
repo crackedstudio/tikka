@@ -5,10 +5,12 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  NotFoundException,
   PayloadTooLargeException,
   Post,
   Query,
   Req,
+  Res,
   UsePipes,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth } from "@nestjs/swagger";
@@ -35,10 +37,16 @@ import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
+import { Throttle } from "../../../middleware/throttle.decorator";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
+
+const RAFFLE_CREATE_RATE_LIMIT = Number(process.env.RAFFLE_CREATE_RATE_LIMIT ?? 5);
+const RAFFLE_CREATE_RATE_WINDOW_SECONDS = Number(
+  process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? 600,
+);
 
 @ApiTags("Raffles")
 @Controller("raffles")
@@ -84,19 +92,42 @@ export class RafflesController {
   }
 
   /**
+   * GET /raffles/:id/ipfs — Redirect to IPFS metadata for the raffle.
+   */
+  @Public()
+  @Get(":id/ipfs")
+  @ApiOperation({ summary: "Redirect to IPFS metadata" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
+  async redirectToIpfs(@Param("id", ParseIntPipe) id: number, @Res() res: any) {
+    const detail = await this.rafflesService.getById(id);
+    if (!detail.metadata_cid) {
+      throw new NotFoundException(`IPFS metadata not found for raffle ${id}`);
+    }
+    const gateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs/';
+    res.redirect(`${gateway}${detail.metadata_cid}`);
+  }
+
+  /**
    * POST /raffles/:raffleId/metadata — Create or update raffle metadata.
    * Requires JWT (SIWS).
    */
   @ApiBearerAuth()
+  @Throttle({
+    raffleCreate: {
+      limit: RAFFLE_CREATE_RATE_LIMIT,
+      ttl: RAFFLE_CREATE_RATE_WINDOW_SECONDS * 1000,
+    },
+  })
   @Post(":raffleId/metadata")
   @ApiOperation({ summary: "Create or update raffle metadata" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
   async upsertMetadata(
     @Param("raffleId", ParseIntPipe) raffleId: number,
+    @CurrentUser("address") address: string,
     @Body(new (createZodPipe(UpsertMetadataSchema))())
     payload: UpsertMetadataDto,
   ) {
-    return this.rafflesService.upsertMetadata(raffleId, payload);
+    return this.rafflesService.upsertMetadata(raffleId, payload, address);
   }
 
   /**

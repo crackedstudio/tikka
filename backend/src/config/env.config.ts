@@ -74,4 +74,7 @@ export const env = {
       timeoutMs: parseInt(process.env.GEO_TIMEOUT_MS ?? '3000', 10),
     };
   },
+  get blockedCountries() {
+    return process.env.BLOCKED_COUNTRIES ?? '';
+  },
 } as const;
