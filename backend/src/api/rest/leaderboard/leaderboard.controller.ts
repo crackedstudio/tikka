@@ -14,6 +14,8 @@ export class LeaderboardController {
    * Query params:
    *   by    — Sort field: wins | volume | tickets (default: wins)
    *   limit — Number of entries: 1–100 (default: 20)
+   *   cursor — Opaque cursor token for stable pagination
+   *   offset — Deprecated offset pagination fallback
    */
   @Get()
   @UsePipes(new (createZodPipe(LeaderboardQuerySchema))())
