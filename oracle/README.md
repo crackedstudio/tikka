@@ -196,6 +196,8 @@ The service requires the following environment variables for queue operations:
 - `TX_SUBMIT_MAX_ATTEMPTS`: max tx submit attempts (default: `5`)
 - `TX_SUBMIT_INITIAL_BACKOFF_MS`: initial backoff delay (default: `1000`)
 - `TX_SUBMIT_ALERT_WEBHOOK_URL`: optional alert webhook for persistent submit failures
+- `ORACLE_CB_FAILURE_THRESHOLD`: number of consecutive Horizon SSE failures before the circuit opens (default: `5`)
+- `ORACLE_CB_RESET_TIMEOUT_MS`: milliseconds the circuit stays open before allowing a probe attempt (default: `60000`)
 
 ## Implementation Status
 
