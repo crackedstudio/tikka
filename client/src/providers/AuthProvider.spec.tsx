@@ -50,6 +50,14 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+// ── Helper: render AuthProvider and get context ───────────────────────────────
+
+function TestConsumer({ onContext }: { onContext: (ctx: ReturnType<typeof useAuthContext>) => void }) {
+  const ctx = useAuthContext();
+  onContext(ctx);
+  return null;
+}
+ 
 // ── P11: Wallet disconnect triggers logout ────────────────────────────────────
 
 describe('P11: Wallet disconnect triggers logout', () => {
