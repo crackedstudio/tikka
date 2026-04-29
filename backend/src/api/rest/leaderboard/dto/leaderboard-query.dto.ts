@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { z } from 'zod';
 
 /** Query params for GET /leaderboard */
@@ -6,4 +7,10 @@ export const LeaderboardQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
 });
 
-export type LeaderboardQueryDto = z.infer<typeof LeaderboardQuerySchema>;
+export class LeaderboardQueryDto {
+  @ApiPropertyOptional({ enum: ['wins', 'volume', 'tickets'], default: 'wins', description: 'Sort field' })
+  by?: 'wins' | 'volume' | 'tickets';
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20, description: 'Number of entries' })
+  limit?: number;
+}
