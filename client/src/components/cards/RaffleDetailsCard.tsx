@@ -5,13 +5,7 @@ import AboutRaffle from "../AboutRaffle";
 import EnterRaffle from "../EnterRaffle";
 import RecentParticipants from "../RecentParticipants";
 import ImageCarousel from "../ImageCarousel";
-
-type Countdown = {
-    days: string;
-    hours: string;
-    minutes: string;
-    seconds: string;
-};
+import { CountdownTimer } from "../ui/CountdownTimer";
 
 type RaffleDetailsCardProps = {
     image: string;
@@ -20,7 +14,7 @@ type RaffleDetailsCardProps = {
     body: string;
     prizeValue: string;
     prizeCurrency?: string; // default "ETH"
-    countdown: Countdown;
+    endTime: string | number;
     onEnter?: () => void; // optional click handler
 };
 
@@ -31,7 +25,7 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
     body,
     prizeValue,
     prizeCurrency = "ETH",
-    countdown,
+    endTime,
     onEnter,
 }) => {
     // Use images array if available, otherwise fallback to single image
@@ -77,20 +71,11 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
                             <p className="text-xs text-gray-600 dark:text-[#9CA3AF] mb-2">
                                 Ends In
                             </p>
-                            <div className="flex flex-wrap gap-2 text-sm md:text-[18px]">
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.days}d
-                                </span>
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.hours}h
-                                </span>
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.minutes}m
-                                </span>
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.seconds}s
-                                </span>
-                            </div>
+                            <CountdownTimer 
+                                endTime={endTime}
+                                className="flex flex-wrap gap-2 text-sm md:text-[18px]"
+                                itemClassName="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5 text-white"
+                            />
                         </div>
                     </div>
                 </div>
