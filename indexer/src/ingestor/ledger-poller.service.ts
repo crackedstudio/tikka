@@ -241,7 +241,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         await queryRunner.release();
       }
 
-      this.metrics.incrementEventsProcessed(batch.length);
+      for (const item of batch) {
+        this.metrics.incrementEventsProcessed(item.parsed.type);
+      }
     } catch (error) {
       this.metrics.incrementErrors(1);
       this.logger.warn(
@@ -260,6 +262,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private async pollOnce() {
     if (!this.isRunning) return;
 
+    const startTime = Date.now();
     try {
       const cursor = await this.cursorManager.getCursor();
       const lastToken = cursor?.lastPagingToken || "now";
@@ -287,6 +290,19 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         await this.flushRemainder();
       }
 
+      // Update lag metric
+      try {
+        const latestLedgers = await this.horizonServer.ledgers().order("desc").limit(1).call();
+        const latestLedger = latestLedgers.records[0]?.sequence;
+        if (latestLedger && cursor?.lastLedger) {
+          const lag = Math.max(0, latestLedger - cursor.lastLedger);
+          this.metrics.setLagLedgers(lag);
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to fetch latest ledger for lag metric: ${e.message}`);
+      }
+
+      // Reset retry attempt on any successful communication
       this.retryAttempt = 0;
 
       const nextDelay = records.length === 100 ? 500 : 5000;
@@ -297,6 +313,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       );
       this.metrics.incrementErrors(1);
       this.scheduleReconnection();
+    } finally {
+      const durationSeconds = (Date.now() - startTime) / 1000;
+      this.metrics.recordPollDuration(durationSeconds);
     }
   }
 
