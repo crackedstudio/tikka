@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { z } from 'zod';
 
 export const SearchQuerySchema = z.object({
@@ -8,4 +9,19 @@ export const SearchQuerySchema = z.object({
   status: z.string().trim().optional(),
 });
 
-export type SearchQueryDto = z.infer<typeof SearchQuerySchema>;
+export class SearchQueryDto {
+  @ApiProperty({ description: 'Search query' })
+  q: string;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
+  limit?: number;
+
+  @ApiPropertyOptional({ minimum: 0, default: 0 })
+  offset?: number;
+
+  @ApiPropertyOptional({ description: 'Filter by category' })
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by status' })
+  status?: string;
+}

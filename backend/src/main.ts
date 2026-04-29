@@ -26,6 +26,9 @@ async function bootstrap() {
   )) as NestFastifyApplication;
   app.useLogger(app.get(PinoLogger));
 
+  const isProd = process.env.NODE_ENV === 'production';
+  const isSwaggerEnabled = process.env.SWAGGER_ENABLED === 'true';
+
   const config = new DocumentBuilder()
     .setTitle("Tikka API")
     .setDescription("The Tikka API description")
@@ -35,7 +38,10 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app as any, config);
-  SwaggerModule.setup("docs", app as any, document);
+
+  if (!isProd || isSwaggerEnabled) {
+    SwaggerModule.setup("api/docs", app as any, document);
+  }
   await configureSecurity(app);
 
   // Using 'as any' bypasses the type mismatch error between Fastify versions
