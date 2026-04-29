@@ -7,11 +7,21 @@ import {
   RaffleData,
   CancelRaffleResult,
   CancelRaffleParams,
+  AssetDescriptor,
 } from './raffle.types';
 import { ContractResponse } from '../../contract/response';
 import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
 import { xlmToStroops } from '../../utils/formatting';
 import { nativeToScVal } from '@stellar/stellar-sdk';
+
+/**
+ * Normalises the `asset` field from `RaffleParams` into a plain `AssetDescriptor`.
+ * Accepts either a legacy string code ("XLM") or a structured descriptor.
+ */
+function normaliseAsset(asset: string | AssetDescriptor): AssetDescriptor {
+  if (typeof asset === 'string') return { code: asset };
+  return asset;
+}
 
 /**
  * RaffleService — high-level API for raffle lifecycle operations.
@@ -30,11 +40,17 @@ export class RaffleService {
   /**
    * Creates a new raffle on-chain.
    *
+   * `params.asset` accepts either a plain code string ("XLM") for backwards
+   * compatibility, or a structured `{ code, issuer? }` descriptor for non-native
+   * SEP-41 tokens such as USDC or yXLM.
+   *
    * @returns The on-chain raffle ID, transaction hash, and ledger.
    */
   async create(params: RaffleParams): Promise<ContractResponse<number>> {
     assertNonEmpty(params.ticketPrice, 'ticketPrice');
     assertPositiveInt(params.maxTickets, 'maxTickets');
+
+    const asset = normaliseAsset(params.asset);
 
     const contractParams = [
       nativeToScVal(
@@ -43,7 +59,8 @@ export class RaffleService {
           max_tickets: params.maxTickets,
           end_time: BigInt(Math.floor(params.endTime / 1000)), // contract expects seconds
           allow_multiple: params.allowMultiple,
-          asset: params.asset,
+          asset: asset.code,
+          asset_issuer: asset.issuer ?? '',
           metadata_cid: params.metadataCid ?? '',
         },
         {
@@ -53,6 +70,7 @@ export class RaffleService {
             end_time: ['symbol', 'u64'],
             allow_multiple: ['symbol', 'bool'],
             asset: ['symbol', 'string'],
+            asset_issuer: ['symbol', 'string'],
             metadata_cid: ['symbol', 'string'],
           } as any,
         },
@@ -148,6 +166,7 @@ export class RaffleService {
       ticketsSold: Number(raw.tickets_sold ?? raw.ticketsSold ?? 0),
       endTime: Number(raw.end_time ?? raw.endTime ?? 0) * 1000, // back to ms
       asset: raw.asset ?? 'XLM',
+      assetIssuer: raw.asset_issuer || raw.assetIssuer || undefined,
       allowMultiple: Boolean(raw.allow_multiple ?? raw.allowMultiple),
       metadataCid: raw.metadata_cid ?? raw.metadataCid ?? '',
       winner: raw.winner,
