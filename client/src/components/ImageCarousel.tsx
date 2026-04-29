@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import LazyImage from "./LazyImage";
+import { generateBlurPlaceholder } from "../utils/imageOptimization";
 
 interface ImageCarouselProps {
     images: string[];
@@ -15,15 +17,18 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
         return (
             <>
                 <div 
-                    className="w-full h-64 md:h-96 rounded-3xl overflow-hidden cursor-pointer"
+                    className="w-full rounded-3xl overflow-hidden cursor-pointer"
                     onClick={() => {
                         setLightboxOpen(true);
                     }}
                 >
-                    <img
+                    <LazyImage
                         src={images[0]}
                         alt={alt}
+                        aspectRatio={16/9}
+                        containerClassName="w-full"
                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        blurUp={true}
                     />
                 </div>
                 {lightboxOpen && (
@@ -50,11 +55,16 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
         <>
             <div className="w-full">
                 {/* Main Image Display */}
-                <div className="relative rounded-3xl overflow-hidden mb-4" style={{ height: "384px" }}>
-                    <img
+                <div className="relative rounded-3xl overflow-hidden mb-4" style={{ aspectRatio: '16/9' }}>
+                    <LazyImage
                         src={images[currentIndex]}
                         alt={`${alt} ${currentIndex + 1}`}
                         className="w-full h-full object-cover cursor-pointer"
+                        containerClassName="w-full h-full"
+                        blurUp={true}
+                        onLoad={() => {
+                            // Image loaded successfully
+                        }}
                         onClick={() => setLightboxOpen(true)}
                     />
                     
@@ -62,12 +72,14 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                     <button
                         onClick={handlePrev}
                         className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                        aria-label="Previous image"
                     >
                         <ChevronLeft size={24} />
                     </button>
                     <button
                         onClick={handleNext}
                         className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                        aria-label="Next image"
                     >
                         <ChevronRight size={24} />
                     </button>
@@ -91,6 +103,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                                         ? "bg-[#FF389C]"
                                         : "bg-white/50 hover:bg-white/75"
                                 }`}
+                                aria-label={`Go to image ${index + 1}`}
                             />
                         ))}
                     </div>
@@ -107,11 +120,15 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                                     ? "border-[#FF389C]"
                                     : "border-transparent hover:border-white/50"
                             }`}
+                            aria-label={`Thumbnail ${index + 1}`}
                         >
-                            <img
+                            <LazyImage
                                 src={image}
                                 alt={`${alt} thumbnail ${index + 1}`}
                                 className="w-full h-full object-cover"
+                                containerClassName="w-full h-full"
+                                aspectRatio={1}
+                                blurUp={false}
                             />
                         </button>
                     ))}
@@ -194,10 +211,12 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
                 className="max-w-7xl max-h-[90vh] flex items-center justify-center px-20"
                 onClick={(e) => e.stopPropagation()}
             >
-                <img
+                <LazyImage
                     src={images[currentIndex]}
                     alt={`Full size ${currentIndex + 1}`}
                     className="max-w-full max-h-[90vh] object-contain"
+                    containerClassName="max-w-full max-h-[90vh]"
+                    blurUp={true}
                 />
             </div>
 
@@ -229,11 +248,15 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
                                     ? "border-[#FF389C]"
                                     : "border-transparent hover:border-white/50"
                             }`}
+                            aria-label={`Thumbnail ${index + 1}`}
                         >
-                            <img
+                            <LazyImage
                                 src={image}
                                 alt={`Thumbnail ${index + 1}`}
                                 className="w-full h-full object-cover"
+                                containerClassName="w-full h-full"
+                                aspectRatio={1}
+                                blurUp={false}
                             />
                         </button>
                     ))}

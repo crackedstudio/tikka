@@ -22,7 +22,12 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private sseCloseFn?: () => void;
   private pollingTimeout?: NodeJS.Timeout;
 
-  // Reconnection & Backoff
+  private readonly batchSize: number;
+  private eventBuffer: Array<{ parsed: DomainEvent; raw: Record<string, unknown> }> =
+    [];
+  /** Serializes ingestion so batches commit in order. */
+  private chain: Promise<void> = Promise.resolve();
+
   private retryAttempt = 0;
   private readonly MAX_RETRY_DELAY = 30000;
   private readonly BASE_RETRY_DELAY = 2000;
@@ -59,22 +64,26 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.logger.log(
-      `Starting Ledger Poller for contracts: ${this.contractIds.join(", ")}`,
+      `Starting Ledger Poller for contracts: ${this.contractIds.join(", ")} (batch size ${this.batchSize})`,
     );
     this.isRunning = true;
     this.startIngestion();
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     this.logger.log("Stopping Ledger Poller...");
     this.isRunning = false;
     this.stopIngestion();
+    try {
+      await this.chain;
+      await this.flushRemainder();
+    } catch (error) {
+      this.logger.warn(
+        `Error while flushing ingestion buffer on shutdown: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
-  /**
-   * Main entry point for starting the ingestion process.
-   * Attempts to use SSE for real-time updates.
-   */
   private async startIngestion() {
     if (!this.isRunning) return;
 
@@ -92,23 +101,27 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Connects to the Horizon SSE stream for events.
-   */
   private startSse(cursor: string) {
     this.stopIngestion();
 
     this.logger.log(`Connecting to Horizon SSE stream...`);
 
     try {
-      // Subscribe to the Horizon /events stream. 
-      // Note: We filter by contract_id in the message handler to support multiple contracts.
-      this.sseCloseFn = (this.horizonServer as any)
+      this.sseCloseFn = (this.horizonServer as unknown as {
+        events: () => {
+          cursor: (c: string) => {
+            stream: (handlers: {
+              onmessage: (event: unknown) => void;
+              onerror: (error: unknown) => void;
+            }) => () => void;
+          };
+        };
+      })
         .events()
         .cursor(cursor)
         .stream({
-          onmessage: (event: any) => this.handleRawEvent(event),
-          onerror: (error: any) => {
+          onmessage: (event: unknown) => this.enqueueRawEvent(event),
+          onerror: (error: unknown) => {
             this.logger.warn(
               `SSE Stream Error or Disconnect. Falling back to polling...`,
             );
@@ -117,27 +130,42 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
           },
         });
     } catch (error) {
-      this.logger.error(`Failed to initialize SSE: ${error.message}`);
+      this.logger.error(
+        `Failed to initialize SSE: ${error instanceof Error ? error.message : String(error)}`,
+      );
       this.schedulePollingFallback();
     }
   }
 
   /**
-   * Internal handler for raw event payloads from Horizon.
+   * Queue a Horizon event for sequential decode + batched dispatch.
    */
-  private handleRawEvent(rawEvent: any) {
-    // Filter by contract IDs if configured
+  private enqueueRawEvent(rawEvent: unknown): void {
+    const ev = rawEvent as Record<string, unknown>;
     const eventContractId =
-      rawEvent.contract_id || rawEvent.contractId || rawEvent.address;
+      (ev.contract_id as string) ||
+      (ev.contractId as string) ||
+      (ev.address as string);
 
-    if (this.contractIds.length > 0 && !this.contractIds.includes(eventContractId)) {
+    if (
+      this.contractIds.length > 0 &&
+      !this.contractIds.includes(eventContractId)
+    ) {
       return;
     }
 
     this.logger.debug(
-      `Received event: ${rawEvent.id} (Ledger ${rawEvent.ledger})`,
+      `Received event: ${ev.id as string} (Ledger ${ev.ledger as string})`,
     );
-    this.processEvent(rawEvent);
+
+    this.chain = this.chain
+      .then(() => this.ingestRawEvent(ev))
+      .catch((error: unknown) => {
+        this.metrics.incrementErrors(1);
+        this.logger.warn(
+          `Ingestion chain error: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
   }
 
   /**
@@ -178,12 +206,39 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         contractId: rawEvent.contract_id || rawEvent.contractId || rawEvent.address,
       };
 
-      const parsed = this.eventParser.parse(rawSorobanEvent as any);
-      if (!parsed) return;
+    this.eventBuffer.push({ parsed, raw: rawEvent });
 
-      const queryRunner = await this.dispatcher.dispatch(parsed, rawEvent);
+    while (this.eventBuffer.length >= this.batchSize) {
+      const batch = this.eventBuffer.splice(0, this.batchSize);
+      await this.processBatch(batch);
+    }
+  }
 
-      const nextToken = rawEvent.paging_token || rawEvent.id;
+  private async flushRemainder(): Promise<void> {
+    if (this.eventBuffer.length === 0) {
+      return;
+    }
+    const batch = this.eventBuffer.splice(0, this.eventBuffer.length);
+    await this.processBatch(batch);
+  }
+
+  private async processBatch(
+    batch: Array<{ parsed: DomainEvent; raw: Record<string, unknown> }>,
+  ): Promise<void> {
+    if (batch.length === 0) {
+      return;
+    }
+
+    const lastRaw = batch[batch.length - 1].raw;
+    const lastId = lastRaw.id as string | undefined;
+
+    try {
+      const queryRunner = await this.dispatcher.dispatchBatch(
+        batch.map((b) => ({ event: b.parsed, raw: b.raw })),
+      );
+
+      const nextToken = (lastRaw.paging_token as string | undefined) || lastId;
+      const ledger = Number(lastRaw.ledger);
 
       if (this.dryRun.enabled) {
         this.logger.log(
@@ -193,6 +248,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
           await queryRunner.rollbackTransaction();
           await queryRunner.release();
         }
+        this.metrics.incrementEventsProcessed(batch.length);
         return;
       }
 
@@ -202,27 +258,23 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         await queryRunner.commitTransaction();
         await queryRunner.release();
       }
+
+      this.metrics.incrementEventsProcessed(batch.length);
     } catch (error) {
-      // queryRunner already released by dispatcher on error
+      this.metrics.incrementErrors(1);
       this.logger.warn(
-        `Failed to process event ${rawEvent.id}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to process batch ending ${lastId ?? "?"}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
-  /**
-   * Switches to polling mode if SSE fails.
-   */
   private schedulePollingFallback() {
     if (!this.isRunning) return;
     this.stopIngestion();
     this.logger.warn(`Switching to polling fallback loop...`);
-    this.pollOnce();
+    void this.pollOnce();
   }
 
-  /**
-   * A single polling request to Horizon /events.
-   */
   private async pollOnce() {
     if (!this.isRunning) return;
 
@@ -230,57 +282,59 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       const cursor = await this.cursorManager.getCursor();
       const lastToken = cursor?.lastPagingToken || "now";
 
-      const response = await (this.horizonServer as any)
+      const response = await (this.horizonServer as unknown as {
+        events: () => {
+          cursor: (c: string) => {
+            limit: (n: number) => { call: () => Promise<{ records?: unknown[] }> };
+          };
+        };
+      })
         .events()
         .cursor(lastToken)
         .limit(100)
         .call();
 
-      if (response.records && response.records.length > 0) {
-        this.logger.log(`Polled ${response.records.length} events from Horizon`);
-        for (const record of response.records) {
-          this.handleRawEvent(record);
+      const records = response.records ?? [];
+
+      if (records.length > 0) {
+        this.logger.log(`Polled ${records.length} events from Horizon`);
+        for (const record of records) {
+          this.enqueueRawEvent(record);
         }
+        await this.chain;
+        await this.flushRemainder();
       }
 
-      // Reset retry attempt on any successful communication
       this.retryAttempt = 0;
 
-      // If we got a full page, poll again soon; otherwise wait 5 seconds
-      const nextDelay = response.records.length === 100 ? 500 : 5000;
-      this.pollingTimeout = setTimeout(() => this.pollOnce(), nextDelay);
+      const nextDelay = records.length === 100 ? 500 : 5000;
+      this.pollingTimeout = setTimeout(() => void this.pollOnce(), nextDelay);
     } catch (error) {
       this.logger.error(
         `Polling error: ${error instanceof Error ? error.message : String(error)}`,
       );
+      this.metrics.incrementErrors(1);
       this.scheduleReconnection();
-      this.metrics.incrementEventsProcessed(response.events.length);
     }
   }
 
-  /**
-   * Schedules a reconnection attempt with exponential backoff.
-   */
   private scheduleReconnection() {
     if (!this.isRunning) return;
     this.stopIngestion();
-    
+
     const delay = Math.min(
       this.BASE_RETRY_DELAY * Math.pow(2, this.retryAttempt),
       this.MAX_RETRY_DELAY,
     );
-    
+
     this.logger.log(
       `Reconnecting in ${delay}ms (attempt ${this.retryAttempt + 1})...`,
     );
     this.retryAttempt++;
 
-    this.pollingTimeout = setTimeout(() => this.startIngestion(), delay);
+    this.pollingTimeout = setTimeout(() => void this.startIngestion(), delay);
   }
 
-  /**
-   * Cleans up active listeners and timers.
-   */
   private stopIngestion() {
     if (this.sseCloseFn) {
       this.sseCloseFn();

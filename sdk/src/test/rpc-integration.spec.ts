@@ -72,7 +72,7 @@ describe('Soroban RPC Integration (Mock)', () => {
 
     // Default RPC handlers
     mockFetch.mockImplementation(async (url, init) => {
-      const body = JSON.parse(init.body);
+      const body = init?.body ? JSON.parse(init.body) : {};
       let result: any = {};
 
       switch (body.method) {
@@ -105,6 +105,11 @@ describe('Soroban RPC Integration (Mock)', () => {
             resultXdr: nativeToScVal(1).toXDR('base64'),
           };
           break;
+        case 'getFeeStats':
+          result = { 
+            feeStats: { minFee: '100', suggestedFee: '150' }
+          };
+          break;
       }
 
       return {
@@ -129,7 +134,7 @@ describe('Soroban RPC Integration (Mock)', () => {
 
     // Verify expectations
     expect(result).toBeDefined();
-    expect(result.txHash).toBe('1234567890abcdef');
+    expect(result.transactionHash).toBe('1234567890abcdef');
     expect(result.ledger).toBe(101);
 
     // Verify wallet interactions
@@ -139,8 +144,8 @@ describe('Soroban RPC Integration (Mock)', () => {
 
   it('should handle simulation failure', async () => {
     const mockFetch = (rpcService as any).rpcConfig.fetchClient as jest.Mock;
-    mockFetch.mockImplementationOnce(async (url, init) => {
-      const body = JSON.parse(init.body);
+    mockFetch.mockImplementation(async (url, init) => {
+      const body = init?.body ? JSON.parse(init.body) : {};
       if (body.method === 'simulateTransaction') {
         return {
           ok: true,
@@ -151,7 +156,13 @@ describe('Soroban RPC Integration (Mock)', () => {
           }),
         };
       }
-      return { ok: true, json: async () => ({ jsonrpc: '2.0', result: {} }) };
+      if (body.method === 'getFeeStats') {
+        return {
+          ok: true,
+          json: async () => ({ jsonrpc: '2.0', id: body.id, result: { feeStats: { minFee: '100', suggestedFee: '150' } } }),
+        };
+      }
+      return { ok: true, json: async () => ({ jsonrpc: '2.0', id: body.id, result: {} }) };
     });
 
     const params = {
@@ -163,7 +174,9 @@ describe('Soroban RPC Integration (Mock)', () => {
       metadataCid: 'ipfs://mock',
     };
 
-    await expect(raffleService.create(params)).rejects.toThrow('Simulation failed: insufficient funds');
+    const result = await raffleService.create(params);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Simulation failed: insufficient funds');
   });
 
   it('should verify polling behavior on delay', async () => {
