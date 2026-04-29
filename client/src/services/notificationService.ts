@@ -28,6 +28,7 @@ export interface UserSubscription {
   raffleId: number;
   channel: NotificationChannel;
   createdAt: string;
+  events?: string[];
 }
 
 /**

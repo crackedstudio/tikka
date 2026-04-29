@@ -11,6 +11,7 @@ import {
   BuyBatchResult,
   BatchPurchaseResult,
 } from './ticket.types';
+import { ContractResponse } from '../../contract/response';
 import { assertPositiveInt } from '../../utils/validation';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
@@ -26,25 +27,18 @@ export class TicketService {
    * are surfaced as `ExternalContractError` so callers can handle them
    * separately from generic network/contract errors.
    */
-  async buy(params: BuyTicketParams): Promise<BuyTicketResult> {
+  async buy(params: BuyTicketParams): Promise<ContractResponse<number[]>> {
     const { raffleId, quantity } = params;
     assertPositiveInt(raffleId, 'raffleId');
     assertPositiveInt(quantity, 'quantity');
 
     try {
       const publicKey = await this.contractService['wallet']?.getPublicKey();
-      const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
+      return await this.contractService.invoke<number[]>(
         ContractFn.BUY_TICKET,
         [raffleId, publicKey, quantity],
         { memo: params.memo },
       );
-
-      return {
-        ticketIds: result,
-        txHash,
-        ledger,
-        feePaid: '0',
-      };
     } catch (err) {
       if (
         err instanceof TikkaSdkError &&
@@ -66,19 +60,17 @@ export class TicketService {
    *
    * Token transfer failures during refund are surfaced as `ExternalContractError`.
    */
-  async refund(params: RefundTicketParams): Promise<RefundTicketResult> {
+  async refund(params: RefundTicketParams): Promise<ContractResponse<void>> {
     const { raffleId, ticketId } = params;
     assertPositiveInt(raffleId, 'raffleId');
     assertPositiveInt(ticketId, 'ticketId');
 
     try {
-      const { txHash, ledger } = await this.contractService.invoke(
+      return await this.contractService.invoke<void>(
         ContractFn.REFUND_TICKET,
         [raffleId, ticketId],
         { memo: params.memo },
       );
-
-      return { txHash, ledger };
     } catch (err) {
       if (
         err instanceof TikkaSdkError &&
@@ -98,7 +90,7 @@ export class TicketService {
    * Gets all ticket IDs owned by a user for a specific raffle.
    * Read-only operation (no signing required).
    */
-  async getUserTickets(params: GetUserTicketsParams): Promise<number[]> {
+  async getUserTickets(params: GetUserTicketsParams): Promise<ContractResponse<number[]>> {
     const { raffleId, userAddress } = params;
     assertPositiveInt(raffleId, 'raffleId');
 
@@ -131,7 +123,7 @@ export class TicketService {
    * });
    * ```
    */
-  async buyBatch(params: BuyBatchParams): Promise<BuyBatchResult> {
+  async buyBatch(params: BuyBatchParams): Promise<ContractResponse<BatchPurchaseResult[]>> {
     const { purchases, memo } = params;
 
     // Validate inputs
@@ -210,7 +202,7 @@ export class TicketService {
 
     for (const purchase of validPurchases) {
       try {
-        const { result, txHash, ledger } = await this.contractService.invoke<number[]>(
+        const res = await this.contractService.invoke<number[]>(
           ContractFn.BUY_TICKET,
           [purchase.raffleId, publicKey, purchase.quantity],
           { memo },
@@ -218,12 +210,12 @@ export class TicketService {
 
         results.push({
           raffleId: purchase.raffleId,
-          ticketIds: result,
+          ticketIds: res.value || [],
           success: true,
         });
 
-        lastTxHash = txHash;
-        lastLedger = ledger;
+        lastTxHash = res.transactionHash || '';
+        lastLedger = res.ledger || 0;
         // Accumulate fees (simplified - in reality each tx has its own fee)
         totalFee += BigInt(100000); // Base fee estimate
       } catch (err) {
@@ -254,10 +246,10 @@ export class TicketService {
     }
 
     return {
-      results: finalResults,
-      txHash: lastTxHash,
+      success: true,
+      value: finalResults,
+      transactionHash: lastTxHash,
       ledger: lastLedger,
-      feePaid: totalFee.toString(),
     };
   }
 }

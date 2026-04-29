@@ -21,6 +21,10 @@ type RaffleDetailsCardProps = {
     prizeValue: string;
     prizeCurrency?: string; // default "ETH"
     countdown: Countdown;
+    /** Ticket price amount */
+    ticketPrice?: string;
+    /** Asset symbol for ticket price, e.g. "XLM", "USDC" */
+    ticketAsset?: string;
     onEnter?: () => void; // optional click handler
 };
 
@@ -32,6 +36,8 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
     prizeValue,
     prizeCurrency = "ETH",
     countdown,
+    ticketPrice,
+    ticketAsset = "XLM",
     onEnter,
 }) => {
     // Use images array if available, otherwise fallback to single image
@@ -70,6 +76,23 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
                                 {prizeValue} {prizeCurrency}
                             </p>
                         </div>
+
+                        {ticketPrice && (
+                            <>
+                                <Line />
+                                <div>
+                                    <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
+                                        Ticket Price:
+                                    </p>
+                                    <p className="font-bold text-xl">
+                                        {ticketPrice}{" "}
+                                        <span className="text-sm font-normal text-gray-500 dark:text-[#9CA3AF]">
+                                            {ticketAsset}
+                                        </span>
+                                    </p>
+                                </div>
+                            </>
+                        )}
 
                         <Line />
 
