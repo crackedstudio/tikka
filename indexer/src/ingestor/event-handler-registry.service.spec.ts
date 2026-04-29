@@ -16,10 +16,17 @@ class MockEventHandler implements IEventHandler {
     _rawEvent: RawSorobanEvent,
   ): DomainEvent | null {
     return {
-      type: "RaffleCreated" as any,
+      type: "RaffleCreated" as const,
       raffle_id: 1,
       creator: "test",
-      params: {},
+      params: {
+        ticket_price: "0",
+        max_tickets: 0,
+        end_time: 0,
+        asset: "XLM",
+        metadata_cid: "",
+        allow_multiple: true,
+      },
     };
   }
 }

@@ -1,8 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { QueryRunner } from "typeorm";
 import { CacheService } from "../cache/cache.service";
-import { DataSource, QueryRunner } from "typeorm";
 import { UserProcessor } from "./user.processor";
-import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { RaffleEntity, RaffleStatus } from "../database/entities/raffle.entity";
 import { WebhookService } from "../webhooks/webhook.service";
 
@@ -11,7 +10,6 @@ export class RaffleProcessor {
   private readonly logger = new Logger(RaffleProcessor.name);
 
   constructor(
-    private dataSource: DataSource,
     private cacheService: CacheService,
     private userProcessor: UserProcessor,
     private webhookService: WebhookService,
