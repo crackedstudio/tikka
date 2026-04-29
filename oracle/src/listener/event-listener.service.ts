@@ -8,6 +8,7 @@ import { LagMonitorService } from '../health/lag-monitor.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
+import { JobPriority } from '../queue/queue.types';
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
@@ -179,19 +180,35 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         const payload = this.parseEventData(eventXdr);
         const raffleId = payload['raffle_id'];
         const requestId = payload['request_id'];
+        const prizeAmount = payload['prize_amount'];
+        const priorityFlag = payload['priority'];
 
         if (raffleId !== undefined && requestId !== undefined) {
             const reqIdStr = String(requestId);
-            this.logger.log(`[RandomnessRequested] raffle=${raffleId}, request=${reqIdStr}`);
+            const prizeAmountNum = prizeAmount ? Number(prizeAmount) / 10_000_000 : undefined; // Convert stroops to XLM
+            
+            // Determine priority using the worker's logic
+            const priority = this.randomnessWorker.determinePriority(prizeAmountNum, priorityFlag);
+            
+            this.logger.log(
+                `[RandomnessRequested] raffle=${raffleId}, request=${reqIdStr}, prize=${prizeAmountNum} XLM, priority=${priority}`
+            );
             
             // Track in lag monitor for health alerting
             this.lagMonitor.trackRequest(reqIdStr, raffleId, ledger);
 
             if (this.randomnessQueue) {
-                this.randomnessQueue.add({
-                    raffleId,
-                    requestId: reqIdStr,
-                }).then(() => {
+                this.randomnessQueue.add(
+                    {
+                        raffleId,
+                        requestId: reqIdStr,
+                        prizeAmount: prizeAmountNum,
+                        priority,
+                    },
+                    {
+                        priority,
+                    }
+                ).then(() => {
                     this.currentQueueDepth++;
                     this.healthService.updateQueueDepth(this.currentQueueDepth);
                 }).catch(err => {
@@ -199,7 +216,12 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 });
             } else {
                 // Fallback for environments without Redis
-                this.randomnessWorker.processRequest({ raffleId, requestId: reqIdStr }).catch(err => {
+                this.randomnessWorker.processRequest({ 
+                    raffleId, 
+                    requestId: reqIdStr,
+                    prizeAmount: prizeAmountNum,
+                    priority,
+                }).catch(err => {
                     this.logger.error(`Direct request processing failed for raffle ${raffleId}: ${err.message}`);
                 });
             }
