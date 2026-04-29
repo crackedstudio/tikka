@@ -132,7 +132,7 @@ const RaffleDetails = () => {
                 }
                 prizeValue={raffle.prizeValue}
                 prizeCurrency={raffle.prizeCurrency}
-                countdown={raffle.countdown}
+                endTime={raffle.endTime}
                 onEnter={() => {
                     console.log("Raffle CTA:", ctaLabel, raffle.id);
                 }}
