@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
+import { MetadataRedisService } from './metadata-redis.service';
+import { MetadataCacheMetricsService } from './metadata-cache-metrics.service';
 
 /** Raffle metadata stored off-chain in Supabase (title, description, image, category, metadata_cid) */
 export interface RaffleMetadata {
@@ -32,11 +35,22 @@ export interface UpsertMetadataPayload {
 
 const TABLE = 'raffle_metadata';
 
+function cacheKeyForRaffle(raffleId: number): string {
+  return `tikka:raffle_metadata:${raffleId}`;
+}
+
 @Injectable()
 export class MetadataService {
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+    private readonly config: ConfigService,
+    private readonly metadataRedis: MetadataRedisService,
+    private readonly metadataCacheMetrics: MetadataCacheMetricsService,
   ) {}
+
+  private getCacheTtlSeconds(): number {
+    return this.config.get<number>('METADATA_CACHE_TTL_SECONDS', 600);
+  }
 
   /**
    * Get metadata for multiple raffle IDs in a single query.
@@ -65,6 +79,23 @@ export class MetadataService {
    * Get metadata by raffle_id. Returns null if not found.
    */
   async getMetadata(raffleId: number): Promise<RaffleMetadata | null> {
+    const key = cacheKeyForRaffle(raffleId);
+
+    if (this.metadataRedis.isEnabled()) {
+      const cached = await this.metadataRedis.get(key);
+      if (cached !== null && cached !== '') {
+        try {
+          const parsed = JSON.parse(cached) as RaffleMetadata;
+          if (parsed && typeof parsed.raffle_id === 'number') {
+            this.metadataCacheMetrics.recordMetadataCacheHit();
+            return parsed;
+          }
+        } catch {
+          await this.metadataRedis.del(key);
+        }
+      }
+    }
+
     const { data, error } = await this.client
       .from(TABLE)
       .select('*')
@@ -74,7 +105,17 @@ export class MetadataService {
     if (error) {
       throw new Error(`Failed to fetch metadata for raffle ${raffleId}: ${error.message}`);
     }
-    return data as RaffleMetadata | null;
+
+    const row = data as RaffleMetadata | null;
+    if (row && this.metadataRedis.isEnabled()) {
+      await this.metadataRedis.setEx(
+        key,
+        this.getCacheTtlSeconds(),
+        JSON.stringify(row),
+      );
+    }
+
+    return row;
   }
 
   /**
@@ -152,6 +193,10 @@ export class MetadataService {
     if (error) {
       throw new Error(`Failed to upsert metadata for raffle ${raffleId}: ${error.message}`);
     }
-    return data as RaffleMetadata;
+
+    const saved = data as RaffleMetadata;
+    await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
+
+    return saved;
   }
 }

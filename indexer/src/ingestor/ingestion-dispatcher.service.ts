@@ -61,6 +61,90 @@ export class IngestionDispatcherService {
 
       for (const { event, raw } of items) {
         await this.applyEvent(event, raw, runner);
+      switch (event.type) {
+        case "RaffleCreated":
+          return await this.raffleProcessor.handleRaffleCreated(
+            event.raffle_id,
+            event.creator,
+            ledger,
+            txHash,
+            event.params,
+          );
+
+        case "TicketPurchased":
+          return await this.ticketProcessor.handleTicketPurchased(
+            event.raffle_id,
+            event.buyer,
+            event.ticket_ids,
+            event.total_paid,
+            ledger,
+            txHash,
+          );
+
+        case "RaffleFinalized":
+          return await this.raffleProcessor.handleRaffleFinalized(
+            event.raffle_id,
+            event.winner,
+            event.winning_ticket_id,
+            event.prize_amount,
+            ledger,
+            txHash,
+          );
+
+        case "RaffleCancelled":
+          return await this.raffleProcessor.handleRaffleCancelled(
+            event.raffle_id,
+            event.reason,
+            ledger,
+            txHash,
+          );
+
+        case "TicketRefunded":
+          return await this.ticketProcessor.handleTicketRefunded(
+            event.raffle_id,
+            event.ticket_id,
+            event.recipient,
+            event.amount,
+            txHash,
+          );
+
+        case "ContractPaused":
+          return await this.adminProcessor.handleContractPaused(event.admin, ledger, txHash);
+
+        case "ContractUnpaused":
+          return await this.adminProcessor.handleContractUnpaused(event.admin, ledger, txHash);
+
+        case "AdminTransferProposed":
+          return await this.adminProcessor.handleAdminTransferProposed(
+            event.current_admin,
+            event.proposed_admin,
+            ledger,
+            txHash,
+          );
+
+        case "AdminTransferAccepted":
+          return await this.adminProcessor.handleAdminTransferAccepted(
+            event.old_admin,
+            event.new_admin,
+            ledger,
+            txHash,
+          );
+
+        case "DrawTriggered":
+          this.logger.log(`DrawTriggered for raffle ${event.raffle_id} at ledger ${event.ledger}`);
+          return null;
+
+        case "RandomnessRequested":
+          this.logger.log(`RandomnessRequested for raffle ${event.raffle_id}, request ID ${event.request_id}`);
+          return null;
+
+        case "RandomnessReceived":
+          this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
+          return null;
+
+        default:
+          this.logger.warn(`No processor method found for event type: ${(event as any).type}`);
+          return null;
       }
 
       return runner;

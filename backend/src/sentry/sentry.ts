@@ -1,4 +1,5 @@
-import * as Sentry from '@sentry/node';
+import * as Sentry from '@sentry/nestjs';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { Logger } from '@nestjs/common';
 
 export interface IngestionErrorContext {
@@ -35,6 +36,8 @@ export function buildSentryOptions(env: {
     dsn,
     environment: env.NODE_ENV ?? 'development',
     tracesSampleRate,
+    integrations: [nodeProfilingIntegration()],
+    profilesSampleRate: 1.0,
   };
 }
 
