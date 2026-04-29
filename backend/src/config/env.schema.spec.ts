@@ -40,6 +40,8 @@ describe('env.schema validate()', () => {
     expect(result.JWT_EXPIRES_IN).toBe('7d');
     expect(result.SIWS_DOMAIN).toBe('tikka.io');
     expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
+    expect(result.RAFFLE_CREATE_RATE_LIMIT).toBe(5);
+    expect(result.RAFFLE_CREATE_RATE_WINDOW_SECONDS).toBe(600);
     expect(result.ADMIN_IP_ALLOWLIST).toBe('');
   });
 

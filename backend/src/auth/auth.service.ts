@@ -113,7 +113,6 @@ export class AuthService {
           revoked: false,
         },
       ],
-      { upsert: false },
     );
 
     if (error) {

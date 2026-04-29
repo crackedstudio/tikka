@@ -35,10 +35,16 @@ import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
+import { Throttle } from "../../../middleware/throttle.decorator";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
+
+const RAFFLE_CREATE_RATE_LIMIT = Number(process.env.RAFFLE_CREATE_RATE_LIMIT ?? 5);
+const RAFFLE_CREATE_RATE_WINDOW_SECONDS = Number(
+  process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? 600,
+);
 
 @ApiTags("Raffles")
 @Controller("raffles")
@@ -88,6 +94,12 @@ export class RafflesController {
    * Requires JWT (SIWS).
    */
   @ApiBearerAuth()
+  @Throttle({
+    raffleCreate: {
+      limit: RAFFLE_CREATE_RATE_LIMIT,
+      ttl: RAFFLE_CREATE_RATE_WINDOW_SECONDS * 1000,
+    },
+  })
   @Post(":raffleId/metadata")
   @ApiOperation({ summary: "Create or update raffle metadata" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
