@@ -1,4 +1,4 @@
-import { RandomnessRequest, RandomnessMethod, RandomnessResult } from './queue.types';
+import { RandomnessRequest, RandomnessMethod, RandomnessResult, JobPriority } from './queue.types';
 import { ContractService } from '../contract/contract.service';
 import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
@@ -19,6 +19,7 @@ export class RandomnessWorker {
   private readonly logger = new Logger(RandomnessWorker.name);
   private readonly HIGH_STAKES_THRESHOLD_XLM = 500;
   private readonly processedRequestIds = new Set<string>();
+  private highPriorityJobStartTimes = new Map<string, number>();
 
   constructor(
     private readonly contractService: ContractService,
@@ -34,10 +35,22 @@ export class RandomnessWorker {
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
+    const priority = job.opts.priority ?? JobPriority.NORMAL;
+    const isHighPriority = priority <= JobPriority.HIGH;
+    
+    if (isHighPriority) {
+      this.highPriorityJobStartTimes.set(job.data.requestId, Date.now());
+    }
+
     this.logger.log(
-      `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}`,
+      `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}, priority=${priority}`,
     );
+    
     await this.processRequest(job.data);
+
+    if (isHighPriority) {
+      this.trackHighPrioritySLA(job.data.requestId);
+    }
   }
 
   clearProcessedCache() {
@@ -229,6 +242,44 @@ export class RandomnessWorker {
     } else {
       return await this.prngService.compute(requestId, raffleId);
     }
+  }
+
+  private trackHighPrioritySLA(requestId: string): void {
+    const startTime = this.highPriorityJobStartTimes.get(requestId);
+    if (!startTime) return;
+
+    const processingTime = Date.now() - startTime;
+    const SLA_THRESHOLD_MS = 5000; // 5 seconds for high-priority jobs
+
+    if (processingTime > SLA_THRESHOLD_MS) {
+      this.logger.warn(
+        `[SLA BREACH] High-priority job ${requestId} took ${processingTime}ms (threshold: ${SLA_THRESHOLD_MS}ms)`,
+      );
+    } else {
+      this.logger.log(
+        `[SLA OK] High-priority job ${requestId} completed in ${processingTime}ms`,
+      );
+    }
+
+    this.highPriorityJobStartTimes.delete(requestId);
+  }
+
+  determinePriority(prizeAmount?: number, priorityFlag?: number): number {
+    // If priority flag is explicitly set in contract event, use it
+    if (priorityFlag !== undefined) {
+      return priorityFlag;
+    }
+
+    // Otherwise, determine priority based on prize amount
+    if (!prizeAmount) {
+      return JobPriority.NORMAL;
+    }
+
+    if (prizeAmount >= this.HIGH_STAKES_THRESHOLD_XLM) {
+      return JobPriority.HIGH;
+    }
+
+    return JobPriority.NORMAL;
   }
 }
 
