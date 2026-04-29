@@ -26,7 +26,47 @@ export interface VerifyResponseOptions {
   networkPassphrase?: string;
   now?: number;
   maxChallengeAge?: number;
-  nonceValidator?: (nonceBase64: string) => boolean | Promise<boolean>;
+  nonceValidator: (nonceBase64: string) => boolean | Promise<boolean>;
+}
+
+/**
+ * Create a nonce validator backed by an in-memory TTL map.
+ *
+ * Suitable for single-process deployments only. For production multi-instance
+ * deployments, use a distributed store (for example Redis `SET key value NX EX ttl`).
+ *
+ * Redis example:
+ * ```ts
+ * const nonceValidator = async (nonceBase64: string) => {
+ *   const key = `sep10:nonce:${nonceBase64}`;
+ *   const ok = await redis.set(key, '1', { NX: true, EX: 300 });
+ *   return ok === 'OK';
+ * };
+ * ```
+ */
+export function createInMemoryNonceStore(ttlMs = 5 * 60 * 1000) {
+  assert(Number.isInteger(ttlMs) && ttlMs > 0, 'ttlMs should be positive integer');
+
+  const consumed = new Map<string, number>();
+
+  return (nonceBase64: string): boolean => {
+    const now = Date.now();
+
+    const existingExpiry = consumed.get(nonceBase64);
+    if (existingExpiry != null) {
+      // Reject both replayed and expired consumed nonces.
+      return false;
+    }
+
+    for (const [nonce, expiresAt] of consumed.entries()) {
+      if (expiresAt <= now) {
+        consumed.delete(nonce);
+      }
+    }
+
+    consumed.set(nonceBase64, now + ttlMs);
+    return true;
+  };
 }
 
 const DEFAULT_TIMEOUT = 300;
@@ -221,10 +261,8 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
 
   const nonceBase64 = nonceValue.toString('base64');
 
-  if (nonceValidator) {
-    const valid = await Promise.resolve(nonceValidator(nonceBase64));
-    assert(valid === true, 'Nonce validation rejected (possible replay attack)');
-  }
+  const valid = await Promise.resolve(nonceValidator(nonceBase64));
+  assert(valid === true, 'Nonce validation rejected (possible replay attack)');
 
   const serverKeypair = Keypair.fromPublicKey(serverAccount);
   const clientKeypair = Keypair.fromPublicKey(clientAccount);
