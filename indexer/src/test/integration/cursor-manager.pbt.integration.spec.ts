@@ -53,7 +53,7 @@ describe('CursorManagerService — property-based tests', () => {
           fc.string(),
           async (ledger, token) => {
             await dataSource.query(`TRUNCATE TABLE indexer_cursor RESTART IDENTITY`);
-            await cursorManager.saveCursor(ledger, token);
+            await cursorManager.saveCursor(ledger, '', token);
             const result = await cursorManager.getCursor();
             return result?.lastLedger === ledger && result?.lastPagingToken === token;
           },
@@ -73,8 +73,8 @@ describe('CursorManagerService — property-based tests', () => {
           fc.string(),
           async (ledger, token) => {
             await dataSource.query(`TRUNCATE TABLE indexer_cursor RESTART IDENTITY`);
-            await cursorManager.saveCursor(ledger, token);
-            await cursorManager.saveCursor(ledger, token);
+            await cursorManager.saveCursor(ledger, '', token);
+            await cursorManager.saveCursor(ledger, '', token);
             const result = await cursorManager.getCursor();
             return result?.lastLedger === ledger && result?.lastPagingToken === token;
           },
@@ -96,11 +96,11 @@ describe('CursorManagerService — property-based tests', () => {
           fc.string(),
           async (n0, t0, n1, t1) => {
             await dataSource.query(`TRUNCATE TABLE indexer_cursor RESTART IDENTITY`);
-            await cursorManager.saveCursor(n0, t0);
+            await cursorManager.saveCursor(n0, '', t0);
             const qr = dataSource.createQueryRunner();
             await qr.connect();
             await qr.startTransaction();
-            await cursorManager.saveCursor(n1, t1, qr);
+            await cursorManager.saveCursor(n1, '', t1, qr);
             await qr.rollbackTransaction();
             await qr.release();
             const result = await cursorManager.getCursor();
@@ -123,7 +123,7 @@ describe('CursorManagerService — property-based tests', () => {
             .map((arr) => [...new Set(arr)].sort((a, b) => a - b)),
           async (ledgers) => {
             await dataSource.query(`TRUNCATE TABLE indexer_cursor RESTART IDENTITY`);
-            for (const l of ledgers) await cursorManager.saveCursor(l, `token-${l}`);
+            for (const l of ledgers) await cursorManager.saveCursor(l, '', `token-${l}`);
             const result = await cursorManager.getCursor();
             const last = ledgers[ledgers.length - 1];
             return result?.lastLedger === last;

@@ -11,6 +11,7 @@ export class MetricsService {
 
   private eventsProcessedCounter: Counter;
   private errorsCounter: Counter;
+  private reorgDetectedCounter: Counter;
 
   constructor(private readonly healthService: HealthService) {
     // PrometheusExporter automatically initializes the Prometheus registry
@@ -30,6 +31,10 @@ export class MetricsService {
 
     this.errorsCounter = this.meter.createCounter('tikka_indexer_errors_total', {
       description: 'Total number of errors encountered during polling or processing',
+    });
+
+    this.reorgDetectedCounter = this.meter.createCounter('tikka_indexer_reorg_detected_total', {
+      description: 'Total number of ledger reorgs detected',
     });
 
     this.meter.createObservableGauge('tikka_indexer_lag_ledgers', {
@@ -54,6 +59,10 @@ export class MetricsService {
 
   incrementErrors(amount: number = 1) {
     this.errorsCounter.add(amount);
+  }
+
+  incrementReorgDetected(amount: number = 1) {
+    this.reorgDetectedCounter.add(amount);
   }
 
   /**

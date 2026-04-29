@@ -11,6 +11,7 @@ import { EventParserV2Service } from "./event-parser-v2.service";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
 import { MetricsService } from "../metrics/metrics.service";
+import { ReorgRollbackService } from "./reorg-rollback.service";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -25,6 +26,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private retryAttempt = 0;
   private readonly MAX_RETRY_DELAY = 30000;
   private readonly BASE_RETRY_DELAY = 2000;
+  private readonly safetyDepth: number;
 
   constructor(
     private configService: ConfigService,
@@ -33,6 +35,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     private dryRun: DryRunService,
     private dispatcher: IngestionDispatcherService,
     private metrics: MetricsService,
+    private reorgRollback: ReorgRollbackService,
   ) {
     const horizonUrl =
       this.configService.get<string>("HORIZON_URL") ||
@@ -44,6 +47,8 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id.length > 0);
+
+    this.safetyDepth = this.configService.get<number>("REORG_SAFETY_DEPTH", 5);
   }
 
   async onModuleInit() {
@@ -137,9 +142,34 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Decodes, parses, and dispatches the event, then updates the cursor atomically.
+   * Checks for ledger reorgs before processing and enforces safety depth.
    */
   private async processEvent(rawEvent: any): Promise<void> {
     try {
+      const ledger = Number(rawEvent.ledger);
+      const ledgerHash: string = rawEvent.ledger_hash || rawEvent.ledgerHash || '';
+
+      // --- Reorg detection ---
+      if (ledgerHash) {
+        const reorgAt = await this.cursorManager.checkForReorg(ledger, ledgerHash);
+        if (reorgAt !== null) {
+          this.logger.error(`Reorg detected at ledger ${reorgAt} — rolling back`);
+          this.metrics.incrementReorgDetected();
+          await this.reorgRollback.rollback(reorgAt);
+          return;
+        }
+      }
+
+      // --- Safety depth: skip events from ledgers not yet confirmed ---
+      const cursor = await this.cursorManager.getCursor();
+      const networkLedger = ledger; // the event's ledger is the "tip"
+      if (cursor && networkLedger - cursor.lastLedger < this.safetyDepth) {
+        this.logger.debug(
+          `Skipping ledger ${ledger}: within safety depth (${this.safetyDepth})`,
+        );
+        return;
+      }
+
       // Map Horizon event fields to the format expected by EventParserService
       const rawSorobanEvent = {
         type: rawEvent.type || "contract",
@@ -157,7 +187,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
 
       if (this.dryRun.enabled) {
         this.logger.log(
-          `[DRY-RUN] Would save cursor: ledger=${rawEvent.ledger} token=${nextToken}`,
+          `[DRY-RUN] Would save cursor: ledger=${ledger} token=${nextToken}`,
         );
         if (queryRunner) {
           await queryRunner.rollbackTransaction();
@@ -166,7 +196,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      await this.cursorManager.saveCursor(rawEvent.ledger, nextToken, queryRunner ?? undefined);
+      await this.cursorManager.saveCursor(ledger, ledgerHash, nextToken, queryRunner ?? undefined);
 
       if (queryRunner) {
         await queryRunner.commitTransaction();
