@@ -2,48 +2,39 @@ import { Injectable } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import { assertNonEmpty } from '../../utils/validation';
-import {
-  PauseResult,
-  UnpauseResult,
-  TransferAdminResult,
-  AcceptAdminResult,
-  AdminWriteOptions,
-} from './admin.types';
+import { AdminWriteOptions } from './admin.types';
+import { ContractResponse } from '../../contract/response';
 
 @Injectable()
 export class AdminService {
   constructor(private readonly contract: ContractService) {}
 
-  async pause(options: AdminWriteOptions = {}): Promise<PauseResult> {
-    const { txHash, ledger } = await this.contract.invoke(ContractFn.PAUSE, [], { memo: options.memo });
-    return { txHash, ledger };
+  async pause(options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+    return this.contract.invoke<void>(ContractFn.PAUSE, [], { memo: options.memo });
   }
 
-  async unpause(options: AdminWriteOptions = {}): Promise<UnpauseResult> {
-    const { txHash, ledger } = await this.contract.invoke(ContractFn.UNPAUSE, [], { memo: options.memo });
-    return { txHash, ledger };
+  async unpause(options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+    return this.contract.invoke<void>(ContractFn.UNPAUSE, [], { memo: options.memo });
   }
 
-  async isPaused(): Promise<boolean> {
+  async isPaused(): Promise<ContractResponse<boolean>> {
     return this.contract.simulateReadOnly<boolean>(ContractFn.IS_PAUSED, []);
   }
 
-  async getAdmin(): Promise<string> {
+  async getAdmin(): Promise<ContractResponse<string>> {
     return this.contract.simulateReadOnly<string>(ContractFn.GET_ADMIN, []);
   }
 
-  async transferAdmin(newAdmin: string, options: AdminWriteOptions = {}): Promise<TransferAdminResult> {
+  async transferAdmin(newAdmin: string, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     assertNonEmpty(newAdmin, 'newAdmin');
-    const { txHash, ledger } = await this.contract.invoke(
+    return this.contract.invoke<void>(
       ContractFn.TRANSFER_ADMIN,
       [newAdmin],
       { memo: options.memo },
     );
-    return { txHash, ledger };
   }
 
-  async acceptAdmin(options: AdminWriteOptions = {}): Promise<AcceptAdminResult> {
-    const { txHash, ledger } = await this.contract.invoke(ContractFn.ACCEPT_ADMIN, [], { memo: options.memo });
-    return { txHash, ledger };
+  async acceptAdmin(options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+    return this.contract.invoke<void>(ContractFn.ACCEPT_ADMIN, [], { memo: options.memo });
   }
 }

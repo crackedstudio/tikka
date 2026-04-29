@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { SearchController } from './search.controller';
 import { SearchService } from '../../../services/search.service';
-import { MetadataService } from '../../../services/metadata.service';
+import { MetadataModule } from '../../../services/metadata.module';
 
 @Module({
+  imports: [MetadataModule],
   controllers: [SearchController],
-  providers: [SearchService, MetadataService],
+  providers: [SearchService],
 })
 export class SearchModule {}

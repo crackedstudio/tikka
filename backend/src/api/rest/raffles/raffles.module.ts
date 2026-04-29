@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RafflesController } from './raffles.controller';
 import { RafflesService } from './raffles.service';
-import { MetadataService } from '../../../services/metadata.service';
+import { MetadataModule } from '../../../services/metadata.module';
 import { IndexerModule } from '../../../services/indexer.module';
 import { StorageService } from '../../../services/storage.service';
 import { ImageOptimizerService } from '../../../services/image-optimizer.service';
@@ -9,7 +9,7 @@ import { IdempotencyService } from '../../../common/idempotency/idempotency.serv
 import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
 
 @Module({
-  imports: [IndexerModule],
+  imports: [IndexerModule, MetadataModule],
   controllers: [RafflesController],
   providers: [
     RafflesService,
@@ -22,4 +22,5 @@ import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.
   exports: [RafflesService],
 })
 export class RafflesModule {}
+
 

@@ -16,6 +16,12 @@ export class SearchController {
       return { raffles: [], total: 0 };
     }
 
-    return this.searchService.search(query.q, query.limit, query.offset);
+    return this.searchService.search({
+      query: query.q,
+      limit: query.limit,
+      offset: query.offset,
+      category: query.category,
+      status: query.status,
+    });
   }
 }
