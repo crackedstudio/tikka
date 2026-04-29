@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { CommitmentService } from '../randomness/commitment.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { ContractService } from '../contract/contract.service';
+import { AuditLogService } from '../audit/audit-log.service';
+import { KeyService } from '../keys/key.service';
 
 export interface CommitRequest {
   raffleId: number;
@@ -21,6 +23,8 @@ export class CommitRevealWorker {
     private readonly commitmentService: CommitmentService,
     private readonly contractService: ContractService,
     private readonly txSubmitter: TxSubmitterService,
+    private readonly auditLogService: AuditLogService,
+    private readonly keyService: KeyService,
   ) {}
 
   /**
@@ -36,6 +40,17 @@ export class CommitRevealWorker {
       const commitment = this.commitmentService.commit(raffleId);
       this.logger.log(`Commitment for raffle ${raffleId}: ${commitment}`);
       await this.txSubmitter.submitCommitment(raffleId, commitment);
+
+      try {
+        await this.auditLogService.createCommitRecord({
+          raffleId,
+          commitmentHash: commitment,
+          oraclePublicKey: await this.keyService.getPublicKey(),
+          committedAt: new Date(),
+        });
+      } catch (auditError) {
+        this.logger.error(`Audit log write failed for commit ${raffleId}: ${auditError.message}`);
+      }
       
     } catch (error) {
       this.logger.error(
@@ -65,8 +80,23 @@ export class CommitRevealWorker {
       
       const { secret, nonce } = reveal;
       this.logger.log(`Revealing for raffle ${raffleId}`);
-      await this.txSubmitter.submitReveal(raffleId, secret, nonce);
-      
+      const result = await this.txSubmitter.submitReveal(raffleId, secret, nonce);
+
+      try {
+        await this.auditLogService.updateRevealRecord({
+          raffleId,
+          requestId,
+          secret,
+          nonce,
+          seed: secret,
+          proof: '',
+          revealedAt: new Date(),
+          ledgerSequence: result.ledger,
+        });
+      } catch (auditError) {
+        this.logger.error(`Audit log write failed for reveal ${raffleId}: ${auditError.message}`);
+      }
+
       // Clear commitment after successful reveal
       this.commitmentService.clearCommitment(raffleId);
       

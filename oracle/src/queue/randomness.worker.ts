@@ -7,6 +7,7 @@ import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
+import { PriorityClassifierService } from './priority-classifier.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
@@ -28,6 +29,7 @@ export class RandomnessWorker {
     private readonly lagMonitor: LagMonitorService,
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
+    private readonly priorityClassifier: PriorityClassifierService,
   ) {}
 
   @Process()
@@ -35,6 +37,8 @@ export class RandomnessWorker {
     this.logger.log(
       `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}`,
     );
+    const { tier } = this.priorityClassifier.classify(job.data.prizeAmount);
+    this.healthService.decrementTierCount(tier);
     await this.processRequest(job.data);
   }
 

@@ -9,6 +9,7 @@ import { CircuitBreakerService } from './circuit-breaker.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
+import { PriorityClassifierService } from '../queue/priority-classifier.service';
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
@@ -36,6 +37,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         private readonly commitRevealWorker: CommitRevealWorker,
         private readonly circuitBreaker: CircuitBreakerService,
         @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue<RandomnessJobPayload>,
+        @Optional() private readonly priorityClassifier?: PriorityClassifierService,
     ) {
         // Config parsing
         const horizonUrl = this.configService.get<string>('HORIZON_URL', 'https://horizon-testnet.stellar.org');
@@ -199,6 +201,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         const payload = this.parseEventData(eventXdr);
         const raffleId = payload['raffle_id'];
         const requestId = payload['request_id'];
+        const prizeAmount = payload['prize_amount'] !== undefined ? Number(payload['prize_amount']) : undefined;
 
         if (raffleId !== undefined && requestId !== undefined) {
             const reqIdStr = String(requestId);
@@ -208,12 +211,17 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
             this.lagMonitor.trackRequest(reqIdStr, raffleId, ledger);
 
             if (this.randomnessQueue) {
-                this.randomnessQueue.add({
-                    raffleId,
-                    requestId: reqIdStr,
-                }).then(() => {
-                    this.currentQueueDepth++;
-                    this.healthService.updateQueueDepth(this.currentQueueDepth);
+                const { priority, tier } = this.priorityClassifier
+                  ? this.priorityClassifier.classify(prizeAmount)
+                  : { priority: 10 as const, tier: 'LOW' as const };
+
+                this.randomnessQueue.add(
+                  { raffleId, requestId: reqIdStr, prizeAmount },
+                  { priority }
+                ).then(() => {
+                  this.currentQueueDepth++;
+                  this.healthService.updateQueueDepth(this.currentQueueDepth);
+                  this.healthService.incrementTierCount(tier);
                 }).catch(err => {
                     this.logger.error(`Failed to enqueue randomness job for raffle ${raffleId}: ${err.message}`);
                 });
