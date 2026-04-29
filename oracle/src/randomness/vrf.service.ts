@@ -11,7 +11,8 @@ import { Ed25519Sha256VrfProvider } from './ed25519-sha256.vrf-provider';
  * VrfService — Verifiable Random Function computation for high-stakes raffles.
  *
  * When prize >= 500 XLM, uses Ed25519 VRF for cryptographic security:
- *   proof = ed25519.sign(requestId, oraclePrivateKey)
+ *   input = requestId_bytes [|| raffleId_u32_BE]
+ *   proof = ed25519.sign(input, oraclePrivateKey)
  *   seed  = SHA-256(proof)
  *
  * The contract verifies the proof using the oracle's public key, ensuring
@@ -33,11 +34,13 @@ export class VrfService {
 
   /**
    * Compute VRF output using the oracle's private key.
-   * Used in single-oracle mode.
+   *
+   * @param requestId  Unique request identifier from the RandomnessRequested event.
+   * @param raffleId   Optional raffle ID — mixed into the input so two raffles
+   *                   with the same requestId still produce distinct seeds.
    */
-  async compute(requestId: string): Promise<RandomnessResult> {
-    // Delegate to the Ed25519 provider which now uses KeyService.sign()
-    return this.ed25519Provider.compute(requestId);
+  async compute(requestId: string, raffleId?: number): Promise<RandomnessResult> {
+    return this.ed25519Provider.compute(requestId, raffleId);
   }
 
   /**
@@ -45,7 +48,7 @@ export class VrfService {
    * Core VRF computation:
    *   proof = ed25519.sign(requestId, privateKey)
    *   seed  = SHA-256(proof)
-   * 
+   *
    * @deprecated This method exposes raw private keys. Use compute() instead.
    */
   computeWithKey(requestId: string, privateKey: Buffer): RandomnessResult {
@@ -63,16 +66,15 @@ export class VrfService {
 
   /**
    * Compute VRF output for a specific oracle in multi-oracle mode.
-   * Retrieves the oracle's keypair and uses its private key.
    */
-  async computeForOracle(requestId: string, oracleId: string): Promise<RandomnessResult> {
+  async computeForOracle(requestId: string, oracleId: string, raffleId?: number): Promise<RandomnessResult> {
     const oracle = this.oracleRegistry.getOracle(oracleId);
     if (!oracle) {
       throw new Error(`Oracle not found: ${oracleId}`);
     }
 
     if (oracleId === this.oracleRegistry.getLocalOracleId()) {
-      return this.compute(requestId);
+      return this.compute(requestId, raffleId);
     }
 
     throw new Error('computeForOracle only supported for local oracle in multi-oracle mode currently');
@@ -81,6 +83,7 @@ export class VrfService {
   /**
    * Verify VRF output using the oracle's public key.
    * Anyone can verify the output is authentic and unmanipulated.
+   *
    * @returns true if proof is valid and seed is correct; false otherwise
    */
   verify(
@@ -88,6 +91,7 @@ export class VrfService {
     requestId: string,
     proof: string,
     seed: string,
+    raffleId?: number,
   ): boolean {
     const verifiedProof = this.verifyProof({
       publicKey,
