@@ -1,4 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CircuitState } from '../listener/circuit-breaker.types';
+import { PriorityTier } from '../queue/priority-classifier.service';
+
+export { CircuitState };
 
 export interface HealthMetrics {
   queueDepth: number;
@@ -12,6 +16,12 @@ export interface HealthMetrics {
   streamUptimeMs: number;
   lastStreamError?: string;
   multiOracle?: MultiOracleHealthStatus;
+  circuitState: CircuitState;
+  queueDepthByTier: {
+    high: number;
+    medium: number;
+    low: number;
+  };
 }
 
 export interface MultiOracleHealthStatus {
@@ -49,6 +59,8 @@ export class HealthService {
   private streamStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   private streamStartedAt: number | null = null;
   private lastStreamError?: string;
+  private circuitState: CircuitState = 'closed';
+  private tierCounts: Record<PriorityTier, number> = { HIGH: 0, MEDIUM: 0, LOW: 0 };
 
   recordSuccess(requestId: string): void {
     this.lastProcessedAt = new Date();
@@ -84,6 +96,26 @@ export class HealthService {
     }
   }
 
+  updateCircuitState(state: CircuitState): void {
+    this.circuitState = state;
+  }
+
+  incrementTierCount(tier: PriorityTier): void {
+    this.tierCounts[tier]++;
+  }
+
+  decrementTierCount(tier: PriorityTier): void {
+    this.tierCounts[tier] = Math.max(0, this.tierCounts[tier] - 1);
+  }
+
+  getQueueDepthByTier(): { high: number; medium: number; low: number } {
+    return {
+      high: this.tierCounts.HIGH,
+      medium: this.tierCounts.MEDIUM,
+      low: this.tierCounts.LOW,
+    };
+  }
+
   getMetrics(): HealthMetrics {
     return {
       queueDepth: this.queueDepth,
@@ -96,6 +128,8 @@ export class HealthService {
       streamStatus: this.streamStatus,
       streamUptimeMs: this.streamStartedAt ? Date.now() - this.streamStartedAt : 0,
       lastStreamError: this.lastStreamError,
+      circuitState: this.circuitState,
+      queueDepthByTier: this.getQueueDepthByTier(),
     };
   }
 

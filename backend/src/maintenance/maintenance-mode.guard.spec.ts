@@ -12,7 +12,10 @@ describe('MaintenanceModeGuard', () => {
     isEnabled: jest.fn(),
   } as unknown as MaintenanceModeService;
 
-  const context = {} as ExecutionContext;
+  const context = {
+    getHandler: jest.fn(),
+    getClass: jest.fn(),
+  } as unknown as ExecutionContext;
 
   beforeEach(() => {
     jest.clearAllMocks();

@@ -17,6 +17,10 @@ export * from './validation';
 // Export all formatting logic (xlmToStroops, stroopsToXlm, truncateAddress)
 export * from './formatting';
 
+// Export retry utility
+export * from './retry';
+
+
 /**
  * Re-export BigNumber for consistency across the SDK when 
  * consumers need to handle normalized amounts.
