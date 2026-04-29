@@ -18,8 +18,8 @@
         // Apply dark class immediately to avoid flash of wrong theme
         document.documentElement.classList.toggle(
             "dark",
-            localStorage.theme === "dark" ||
-            (!("theme" in localStorage) &&
+            localStorage.getItem("tikka-theme") === "dark" ||
+            (!localStorage.getItem("tikka-theme") &&
                 window.matchMedia("(prefers-color-scheme: dark)").matches)
         );
     </script>
