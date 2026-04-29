@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { faqData } from './FAQContent';
 
 const FAQItem = ({ question, answer, id }: { question: string, answer: string, id: string }) => {

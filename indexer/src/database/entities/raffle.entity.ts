@@ -70,6 +70,10 @@ export class RaffleEntity {
   @Column({ type: "varchar", length: 56, nullable: true, name: "winner" })
   winner!: string | null;
 
+  /** Winning ticket ID — null until raffle is FINALIZED. */
+  @Column({ type: "integer", nullable: true, name: "winning_ticket_id" })
+  winningTicketId!: number | null;
+
   /** Prize amount as a string — null until finalized. */
   @Column({
     type: "varchar",
