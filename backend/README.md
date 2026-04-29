@@ -40,7 +40,12 @@ Protected routes require `Authorization: Bearer <token>`.
 1. **GET /auth/nonce?address=G...** — Returns `{ nonce, expiresAt, issuedAt, message }`
 2. User signs the `message` in their Stellar wallet (Freighter, xBull, etc.)
 3. **POST /auth/verify** — Body: `{ address, signature, nonce [, issuedAt] }` where `signature` is base64-encoded Ed25519
-4. Returns `{ accessToken }` — use as `Authorization: Bearer <accessToken>`
+4. Returns `{ accessToken, refreshToken }` — use `accessToken` as `Authorization: Bearer <accessToken>`
+
+### Refresh Flow
+
+1. **POST /auth/refresh** — Body: `{ refreshToken }`
+2. Returns `{ accessToken, refreshToken }` (new pair, rotating the refresh token)
 
 ### SIWS message format
 
@@ -263,6 +268,10 @@ Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
+## Resource Guidelines
+- **CPU**: 100m requests, 500m limits
+- **Memory**: 256Mi requests, 512Mi limits
+These resources are managed by HPA targeting 70% CPU usage.
 ---
 
 ## Database Backups & Restore
