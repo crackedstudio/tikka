@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
 import { CursorManagerService } from '../ingestor/cursor-manager.service';
+import { DlqService } from '../ingestor/dlq.service';
 
 export const LAG_THRESHOLD_DEFAULT = 100;
 
@@ -12,6 +13,7 @@ export interface HealthResult {
   db: 'ok' | 'error';
   redis: 'ok' | 'error';
   redis_latency_ms: number | null;
+  dlq_size: number;
 }
 
 @Injectable()
@@ -24,6 +26,7 @@ export class HealthService {
     private readonly dataSource: DataSource,
     private readonly cacheService: CacheService,
     private readonly cursorManager: CursorManagerService,
+    @Optional() private readonly dlqService?: DlqService,
   ) {
     this.horizonUrl = this.configService.get<string>(
       'HORIZON_URL',
@@ -36,11 +39,12 @@ export class HealthService {
   }
 
   async getHealth(): Promise<HealthResult> {
-    const [dbOk, redisLatency, latestLedger, cursor] = await Promise.all([
+    const [dbOk, redisLatency, latestLedger, cursor, dlq_size] = await Promise.all([
       this.checkDb(),
       this.cacheService.latency(),
       this.fetchLatestLedger(),
       this.cursorManager.getCursor(),
+      this.dlqService ? this.dlqService.count() : Promise.resolve(0),
     ]);
 
     const db: 'ok' | 'error' = dbOk ? 'ok' : 'error';
@@ -56,7 +60,7 @@ export class HealthService {
     const status: 'ok' | 'degraded' =
       db === 'error' || redis === 'error' || degradedByLag ? 'degraded' : 'ok';
 
-    return { status, lag_ledgers, db, redis, redis_latency_ms: redisLatency };
+    return { status, lag_ledgers, db, redis, redis_latency_ms: redisLatency, dlq_size };
   }
 
   private async checkDb(): Promise<boolean> {

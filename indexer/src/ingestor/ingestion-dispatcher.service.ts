@@ -1,10 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { QueryRunner } from "typeorm";
 import { RaffleProcessor } from "../processors/raffle.processor";
 import { TicketProcessor } from "../processors/ticket.processor";
 import { UserProcessor } from "../processors/user.processor";
 import { AdminProcessor } from "../processors/admin.processor";
 import { DomainEvent } from "./event.types";
+import { DlqService } from "./dlq.service";
 
 /**
  * IngestionDispatcherService
@@ -21,6 +22,7 @@ export class IngestionDispatcherService {
     private readonly ticketProcessor: TicketProcessor,
     private readonly userProcessor: UserProcessor,
     private readonly adminProcessor: AdminProcessor,
+    @Optional() private readonly dlqService?: DlqService,
   ) {}
 
   /**
@@ -125,6 +127,10 @@ export class IngestionDispatcherService {
         `Failed to dispatch event ${event.type} for tx ${txHash}: ${error.message}`,
         error.stack,
       );
+      // Write to DLQ if available
+      if (this.dlqService) {
+        await this.dlqService.insert(event, rawEvent, error);
+      }
       // QueryRunner already released by processor on error
       throw error;
     }

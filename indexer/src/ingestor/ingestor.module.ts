@@ -8,15 +8,22 @@ import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
 import { ProcessorsModule } from "../processors/processors.module";
 import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity";
+import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
+import { DlqService } from "./dlq.service";
 
 @Module({
-  imports: [EventHandlersModule, ProcessorsModule, TypeOrmModule.forFeature([IndexerCursorEntity])],
+  imports: [
+    EventHandlersModule,
+    ProcessorsModule,
+    TypeOrmModule.forFeature([IndexerCursorEntity, DeadLetterEventEntity]),
+  ],
   providers: [
     CursorManagerService,
     EventParserService,
     LedgerPollerService,
     DryRunService,
     IngestionDispatcherService,
+    DlqService,
   ],
   exports: [
     CursorManagerService,
@@ -24,6 +31,7 @@ import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity"
     LedgerPollerService,
     DryRunService,
     IngestionDispatcherService,
+    DlqService,
     EventHandlersModule,
   ],
 })
