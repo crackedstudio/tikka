@@ -46,6 +46,8 @@ export class IngestionDispatcherService {
             event.raffle_id,
             event.creator,
             ledger,
+            txHash,
+            event.params,
           );
 
         case "TicketPurchased":
@@ -62,7 +64,10 @@ export class IngestionDispatcherService {
           return await this.raffleProcessor.handleRaffleFinalized(
             event.raffle_id,
             event.winner,
+            event.winning_ticket_id,
             event.prize_amount,
+            ledger,
+            txHash,
           );
 
         case "RaffleCancelled":
