@@ -1,5 +1,6 @@
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { captureIngestionError } from '../sentry/sentry';
+import { WebhookService } from '../services/webhook.service';
 
 export interface TicketEvent {
   ledger?: number;
@@ -8,8 +9,11 @@ export interface TicketEvent {
   [key: string]: unknown;
 }
 
+@Injectable()
 export class TicketProcessor {
   private readonly logger = new Logger(TicketProcessor.name);
+
+  constructor(private readonly webhookService: WebhookService) {}
 
   /**
    * Process a ticket-related blockchain event.
@@ -20,6 +24,14 @@ export class TicketProcessor {
       this.logger.log(
         `Processing event: type=${event.eventType ?? 'unknown'}, ledger=${event.ledger ?? 'unknown'}`,
       );
+
+      // Trigger webhook notifications on state change
+      if (event.eventType && event.raffleId) {
+        await this.webhookService.triggerWebhooks(event.eventType, {
+          raffleId: event.raffleId,
+          ...event,
+        });
+      }
 
       // TODO: implement ticket event processing logic here
     } catch (error: unknown) {

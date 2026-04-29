@@ -6,7 +6,8 @@ import {
   OracleConfig, 
   OracleRegistryEntry, 
   MultiOracleConfig,
-  MultiOracleMode 
+  MultiOracleMode,
+  PeerOracleEndpoint,
 } from './multi-oracle.types';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class OracleRegistryService implements OnModuleInit {
   private readonly logger = new Logger(OracleRegistryService.name);
   
   private oracles: Map<string, OracleRegistryEntry> = new Map();
+  private peers: PeerOracleEndpoint[] = [];
   private localOracleId: string;
   private threshold: number;
   private mode: MultiOracleMode = MultiOracleMode.SINGLE;
@@ -31,9 +33,12 @@ export class OracleRegistryService implements OnModuleInit {
   }
 
   private initializeOracles(): void {
+    // Support both ORACLE_MODE=multi and legacy MULTI_ORACLE_ENABLED=true
+    const oracleMode = this.configService.get<string>('ORACLE_MODE', 'single').toLowerCase();
     const multiOracleEnabled = this.configService.get<boolean>('MULTI_ORACLE_ENABLED', false);
+    const isMulti = oracleMode === 'multi' || multiOracleEnabled;
     
-    if (!multiOracleEnabled) {
+    if (!isMulti) {
       this.mode = MultiOracleMode.SINGLE;
       this.initializeSingleOracle();
       return;
@@ -64,13 +69,12 @@ export class OracleRegistryService implements OnModuleInit {
     const oracleConfigsRaw = this.configService.get<string>('ORACLE_REGISTRY', '');
     
     if (!oracleConfigsRaw) {
-      this.logger.warn('MULTI_ORACLE_ENABLED is true but ORACLE_REGISTRY is not set. Falling back to single oracle mode.');
+      this.logger.warn('Multi-oracle mode enabled but ORACLE_REGISTRY is not set. Falling back to single oracle mode.');
       this.mode = MultiOracleMode.SINGLE;
       this.initializeSingleOracle();
       return;
     }
 
-    const threshold = this.configService.get<number>('MULTI_ORACLE_THRESHOLD', 2);
     const localOracleId = this.configService.get<string>('LOCAL_ORACLE_ID', '');
     
     const entries = oracleConfigsRaw.split(this.ORACLE_CONFIG_SEPARATOR);
@@ -102,10 +106,34 @@ export class OracleRegistryService implements OnModuleInit {
       throw new Error('LOCAL_ORACLE_ID must be set in multi-oracle mode');
     }
 
-    this.threshold = threshold;
+    // Parse peer endpoints: ORACLE_PEERS=id:url:pubkey,id:url:pubkey,...
+    // Peers are all oracles except the local one
+    const peersRaw = this.configService.get<string>('ORACLE_PEERS', '');
+    if (peersRaw) {
+      for (const entry of peersRaw.split(this.ORACLE_CONFIG_SEPARATOR)) {
+        const parts = entry.trim().split(this.ORACLE_ENTRY_SEPARATOR);
+        if (parts.length < 3) {
+          this.logger.warn(`Invalid peer entry (expected id:url:pubkey): ${entry}`);
+          continue;
+        }
+        const [id, ...rest] = parts;
+        // URL may contain colons (e.g. http://host:port), so rejoin all but last as url
+        const publicKey = rest[rest.length - 1];
+        const url = rest.slice(0, rest.length - 1).join(this.ORACLE_ENTRY_SEPARATOR);
+        if (id !== this.localOracleId) {
+          this.peers.push({ id, url, publicKey });
+        }
+      }
+    }
+
+    // Threshold = Math.ceil(N/2) + 1 where N = total oracles (local + peers)
+    // Can be overridden via MULTI_ORACLE_THRESHOLD
+    const totalOracles = this.oracles.size;
+    const defaultThreshold = Math.ceil(totalOracles / 2) + 1;
+    this.threshold = this.configService.get<number>('MULTI_ORACLE_THRESHOLD', defaultThreshold);
     
     this.logger.log(
-      `Multi-oracle mode initialized: ${this.oracles.size} oracles, threshold=${threshold}, local=${this.localOracleId}`
+      `Multi-oracle mode initialized: ${this.oracles.size} oracles, ${this.peers.length} peers, threshold=${this.threshold}, local=${this.localOracleId}`
     );
   }
 
@@ -215,6 +243,10 @@ export class OracleRegistryService implements OnModuleInit {
       oracleIds: this.getOracleIds(),
       localOracleId: this.localOracleId,
     };
+  }
+
+  getPeerEndpoints(): PeerOracleEndpoint[] {
+    return this.peers;
   }
 
   validatePublicKey(publicKey: string): boolean {
