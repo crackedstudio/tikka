@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
     const [theme, setTheme] = useState<"light" | "dark" | "system">(
-        (localStorage.getItem("theme") as "light" | "dark") || "system"
+        (localStorage.getItem("tikka-theme") as "light" | "dark") || "system"
     );
 
     useEffect(() => {
@@ -11,13 +11,13 @@ export default function ThemeToggle() {
 
         if (theme === "dark") {
             root.classList.add("dark");
-            localStorage.theme = "dark";
+            localStorage.setItem("tikka-theme", "dark");
         } else if (theme === "light") {
             root.classList.remove("dark");
-            localStorage.theme = "light";
+            localStorage.setItem("tikka-theme", "light");
         } else {
             // Respect OS preference (remove explicit choice)
-            localStorage.removeItem("theme");
+            localStorage.removeItem("tikka-theme");
             root.classList.toggle(
                 "dark",
                 window.matchMedia("(prefers-color-scheme: dark)").matches
