@@ -1,19 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { DataSource, QueryRunner } from "typeorm";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { QueryRunner } from "typeorm";
 import { RaffleProcessor } from "../processors/raffle.processor";
 import { TicketProcessor } from "../processors/ticket.processor";
 import { AdminProcessor } from "../processors/admin.processor";
 import { DomainEvent } from "./event.types";
-import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
-
-export interface DispatchItem {
-  event: DomainEvent;
-  raw: Record<string, unknown> & {
-    ledger?: number | string;
-    id?: string;
-    paging_token?: string;
-  };
-}
+import { DlqService } from "./dlq.service";
 
 /**
  * Orchestrates domain event ingestion: bulk-append raffle_events where applicable,
@@ -28,6 +19,7 @@ export class IngestionDispatcherService {
     private readonly raffleProcessor: RaffleProcessor,
     private readonly ticketProcessor: TicketProcessor,
     private readonly adminProcessor: AdminProcessor,
+    @Optional() private readonly dlqService?: DlqService,
   ) {}
 
   /**
@@ -146,14 +138,16 @@ export class IngestionDispatcherService {
           this.logger.warn(`No processor method found for event type: ${(event as any).type}`);
           return null;
       }
-
-      return runner;
-    } catch (error: unknown) {
-      await runner.rollbackTransaction();
-      await runner.release();
-      const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Batch dispatch failed: ${message}`, stack);
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to dispatch event ${event.type} for tx ${txHash}: ${error.message}`,
+        error.stack,
+      );
+      // Write to DLQ if available
+      if (this.dlqService) {
+        await this.dlqService.insert(event, rawEvent, error);
+      }
+      // QueryRunner already released by processor on error
       throw error;
     }
   }

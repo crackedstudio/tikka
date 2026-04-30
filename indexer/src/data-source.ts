@@ -7,6 +7,7 @@ import { PlatformStatEntity } from "./database/entities/platform-stat.entity";
 import { PlatformStateEntity } from "./database/entities/platform-state.entity";
 import { IndexerCursorEntity } from "./database/entities/indexer-cursor.entity";
 import { WebhookEntity } from "./database/entities/webhook.entity";
+import { DeadLetterEventEntity } from "./database/entities/dead-letter-event.entity";
 
 /**
  * Standalone DataSource for the TypeORM CLI.
@@ -35,6 +36,7 @@ const options: DataSourceOptions = {
     PlatformStateEntity,
     IndexerCursorEntity,
     WebhookEntity,
+    DeadLetterEventEntity,
   ],
   migrations: [__dirname + "/database/migrations/*{.ts,.js}"],
   synchronize: false,
