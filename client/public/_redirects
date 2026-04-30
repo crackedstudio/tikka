@@ -1,0 +1,8 @@
+# Redirect bots to the OG renderer
+/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=Twitterbot
+/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=facebookexternalhit
+/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=Discordbot
+/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=TelegramBot
+
+# Standard SPA fallback
+/*  /index.html  200

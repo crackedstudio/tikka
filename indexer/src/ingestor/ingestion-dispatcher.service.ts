@@ -178,6 +178,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: event.raffle_id,
           eventType: "RaffleCancelled",
+          schemaVersion: event.schemaVersion ?? 1,
           ledger,
           txHash,
           payloadJson: {
@@ -189,6 +190,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "ContractPaused",
+          schemaVersion: event.schemaVersion ?? 1,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
@@ -197,6 +199,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "ContractUnpaused",
+          schemaVersion: event.schemaVersion ?? 1,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
@@ -205,6 +208,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "AdminTransferProposed",
+          schemaVersion: event.schemaVersion ?? 1,
           ledger,
           txHash,
           payloadJson: {
@@ -216,6 +220,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "AdminTransferAccepted",
+          schemaVersion: event.schemaVersion ?? 1,
           ledger,
           txHash,
           payloadJson: {

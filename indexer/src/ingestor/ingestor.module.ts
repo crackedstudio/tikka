@@ -10,6 +10,7 @@ import { ProcessorsModule } from "../processors/processors.module";
 import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity";
 import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
 import { DlqService } from "./dlq.service";
+import { ReorgRollbackService } from "./reorg-rollback.service";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DlqService } from "./dlq.service";
     DryRunService,
     IngestionDispatcherService,
     DlqService,
+    ReorgRollbackService,
   ],
   exports: [
     CursorManagerService,
@@ -32,6 +34,7 @@ import { DlqService } from "./dlq.service";
     DryRunService,
     IngestionDispatcherService,
     DlqService,
+    ReorgRollbackService,
     EventHandlersModule,
   ],
 })

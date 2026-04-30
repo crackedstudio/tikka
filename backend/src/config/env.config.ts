@@ -53,6 +53,7 @@ export const env = {
   get siws() {
     return {
       domain: process.env.SIWS_DOMAIN ?? 'tikka.io',
+      nonceTtlSeconds: parseInt(process.env.SIWS_NONCE_TTL_SECONDS ?? '300', 10),
     };
   },
   get fcm() {
