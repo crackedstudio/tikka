@@ -12,6 +12,7 @@ import NotificationSubscribeButton from "../components/NotificationSubscribeButt
 import EnterRaffleButton from "../components/EnterRaffleButton";
 import detailimage from "../assets/detailimage.png";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
+import { Helmet } from "react-helmet-async";
 
 const RaffleDetails = () => {
     const { id } = useParams();
@@ -97,8 +98,32 @@ const RaffleDetails = () => {
         );
     }
 
+    const ogTitle = raffle.metadata?.title || raffle.description || `Raffle #${raffle.id}`;
+    const ogDescription = raffle.description || "Join this raffle on Tikka — Decentralized Raffles on Stellar.";
+    const ogImage = raffle.image || `${window.location.origin}/og-image.png`;
+
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col">
+            <Helmet>
+                <title>{ogTitle} | Tikka Raffles</title>
+                <meta name="description" content={ogDescription} />
+                
+                {/* Open Graph */}
+                <meta property="og:title" content={`${ogTitle} | Tikka Raffles`} />
+                <meta property="og:description" content={ogDescription} />
+                <meta property="og:image" content={ogImage} />
+                <meta property="og:url" content={window.location.href} />
+                <meta property="og:type" content="website" />
+                <meta property="og:site_name" content="Tikka" />
+                
+                {/* Twitter Card */}
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={`${ogTitle} | Tikka Raffles`} />
+                <meta name="twitter:description" content={ogDescription} />
+                <meta name="twitter:image" content={ogImage} />
+                <meta name="twitter:site" content="@tikaborofficial" />
+                <meta name="twitter:creator" content="@tikaborofficial" />
+            </Helmet>
             <div className="mb-4">
                 <Breadcrumbs
                     items={[
@@ -124,6 +149,7 @@ const RaffleDetails = () => {
             )}
 
             <RaffleDetailsCard
+                raffleId={raffle.id}
                 image={raffle.image || detailimage}
                 images={raffle.metadata?.images}
                 title={raffle.metadata?.title || raffle.description}

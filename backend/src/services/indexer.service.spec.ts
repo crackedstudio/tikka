@@ -87,5 +87,24 @@ describe('IndexerService', () => {
       }),
     );
   });
-});
 
+  it('builds leaderboard cursor and offset query params correctly', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ entries: [], nextCursor: null }),
+      headers: { get: () => 'application/json' },
+    });
+
+    await service.getLeaderboard({
+      by: 'wins',
+      limit: 25,
+      cursor: 'abc123',
+      offset: 50,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://indexer.test/leaderboard?by=wins&limit=25&cursor=abc123&offset=50',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+});

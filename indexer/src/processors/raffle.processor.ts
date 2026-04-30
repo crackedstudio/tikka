@@ -73,6 +73,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleCreated",
+          schemaVersion: 1,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, creator, params },
@@ -148,6 +149,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleFinalized",
+          schemaVersion: 1,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, winner, winning_ticket_id: winningTicketId, prize_amount: prizeAmount },
@@ -219,6 +221,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleCancelled",
+          schemaVersion: 1,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, reason },

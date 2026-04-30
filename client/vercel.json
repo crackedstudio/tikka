@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/raffles/:id",
+      "destination": "https://api.tikka.io/og/raffles/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "User-Agent",
+          "value": ".*(Twitterbot|facebookexternalhit|Discordbot|TelegramBot|WhatsApp|Slackbot).*"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

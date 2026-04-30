@@ -13,10 +13,10 @@ import { RawSorobanEvent } from "./event-parser.service";
 export class EventHandlerRegistry implements OnModuleInit {
   private readonly logger = new Logger(EventHandlerRegistry.name);
 
-  // Map: contractAddress -> eventName -> handler
+  // Map: contractAddress -> eventName -> schemaVersion -> handler
   private readonly handlerMap = new Map<
     string,
-    Map<string, IEventHandler>
+    Map<string, Map<number, IEventHandler>>
   >();
 
   // Map: contractAddress -> ContractConfig
@@ -136,16 +136,20 @@ export class EventHandlerRegistry implements OnModuleInit {
   public registerHandler(
     contractAddress: string,
     handler: IEventHandler,
+    schemaVersion = 1,
   ): void {
     if (!this.handlerMap.has(contractAddress)) {
       this.handlerMap.set(contractAddress, new Map());
     }
 
-    const handlers = this.handlerMap.get(contractAddress)!;
-    handlers.set(handler.eventName, handler);
+    const handlersByEvent = this.handlerMap.get(contractAddress)!;
+    if (!handlersByEvent.has(handler.eventName)) {
+      handlersByEvent.set(handler.eventName, new Map());
+    }
+    handlersByEvent.get(handler.eventName)!.set(schemaVersion, handler);
 
     this.logger.debug(
-      `Registered handler for ${contractAddress}: ${handler.eventName}`,
+      `Registered handler for ${contractAddress}: ${handler.eventName}@v${schemaVersion}`,
     );
   }
 
@@ -163,11 +167,17 @@ export class EventHandlerRegistry implements OnModuleInit {
   public getHandler(
     contractAddress: string,
     eventName: string,
+    schemaVersion = 1,
   ): IEventHandler | null {
     // Try contract-specific handler first
-    const contractHandlers = this.handlerMap.get(contractAddress);
-    if (contractHandlers?.has(eventName)) {
-      return contractHandlers.get(eventName)!;
+    const contractHandlers = this.handlerMap.get(contractAddress)?.get(eventName);
+    if (contractHandlers?.has(schemaVersion)) {
+      return contractHandlers.get(schemaVersion)!;
+    }
+
+    // Fallback to v1 handler for compatibility when specific version is absent
+    if (contractHandlers?.has(1)) {
+      return contractHandlers.get(1)!;
     }
 
     // Fall back to default handler
@@ -205,11 +215,12 @@ export class EventHandlerRegistry implements OnModuleInit {
   public parseEvent(
     contractAddress: string,
     eventName: string,
+    schemaVersion: number,
     topics: xdr.ScVal[],
     value: xdr.ScVal,
     rawEvent: RawSorobanEvent,
   ): DomainEvent | null {
-    const handler = this.getHandler(contractAddress, eventName);
+    const handler = this.getHandler(contractAddress, eventName, schemaVersion);
 
     if (!handler) {
       // Log as unhandled_supported if from known contract
@@ -226,7 +237,8 @@ export class EventHandlerRegistry implements OnModuleInit {
     }
 
     try {
-      return handler.parse(topics, value, rawEvent);
+      const parsed = handler.parse(topics, value, rawEvent);
+      return parsed ? { ...parsed, schemaVersion } : null;
     } catch (error) {
       this.logger.error(
         `Handler failed for ${eventName}: ${error instanceof Error ? error.message : String(error)}`,

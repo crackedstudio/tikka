@@ -102,16 +102,18 @@ export class AuthService {
     expiresAtIso: string,
   ) {
     // Upsert a refresh token row: allow multiple active tokens per user if desired.
-    const { error } = await this.client.from('refresh_tokens').insert([
-      {
-        user_address: userAddress,
-        token_hash: tokenHash,
-        created_at: new Date().toISOString(),
-        last_used_at: new Date().toISOString(),
-        expires_at: expiresAtIso,
-        revoked: false,
-      },
-    ]);
+    const { error } = await this.client.from('refresh_tokens').insert(
+      [
+        {
+          user_address: userAddress,
+          token_hash: tokenHash,
+          created_at: new Date().toISOString(),
+          last_used_at: new Date().toISOString(),
+          expires_at: expiresAtIso,
+          revoked: false,
+        },
+      ]
+    );
 
     if (error) {
       throw new Error('Failed to persist refresh token');

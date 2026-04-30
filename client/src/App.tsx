@@ -18,6 +18,7 @@ const RafflePage = lazy(() => import("./pages/RafflePage"));
 const CreateRaffle = lazy(() => import("./pages/CreateRaffle"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const MyRaffles = lazy(() => import("./pages/MyRaffles"));
+const CreatorProfile = lazy(() => import("./pages/CreatorProfile"));
 const WinnerDemo = lazy(() => import("./pages/WinnerDemo"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Support = lazy(() => import("./pages/Support"));
@@ -56,6 +57,7 @@ function App() {
                                 <Route path="create" element={<CreateRaffle />} />
                                 <Route path="leaderboard" element={<Leaderboard />} />
                                 <Route path="my-raffles" element={<MyRaffles />} />
+                                <Route path="creators/:address" element={<CreatorProfile />} />
                                 <Route path="winner-demo" element={<WinnerDemo />} />
                                 <Route path="settings" element={<Settings />} />
                                 <Route path="support" element={<Support />} />

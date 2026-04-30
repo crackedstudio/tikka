@@ -31,12 +31,14 @@ export class EventParserV2Service {
 
       // topic[0] usually contains the event name (symbol)
       const eventName = scValToNative(topics[0]);
+      const schemaVersion = this.extractSchemaVersion(topics);
       const contractAddress = this.getContractAddress(rawEvent);
 
       // Use registry to parse the event
       const parsed = this.handlerRegistry.parseEvent(
         contractAddress,
         eventName,
+        schemaVersion,
         topics,
         value,
         rawEvent,
@@ -61,6 +63,19 @@ export class EventParserV2Service {
         `Failed to parse event: ${e instanceof Error ? e.message : String(e)}`,
       );
       return null;
+    }
+  }
+
+  private extractSchemaVersion(topics: xdr.ScVal[]): number {
+    if (topics.length < 2) {
+      return 1;
+    }
+
+    try {
+      const maybeVersion = Number(scValToNative(topics[1]));
+      return Number.isFinite(maybeVersion) && maybeVersion > 0 ? maybeVersion : 1;
+    } catch {
+      return 1;
     }
   }
 

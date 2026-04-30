@@ -20,6 +20,11 @@ type RaffleDetailsCardProps = {
     /** Asset symbol for ticket price, e.g. "XLM", "USDC" */
     ticketAsset?: string;
     onEnter?: () => void; // optional click handler
+    creator?: string;
+    participants?: number;
+    maxParticipants?: number;
+    ticketsSold?: number;
+    progress?: number;
 };
 
 const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
@@ -33,6 +38,11 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
     ticketPrice,
     ticketAsset = "XLM",
     onEnter,
+    creator,
+    participants,
+    maxParticipants,
+    ticketsSold,
+    progress,
 }) => {
     // Use images array if available, otherwise fallback to single image
     const displayImages = images && images.length > 0 ? images : [image];
@@ -109,7 +119,14 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
             <div className="w-full flex flex-col-reverse gap-6 md:flex-row md:items-start md:gap-12">
                 {/* Left: About (takes remaining space on md+) */}
                 <div className="w-full md:flex-1">
-                    <AboutRaffle />
+                    <AboutRaffle 
+                        description={body}
+                        creator={creator}
+                        participants={participants}
+                        maxParticipants={maxParticipants}
+                        ticketsSold={ticketsSold}
+                        progress={progress}
+                    />
                 </div>
 
                 {/* Right: Enter card (fixed-ish width on md+, full width on mobile) */}
