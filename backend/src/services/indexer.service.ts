@@ -48,6 +48,12 @@ export interface IndexerUserData {
   total_prize_xlm: string;
   first_seen_ledger: number;
   updated_at: string;
+  creator_stats?: {
+    raffles_created: number;
+    total_tickets_sold: number;
+    total_xlm_raised: string;
+    participant_win_rate: number;
+  };
 }
 
 export interface IndexerUserHistoryItem {
@@ -75,6 +81,7 @@ export interface IndexerLeaderboardEntry {
 
 export interface IndexerLeaderboardResponse {
   entries: IndexerLeaderboardEntry[];
+  nextCursor?: string | null;
 }
 
 export type LeaderboardSortBy = 'wins' | 'volume' | 'tickets';
@@ -82,6 +89,8 @@ export type LeaderboardSortBy = 'wins' | 'volume' | 'tickets';
 export interface IndexerLeaderboardFilters {
   by?: LeaderboardSortBy;
   limit?: number;
+  cursor?: string;
+  offset?: number;
 }
 
 export interface IndexerPlatformStats {
@@ -252,6 +261,8 @@ export class IndexerService {
     const params = new URLSearchParams();
     if (filters.by) params.set('by', filters.by);
     if (filters.limit != null) params.set('limit', String(filters.limit));
+    if (filters.cursor) params.set('cursor', filters.cursor);
+    if (filters.offset != null) params.set('offset', String(filters.offset));
     const query = params.toString();
     const path = query ? `/leaderboard?${query}` : '/leaderboard';
     return this.fetch<IndexerLeaderboardResponse>(path);

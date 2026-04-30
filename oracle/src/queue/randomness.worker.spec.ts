@@ -9,6 +9,7 @@ import { LagMonitorService } from '../health/lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { JobPriority } from './queue.types';
+import { ConfigService } from '@nestjs/config';
 
 describe('RandomnessWorker', () => {
   let worker: RandomnessWorker;
@@ -80,6 +81,16 @@ describe('RandomnessWorker', () => {
             startTracking: jest.fn(),
             hasSubmitted: jest.fn(),
             recordSubmission: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockImplementation((key: string, defaultValue?: string) => {
+              if (key === 'VRF_THRESHOLD_XLM') return '500';
+              if (key === 'ORACLE_MODE') return 'single';
+              return defaultValue;
+            }),
           },
         },
       ],
@@ -167,6 +178,25 @@ describe('RandomnessWorker', () => {
       // Contract might send custom priority values
       expect(worker.determinePriority(100, 2)).toBe(2);
       expect(worker.determinePriority(100, 15)).toBe(15);
+    });
+  });
+
+  describe('Provider selection at compute time', () => {
+    it('uses VRF when enqueued at 400 XLM but current prize is 600 XLM', async () => {
+      contractService.isRandomnessSubmitted.mockResolvedValue(false);
+      contractService.getRaffleData.mockResolvedValue({ prizeAmount: 600 } as any);
+      vrfService.compute.mockResolvedValue({ seed: 'seed-vrf', proof: 'proof-vrf' });
+      txSubmitter.submitRandomness.mockResolvedValue({ success: true, txHash: 'tx1', ledger: 1 } as any);
+
+      await worker.processRequest({
+        raffleId: 42,
+        requestId: 'req-400-enqueued',
+        prizeAmount: 400,
+      });
+
+      expect(contractService.getRaffleData).toHaveBeenCalledWith(42);
+      expect(vrfService.compute).toHaveBeenCalledWith('req-400-enqueued', 42);
+      expect(prngService.compute).not.toHaveBeenCalled();
     });
   });
 });

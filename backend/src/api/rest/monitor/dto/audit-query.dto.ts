@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { z } from "zod";
 
 export const AuditQuerySchema = z
@@ -20,4 +21,13 @@ export const AuditQuerySchema = z
     },
   );
 
-export type AuditQueryDto = z.infer<typeof AuditQuerySchema>;
+export class AuditQueryDto {
+  @ApiPropertyOptional({ description: 'Start datetime (ISO 8601)' })
+  from?: string;
+
+  @ApiPropertyOptional({ description: 'End datetime (ISO 8601)' })
+  to?: string;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 500, description: 'Number of logs to return' })
+  limit?: number;
+}

@@ -8,7 +8,7 @@ import { RawSorobanEvent } from "./event-parser.service";
 
 // Mock handler for testing
 class MockEventHandler implements IEventHandler {
-  constructor(public readonly eventName: string) {}
+  constructor(public readonly eventName: string, private readonly tag: string = "v1") {}
 
   parse(
     _topics: xdr.ScVal[],
@@ -23,7 +23,7 @@ class MockEventHandler implements IEventHandler {
         ticket_price: "0",
         max_tickets: 0,
         end_time: 0,
-        asset: "XLM",
+        asset: this.tag,
         metadata_cid: "",
         allow_multiple: true,
       },
@@ -157,6 +157,7 @@ describe("EventHandlerRegistry", () => {
       const result = registry.parseEvent(
         "TEST_CONTRACT",
         "TestEvent",
+        1,
         mockTopics,
         mockValue,
         mockRawEvent,
@@ -182,6 +183,7 @@ describe("EventHandlerRegistry", () => {
       const result = registry.parseEvent(
         "KNOWN_CONTRACT",
         "UnhandledEvent",
+        1,
         mockTopics,
         mockValue,
         mockRawEvent,
@@ -198,6 +200,7 @@ describe("EventHandlerRegistry", () => {
       const result = registry.parseEvent(
         "UNKNOWN_CONTRACT",
         "SomeEvent",
+        1,
         mockTopics,
         mockValue,
         mockRawEvent,
@@ -233,6 +236,44 @@ describe("EventHandlerRegistry", () => {
     it("should return empty array when no contracts registered", () => {
       const contracts = registry.getRegisteredContracts();
       expect(contracts).toEqual([]);
+    });
+  });
+
+  describe("Schema Version Routing", () => {
+    it("routes handlers by schema version for same contract and event", () => {
+      const v1Handler = new MockEventHandler("TestEvent", "v1");
+      const v2Handler = new MockEventHandler("TestEvent", "v2");
+
+      registry.registerHandler("TEST_CONTRACT", v1Handler, 1);
+      registry.registerHandler("TEST_CONTRACT", v2Handler, 2);
+
+      const mockTopics: xdr.ScVal[] = [];
+      const mockValue = {} as xdr.ScVal;
+      const mockRawEvent = {} as RawSorobanEvent;
+
+      const resultV1 = registry.parseEvent(
+        "TEST_CONTRACT",
+        "TestEvent",
+        1,
+        mockTopics,
+        mockValue,
+        mockRawEvent,
+      );
+      const resultV2 = registry.parseEvent(
+        "TEST_CONTRACT",
+        "TestEvent",
+        2,
+        mockTopics,
+        mockValue,
+        mockRawEvent,
+      );
+
+      expect(resultV1?.type).toBe("RaffleCreated");
+      expect(resultV2?.type).toBe("RaffleCreated");
+      expect((resultV1 as any)?.params.asset).toBe("v1");
+      expect((resultV2 as any)?.params.asset).toBe("v2");
+      expect(resultV1?.schemaVersion).toBe(1);
+      expect(resultV2?.schemaVersion).toBe(2);
     });
   });
 });
