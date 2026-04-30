@@ -77,6 +77,9 @@ const envSchemaInner = z
     BACKFILL_RETRY_DELAY_MS: z.coerce.number().int().positive().default(1000),
     BACKFILL_HORIZON_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
 
+    // Redis — required for idempotency keys
+    REDIS_URL: z.string().url(),
+
     // JWT
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRES_IN: z.string().default('7d'),
