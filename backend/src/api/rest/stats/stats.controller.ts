@@ -9,13 +9,29 @@ import { StatsService } from './stats.service';
 export class StatsController {
   constructor(private readonly statsService: StatsService) {}
 
-  /**
-   * GET /stats/platform — Platform-wide aggregates (raffles, tickets, volume, etc.).
-   */
+  /** GET /stats/platform — Platform-wide aggregates. */
   @Get('platform')
   @ApiOperation({ summary: 'Get platform-wide aggregates' })
   @ApiResponse({ status: 200, description: 'Platform stats retrieved successfully' })
   async getPlatformStats() {
     return this.statsService.getPlatformStats();
+  }
+
+  /** GET /stats/transparency — Platform stats + oracle key + recent audit log. */
+  @Get('transparency')
+  async getTransparencyStats() {
+    return this.statsService.getTransparencyStats();
+  }
+
+  /** POST /stats/verify — Verify a VRF draw result. */
+  @Post('verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyDraw(
+    @Body('oracle_public_key') oraclePublicKey: string,
+    @Body('request_id') requestId: string,
+    @Body('proof') proof: string,
+    @Body('seed') seed: string,
+  ) {
+    return this.statsService.verifyDraw(oraclePublicKey, requestId, proof, seed);
   }
 }

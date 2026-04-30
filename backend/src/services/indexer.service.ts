@@ -102,6 +102,23 @@ export interface IndexerPlatformStats {
   prizes_distributed_xlm: string;
 }
 
+export interface IndexerTransparencyEntry {
+  id: string;
+  timestamp: string;
+  raffle_id: number;
+  request_id: string;
+  oracle_id: string;
+  seed: string;
+  proof: string;
+  tx_hash: string;
+  method: 'VRF' | 'PRNG';
+}
+
+export interface IndexerTransparencyLog {
+  entries: IndexerTransparencyEntry[];
+  total: number;
+}
+
 export class IndexerError extends Error {
   constructor(
     message: string,
@@ -254,6 +271,20 @@ export class IndexerService {
   /** Get platform-wide aggregate stats. */
   async getPlatformStats(): Promise<IndexerPlatformStats> {
     return this.fetch<IndexerPlatformStats>('/stats/platform');
+  }
+
+  /** Get paginated VRF/PRNG audit log entries. */
+  async getTransparencyLog(
+    limit = 10,
+    offset = 0,
+    raffleId?: number,
+  ): Promise<IndexerTransparencyLog> {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (raffleId != null) params.set('raffle_id', String(raffleId));
+    return this.fetch<IndexerTransparencyLog>(`/transparency?${params}`);
   }
 
   /** Submit a ledger and its transactions for re-indexing (backfill). */

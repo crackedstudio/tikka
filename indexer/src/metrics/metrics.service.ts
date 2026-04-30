@@ -34,6 +34,11 @@ export class MetricsService {
       description: 'Total number of errors encountered during polling or processing',
     });
 
+    this.reorgDetectedCounter = this.meter.createCounter('tikka_indexer_reorg_detected_total', {
+      description: 'Total number of ledger reorgs detected',
+    });
+
+    this.meter.createObservableGauge('tikka_indexer_lag_ledgers', {
     this.lagGauge = this.meter.createGauge('tikka_indexer_lag_ledgers', {
       description: 'Current ledger lag behind the network',
     });
@@ -58,6 +63,8 @@ export class MetricsService {
     this.errorsCounter.add(amount);
   }
 
+  incrementReorgDetected(amount: number = 1) {
+    this.reorgDetectedCounter.add(amount);
   setLagLedgers(lag: number) {
     this.lagGauge.record(lag);
   }
