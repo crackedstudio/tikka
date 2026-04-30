@@ -9,6 +9,7 @@ import { HealthModule } from "./health/health.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { ApiModule } from "./api/api.module";
 import { MetricsModule } from "./metrics/metrics.module";
+import { MaintenanceModule } from "./maintenance/maintenance.module";
 
 @Module({
   imports: [
@@ -28,6 +29,8 @@ import { MetricsModule } from "./metrics/metrics.module";
     // Event processors (raffle, ticket, user, stats)
     ProcessorsModule,
     WebhooksModule,
+    // Maintenance operations (snapshots, archival)
+    MaintenanceModule,
     // Health endpoint (lag, DB, Redis)
     HealthModule,
     // Internal REST API (raffles, users, leaderboard, stats)
