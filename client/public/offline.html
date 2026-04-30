@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline | Tikka</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #1a1a1a;
+            --accent-color: #10b981; /* green-500 */
+            --secondary-text: #6b7280; /* gray-500 */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #242424;
+                --text-color: rgba(255, 255, 255, 0.87);
+                --secondary-text: #a1a1aa; /* zinc-400 */
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 24px;
+            letter-spacing: -1px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        p {
+            font-size: 16px;
+            color: var(--secondary-text);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .retry-button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        }
+
+        .retry-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+            filter: brightness(1.1);
+        }
+
+        .retry-button:active {
+            transform: translateY(0);
+        }
+
+        .icon {
+            margin-bottom: 24px;
+            color: var(--secondary-text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">Tikka</div>
+        <div class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+                <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+                <path d="M10.71 19.18a13 13 0 0 1-3.56-1.08"></path>
+                <path d="M16.85 18.1a13.05 13.05 0 0 1-3.56 1.08"></path>
+                <path d="M20.88 15.32a13.13 13.13 0 0 1-2.34 2.34"></path>
+                <path d="M5.46 17.66a13.13 13.13 0 0 1-2.34-2.34"></path>
+                <path d="M16.44 2.08a11 11 0 0 1 5.48 5.48"></path>
+                <path d="M7.56 2.08a11 11 0 0 0-5.48 5.48"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+        </div>
+        <h1>You appear to be offline</h1>
+        <p>Check your connection and try again to access the latest raffles.</p>
+        <button class="retry-button" onclick="window.location.reload()">Retry</button>
+    </div>
+</body>
+</html>

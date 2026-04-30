@@ -11,7 +11,7 @@ import { EventParserV2Service } from "./event-parser-v2.service";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
 import { MetricsService } from "../metrics/metrics.service";
-import { DomainEvent } from "./event.types";
+import { ReorgRollbackService } from "./reorg-rollback.service";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -31,6 +31,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private retryAttempt = 0;
   private readonly MAX_RETRY_DELAY = 30000;
   private readonly BASE_RETRY_DELAY = 2000;
+  private readonly safetyDepth: number;
 
   constructor(
     private configService: ConfigService,
@@ -39,6 +40,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     private dryRun: DryRunService,
     private dispatcher: IngestionDispatcherService,
     private metrics: MetricsService,
+    private reorgRollback: ReorgRollbackService,
   ) {
     const horizonUrl =
       this.configService.get<string>("HORIZON_URL") ||
@@ -51,9 +53,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       .map((id) => id.trim())
       .filter((id) => id.length > 0);
 
-    const rawBatch = this.configService.get<string | number>("INDEXER_BATCH_SIZE", 100);
-    const parsed = typeof rawBatch === "string" ? parseInt(rawBatch, 10) : rawBatch;
-    this.batchSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
+    this.safetyDepth = this.configService.get<number>("REORG_SAFETY_DEPTH", 5);
   }
 
   async onModuleInit() {
@@ -168,21 +168,43 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       });
   }
 
-  private async ingestRawEvent(rawEvent: Record<string, unknown>): Promise<void> {
-    const rawSorobanEvent = {
-      type: (rawEvent.type as string) || "contract",
-      topics: (rawEvent.topic as unknown[]) || (rawEvent.topics as unknown[]) || [],
-      value: rawEvent.value || "",
-      contractId:
-        (rawEvent.contract_id as string) ||
-        (rawEvent.contractId as string) ||
-        (rawEvent.address as string),
-    };
+  /**
+   * Decodes, parses, and dispatches the event, then updates the cursor atomically.
+   * Checks for ledger reorgs before processing and enforces safety depth.
+   */
+  private async processEvent(rawEvent: any): Promise<void> {
+    try {
+      const ledger = Number(rawEvent.ledger);
+      const ledgerHash: string = rawEvent.ledger_hash || rawEvent.ledgerHash || '';
 
-    const parsed = this.eventParser.parse(rawSorobanEvent as never);
-    if (!parsed) {
-      return;
-    }
+      // --- Reorg detection ---
+      if (ledgerHash) {
+        const reorgAt = await this.cursorManager.checkForReorg(ledger, ledgerHash);
+        if (reorgAt !== null) {
+          this.logger.error(`Reorg detected at ledger ${reorgAt} — rolling back`);
+          this.metrics.incrementReorgDetected();
+          await this.reorgRollback.rollback(reorgAt);
+          return;
+        }
+      }
+
+      // --- Safety depth: skip events from ledgers not yet confirmed ---
+      const cursor = await this.cursorManager.getCursor();
+      const networkLedger = ledger; // the event's ledger is the "tip"
+      if (cursor && networkLedger - cursor.lastLedger < this.safetyDepth) {
+        this.logger.debug(
+          `Skipping ledger ${ledger}: within safety depth (${this.safetyDepth})`,
+        );
+        return;
+      }
+
+      // Map Horizon event fields to the format expected by EventParserService
+      const rawSorobanEvent = {
+        type: rawEvent.type || "contract",
+        topics: rawEvent.topic || rawEvent.topics || [],
+        value: rawEvent.value || "",
+        contractId: rawEvent.contract_id || rawEvent.contractId || rawEvent.address,
+      };
 
     this.eventBuffer.push({ parsed, raw: rawEvent });
 
@@ -220,7 +242,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
 
       if (this.dryRun.enabled) {
         this.logger.log(
-          `[DRY-RUN] Would save cursor: ledger=${String(lastRaw.ledger)} token=${nextToken}`,
+          `[DRY-RUN] Would save cursor: ledger=${ledger} token=${nextToken}`,
         );
         if (queryRunner) {
           await queryRunner.rollbackTransaction();
@@ -230,18 +252,16 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      await this.cursorManager.saveCursor(
-        ledger,
-        nextToken,
-        queryRunner ?? undefined,
-      );
+      await this.cursorManager.saveCursor(ledger, ledgerHash, nextToken, queryRunner ?? undefined);
 
       if (queryRunner) {
         await queryRunner.commitTransaction();
         await queryRunner.release();
       }
 
-      this.metrics.incrementEventsProcessed(batch.length);
+      for (const item of batch) {
+        this.metrics.incrementEventsProcessed(item.parsed.type);
+      }
     } catch (error) {
       this.metrics.incrementErrors(1);
       this.logger.warn(
@@ -260,6 +280,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private async pollOnce() {
     if (!this.isRunning) return;
 
+    const startTime = Date.now();
     try {
       const cursor = await this.cursorManager.getCursor();
       const lastToken = cursor?.lastPagingToken || "now";
@@ -287,6 +308,19 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         await this.flushRemainder();
       }
 
+      // Update lag metric
+      try {
+        const latestLedgers = await this.horizonServer.ledgers().order("desc").limit(1).call();
+        const latestLedger = latestLedgers.records[0]?.sequence;
+        if (latestLedger && cursor?.lastLedger) {
+          const lag = Math.max(0, latestLedger - cursor.lastLedger);
+          this.metrics.setLagLedgers(lag);
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to fetch latest ledger for lag metric: ${e.message}`);
+      }
+
+      // Reset retry attempt on any successful communication
       this.retryAttempt = 0;
 
       const nextDelay = records.length === 100 ? 500 : 5000;
@@ -297,6 +331,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       );
       this.metrics.incrementErrors(1);
       this.scheduleReconnection();
+    } finally {
+      const durationSeconds = (Date.now() - startTime) / 1000;
+      this.metrics.recordPollDuration(durationSeconds);
     }
   }
 

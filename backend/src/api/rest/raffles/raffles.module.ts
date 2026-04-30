@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RafflesController } from './raffles.controller';
+import { OgRenderController } from './og-render.controller';
 import { RafflesService } from './raffles.service';
 import { MetadataModule } from '../../../services/metadata.module';
 import { IndexerModule } from '../../../services/indexer.module';

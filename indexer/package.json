@@ -15,6 +15,8 @@
     "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",
     "status": "ts-node --transpile-only src/cli/status.command.ts",
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
+    "snapshot:export": "ts-node src/cli/snapshot-export.ts",
+    "snapshot:import": "ts-node src/cli/snapshot-import.ts",
     "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate"
@@ -37,6 +39,8 @@
     "testEnvironment": "node"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.500.0",
+    "@aws-sdk/lib-storage": "^3.500.0",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^10.4.0",
     "@nestjs/config": "^4.0.3",

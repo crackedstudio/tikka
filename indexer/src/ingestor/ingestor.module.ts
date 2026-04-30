@@ -8,6 +8,7 @@ import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
 import { ProcessorsModule } from "../processors/processors.module";
 import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity";
+import { ReorgRollbackService } from "./reorg-rollback.service";
 
 @Module({
   imports: [EventHandlersModule, ProcessorsModule, TypeOrmModule.forFeature([IndexerCursorEntity])],
@@ -17,6 +18,7 @@ import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity"
     LedgerPollerService,
     DryRunService,
     IngestionDispatcherService,
+    ReorgRollbackService,
   ],
   exports: [
     CursorManagerService,
@@ -24,6 +26,7 @@ import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity"
     LedgerPollerService,
     DryRunService,
     IngestionDispatcherService,
+    ReorgRollbackService,
     EventHandlersModule,
   ],
 })

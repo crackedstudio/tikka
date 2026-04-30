@@ -10,7 +10,9 @@
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "generate:openapi": "ts-node scripts/generate-openapi.ts",
+    "validate:openapi": "pnpm run generate:openapi && npx swagger-cli validate openapi.json"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.2",

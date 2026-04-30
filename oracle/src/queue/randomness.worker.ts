@@ -18,7 +18,7 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class RandomnessWorker {
   private readonly logger = new Logger(RandomnessWorker.name);
-  private readonly HIGH_STAKES_THRESHOLD_XLM = 500;
+  private readonly vrfThresholdXlm: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
 
@@ -32,7 +32,11 @@ export class RandomnessWorker {
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.vrfThresholdXlm = Number(
+      this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
+    );
+  }
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
@@ -78,7 +82,7 @@ export class RandomnessWorker {
   }
 
   private async processSingleOracleRequest(request: RandomnessRequest): Promise<void> {
-    const { raffleId, requestId, prizeAmount } = request;
+    const { raffleId, requestId } = request;
 
     try {
       const alreadySubmitted = await this.contractService.isRandomnessSubmitted(raffleId);
@@ -87,14 +91,13 @@ export class RandomnessWorker {
         return;
       }
 
-      let finalPrizeAmount = prizeAmount;
-      if (finalPrizeAmount === undefined) {
-        const raffleData = await this.contractService.getRaffleData(raffleId);
-        finalPrizeAmount = raffleData.prizeAmount;
-      }
+      const raffleData = await this.contractService.getRaffleData(raffleId);
+      const finalPrizeAmount = raffleData.prizeAmount;
 
       const method = this.determineMethod(finalPrizeAmount);
-      this.logger.log(`Raffle ${raffleId}: prize=${finalPrizeAmount} XLM, method=${method}`);
+      this.logger.log(
+        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${method === RandomnessMethod.VRF ? 'vrf' : 'prng'}`,
+      );
 
       const randomness = await this.computeRandomness(method, requestId, raffleId);
       const result = await this.txSubmitter.submitRandomness(raffleId, randomness);
@@ -124,7 +127,7 @@ export class RandomnessWorker {
     request: RandomnessRequest,
     localOracleId: string,
   ): Promise<void> {
-    const { raffleId, requestId, prizeAmount } = request;
+    const { raffleId, requestId } = request;
     const threshold = this.oracleRegistry.getThreshold();
 
     this.logger.log(
@@ -138,15 +141,13 @@ export class RandomnessWorker {
         return;
       }
 
-      let finalPrizeAmount = prizeAmount;
-      if (finalPrizeAmount === undefined) {
-        const raffleData = await this.contractService.getRaffleData(raffleId);
-        finalPrizeAmount = raffleData.prizeAmount;
-      }
+      const raffleData = await this.contractService.getRaffleData(raffleId);
+      const finalPrizeAmount = raffleData.prizeAmount;
 
       const method = this.determineMethod(finalPrizeAmount);
-      this.logger.log(`Raffle ${raffleId}: prize=${finalPrizeAmount} XLM, method=${method}`);
-      const randomness = await this.computeRandomness(method, requestId, raffleId);
+      this.logger.log(
+        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${method === RandomnessMethod.VRF ? 'vrf' : 'prng'}`,
+      );
 
       // Compute local oracle's VRF output
       const localRandomness = await this.computeRandomness(method, requestId);
@@ -232,7 +233,7 @@ export class RandomnessWorker {
   }
 
   private determineMethod(prizeAmount: number): RandomnessMethod {
-    return prizeAmount >= this.HIGH_STAKES_THRESHOLD_XLM
+    return prizeAmount >= this.vrfThresholdXlm
       ? RandomnessMethod.VRF
       : RandomnessMethod.PRNG;
   }
@@ -276,11 +277,10 @@ export class RandomnessWorker {
       return JobPriority.NORMAL;
     }
 
-    if (prizeAmount >= this.HIGH_STAKES_THRESHOLD_XLM) {
+    if (prizeAmount >= this.vrfThresholdXlm) {
       return JobPriority.HIGH;
     }
 
     return JobPriority.NORMAL;
   }
 }
-

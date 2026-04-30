@@ -2,20 +2,14 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class OptimizeLeaderboard1711620000000 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // These indexes ensure sorting by wins, volume, or tickets is lightning fast
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_LEADERBOARD_WINS" ON "users" ("wins" DESC)`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_LEADERBOARD_VOLUME" ON "users" ("volume" DESC)`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_LEADERBOARD_TICKETS" ON "users" ("tickets" DESC)`);
-        
-        // This 'composite' index helps if the leaderboard sorts by multiple criteria at once
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_LEADERBOARD_COMPOSITE" ON "users" ("wins" DESC, "volume" DESC)`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_USERS_TOTAL_RAFFLES_WON_ADDRESS" ON "users" ("total_raffles_won" DESC, "address" ASC)`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_USERS_TOTAL_PRIZE_XLM_NUMERIC_ADDRESS" ON "users" ((CAST("total_prize_xlm" AS NUMERIC)) DESC, "address" ASC)`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_USERS_TOTAL_TICKETS_BOUGHT_ADDRESS" ON "users" ("total_tickets_bought" DESC, "address" ASC)`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        // This removes the indexes if the team needs to undo the change
-        await queryRunner.query(`DROP INDEX "IDX_LEADERBOARD_WINS"`);
-        await queryRunner.query(`DROP INDEX "IDX_LEADERBOARD_VOLUME"`);
-        await queryRunner.query(`DROP INDEX "IDX_LEADERBOARD_TICKETS"`);
-        await queryRunner.query(`DROP INDEX "IDX_LEADERBOARD_COMPOSITE"`);
+        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USERS_TOTAL_RAFFLES_WON_ADDRESS"`);
+        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USERS_TOTAL_PRIZE_XLM_NUMERIC_ADDRESS"`);
+        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USERS_TOTAL_TICKETS_BOUGHT_ADDRESS"`);
     }
 }

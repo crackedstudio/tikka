@@ -86,6 +86,7 @@ const envSchemaInner = z
 
     // SIWS
     SIWS_DOMAIN: z.string().default('tikka.io'),
+    SIWS_NONCE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 
     // Frontend
     VITE_FRONTEND_URL: z.string().url(),

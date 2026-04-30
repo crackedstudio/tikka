@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MeterProvider } from '@opentelemetry/sdk-metrics';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-import { Counter, Meter, ObservableResult } from '@opentelemetry/api';
+import { Counter, Gauge, Histogram, Meter, ObservableResult } from '@opentelemetry/api';
 import { HealthService } from '../health/health.service';
 
 @Injectable()
@@ -11,6 +11,8 @@ export class MetricsService {
 
   private eventsProcessedCounter: Counter;
   private errorsCounter: Counter;
+  private lagGauge: Gauge;
+  private pollDurationHistogram: Histogram;
 
   constructor(private readonly healthService: HealthService) {
     // PrometheusExporter automatically initializes the Prometheus registry
@@ -32,13 +34,18 @@ export class MetricsService {
       description: 'Total number of errors encountered during polling or processing',
     });
 
+    this.reorgDetectedCounter = this.meter.createCounter('tikka_indexer_reorg_detected_total', {
+      description: 'Total number of ledger reorgs detected',
+    });
+
     this.meter.createObservableGauge('tikka_indexer_lag_ledgers', {
+    this.lagGauge = this.meter.createGauge('tikka_indexer_lag_ledgers', {
       description: 'Current ledger lag behind the network',
-    }).addCallback(async (result: ObservableResult) => {
-      const health = await this.healthService.getHealth();
-      if (health.lag_ledgers !== null) {
-        result.observe(health.lag_ledgers);
-      }
+    });
+
+    this.pollDurationHistogram = this.meter.createHistogram('tikka_indexer_poll_duration_seconds', {
+      description: 'Duration of ledger polling cycles',
+      unit: 's',
     });
 
     this.meter.createObservableGauge('tikka_indexer_memory_usage_bytes', {
@@ -48,12 +55,22 @@ export class MetricsService {
     });
   }
 
-  incrementEventsProcessed(amount: number = 1) {
-    this.eventsProcessedCounter.add(amount);
+  incrementEventsProcessed(type: string = 'unknown', amount: number = 1) {
+    this.eventsProcessedCounter.add(amount, { event_type: type });
   }
 
   incrementErrors(amount: number = 1) {
     this.errorsCounter.add(amount);
+  }
+
+  incrementReorgDetected(amount: number = 1) {
+    this.reorgDetectedCounter.add(amount);
+  setLagLedgers(lag: number) {
+    this.lagGauge.record(lag);
+  }
+
+  recordPollDuration(seconds: number) {
+    this.pollDurationHistogram.record(seconds);
   }
 
   /**
