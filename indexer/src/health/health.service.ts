@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Optional, EventEmitter } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
@@ -6,10 +6,12 @@ import { CursorManagerService } from '../ingestor/cursor-manager.service';
 import { DlqService } from '../ingestor/dlq.service';
 
 export const LAG_THRESHOLD_DEFAULT = 100;
+export const LAG_ALERT_THRESHOLD_DEFAULT = 50;
 
 export interface HealthResult {
   status: 'ok' | 'degraded';
   lag_ledgers: number | null;
+  lagStatus: 'healthy' | 'degraded' | 'critical';
   db: 'ok' | 'error';
   redis: 'ok' | 'error';
   redis_latency_ms: number | null;
@@ -20,12 +22,15 @@ export interface HealthResult {
 export class HealthService {
   private readonly horizonUrl: string;
   private readonly lagThreshold: number;
+  private readonly lagAlertThreshold: number;
+  private previousLagStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
+  private eventEmitter: EventEmitter;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
     private readonly cacheService: CacheService,
-    private readonly cursorManager: CursorManagerService,
+    private readonly cursorManagerService: CursorManagerService,
     @Optional() private readonly dlqService?: DlqService,
   ) {
     this.horizonUrl = this.configService.get<string>(
@@ -36,6 +41,11 @@ export class HealthService {
       'LAG_THRESHOLD',
       LAG_THRESHOLD_DEFAULT,
     );
+    this.lagAlertThreshold = this.configService.get<number>(
+      'INDEXER_LAG_ALERT_THRESHOLD_LEDGERS',
+      LAG_ALERT_THRESHOLD_DEFAULT,
+    );
+    this.eventEmitter = new EventEmitter();
   }
 
   async getHealth(): Promise<HealthResult> {
@@ -43,7 +53,7 @@ export class HealthService {
       this.checkDb(),
       this.cacheService.latency(),
       this.fetchLatestLedger(),
-      this.cursorManager.getCursor(),
+      this.cursorManagerService.getCursor(),
       this.dlqService ? this.dlqService.count() : Promise.resolve(0),
     ]);
 
@@ -55,12 +65,32 @@ export class HealthService {
       lag_ledgers = Math.max(0, latestLedger - cursor.lastLedger);
     }
 
+    // Calculate lag status based on alert threshold
+    let lagStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
+    if (lag_ledgers !== null) {
+      if (lag_ledgers > this.lagAlertThreshold) {
+        lagStatus = 'critical';
+      } else if (lag_ledgers > this.lagThreshold) {
+        lagStatus = 'degraded';
+      }
+    }
+
+    // Emit alert when crossing into critical status
+    if (lagStatus === 'critical' && this.previousLagStatus !== 'critical') {
+      this.eventEmitter.emit('indexer_lag_alert', {
+        lag_ledgers,
+        threshold: this.lagAlertThreshold,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    this.previousLagStatus = lagStatus;
+
     const degradedByLag =
       lag_ledgers != null && lag_ledgers > this.lagThreshold;
     const status: 'ok' | 'degraded' =
       db === 'error' || redis === 'error' || degradedByLag ? 'degraded' : 'ok';
 
-    return { status, lag_ledgers, db, redis, redis_latency_ms: redisLatency, dlq_size };
+    return { status, lag_ledgers, lagStatus, db, redis, redis_latency_ms: redisLatency, dlq_size };
   }
 
   private async checkDb(): Promise<boolean> {
@@ -97,5 +127,15 @@ export class HealthService {
   /** Lag above this value is considered degraded. */
   getLagThreshold(): number {
     return this.lagThreshold;
+  }
+
+  /** Lag above this value triggers critical alerts. */
+  getLagAlertThreshold(): number {
+    return this.lagAlertThreshold;
+  }
+
+  /** Get the event emitter for listening to lag alerts. */
+  getEventEmitter(): EventEmitter {
+    return this.eventEmitter;
   }
 }
