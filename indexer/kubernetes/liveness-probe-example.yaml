@@ -1,0 +1,153 @@
+# Kubernetes Liveness Probe Example for Indexer Lag Monitoring
+# This example shows how to configure a liveness probe that fails when lagStatus === 'critical'
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: indexer-liveness-probe-example
+  labels:
+    app: indexer
+spec:
+  containers:
+  - name: indexer
+    image: tikka-indexer:latest
+    ports:
+    - containerPort: 3000
+    env:
+    - name: INDEXER_LAG_ALERT_THRESHOLD_LEDGERS
+      value: "50"  # Alert when lag exceeds 50 ledgers
+    - name: LAG_THRESHOLD
+      value: "100"  # Consider degraded when lag exceeds 100 ledgers
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 3000
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      # Custom HTTP headers to check lagStatus
+      httpHeaders:
+      - name: Accept
+        value: application/json
+    # Alternative: Use exec probe with curl and jq to check lagStatus
+    # exec:
+    #   command:
+    #   - sh
+    #   - -c
+    #   - |
+    #     LAG_STATUS=$(curl -s http://localhost:3000/health | jq -r '.lagStatus')
+    #     if [ "$LAG_STATUS" = "critical" ]; then
+    #       exit 1
+    #     else
+    #       exit 0
+    #     fi
+    # initialDelaySeconds: 30
+    # periodSeconds: 10
+    # timeoutSeconds: 5
+    # failureThreshold: 3
+
+---
+# Deployment example with liveness probe
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: indexer
+  template:
+    metadata:
+      labels:
+        app: indexer
+    spec:
+      containers:
+      - name: indexer
+        image: tikka-indexer:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: INDEXER_LAG_ALERT_THRESHOLD_LEDGERS
+          value: "50"
+        - name: LAG_THRESHOLD
+          value: "100"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+---
+# Service Monitor for Prometheus (if using Prometheus Operator)
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: indexer-metrics
+  labels:
+    app: indexer
+spec:
+  selector:
+    matchLabels:
+      app: indexer
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# AlertRule example for Prometheus AlertManager
+# This would typically be in a ConfigMap or separate alerting rules file
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: indexer-lag-alerts
+  labels:
+    app: indexer
+spec:
+  groups:
+  - name: indexer.rules
+    rules:
+    - alert: IndexerLagCritical
+      expr: tikka_indexer_lag_ledgers > 50
+      for: 2m
+      labels:
+        severity: critical
+        service: indexer
+      annotations:
+        summary: "Indexer lag is critical ({{ $value }} ledgers)"
+        description: "The indexer is {{ $value }} ledgers behind Horizon, which exceeds the critical threshold of 50."
+        runbook_url: "https://docs.example.com/runbooks/indexer-lag"
+    
+    - alert: IndexerLagDegraded
+      expr: tikka_indexer_lag_ledgers > 100
+      for: 5m
+      labels:
+        severity: warning
+        service: indexer
+      annotations:
+        summary: "Indexer lag is degraded ({{ $value }} ledgers)"
+        description: "The indexer is {{ $value }} ledgers behind Horizon, which exceeds the degraded threshold of 100."

@@ -41,6 +41,9 @@ HORIZON_URL=https://horizon.stellar.org
 
 # Health: lag above this many ledgers is reported as degraded (default: 100)
 LAG_THRESHOLD=100
+
+# Health: lag above this many ledgers triggers critical alerts and notifications (default: 50)
+INDEXER_LAG_ALERT_THRESHOLD_LEDGERS=50
 ```
 
 ### Local Postgres with Docker
@@ -139,10 +142,12 @@ Caching logic is wired into the processors in `src/processors/` to ensure consis
 ### Monitoring
 
 CacheService periodically calls Redis `INFO memory` and logs:
+
 - WARNING when usage >= 80%
 - CRITICAL when usage >= 90%
 
 Data monitored:
+
 - `used_memory`
 - `maxmemory`
 - `memory usage percentage`
@@ -150,6 +155,7 @@ Data monitored:
 ### Cache hit/miss tracking
 
 `CacheService` tracks per bucket:
+
 - `raffles`, `users`, `stats`, `others`
 - `hits`, `misses`, `requests`
 - `hit rate` (percent) via `getAllCacheHitRates()`
@@ -165,19 +171,21 @@ Use this data to detect hot sets and to tune TTLs per data type.
 
 ---
 
-
 ## Health Endpoint
 
 `GET /health` is intended for orchestration and monitoring. It reports indexer lag, DB connectivity, and Redis connectivity.
 
 ### Response shape
 
-| Field         | Type              | Description |
-| ------------- | ----------------- | ----------- |
-| `status`      | `'ok' \| 'degraded'` | `ok` when DB and Redis are up and lag is within threshold; `degraded` otherwise. |
-| `lag_ledgers` | `number \| null`   | Current ledger (from Horizon) minus last processed ledger (cursor). `null` if Horizon is unreachable or cursor not yet set. |
-| `db`          | `'ok' \| 'error'`  | PostgreSQL connectivity. |
-| `redis`       | `'ok' \| 'error'`  | Redis connectivity (ping). |
+| Field              | Type                                    | Description                                                                                                                                      |
+| ------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `status`           | `'ok' \| 'degraded'`                    | `ok` when DB and Redis are up and lag is within threshold; `degraded` otherwise.                                                                 |
+| `lag_ledgers`      | `number \| null`                        | Current ledger (from Horizon) minus last processed ledger (cursor). `null` if Horizon is unreachable or cursor not yet set.                      |
+| `lagStatus`        | `'healthy' \| 'degraded' \| 'critical'` | Lag status based on alert thresholds. `healthy` ≤ alert threshold, `degraded` > LAG_THRESHOLD, `critical` > INDEXER_LAG_ALERT_THRESHOLD_LEDGERS. |
+| `db`               | `'ok' \| 'error'`                       | PostgreSQL connectivity.                                                                                                                         |
+| `redis`            | `'ok' \| 'error'`                       | Redis connectivity (ping).                                                                                                                       |
+| `redis_latency_ms` | `number \| null`                        | Redis ping latency in milliseconds.                                                                                                              |
+| `dlq_size`         | `number`                                | Number of events in the dead-letter queue.                                                                                                       |
 
 - **HTTP 200**: `status === 'ok'`.
 - **HTTP 503**: `status === 'degraded'` (e.g. lag &gt; `LAG_THRESHOLD`, or DB/Redis down).
@@ -185,21 +193,68 @@ Use this data to detect hot sets and to tune TTLs per data type.
 Example (200):
 
 ```json
-{ "status": "ok", "lag_ledgers": 12, "db": "ok", "redis": "ok" }
+{
+  "status": "ok",
+  "lag_ledgers": 12,
+  "lagStatus": "healthy",
+  "db": "ok",
+  "redis": "ok",
+  "redis_latency_ms": 5,
+  "dlq_size": 0
+}
 ```
 
 Example (503, degraded by lag):
 
 ```json
-{ "status": "degraded", "lag_ledgers": 150, "db": "ok", "redis": "ok" }
+{
+  "status": "degraded",
+  "lag_ledgers": 150,
+  "lagStatus": "critical",
+  "db": "ok",
+  "redis": "ok",
+  "redis_latency_ms": 8,
+  "dlq_size": 0
+}
+```
+
+### Lag Alerts and Event Emission
+
+The indexer emits `indexer_lag_alert` events when the lag status crosses into critical territory. This allows external services (like PushNotificationService in the backend) to receive real-time notifications.
+
+**Event payload:**
+
+```json
+{
+  "lag_ledgers": 75,
+  "threshold": 50,
+  "timestamp": "2024-01-01T12:00:00.000Z"
+}
+```
+
+**To listen for lag alerts:**
+
+```typescript
+// In your service constructor
+constructor(private healthService: HealthService) {
+  healthService.getEventEmitter().on('indexer_lag_alert', (alert) => {
+    console.log('Critical lag detected:', alert);
+    // Send notification, trigger alert, etc.
+  });
+}
 ```
 
 ### Alerting recommendations
 
 - **Alert if `lag_ledgers` &gt; 100** (or your chosen threshold): indexer is falling behind; investigate ingestion pipeline or Horizon availability.
+- **Alert if `lagStatus` === `'critical'`**: indexer is severely lagging; investigate ingestion pipeline or Horizon availability.
 - **Alert if `db` === `'error'`**: database unreachable; check Postgres and network.
 - **Alert if `redis` === `'error'`**: cache unreachable; optional for correctness but affects performance.
 - Use HTTP 503 as a readiness probe failure in Kubernetes/orchestration so the instance is not sent traffic when degraded.
+
+### Kubernetes Liveness Probe
+
+For Kubernetes deployments, you can configure liveness probes that fail when `lagStatus === 'critical'`. See `kubernetes/liveness-probe-example.yaml` for complete examples.
 
 ---
 
@@ -252,6 +307,7 @@ src/
 ```
 
 ## Resource Guidelines
+
 - **CPU**: 200m requests, 1000m limits
 - **Memory**: 512Mi requests, 1Gi limits
-Indexer is optimized for single-replica execution.
+  Indexer is optimized for single-replica execution.

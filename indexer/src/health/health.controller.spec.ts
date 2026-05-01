@@ -26,9 +26,11 @@ describe('HealthController', () => {
     const okResult: HealthResult = {
       status: 'ok',
       lag_ledgers: 5,
+      lagStatus: 'healthy',
       db: 'ok',
       redis: 'ok',
       redis_latency_ms: 0,
+      dlq_size: 0,
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
@@ -40,9 +42,11 @@ describe('HealthController', () => {
     const degradedResult: HealthResult = {
       status: 'degraded',
       lag_ledgers: 250,
+      lagStatus: 'critical',
       db: 'ok',
       redis: 'ok',
       redis_latency_ms: 0,
+      dlq_size: 0,
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -55,9 +59,11 @@ describe('HealthController', () => {
     const degradedResult: HealthResult = {
       status: 'degraded',
       lag_ledgers: 150,
+      lagStatus: 'degraded',
       db: 'error',
       redis: 'ok',
       redis_latency_ms: 0,
+      dlq_size: 0,
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -76,13 +82,36 @@ describe('HealthController', () => {
     const okResult: HealthResult = {
       status: 'ok',
       lag_ledgers: 0,
+      lagStatus: 'healthy',
       db: 'ok',
       redis: 'ok',
       redis_latency_ms: 0,
+      dlq_size: 0,
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
     await controller.getHealth();
     expect(healthService.getHealth).toHaveBeenCalledTimes(1);
+  });
+
+  it('should include lagStatus field in health response', async () => {
+    const criticalResult: HealthResult = {
+      status: 'degraded',
+      lag_ledgers: 75,
+      lagStatus: 'critical',
+      db: 'ok',
+      redis: 'ok',
+      redis_latency_ms: 10,
+      dlq_size: 0,
+    };
+    healthService.getHealth.mockResolvedValue(criticalResult);
+
+    await expect(controller.getHealth()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+
+    const thrown = await controller.getHealth().catch(e => e);
+    expect(thrown.getResponse()).toMatchObject(criticalResult);
+    expect(criticalResult.lagStatus).toBe('critical');
   });
 });
