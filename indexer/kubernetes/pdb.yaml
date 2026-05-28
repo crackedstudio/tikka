@@ -1,12 +1,12 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: tikka-backend-pdb
+  name: tikka-indexer-pdb
   namespace: tikka
   labels:
-    app: tikka-backend
+    app: tikka-indexer
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: tikka-backend
+      app: tikka-indexer
