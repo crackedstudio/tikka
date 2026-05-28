@@ -24,6 +24,16 @@ To regenerate locally: `cd sdk && npm run docs`
 
 Full ecosystem specification: **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — diagram, data flows, contract interface, API design, and roadmap.
 
+## Release & Versioning
+
+Release policy, versioning rules, and changelog procedures: **[docs/RELEASE.md](./docs/RELEASE.md)**
+
+- SDK: Semantic Versioning (`MAJOR.MINOR.PATCH`)
+- Apps: Calendar Versioning (`YYYY.MM.PATCH`)
+- Database: Timestamped migrations with rollback procedures
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history.
+
 ## Contracts
 
 Soroban (Rust) raffle contracts are maintained **outside this repo**. Deploy and invoke them via the SDK once addresses are configured.
