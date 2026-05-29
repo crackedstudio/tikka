@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OracleLogFields } from '../logger/oracle-logger';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessWorker } from '../queue/randomness.worker';
 import { CommitRevealWorker } from '../queue/commit-reveal.worker';
@@ -144,7 +145,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
             if (primaryTopic.switch() !== StellarSdk.xdr.ScValType.scvSymbol()) return;
 
             const eventName = primaryTopic.sym().toString();
-            this.logger.debug(`Received event: ${eventName} for raffle ${this.raffleContractId}`);
+        this.logger.debug(`Received event: ${eventName} for raffle ${this.raffleContractId}`);
 
             switch (eventName) {
                 case 'RaffleCreated':
@@ -171,13 +172,15 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         const endTime = payload['end_time'];
 
         if (raffleId !== undefined) {
-            this.logger.log(`[RaffleCreated] raffle=${raffleId}, scheduling commit`);
+            const fields: OracleLogFields = { raffle_id: raffleId };
+            this.logger.log(`[RaffleCreated] scheduling commit`, JSON.stringify(fields));
             this.commitRevealWorker.processCommit({ 
                 raffleId, 
                 endTime: endTime ? Number(endTime) : 0 
-            }).catch(err =>
-                this.logger.error(`Commit processing failed for raffle ${raffleId}: ${err.message}`)
-            );
+            }).catch(err => {
+                const errFields: OracleLogFields = { raffle_id: raffleId, outcome: 'failure' };
+                this.logger.error(`Commit processing failed for raffle ${raffleId}: ${err.message}`, JSON.stringify(errFields));
+            });
         }
     }
 
@@ -187,13 +190,15 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         const requestId = payload['request_id'];
 
         if (raffleId !== undefined && requestId !== undefined) {
-            this.logger.log(`[DrawTriggered] raffle=${raffleId}, scheduling reveal`);
+            const fields: OracleLogFields = { raffle_id: raffleId, request_id: String(requestId) };
+            this.logger.log(`[DrawTriggered] scheduling reveal`, JSON.stringify(fields));
             this.commitRevealWorker.processReveal({ 
                 raffleId, 
                 requestId: String(requestId) 
-            }).catch(err =>
-                this.logger.error(`Reveal processing failed for raffle ${raffleId}: ${err.message}`)
-            );
+            }).catch(err => {
+                const errFields: OracleLogFields = { raffle_id: raffleId, request_id: String(requestId), outcome: 'failure' };
+                this.logger.error(`Reveal processing failed for raffle ${raffleId}: ${err.message}`, JSON.stringify(errFields));
+            });
         }
     }
 
@@ -210,9 +215,15 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
             
             // Determine priority using the worker's logic
             const priority = this.randomnessWorker.determinePriority(prizeAmountNum, priorityFlag);
-            
+
+            const fields: OracleLogFields = {
+                raffle_id: raffleId,
+                request_id: reqIdStr,
+                ledger,
+            };
             this.logger.log(
-                `[RandomnessRequested] raffle=${raffleId}, request=${reqIdStr}, prize=${prizeAmountNum} XLM, priority=${priority}`
+                `[RandomnessRequested] prize=${prizeAmountNum} XLM, priority=${priority}`,
+                JSON.stringify(fields),
             );
             
             // Track in lag monitor for health alerting
@@ -233,7 +244,8 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                     this.currentQueueDepth++;
                     this.healthService.updateQueueDepth(this.currentQueueDepth);
                 }).catch(err => {
-                    this.logger.error(`Failed to enqueue randomness job for raffle ${raffleId}: ${err.message}`);
+                    const errFields: OracleLogFields = { raffle_id: raffleId, request_id: reqIdStr, outcome: 'failure' };
+                    this.logger.error(`Failed to enqueue randomness job for raffle ${raffleId}: ${err.message}`, JSON.stringify(errFields));
                 });
             } else {
                 // Fallback for environments without Redis
@@ -243,7 +255,8 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                     prizeAmount: prizeAmountNum,
                     priority,
                 }).catch(err => {
-                    this.logger.error(`Direct request processing failed for raffle ${raffleId}: ${err.message}`);
+                    const errFields: OracleLogFields = { raffle_id: raffleId, request_id: reqIdStr, outcome: 'failure' };
+                    this.logger.error(`Direct request processing failed for raffle ${raffleId}: ${err.message}`, JSON.stringify(errFields));
                 });
             }
         } else {

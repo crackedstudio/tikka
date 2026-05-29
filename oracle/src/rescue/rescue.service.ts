@@ -7,6 +7,7 @@ import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
 import { TxSubmitterService, SubmitResult } from '../submitter/tx-submitter.service';
 import { RandomnessMethod, RandomnessResult } from '../queue/queue.types';
+import { OracleLogFields } from '../logger/oracle-logger';
 
 export interface RescueLogEntry {
   timestamp: Date;
@@ -91,6 +92,7 @@ export class RescueService {
 
       this.logger.log(
         `Re-enqueued job ${jobId} as ${newJob.id} for raffle ${payload.raffleId} by ${operator}`,
+        JSON.stringify({ raffle_id: payload.raffleId, request_id: payload.requestId, outcome: 'success' } as OracleLogFields),
       );
 
       return {
@@ -99,7 +101,10 @@ export class RescueService {
         newJobId: newJob.id?.toString(),
       };
     } catch (error) {
-      this.logger.error(`Failed to re-enqueue job ${jobId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to re-enqueue job ${jobId}: ${error.message}`,
+        JSON.stringify({ outcome: 'failure' } as OracleLogFields),
+      );
       
       this.logRescue({
         timestamp: new Date(),
@@ -178,6 +183,7 @@ export class RescueService {
 
       this.logger.log(
         `Force submitted randomness for raffle ${raffleId}: tx=${result.txHash} by ${operator}`,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, tx_hash: result.txHash, outcome: 'success' } as OracleLogFields),
       );
 
       return {
@@ -188,7 +194,7 @@ export class RescueService {
     } catch (error) {
       this.logger.error(
         `Failed to force submit for raffle ${raffleId}: ${error.message}`,
-        error.stack,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, outcome: 'failure' } as OracleLogFields),
       );
 
       this.logRescue({
@@ -241,6 +247,7 @@ export class RescueService {
 
       this.logger.warn(
         `Force failed job ${jobId} for raffle ${payload.raffleId} by ${operator}: ${reason}`,
+        JSON.stringify({ raffle_id: payload.raffleId, request_id: payload.requestId, outcome: 'failure' } as OracleLogFields),
       );
 
       return {
@@ -248,7 +255,10 @@ export class RescueService {
         message: `Job marked as failed and removed from queue`,
       };
     } catch (error) {
-      this.logger.error(`Failed to force fail job ${jobId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to force fail job ${jobId}: ${error.message}`,
+        JSON.stringify({ outcome: 'failure' } as OracleLogFields),
+      );
 
       this.logRescue({
         timestamp: new Date(),
