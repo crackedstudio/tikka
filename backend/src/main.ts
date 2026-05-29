@@ -14,6 +14,7 @@ import { SentryInterceptor } from "./sentry/sentry.interceptor";
 import { BaseExceptionFilter } from "./common/filters/base-exception.filter";
 import { initSentry } from "./sentry/sentry";
 import { Logger as PinoLogger } from "nestjs-pino";
+import { env } from "./config/env.config";
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -26,8 +27,8 @@ async function bootstrap() {
   )) as NestFastifyApplication;
   app.useLogger(app.get(PinoLogger));
 
-  const isProd = process.env.NODE_ENV === 'production';
-  const isSwaggerEnabled = process.env.SWAGGER_ENABLED === 'true';
+  const isProd = env.server.nodeEnv === 'production';
+  const isSwaggerEnabled = env.server.swaggerEnabled;
 
   const config = new DocumentBuilder()
     .setTitle("Tikka API")
@@ -55,7 +56,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new SentryInterceptor(), new RequestLoggingInterceptor());
   app.useGlobalFilters(new BaseExceptionFilter());
 
-  await app.listen(process.env.PORT ?? 3001, "0.0.0.0");
+  await app.listen(env.server.port, "0.0.0.0");
   logger.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
