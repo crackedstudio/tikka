@@ -118,7 +118,7 @@ describe("EventParserService", () => {
     expect(parsed.type).toBe("RaffleCreated");
     expect(parsed.raffle_id).toBe(1);
     expect(parsed.creator).toBe(creatorAddress);
-    expect(parsed.params.price).toBe(10);
+    expect(parsed.params.ticket_price).toBe("10");
     expect(parsed.params.max_tickets).toBe(100);
   });
 
@@ -139,7 +139,7 @@ describe("EventParserService", () => {
     expect(parsed.type).toBe("RaffleCreated");
     expect(parsed.raffle_id).toBe(1);
     expect(parsed.creator).toBe(creatorAddress);
-    expect(parsed.params.price).toBe(10);
+    expect(parsed.params.ticket_price).toBe("10");
     expect(parsed.params.max_tickets).toBe(100);
   });
 

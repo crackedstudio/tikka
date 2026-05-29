@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { z } from 'zod';
 
 /** Query params for GET /raffles/metadata?ids=1,2,3 */
@@ -21,4 +22,7 @@ export const BatchMetadataQuerySchema = z.object({
     }),
 });
 
-export type BatchMetadataQueryDto = z.infer<typeof BatchMetadataQuerySchema>;
+export class BatchMetadataQueryDto {
+  @ApiProperty({ type: 'string', description: 'Comma-separated list of raffle IDs (max 100)' })
+  ids: number[];
+}

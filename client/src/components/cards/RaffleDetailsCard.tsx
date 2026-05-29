@@ -5,13 +5,7 @@ import AboutRaffle from "../AboutRaffle";
 import EnterRaffle from "../EnterRaffle";
 import RecentParticipants from "../RecentParticipants";
 import ImageCarousel from "../ImageCarousel";
-
-type Countdown = {
-    days: string;
-    hours: string;
-    minutes: string;
-    seconds: string;
-};
+import { CountdownTimer } from "../ui/CountdownTimer";
 
 type RaffleDetailsCardProps = {
     image: string;
@@ -21,7 +15,16 @@ type RaffleDetailsCardProps = {
     prizeValue: string;
     prizeCurrency?: string; // default "ETH"
     countdown: Countdown;
+    /** Ticket price amount */
+    ticketPrice?: string;
+    /** Asset symbol for ticket price, e.g. "XLM", "USDC" */
+    ticketAsset?: string;
     onEnter?: () => void; // optional click handler
+    creator?: string;
+    participants?: number;
+    maxParticipants?: number;
+    ticketsSold?: number;
+    progress?: number;
 };
 
 const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
@@ -32,7 +35,14 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
     prizeValue,
     prizeCurrency = "ETH",
     countdown,
+    ticketPrice,
+    ticketAsset = "XLM",
     onEnter,
+    creator,
+    participants,
+    maxParticipants,
+    ticketsSold,
+    progress,
 }) => {
     // Use images array if available, otherwise fallback to single image
     const displayImages = images && images.length > 0 ? images : [image];
@@ -71,26 +81,34 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
                             </p>
                         </div>
 
+                        {ticketPrice && (
+                            <>
+                                <Line />
+                                <div>
+                                    <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
+                                        Ticket Price:
+                                    </p>
+                                    <p className="font-bold text-xl">
+                                        {ticketPrice}{" "}
+                                        <span className="text-sm font-normal text-gray-500 dark:text-[#9CA3AF]">
+                                            {ticketAsset}
+                                        </span>
+                                    </p>
+                                </div>
+                            </>
+                        )}
+
                         <Line />
 
                         <div>
                             <p className="text-xs text-gray-600 dark:text-[#9CA3AF] mb-2">
                                 Ends In
                             </p>
-                            <div className="flex flex-wrap gap-2 text-sm md:text-[18px]">
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.days}d
-                                </span>
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.hours}h
-                                </span>
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.minutes}m
-                                </span>
-                                <span className="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5">
-                                    {countdown.seconds}s
-                                </span>
-                            </div>
+                            <CountdownTimer 
+                                endTime={endTime}
+                                className="flex flex-wrap gap-2 text-sm md:text-[18px]"
+                                itemClassName="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5 text-white"
+                            />
                         </div>
                     </div>
                 </div>
@@ -101,7 +119,14 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
             <div className="w-full flex flex-col-reverse gap-6 md:flex-row md:items-start md:gap-12">
                 {/* Left: About (takes remaining space on md+) */}
                 <div className="w-full md:flex-1">
-                    <AboutRaffle />
+                    <AboutRaffle 
+                        description={body}
+                        creator={creator}
+                        participants={participants}
+                        maxParticipants={maxParticipants}
+                        ticketsSold={ticketsSold}
+                        progress={progress}
+                    />
                 </div>
 
                 {/* Right: Enter card (fixed-ish width on md+, full width on mobile) */}

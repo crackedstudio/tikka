@@ -29,6 +29,8 @@ export const API_CONFIG = {
     search: '/search',
     leaderboard: '/leaderboard',
     stats: '/stats/platform',
+    transparencyStats: '/stats/transparency',
+    verify: '/stats/verify',
     notifications: {
       subscribe: '/notifications/subscribe',
       unsubscribe: (raffleId: string) => `/notifications/subscribe/${raffleId}`,

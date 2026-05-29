@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Redis } from 'ioredis';
+import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 
 export type CacheBucket = 'raffles' | 'users' | 'stats' | 'others';
@@ -13,7 +13,7 @@ export type CacheStats = {
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
-  private redis: Redis;
+  private redis!: InstanceType<typeof Redis>;
 
   private readonly MEM_WARN_THRESHOLD = 80;
   private readonly MEM_CRIT_THRESHOLD = 90;
@@ -35,13 +35,13 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     this.redis = new Redis({
       host,
       port,
-      retryStrategy: (times) => {
+      retryStrategy: (times: number) => {
         const delay = Math.min(times * 50, 2000);
         return delay;
       },
     });
 
-    this.redis.on('error', (err) => {
+    this.redis.on('error', (err: Error) => {
       this.logger.error('Redis connection error', err.stack);
     });
 

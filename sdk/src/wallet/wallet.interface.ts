@@ -9,6 +9,7 @@ export enum WalletName {
   XBull = 'xbull',
   Albedo = 'albedo',
   LOBSTR = 'lobstr',
+  Rabet = 'rabet',
   Mock = 'mock',
 }
 

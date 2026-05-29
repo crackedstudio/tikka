@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { z } from 'zod';
 
 /** Query params for GET /monitor/jobs */
@@ -7,4 +8,14 @@ export const JobsQuerySchema = z.object({
   cursor: z.string().optional(),
 });
 
-export type JobsQueryDto = z.infer<typeof JobsQuerySchema>;
+export class JobsQueryDto {
+  @ApiPropertyOptional({ enum: ['pending', 'completed', 'failed'], description: 'Job status' })
+  status?: 'pending' | 'completed' | 'failed';
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 50, description: 'Number of jobs to return' })
+  limit?: number;
+
+  @ApiPropertyOptional({ description: 'Pagination cursor' })
+  cursor?: string;
+}
+

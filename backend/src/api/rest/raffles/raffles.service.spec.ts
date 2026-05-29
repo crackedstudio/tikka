@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { RafflesService } from './raffles.service';
 import { IndexerService, IndexerRaffleData } from '../../../services/indexer.service';
 import { MetadataService, RaffleMetadata } from '../../../services/metadata.service';
@@ -25,6 +25,7 @@ const mockMetadata: RaffleMetadata = {
   title: 'Test Raffle',
   description: 'A test raffle',
   image_url: 'https://example.com/img.png',
+  image_urls: ['https://example.com/img.png'],
   category: 'art',
   metadata_cid: 'ipfs://abc',
   created_at: '2026-01-01T00:00:00Z',
@@ -154,11 +155,28 @@ describe('RafflesService', () => {
   describe('upsertMetadata', () => {
     it('delegates to metadataService.upsertMetadata', async () => {
       const payload = { title: 'New Title' };
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
       metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title' });
 
-      await service.upsertMetadata(1, payload);
+      await service.upsertMetadata(1, payload, 'GABC123');
 
       expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
+    });
+
+    it('throws NotFoundException when raffle is missing in indexer', async () => {
+      indexerService.getRaffle.mockResolvedValue(null);
+
+      await expect(
+        service.upsertMetadata(99, { title: 'Nope' }, 'GABC123'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when requester is not raffle creator', async () => {
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
+
+      await expect(
+        service.upsertMetadata(1, { title: 'Nope' }, 'GOTHER999'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

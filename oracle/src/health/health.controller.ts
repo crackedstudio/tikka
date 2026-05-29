@@ -53,6 +53,7 @@ export class HealthController {
         streamUptimeMs: metrics.streamUptimeMs,
         lastStreamError: metrics.lastStreamError,
       },
+      queueDepthByTier: this.healthService.getQueueDepthByTier(),
       lag: {
         pendingCount: pendingLag.length,
         pendingRequests: pendingLag.map(r => ({

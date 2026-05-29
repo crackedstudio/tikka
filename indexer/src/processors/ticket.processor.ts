@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { DataSource, QueryRunner } from "typeorm";
+import { QueryRunner } from "typeorm";
 import { TicketEntity } from "../database/entities/ticket.entity";
 import { RaffleEntity } from "../database/entities/raffle.entity";
 import { CacheService } from "../cache/cache.service";
@@ -10,7 +10,6 @@ export class TicketProcessor {
   private readonly logger = new Logger(TicketProcessor.name);
 
   constructor(
-    private dataSource: DataSource,
     private cacheService: CacheService,
     private userProcessor: UserProcessor,
   ) {}
@@ -26,75 +25,54 @@ export class TicketProcessor {
     totalCost: string,
     ledger: number,
     txHash: string,
-  ): Promise<QueryRunner> {
+    queryRunner: QueryRunner,
+  ): Promise<void> {
     this.logger.log(
       `Handling TicketPurchased for raffle ${raffleId} by ${buyer}`,
     );
-    const queryRunner = this.dataSource.createQueryRunner();
 
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      // 1. Insert tickets idempotently
-      for (const ticketId of ticketIds) {
-        await queryRunner.manager
-          .createQueryBuilder()
-          .insert()
-          .into(TicketEntity)
-          .values({
-            id: ticketId,
-            raffleId,
-            owner: buyer,
-            purchasedAtLedger: ledger,
-            purchaseTxHash: txHash,
-            refunded: false,
-          })
-          .orIgnore() // Ignore if purchaseTxHash or id already exists
-          .execute();
-      }
-
-      // 2. Update the raffle's ticketsSold count atomically
-      // By using an atomic increment, we avoid race conditions if multiple purchases happen at once
-      const ticketsCount = ticketIds.length;
+    for (const ticketId of ticketIds) {
       await queryRunner.manager
         .createQueryBuilder()
-        .update(RaffleEntity)
-        .set({
-          ticketsSold: () => `tickets_sold + ${ticketsCount}`,
+        .insert()
+        .into(TicketEntity)
+        .values({
+          id: ticketId,
+          raffleId,
+          owner: buyer,
+          purchasedAtLedger: ledger,
+          purchaseTxHash: txHash,
+          refunded: false,
         })
-        .where("id = :raffleId", { raffleId })
+        .orIgnore()
         .execute();
-
-      await this.userProcessor.handleTicketPurchased(
-        raffleId,
-        buyer,
-        ticketIds.length,
-        ledger,
-        txHash,
-        queryRunner,
-      );
-
-      // Invalidate relevant caches
-      await this.cacheService.invalidateRaffleDetail(raffleId.toString());
-      await this.cacheService.invalidateUserProfile(buyer);
-
-      return queryRunner;
-      await this.cacheService.invalidatePlatformStats();
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      await queryRunner.release();
-      this.logger.error(
-        `Error processing TicketPurchased for txHash ${txHash}`,
-        error,
-      );
-      throw error;
     }
+
+    const ticketsCount = ticketIds.length;
+    await queryRunner.manager
+      .createQueryBuilder()
+      .update(RaffleEntity)
+      .set({
+        ticketsSold: () => `tickets_sold + ${ticketsCount}`,
+      })
+      .where("id = :raffleId", { raffleId })
+      .execute();
+
+    await this.userProcessor.handleTicketPurchased(
+      raffleId,
+      buyer,
+      ticketIds.length,
+      ledger,
+      txHash,
+      queryRunner,
+    );
+
+    await this.cacheService.invalidateRaffleDetail(raffleId.toString());
+    await this.cacheService.invalidateUserProfile(buyer);
   }
 
   /**
    * Called when a TicketRefunded event is indexed.
-   * Marks a ticket as refunded.
    */
   async handleTicketRefunded(
     raffleId: number,
@@ -102,47 +80,31 @@ export class TicketProcessor {
     recipient: string,
     amount: string,
     txHash: string,
-  ): Promise<QueryRunner> {
+    queryRunner: QueryRunner,
+  ): Promise<void> {
     this.logger.log(
       `Handling TicketRefunded for raffle ${raffleId}, ticket ${ticketId}`,
     );
-    const queryRunner = this.dataSource.createQueryRunner();
 
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await queryRunner.manager
+      .createQueryBuilder()
+      .update(TicketEntity)
+      .set({
+        refunded: true,
+        refundTxHash: txHash,
+      })
+      .where("id = :ticketId AND raffle_id = :raffleId", {
+        ticketId,
+        raffleId,
+      })
+      .execute();
 
-    try {
-      // 1. Update the ticket
-      await queryRunner.manager
-        .createQueryBuilder()
-        .update(TicketEntity)
-        .set({
-          refunded: true,
-          refundTxHash: txHash,
-        })
-        .where("id = :ticketId AND raffle_id = :raffleId", {
-          ticketId,
-          raffleId,
-        })
-        .execute();
+    await this.userProcessor.handleTicketRefunded(
+      recipient,
+      raffleId.toString(),
+    );
 
-      // Note: We might want to decrement `ticketsSold` depending on business logic,
-      // but usually refund means the raffle was cancelled, so `ticketsSold` doesn't matter much.
-      // If we do want to decrement, we can add it here.
-
-      // Invalidate caches
-      await this.cacheService.invalidateRaffleDetail(raffleId.toString());
-      await this.cacheService.invalidateUserProfile(recipient);
-
-      return queryRunner;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      await queryRunner.release();
-      this.logger.error(
-        `Error processing TicketRefunded for txHash ${txHash}`,
-        error,
-      );
-      throw error;
-    }
+    await this.cacheService.invalidateRaffleDetail(raffleId.toString());
+    await this.cacheService.invalidateUserProfile(recipient);
   }
 }

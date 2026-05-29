@@ -3,6 +3,37 @@
  * Used by env validation and runtime env.config getters so behavior stays aligned.
  */
 export const STELLAR_NETWORK_IDS = ['testnet', 'mainnet'] as const;
+
+/**
+ * Whitelisted asset codes accepted for ticket prices.
+ * Extend via ALLOWED_TICKET_ASSETS env var (comma-separated codes, e.g. "XLM,USDC,yXLM").
+ */
+export const DEFAULT_ALLOWED_TICKET_ASSETS = ['XLM', 'USDC', 'yXLM'] as const;
+export type AllowedTicketAsset = (typeof DEFAULT_ALLOWED_TICKET_ASSETS)[number];
+
+/**
+ * Returns the effective asset whitelist, merging the default list with any
+ * additional codes supplied via the ALLOWED_TICKET_ASSETS environment variable.
+ */
+export function resolveAllowedTicketAssets(
+  envLike: Record<string, string | undefined> = process.env,
+): string[] {
+  const extra = envLike.ALLOWED_TICKET_ASSETS?.trim();
+  if (!extra) return [...DEFAULT_ALLOWED_TICKET_ASSETS];
+  const extras = extra.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const merged = new Set([...DEFAULT_ALLOWED_TICKET_ASSETS.map((a) => a.toUpperCase()), ...extras]);
+  return Array.from(merged);
+}
+
+/**
+ * Returns true when the given asset code is on the whitelist.
+ */
+export function isAllowedTicketAsset(
+  code: string,
+  envLike: Record<string, string | undefined> = process.env,
+): boolean {
+  return resolveAllowedTicketAssets(envLike).includes(code.toUpperCase());
+}
 export type StellarNetworkId = (typeof STELLAR_NETWORK_IDS)[number];
 
 export const STELLAR_NETWORK_DEFAULTS: Record<

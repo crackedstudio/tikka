@@ -31,4 +31,9 @@ export class HorizonService {
     const stats = await this.server.feeStats();
     return Number(stats.last_ledger_base_fee);
   }
+
+  /** Get full fee stats from network */
+  async getFeeStats(): Promise<any> {
+    return this.server.feeStats();
+  }
 }

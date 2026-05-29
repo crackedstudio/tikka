@@ -6,24 +6,38 @@ import { LedgerPollerService } from "./ledger-poller.service";
 import { EventHandlersModule } from "./event-handlers.module";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
+import { DeadLetterQueueService } from "./dead-letter-queue.service";
 import { ProcessorsModule } from "../processors/processors.module";
 import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity";
+import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
+import { DlqService } from "./dlq.service";
+import { ReorgRollbackService } from "./reorg-rollback.service";
 
 @Module({
-  imports: [EventHandlersModule, ProcessorsModule, TypeOrmModule.forFeature([IndexerCursorEntity])],
+  imports: [
+    EventHandlersModule,
+    ProcessorsModule,
+    TypeOrmModule.forFeature([IndexerCursorEntity, DeadLetterEventEntity]),
+  ],
   providers: [
     CursorManagerService,
     EventParserService,
     LedgerPollerService,
     DryRunService,
+    DeadLetterQueueService,
     IngestionDispatcherService,
+    DlqService,
+    ReorgRollbackService,
   ],
   exports: [
     CursorManagerService,
     EventParserService,
     LedgerPollerService,
     DryRunService,
+    DeadLetterQueueService,
     IngestionDispatcherService,
+    DlqService,
+    ReorgRollbackService,
     EventHandlersModule,
   ],
 })

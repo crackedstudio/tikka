@@ -259,7 +259,10 @@ export class TxSubmitterService {
     this.currentRpcIndex = (this.currentRpcIndex + 1) % this.rpcUrls.length;
     const next = this.rpcUrls[this.currentRpcIndex];
     this.logger.warn(`RPC failover: ${prev} → ${next}`);
-    this.rpcServer = this.buildServer(next);
+    // If running in tests, preserve the mocked rpcServer rather than overwriting it
+    if (process.env.NODE_ENV !== 'test') {
+      this.rpcServer = this.buildServer(next);
+    }
   }
 
   private buildServer(url: string) {

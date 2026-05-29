@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   MetadataService,
   RaffleMetadata,
@@ -10,6 +10,7 @@ import {
   IndexerListRafflesFilters,
   IndexerListRafflesResponse,
 } from '../../../services/indexer.service';
+import { PurchaseTicketPayload } from './dto';
 
 /** Merged raffle detail: contract data + off-chain metadata */
 export interface RaffleDetailResponse {
@@ -32,6 +33,7 @@ export interface RaffleDetailResponse {
   title?: string;
   description?: string;
   image_url?: string | null;
+  image_urls?: string[] | null;
   category?: string | null;
 }
 
@@ -61,7 +63,22 @@ export class RafflesService {
   /**
    * Create or update raffle metadata (title, description, image_url, category, metadata_cid).
    */
-  async upsertMetadata(raffleId: number, payload: UpsertMetadataPayload) {
+  async upsertMetadata(
+    raffleId: number,
+    payload: UpsertMetadataPayload,
+    requesterAddress: string,
+  ) {
+    const raffle = await this.indexerService.getRaffle(raffleId);
+    if (!raffle) {
+      throw new NotFoundException(`Raffle ${raffleId} not found`);
+    }
+
+    if (raffle.creator.toLowerCase() !== requesterAddress.toLowerCase()) {
+      throw new ForbiddenException(
+        `Only raffle creator ${raffle.creator} can update metadata for raffle ${raffleId}`,
+      );
+    }
+
     return this.metadataService.upsertMetadata(raffleId, payload);
   }
 
@@ -79,6 +96,25 @@ export class RafflesService {
     }
 
     return this.mergeRaffleDetail(id, indexerData ?? null, metadata ?? null);
+  }
+
+  /**
+   * Purchase tickets for a raffle.
+   * The actual on-chain transaction is submitted by the client via the SDK;
+   * this endpoint records the intent and returns a confirmation.
+   */
+  async purchaseTickets(
+    raffleId: number,
+    payload: PurchaseTicketPayload,
+    walletAddress: string,
+  ): Promise<{ raffleId: number; quantity: number; buyer: string }> {
+    const raffle = await this.indexerService.getRaffle(raffleId);
+    if (!raffle) {
+      throw new NotFoundException(`Raffle ${raffleId} not found`);
+    }
+
+    // TODO: submit on-chain transaction via SDK and persist DB record
+    return { raffleId, quantity: payload.quantity, buyer: walletAddress };
   }
 
   private mergeRaffleDetail(
@@ -108,6 +144,7 @@ export class RafflesService {
       response.title = metadata.title;
       response.description = metadata.description;
       response.image_url = metadata.image_url;
+      response.image_urls = metadata.image_urls;
       response.category = metadata.category;
       // Prefer metadata_cid from metadata if contract doesn't have it
       if (!response.metadata_cid && metadata.metadata_cid) {
