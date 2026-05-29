@@ -209,17 +209,26 @@ The service requires the following environment variables for queue operations:
 
 ## Manual Rescue Tool
 
-When jobs fail after all retries, operators can use the rescue CLI for manual intervention:
+When jobs fail after all retries, operators can use the rescue CLI for manual intervention. Mutating commands are dry-run by default and require `--execute` to actually apply changes.
 
 ```bash
-# Re-enqueue a failed job
+# Dry-run re-enqueue (preview only)
 npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason <reason>
 
-# Force submit randomness manually
+# Execute re-enqueue
+npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason <reason> --execute
+
+# Dry-run force submit randomness
 npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason <reason>
 
-# Mark job as failed (invalid/malicious)
+# Execute force submit with an optional prize amount
+npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason <reason> --prize 1000 --execute
+
+# Dry-run force fail
 npm run oracle:rescue force-fail <jobId> --operator <name> --reason <reason>
+
+# Execute force fail
+npm run oracle:rescue force-fail <jobId> --operator <name> --reason <reason> --execute
 
 # List failed jobs
 npm run oracle:rescue list-failed
