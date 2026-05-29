@@ -35,8 +35,8 @@ A raffle's lifecycle in Tikka spans **8 components** and **6 key stages**:
 
 | Step | Owned By | Working Directory |
 |---|---|---|
-| UI/UX | **Client** | [client/src/routes/create-raffle/](../client/src/routes/) |
-| Transaction building | **SDK** | [sdk/src/services/raffle.service.ts](../sdk/src/services/) |
+| UI/UX | **Client** | [client/src/pages/CreateRaffle.tsx](../client/src/pages/) |
+| Transaction building | **SDK** | [sdk/src/modules/raffle/](../sdk/src/modules/) |
 | Onchain execution | **Contract** | `tikka-contracts/contracts/raffle/src/lib.rs` |
 | Metadata validation | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
 | Event emission | **Contract** | `tikka-contracts/contracts/raffle/src/events.rs` |
@@ -98,12 +98,12 @@ User                 Client              SDK              Contract          Back
 
 | Step | Owned By | Working Directory |
 |---|---|---|
-| UI purchase flow | **Client** | [client/src/components/RaffleDetail/](../client/src/components/) |
-| Transaction building | **SDK** | [sdk/src/services/raffle.service.ts](../sdk/src/services/) |
+| UI purchase flow | **Client** | [client/src/pages/RafflePage.tsx](../client/src/pages/) |
+| Transaction building | **SDK** | [sdk/src/modules/raffle/](../sdk/src/modules/) |
 | Onchain logic | **Contract** | `tikka-contracts/contracts/raffle/src/ticket.rs` |
 | Event listening | **Indexer** | [indexer/src/ingestor/](../indexer/src/ingestor/) |
 | Event processing | **Indexer** | [indexer/src/processors/ticket.processor.ts](../indexer/src/processors/) |
-| API response | **Backend** | [backend/src/api/rest/raffles/raffles.controller.ts](../backend/src/api/rest/raffles/) |
+| API response | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
 
 ### Event Emitted
 
@@ -164,8 +164,8 @@ User              Client           SDK          Contract        Indexer        B
 
 | Step | Owned By | Working Directory |
 |---|---|---|
-| Manual trigger UI | **Client** | [client/src/components/RaffleDetail/](../client/src/components/) |
-| Transaction building | **SDK** | [sdk/src/services/raffle.service.ts](../sdk/src/services/) |
+| Manual trigger UI | **Client** | [client/src/pages/RafflePage.tsx](../client/src/pages/) |
+| Transaction building | **SDK** | [sdk/src/modules/raffle/](../sdk/src/modules/) |
 | State transition | **Contract** | `tikka-contracts/contracts/raffle/src/raffle.rs` |
 | Event processing | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
 | Status update | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
@@ -225,11 +225,11 @@ User/Host             Client               SDK             Contract        Index
 |---|---|---|
 | Event listening | **Oracle** | [oracle/src/listener/](../oracle/src/listener/) |
 | Queue management | **Oracle** | [oracle/src/queue/](../oracle/src/queue/) |
-| Job enqueuing | **Oracle** | [oracle/src/submitter/](../oracle/src/submitter/) |
-| Cost estimation | **Oracle** | [oracle/src/randomness/cost.estimator.ts](../oracle/src/randomness/) |
-| Randomness computation (VRF) | **Oracle** | [oracle/src/randomness/vrf.service.ts](../oracle/src/randomness/) |
-| Randomness computation (PRNG) | **Oracle** | [oracle/src/randomness/prng.service.ts](../oracle/src/randomness/) |
-| Transaction submission | **Oracle** | [oracle/src/submitter/submitter.service.ts](../oracle/src/submitter/) |
+| Job enqueuing | **Oracle** | [oracle/src/queue/](../oracle/src/queue/) |
+| Cost estimation | **Oracle** | [oracle/src/randomness/](../oracle/src/randomness/) |
+| Randomness computation (VRF) | **Oracle** | [oracle/src/randomness/](../oracle/src/randomness/) |
+| Randomness computation (PRNG) | **Oracle** | [oracle/src/randomness/](../oracle/src/randomness/) |
+| Transaction submission | **Oracle** | [oracle/src/submitter/](../oracle/src/submitter/) |
 | Contract interaction | **Contract** | `tikka-contracts/contracts/raffle/src/randomness.rs` |
 
 ### Events Emitted
@@ -341,8 +341,8 @@ Stellar Ledger      Oracle Listener    Queue (Redis)    Randomness Service    Co
 | Winner selection logic | **Contract** | `tikka-contracts/contracts/raffle/src/payout.rs` |
 | Event emission | **Contract** | `tikka-contracts/contracts/raffle/src/events.rs` |
 | Event processing | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
-| Leaderboard trigger | **Indexer** → **Backend** | [backend/src/services/leaderboard/](../backend/src/services/) |
-| API response | **Backend** | [backend/src/api/rest/raffles/raffles.controller.ts](../backend/src/api/rest/raffles/) |
+| Leaderboard trigger | **Indexer** → **Backend** | [backend/src/services/](../backend/src/services/) |
+| API response | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
 
 ### Event Emitted
 
@@ -416,10 +416,10 @@ Oracle              Contract           Indexer          Backend          User
 | Step | Owned By | Working Directory |
 |---|---|---|
 | Event processing | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
-| Leaderboard service | **Backend** | [backend/src/services/leaderboard/](../backend/src/services/) |
-| Leaderboard controller | **Backend** | [backend/src/api/rest/leaderboard/](../backend/src/api/rest/) |
+| Leaderboard service | **Backend** | [backend/src/services/](../backend/src/services/) |
+| Leaderboard controller | **Backend** | [backend/src/api/rest/stats/](../backend/src/api/rest/) |
 | Real-time updates | **Backend** | [backend/src/api/rest/](../backend/src/api/rest/) |
-| Statistics | **Backend** | [backend/src/services/stats/](../backend/src/services/) |
+| Statistics | **Backend** | [backend/src/services/](../backend/src/services/) |
 
 ### Statistics Calculated
 
@@ -552,13 +552,13 @@ Indexer            Backend (Leaderboard Service)    Supabase DB    WebSocket/API
 ### Client ↔ SDK
 
 - **Responsibility**: SDK abstracts all contract interaction
-- **Reference**: [sdk/src/services/raffle.service.ts](../sdk/src/services/)
+- **Reference**: [sdk/src/modules/raffle/](../sdk/src/modules/)
 - **Interaction**: Client consumes SDK methods for `createRaffle()`, `buyTicket()`, `triggerDraw()`
 
 ### SDK ↔ Contract
 
 - **Responsibility**: SDK builds, simulates, signs, and submits transactions
-- **Reference**: [sdk/src/classes/](../sdk/src/)
+- **Reference**: [sdk/src/](../sdk/src/)
 - **Interaction**: TX building, fee estimation, keypair management
 
 ### Indexer ↔ Backend
