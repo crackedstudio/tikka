@@ -40,6 +40,116 @@ The docs are organized by module: **Raffle** · **Ticket** · **Wallet** · **Us
 
 Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section 2 — tikka-sdk).
 
+## Examples
+
+All runnable examples live in [`examples/`](./examples/). They use `MockWalletAdapter` so they compile and run without a browser wallet — swap it for `FreighterAdapter` or another adapter when you need real signing.
+
+**Setup:**
+```bash
+cp examples/.env.example examples/.env
+# fill in TIKKA_PUBLIC_KEY and any other vars you need
+```
+
+**Type-check all examples (no network required):**
+```bash
+npm run examples:check
+```
+
+### [quickstart.ts](./examples/quickstart.ts)
+
+End-to-end walkthrough: bootstrap → create raffle → buy tickets → read state.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | `testnet` \| `mainnet` \| `standalone` |
+| `TIKKA_PUBLIC_KEY` | no | mock key | Stellar G… address |
+
+```bash
+TIKKA_NETWORK=testnet npx ts-node examples/quickstart.ts
+```
+
+### [create-raffle.ts](./examples/create-raffle.ts)
+
+Create a new raffle on-chain with configurable price, asset, and duration.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_PUBLIC_KEY` | **yes** | — | Signer address |
+| `TIKKA_TICKET_PRICE` | no | `1` | Amount per ticket |
+| `TIKKA_ASSET_CODE` | no | `XLM` | Asset code |
+| `TIKKA_ASSET_ISSUER` | no | `""` | Issuer for non-native assets |
+| `TIKKA_MAX_TICKETS` | no | `50` | Max tickets available |
+| `TIKKA_DURATION_HOURS` | no | `24` | Hours until raffle closes |
+| `TIKKA_METADATA_CID` | no | `""` | IPFS CID for metadata |
+
+```bash
+TIKKA_PUBLIC_KEY=G... npx ts-node examples/create-raffle.ts
+# USDC example:
+TIKKA_ASSET_CODE=USDC TIKKA_ASSET_ISSUER=GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN \
+  TIKKA_PUBLIC_KEY=G... npx ts-node examples/create-raffle.ts
+```
+
+### [buy-tickets.ts](./examples/buy-tickets.ts)
+
+Purchase tickets for an existing raffle, with pre-flight status checks.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_PUBLIC_KEY` | **yes** | — | Buyer address |
+| `TIKKA_RAFFLE_ID` | **yes** | — | Numeric raffle ID |
+| `TIKKA_QUANTITY` | no | `1` | Number of tickets |
+
+```bash
+TIKKA_PUBLIC_KEY=G... TIKKA_RAFFLE_ID=1 npx ts-node examples/buy-tickets.ts
+```
+
+### [listen-events.ts](./examples/listen-events.ts)
+
+Poll Soroban contract events (`RaffleCreated`, `TicketPurchased`, `RaffleFinalized`) with optional raffle filter. Runs until Ctrl+C.
+
+> **Network required** — connects to the Soroban RPC to stream events.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_RAFFLE_ID` | no | all | Filter events for one raffle |
+| `TIKKA_POLL_MS` | no | `5000` | Polling interval (ms) |
+| `TIKKA_CONTRACT_ID` | no | built-in | Override contract address |
+
+```bash
+TIKKA_NETWORK=testnet npx ts-node examples/listen-events.ts
+# filter to raffle #1:
+TIKKA_RAFFLE_ID=1 npx ts-node examples/listen-events.ts
+```
+
+### [offline-signing.ts](./examples/offline-signing.ts)
+
+Cold-wallet / air-gapped signing flow. Step 1 builds an unsigned XDR; Step 3 submits a pre-signed XDR. Useful for multisig and hardware wallets.
+
+> **Network required** — Step 1 calls `simulateTransaction`; Step 3 submits to the network.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_PUBLIC_KEY` | **yes** | — | Source account address |
+| `TIKKA_SIGNED_XDR` | no | — | Provide to skip to Step 3 (submit) |
+
+```bash
+# Step 1 — build unsigned XDR:
+TIKKA_PUBLIC_KEY=G... npx ts-node examples/offline-signing.ts
+
+# Step 3 — submit after signing offline:
+TIKKA_PUBLIC_KEY=G... TIKKA_SIGNED_XDR=<xdr> npx ts-node examples/offline-signing.ts
+```
+
+### [albedo-wallet.ts](./examples/albedo-wallet.ts) · [rabet-wallet.ts](./examples/rabet-wallet.ts)
+
+Browser-wallet integration demos. These require a browser environment (Albedo opens a popup; Rabet needs the extension installed).
+
+> **Browser + wallet required** — not runnable via `ts-node` in a plain terminal.
+
 ## Wallet Adapters
 
 The SDK provides a unified interface for multiple Stellar wallets. All adapters implement the same `WalletAdapter` interface with `getPublicKey()` and `signTransaction(xdr)` methods.
