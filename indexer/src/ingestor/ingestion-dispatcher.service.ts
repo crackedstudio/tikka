@@ -250,7 +250,7 @@ export class IngestionDispatcherService {
           .createQueryBuilder()
           .insert()
           .into(RaffleEventEntity)
-          .values(row)
+          .values(row as never)
           .orIgnore()
           .execute();
       }
