@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { rpc } from '@stellar/stellar-sdk';
+import { rpc, xdr } from '@stellar/stellar-sdk';
 import { DEFAULT_RPC_CONFIG } from './network.config';
 import type { NetworkConfig, RpcConfig } from './network.config';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { withRetry } from '../utils/retry';
+
 
 interface RequestOptions {
   disableRetries?: boolean;
@@ -103,6 +105,27 @@ export class RpcService {
   }
 
   /**
+   * Estimate fee using Horizon's fee stats endpoint.
+   */
+  async estimateFee(operation?: xdr.Operation): Promise<{ minFee: number; suggestedFee: number }> {
+    const fetchClient = this.resolveFetchClient();
+    try {
+      const response = await fetchClient(`${this.networkConfig.horizonUrl}/fee_stats`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch fee stats: ${response.statusText}`);
+      }
+      const stats = await response.json();
+      return {
+        minFee: Number(stats.fee_charged?.min ?? 100),
+        suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
+      };
+    } catch (err: any) {
+      console.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
+      return { minFee: 100, suggestedFee: 100 };
+    }
+  }
+
+  /**
    * Internal request handler with automatic failover and custom transport.
    */
   private async request<T>(
@@ -140,37 +163,25 @@ export class RpcService {
     options: RequestOptions = {},
   ): Promise<T> {
     const retriesEnabled = this.rpcConfig.enableRetries !== false && !options.disableRetries;
-    const maxAttempts = retriesEnabled ? Math.max(1, this.rpcConfig.maxRetryAttempts ?? 3) : 1;
-    let lastError: unknown;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const result = await this.executeSingleRequest<T>(url, method, params);
-        if (attempt > 1) {
-          console.info(`[RpcService] ${method} succeeded on retry ${attempt}/${maxAttempts} (${url})`);
-        }
-        return result;
-      } catch (error: any) {
-        lastError = error;
-        const shouldRetry = attempt < maxAttempts && this.shouldRetry(error);
-
-        if (!shouldRetry) {
-          break;
-        }
-
-        const delay = Math.round(
-          (this.rpcConfig.retryBaseDelayMs ?? 300) *
-          Math.pow(this.rpcConfig.retryBackoffFactor ?? 2, attempt - 1),
-        );
-        console.warn(
-          `[RpcService] ${method} retry ${attempt}/${maxAttempts} in ${delay}ms (${url}): ${error?.message ?? error}`,
-        );
-        await this.sleep(delay);
-      }
+    
+    if (!retriesEnabled) {
+      return this.executeSingleRequest<T>(url, method, params);
     }
 
-    console.error(`[RpcService] ${method} failed after ${maxAttempts} attempt(s) (${url})`);
-    throw lastError;
+    return withRetry(
+      () => this.executeSingleRequest<T>(url, method, params),
+      {
+        maxAttempts: this.rpcConfig.maxRetryAttempts ?? 3,
+        baseDelayMs: this.rpcConfig.retryBaseDelayMs ?? 500,
+        maxDelayMs: this.rpcConfig.maxRetryDelayMs ?? 8000,
+        retryOn: this.rpcConfig.retryableStatusCodes ?? [503, 429, 'ECONNRESET'],
+        onRetry: (attempt, error, delay) => {
+          console.warn(
+            `[RpcService] ${method} retry ${attempt} in ${Math.round(delay)}ms (${url}): ${error?.message ?? error}`,
+          );
+        },
+      },
+    );
   }
 
   private async executeSingleRequest<T>(
@@ -241,19 +252,6 @@ export class RpcService {
       TikkaSdkErrorCode.NetworkError,
       'No fetch implementation found. Provide rpcConfig.fetchClient (required in some React Native and older Node runtimes).',
     );
-  }
-
-  private shouldRetry(error: any): boolean {
-    if (error?.code === TikkaSdkErrorCode.Timeout) return true;
-    const status = error?.cause?.status ?? error?.status;
-    if (typeof status === 'number') {
-      return (this.rpcConfig.retryableStatusCodes ?? []).includes(status);
-    }
-    return error?.code === TikkaSdkErrorCode.NetworkError;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private normalizeConfig(config: RpcConfig): RpcConfig {

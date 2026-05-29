@@ -18,6 +18,7 @@
 
 // ── Contract bindings & types (public API surface) ──────────────────────────
 export { ContractFn, RaffleStatus } from './contract/bindings';
+export { ContractResponse } from './contract/response';
 export type { TxMemo } from './contract/contract.service';
 export { TransactionLifecycle } from './contract/lifecycle';
 export type {
@@ -47,3 +48,6 @@ export * from './fee-estimator';
 
 // ── Utils ───────────────────────────────────────────────────────────────────
 export * from './utils';
+
+// ── Auth (SEP-10) ───────────────────────────────────────────────────────────
+export * from './auth/sep10';

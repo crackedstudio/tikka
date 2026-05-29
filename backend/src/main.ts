@@ -10,6 +10,7 @@ import { AppModule } from "./app.module";
 import { configureSecurity } from "./bootstrap";
 import { MAX_UPLOAD_BYTES } from "./config/upload.config";
 import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
+import { SentryInterceptor } from "./sentry/sentry.interceptor";
 import { BaseExceptionFilter } from "./common/filters/base-exception.filter";
 import { initSentry } from "./sentry/sentry";
 import { Logger as PinoLogger } from "nestjs-pino";
@@ -25,6 +26,9 @@ async function bootstrap() {
   )) as NestFastifyApplication;
   app.useLogger(app.get(PinoLogger));
 
+  const isProd = process.env.NODE_ENV === 'production';
+  const isSwaggerEnabled = process.env.SWAGGER_ENABLED === 'true';
+
   const config = new DocumentBuilder()
     .setTitle("Tikka API")
     .setDescription("The Tikka API description")
@@ -34,7 +38,10 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app as any, config);
-  SwaggerModule.setup("docs", app as any, document);
+
+  if (!isProd || isSwaggerEnabled) {
+    SwaggerModule.setup("api/docs", app as any, document);
+  }
   await configureSecurity(app);
 
   // Using 'as any' bypasses the type mismatch error between Fastify versions
@@ -45,7 +52,7 @@ async function bootstrap() {
     },
   });
 
-  app.useGlobalInterceptors(new RequestLoggingInterceptor());
+  app.useGlobalInterceptors(new SentryInterceptor(), new RequestLoggingInterceptor());
   app.useGlobalFilters(new BaseExceptionFilter());
 
   await app.listen(process.env.PORT ?? 3001, "0.0.0.0");

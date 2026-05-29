@@ -10,6 +10,7 @@ import { PlatformStatEntity } from "./entities/platform-stat.entity";
 import { PlatformStateEntity } from "./entities/platform-state.entity";
 import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
 import { WebhookEntity } from "./entities/webhook.entity";
+import { DeadLetterEventEntity } from "./entities/dead-letter-event.entity";
 
 /**
  * DatabaseModule wires TypeORM into the NestJS DI container.
@@ -38,6 +39,7 @@ import { WebhookEntity } from "./entities/webhook.entity";
           PlatformStateEntity,
           IndexerCursorEntity,
           WebhookEntity,
+          DeadLetterEventEntity,
         ],
         migrations: [__dirname + "/migrations/*{.ts,.js}"],
         migrationsRun: true,
@@ -54,6 +56,7 @@ import { WebhookEntity } from "./entities/webhook.entity";
       PlatformStateEntity,
       IndexerCursorEntity,
       WebhookEntity,
+      DeadLetterEventEntity,
     ]),
   ],
   exports: [TypeOrmModule],

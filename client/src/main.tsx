@@ -11,6 +11,17 @@ import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
 import { HelmetProvider } from 'react-helmet-async'
 import './i18n'
 
+// Initialize theme before rendering to prevent FOUC
+const savedTheme = localStorage.getItem("tikka-theme");
+if (
+  savedTheme === "dark" ||
+  (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
+) {
+  document.documentElement.classList.add("dark");
+} else {
+  document.documentElement.classList.remove("dark");
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HelmetProvider>

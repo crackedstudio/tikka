@@ -1,5 +1,5 @@
 import { Keypair, Networks, Transaction } from '@stellar/stellar-sdk';
-import { buildChallenge, verifyResponse } from './sep10';
+import { buildChallenge, createInMemoryNonceStore, verifyResponse } from './sep10';
 
 describe('SEP-10 auth helper', () => {
   const server = Keypair.random();
@@ -52,6 +52,7 @@ describe('SEP-10 auth helper', () => {
         clientAccount: client.publicKey(),
         anchorDomain,
         networkPassphrase: Networks.TESTNET,
+        nonceValidator: async () => true,
         now: Math.floor(Date.now() / 1000 + 5),
       }),
     ).rejects.toThrow(/expired|not yet valid/);
@@ -76,6 +77,7 @@ describe('SEP-10 auth helper', () => {
         clientAccount: client.publicKey(),
         anchorDomain,
         networkPassphrase: Networks.TESTNET,
+        nonceValidator: async () => true,
       }),
     ).rejects.toThrow(/missing from response|invalid signature/);
   });
@@ -103,6 +105,7 @@ describe('SEP-10 auth helper', () => {
         clientAccount: client.publicKey(),
         anchorDomain,
         networkPassphrase: Networks.TESTNET,
+        nonceValidator: async () => true,
       }),
     ).rejects.toThrow();
   });
@@ -126,6 +129,7 @@ describe('SEP-10 auth helper', () => {
         clientAccount: attacker.publicKey(),
         anchorDomain,
         networkPassphrase: Networks.TESTNET,
+        nonceValidator: async () => true,
       }),
     ).rejects.toThrow(/Client signature is missing|invalid signature/);
   });
@@ -152,5 +156,29 @@ describe('SEP-10 auth helper', () => {
         nonceValidator: async () => false,
       }),
     ).rejects.toThrow(/Nonce validation rejected/);
+  });
+
+  describe('createInMemoryNonceStore', () => {
+    it('returns true for fresh nonce', async () => {
+      const store = createInMemoryNonceStore(10_000);
+      expect(store('fresh')).toBe(true);
+    });
+
+    it('returns false when nonce is used twice', async () => {
+      const store = createInMemoryNonceStore(10_000);
+      expect(store('replay')).toBe(true);
+      expect(store('replay')).toBe(false);
+    });
+
+    it('returns false for an expired consumed nonce', async () => {
+      jest.useFakeTimers();
+      const store = createInMemoryNonceStore(100);
+
+      expect(store('expiring')).toBe(true);
+      jest.advanceTimersByTime(101);
+      expect(store('expiring')).toBe(false);
+
+      jest.useRealTimers();
+    });
   });
 });

@@ -5,13 +5,15 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  NotFoundException,
   PayloadTooLargeException,
   Post,
   Query,
   Req,
+  UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
@@ -23,6 +25,8 @@ import {
   ListRafflesQueryDto,
   BatchMetadataQuerySchema,
   type BatchMetadataQueryDto,
+  PurchaseTicketSchema,
+  PurchaseTicketDto,
 } from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
@@ -35,10 +39,17 @@ import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
+import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
+import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
+
+const RAFFLE_CREATE_RATE_LIMIT = Number(process.env.RAFFLE_CREATE_RATE_LIMIT ?? 5);
+const RAFFLE_CREATE_RATE_WINDOW_SECONDS = Number(
+  process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? 600,
+);
 
 @ApiTags("Raffles")
 @Controller("raffles")
@@ -46,6 +57,7 @@ export class RafflesController {
   constructor(
     private readonly rafflesService: RafflesService,
     private readonly storageService: StorageService,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
 
   /**
@@ -55,6 +67,7 @@ export class RafflesController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List raffles with optional filters and pagination" })
+  @ApiResponse({ status: 200, description: "Raffles list retrieved successfully" })
   @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
   async list(@Query() filters: ListRafflesQueryDto) {
     return this.rafflesService.list(filters);
@@ -67,6 +80,8 @@ export class RafflesController {
    */
   @Public()
   @Get('metadata')
+  @ApiOperation({ summary: "Batch fetch off-chain metadata for up to 100 raffle IDs" })
+  @ApiResponse({ status: 200, description: "Batch metadata retrieved successfully" })
   @UsePipes(new (createZodPipe(BatchMetadataQuerySchema))())
   async getBatchMetadata(@Query() query: BatchMetadataQueryDto) {
     return this.rafflesService.getBatchMetadata(query.ids);
@@ -79,8 +94,27 @@ export class RafflesController {
   @Get(":id")
   @ApiOperation({ summary: "Get raffle detail by ID" })
   @ApiParam({ name: "id", description: "Internal raffle ID" })
+  @ApiResponse({ status: 200, description: "Raffle details retrieved successfully" })
   async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
+  }
+
+  /**
+   * GET /raffles/:id/ipfs — Redirect to IPFS metadata for the raffle.
+   */
+  @Public()
+  @Get(":id/ipfs")
+  @ApiOperation({ summary: "Redirect to IPFS metadata" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
+  @ApiResponse({ status: 302, description: "Redirected to IPFS URL" })
+  @ApiResponse({ status: 404, description: "IPFS metadata not found for raffle" })
+  async redirectToIpfs(@Param("id", ParseIntPipe) id: number, @Res() res: any) {
+    const detail = await this.rafflesService.getById(id);
+    if (!detail.metadata_cid) {
+      throw new NotFoundException(`IPFS metadata not found for raffle ${id}`);
+    }
+    const gateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs/';
+    res.redirect(`${gateway}${detail.metadata_cid}`);
   }
 
   /**
@@ -88,9 +122,16 @@ export class RafflesController {
    * Requires JWT (SIWS).
    */
   @ApiBearerAuth()
+  @Throttle({
+    raffleCreate: {
+      limit: RAFFLE_CREATE_RATE_LIMIT,
+      ttl: RAFFLE_CREATE_RATE_WINDOW_SECONDS * 1000,
+    },
+  })
   @Post(":raffleId/metadata")
   @ApiOperation({ summary: "Create or update raffle metadata" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiResponse({ status: 201, description: "Metadata created/updated successfully" })
   async upsertMetadata(
     @Param("raffleId", ParseIntPipe) raffleId: number,
     @CurrentUser("address") address: string,
@@ -98,6 +139,25 @@ export class RafflesController {
     payload: UpsertMetadataDto,
   ) {
     return this.rafflesService.upsertMetadata(raffleId, payload, address);
+  }
+
+  /**
+   * POST /raffles/:raffleId/purchase — Purchase tickets for a raffle.
+   * Idempotent: supply Idempotency-Key header to safely retry on network failure.
+   * Requires JWT (SIWS).
+   */
+  @ApiBearerAuth()
+  @Post(":raffleId/purchase")
+  @ApiOperation({ summary: "Purchase tickets for a raffle" })
+  @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+  @UseInterceptors(IdempotencyInterceptor)
+  async purchaseTickets(
+    @Param("raffleId", ParseIntPipe) raffleId: number,
+    @CurrentUser("address") address: string,
+    @Body(new (createZodPipe(PurchaseTicketSchema))()) payload: PurchaseTicketDto,
+  ) {
+    return this.rafflesService.purchaseTickets(raffleId, payload, address);
   }
 
   /**
@@ -110,6 +170,9 @@ export class RafflesController {
   @Post("upload-image")
   @ApiOperation({ summary: "Upload raffle image to storage" })
   @ApiConsumes("multipart/form-data")
+  @ApiResponse({ status: 201, description: "Image uploaded successfully" })
+  @ApiResponse({ status: 400, description: "Bad Request" })
+  @ApiResponse({ status: 413, description: "Payload Too Large" })
   @ApiBody({
     schema: {
       type: "object",

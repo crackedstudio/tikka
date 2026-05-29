@@ -7,6 +7,7 @@ import { ListenerModule } from './listener/listener.module';
 import { KeysModule } from './keys/keys.module';
 import { MultiOracleModule } from './multi-oracle/multi-oracle.module';
 import { RescueModule } from './rescue/rescue.module';
+import { AuditLogModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RescueModule } from './rescue/rescue.module';
     ListenerModule,
     MultiOracleModule,
     RescueModule,
+    AuditLogModule,
   ],
   controllers: [],
   providers: [],

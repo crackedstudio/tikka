@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Bell, Trash2, AlertCircle, ExternalLink } from 'lucide-react';
+import { Bell, Trash2, AlertCircle, ExternalLink, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   getUserSubscriptions,
@@ -14,6 +14,7 @@ import {
   type UserSubscription,
 } from '../services/notificationService';
 import { useAuthContext } from '../providers/AuthProvider';
+import NotificationEventPreferences, { type NotificationEventType } from './NotificationEventPreferences';
 
 export default function NotificationPreferences() {
   const { isAuthenticated } = useAuthContext();
@@ -21,6 +22,8 @@ export default function NotificationPreferences() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [preferencesLoading, setPreferencesLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -55,6 +58,24 @@ export default function NotificationPreferences() {
       setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
     } finally {
       setRemovingId(null);
+    }
+  };
+
+  const handleEventPreferencesChange = async (subscriptionId: string, events: NotificationEventType[]) => {
+    try {
+      setPreferencesLoading(subscriptionId);
+      // TODO: Call API to update event preferences
+      // await updateNotificationPreferences(subscriptionId, events);
+      setSubscriptions((prev) =>
+        prev.map((s) =>
+          s.id === subscriptionId ? { ...s, events } : s
+        )
+      );
+    } catch (err) {
+      console.error('Error updating preferences:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update preferences');
+    } finally {
+      setPreferencesLoading(null);
     }
   };
 
@@ -125,62 +146,85 @@ export default function NotificationPreferences() {
       ) : (
         <div className="space-y-3">
           {subscriptions.map((subscription) => (
-            <div
-              key={subscription.id}
-              className="bg-gray-100 dark:bg-[#1A2238] rounded-xl p-4 flex items-center justify-between gap-4"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Bell className="w-5 h-5 text-purple-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-gray-900 dark:text-white font-medium">
-                      Raffle #{subscription.raffleId}
+            <div key={subscription.id} className="bg-gray-100 dark:bg-[#1A2238] rounded-xl overflow-hidden">
+              <div className="p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <Bell className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-gray-900 dark:text-white font-medium">
+                        Raffle #{subscription.raffleId}
+                      </p>
+                      <span
+                        className={`
+                          text-xs px-2 py-0.5 rounded-full font-medium
+                          ${
+                            subscription.channel === 'push'
+                              ? 'bg-blue-500/15 text-blue-400'
+                              : 'bg-purple-500/15 text-purple-400'
+                          }
+                        `}
+                      >
+                        {subscription.channel}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-sm">
+                      Subscribed {new Date(subscription.createdAt).toLocaleDateString()}
                     </p>
-                    <span
-                      className={`
-                        text-xs px-2 py-0.5 rounded-full font-medium
-                        ${
-                          subscription.channel === 'push'
-                            ? 'bg-blue-500/15 text-blue-400'
-                            : 'bg-purple-500/15 text-purple-400'
-                        }
-                      `}
-                    >
-                      {subscription.channel}
-                    </span>
                   </div>
-                  <p className="text-gray-400 text-sm">
-                    Subscribed {new Date(subscription.createdAt).toLocaleDateString()}
-                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(expandedId === subscription.id ? null : subscription.id)}
+                    className="p-2 rounded-lg bg-gray-200 dark:bg-[#1F2847] hover:bg-gray-300 dark:hover:bg-[#252E50]
+                      text-gray-500 dark:text-gray-400 transition-colors"
+                    title="Manage event preferences"
+                    aria-label={`Manage event preferences for raffle #${subscription.raffleId}`}
+                  >
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        expandedId === subscription.id ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  <Link
+                    to={`/raffles/${subscription.raffleId}`}
+                    className="p-2 rounded-lg bg-gray-200 dark:bg-[#1F2847] hover:bg-gray-300 dark:hover:bg-[#252E50]
+                      text-gray-500 dark:text-gray-400 transition-colors"
+                    title="View raffle"
+                    aria-label={`View raffle #${subscription.raffleId}`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleUnsubscribe(subscription)}
+                    disabled={removingId === subscription.id}
+                    className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400
+                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Unsubscribe"
+                    aria-label={`Unsubscribe from raffle #${subscription.raffleId}`}
+                  >
+                    {removingId === subscription.id ? (
+                      <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Link
-                  to={`/raffles/${subscription.raffleId}`}
-                  className="p-2 rounded-lg bg-gray-200 dark:bg-[#1F2847] hover:bg-gray-300 dark:hover:bg-[#252E50]
-                    text-gray-500 dark:text-gray-400 transition-colors"
-                  title="View raffle"
-                  aria-label={`View raffle #${subscription.raffleId}`}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => handleUnsubscribe(subscription)}
-                  disabled={removingId === subscription.id}
-                  className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400
-                    transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Unsubscribe"
-                  aria-label={`Unsubscribe from raffle #${subscription.raffleId}`}
-                >
-                  {removingId === subscription.id ? (
-                    <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
+              {expandedId === subscription.id && (
+                <div className="border-t border-gray-200 dark:border-[#0F1829] p-4 bg-gray-50 dark:bg-[#0F1829]">
+                  <NotificationEventPreferences
+                    selectedEvents={(subscription.events as NotificationEventType[]) || []}
+                    onEventsChange={(events) => handleEventPreferencesChange(subscription.id, events)}
+                    isLoading={preferencesLoading === subscription.id}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

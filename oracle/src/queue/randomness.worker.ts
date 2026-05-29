@@ -1,4 +1,4 @@
-import { RandomnessRequest, RandomnessMethod, RandomnessResult } from './queue.types';
+import { RandomnessRequest, RandomnessMethod, RandomnessResult, JobPriority } from './queue.types';
 import { ContractService } from '../contract/contract.service';
 import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
@@ -7,17 +7,20 @@ import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
+import { PriorityClassifierService } from './priority-classifier.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
 export class RandomnessWorker {
   private readonly logger = new Logger(RandomnessWorker.name);
-  private readonly HIGH_STAKES_THRESHOLD_XLM = 500;
+  private readonly vrfThresholdXlm: number;
   private readonly processedRequestIds = new Set<string>();
+  private highPriorityJobStartTimes = new Map<string, number>();
 
   constructor(
     private readonly contractService: ContractService,
@@ -28,14 +31,31 @@ export class RandomnessWorker {
     private readonly lagMonitor: LagMonitorService,
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.vrfThresholdXlm = Number(
+      this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
+    );
+  }
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
+    const priority = job.opts.priority ?? JobPriority.NORMAL;
+    const isHighPriority = priority <= JobPriority.HIGH;
+    
+    if (isHighPriority) {
+      this.highPriorityJobStartTimes.set(job.data.requestId, Date.now());
+    }
+
     this.logger.log(
-      `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}`,
+      `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}, priority=${priority}`,
     );
+    
     await this.processRequest(job.data);
+
+    if (isHighPriority) {
+      this.trackHighPrioritySLA(job.data.requestId);
+    }
   }
 
   clearProcessedCache() {
@@ -49,7 +69,9 @@ export class RandomnessWorker {
       return;
     }
 
-    const isMultiOracle = this.oracleRegistry.isMultiOracleMode();
+    // Support ORACLE_MODE=multi env toggle as well as legacy isMultiOracleMode()
+    const oracleMode = this.configService.get<string>('ORACLE_MODE', 'single').toLowerCase();
+    const isMultiOracle = oracleMode === 'multi' || this.oracleRegistry.isMultiOracleMode();
     const localOracleId = this.oracleRegistry.getLocalOracleId();
 
     if (isMultiOracle) {
@@ -60,7 +82,7 @@ export class RandomnessWorker {
   }
 
   private async processSingleOracleRequest(request: RandomnessRequest): Promise<void> {
-    const { raffleId, requestId, prizeAmount } = request;
+    const { raffleId, requestId } = request;
 
     try {
       const alreadySubmitted = await this.contractService.isRandomnessSubmitted(raffleId);
@@ -69,16 +91,15 @@ export class RandomnessWorker {
         return;
       }
 
-      let finalPrizeAmount = prizeAmount;
-      if (finalPrizeAmount === undefined) {
-        const raffleData = await this.contractService.getRaffleData(raffleId);
-        finalPrizeAmount = raffleData.prizeAmount;
-      }
+      const raffleData = await this.contractService.getRaffleData(raffleId);
+      const finalPrizeAmount = raffleData.prizeAmount;
 
       const method = this.determineMethod(finalPrizeAmount);
-      this.logger.log(`Raffle ${raffleId}: prize=${finalPrizeAmount} XLM, method=${method}`);
+      this.logger.log(
+        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${method === RandomnessMethod.VRF ? 'vrf' : 'prng'}`,
+      );
 
-      const randomness = await this.computeRandomness(method, requestId);
+      const randomness = await this.computeRandomness(method, requestId, raffleId);
       const result = await this.txSubmitter.submitRandomness(raffleId, randomness);
 
       if (!result.success) {
@@ -106,21 +127,12 @@ export class RandomnessWorker {
     request: RandomnessRequest,
     localOracleId: string,
   ): Promise<void> {
-    const { raffleId, requestId, prizeAmount } = request;
+    const { raffleId, requestId } = request;
     const threshold = this.oracleRegistry.getThreshold();
 
     this.logger.log(
       `Multi-oracle mode: raffle=${raffleId}, request=${requestId}, localOracle=${localOracleId}, threshold=${threshold}`
     );
-
-    if (!this.multiOracleCoordinator.isTracked(raffleId, requestId)) {
-      await this.multiOracleCoordinator.startTracking(raffleId, requestId);
-    }
-
-    if (this.multiOracleCoordinator.hasSubmitted(raffleId, requestId, localOracleId)) {
-      this.logger.log(`Local oracle ${localOracleId} already submitted for ${requestId}`);
-      return;
-    }
 
     try {
       const alreadySubmitted = await this.contractService.isRandomnessSubmitted(raffleId);
@@ -129,41 +141,55 @@ export class RandomnessWorker {
         return;
       }
 
-      let finalPrizeAmount = prizeAmount;
-      if (finalPrizeAmount === undefined) {
-        const raffleData = await this.contractService.getRaffleData(raffleId);
-        finalPrizeAmount = raffleData.prizeAmount;
-      }
+      const raffleData = await this.contractService.getRaffleData(raffleId);
+      const finalPrizeAmount = raffleData.prizeAmount;
 
       const method = this.determineMethod(finalPrizeAmount);
-      const randomness = await this.computeRandomness(method, requestId);
-
-      const localOracle = this.oracleRegistry.getLocalOracle();
-      if (!localOracle) {
-        throw new Error(`Local oracle not found: ${localOracleId}`);
-      }
-
-      const { ready, aggregated } = this.multiOracleCoordinator.recordSubmission(
-        raffleId,
-        requestId,
-        localOracleId,
-        localOracle.publicKey,
-        randomness,
-      );
-
       this.logger.log(
-        `Recorded submission from ${localOracleId} for raffle ${raffleId}: ready=${ready}`
+        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${method === RandomnessMethod.VRF ? 'vrf' : 'prng'}`,
       );
 
-      this.processedRequestIds.add(`${requestId}:${localOracleId}`);
-      this.healthService.recordSuccess(`${requestId}:${localOracleId}`);
-      this.lagMonitor.fulfillRequest(requestId);
+      // Compute local oracle's VRF output
+      const localRandomness = await this.computeRandomness(method, requestId);
 
-      if (ready && aggregated) {
+      // Broadcast to peers and collect responses; aggregate via XOR
+      const { aggregated, usedOracles, fellBack } =
+        await this.multiOracleCoordinator.broadcastAndCollect(requestId, localRandomness);
+
+      if (fellBack) {
+        this.logger.warn(
+          `Raffle ${raffleId}: fell back to single-oracle (threshold not met in time)`
+        );
+      } else {
         this.logger.log(
-          `Threshold reached for raffle ${raffleId}: ${aggregated.submittedBy.length}/${threshold} oracles`
+          `Raffle ${raffleId}: consensus from [${usedOracles.join(', ')}], submitting aggregated seed`
         );
       }
+
+      const result = await this.txSubmitter.submitRandomness(raffleId, aggregated);
+
+      if (!result.success) {
+        throw new Error(`Transaction submission failed for raffle ${raffleId}`);
+      }
+
+      this.processedRequestIds.add(requestId);
+
+      // Record in coordinator for observability
+      if (!this.multiOracleCoordinator.isTracked(raffleId, requestId)) {
+        await this.multiOracleCoordinator.startTracking(raffleId, requestId);
+      }
+      const localOracle = this.oracleRegistry.getLocalOracle();
+      if (localOracle) {
+        this.multiOracleCoordinator.recordSubmission(
+          raffleId, requestId, localOracleId, localOracle.publicKey, aggregated, result.txHash,
+        );
+      }
+
+      this.logger.log(
+        `Successfully submitted multi-oracle randomness for raffle ${raffleId}: tx=${result.txHash}, ledger=${result.ledger}`
+      );
+      this.healthService.recordSuccess(requestId);
+      this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
         `Failed to process multi-oracle request for raffle ${raffleId}: ${error.message}`,
@@ -207,17 +233,54 @@ export class RandomnessWorker {
   }
 
   private determineMethod(prizeAmount: number): RandomnessMethod {
-    return prizeAmount >= this.HIGH_STAKES_THRESHOLD_XLM
+    return prizeAmount >= this.vrfThresholdXlm
       ? RandomnessMethod.VRF
       : RandomnessMethod.PRNG;
   }
 
-  private async computeRandomness(method: RandomnessMethod, requestId: string) {
+  private async computeRandomness(method: RandomnessMethod, requestId: string, raffleId?: number) {
     if (method === RandomnessMethod.VRF) {
-      return await this.vrfService.compute(requestId);
+      return await this.vrfService.compute(requestId, raffleId);
     } else {
-      return await this.prngService.compute(requestId);
+      return await this.prngService.compute(requestId, raffleId);
     }
   }
-}
 
+  private trackHighPrioritySLA(requestId: string): void {
+    const startTime = this.highPriorityJobStartTimes.get(requestId);
+    if (!startTime) return;
+
+    const processingTime = Date.now() - startTime;
+    const SLA_THRESHOLD_MS = 5000; // 5 seconds for high-priority jobs
+
+    if (processingTime > SLA_THRESHOLD_MS) {
+      this.logger.warn(
+        `[SLA BREACH] High-priority job ${requestId} took ${processingTime}ms (threshold: ${SLA_THRESHOLD_MS}ms)`,
+      );
+    } else {
+      this.logger.log(
+        `[SLA OK] High-priority job ${requestId} completed in ${processingTime}ms`,
+      );
+    }
+
+    this.highPriorityJobStartTimes.delete(requestId);
+  }
+
+  determinePriority(prizeAmount?: number, priorityFlag?: number): number {
+    // If priority flag is explicitly set in contract event, use it
+    if (priorityFlag !== undefined) {
+      return priorityFlag;
+    }
+
+    // Otherwise, determine priority based on prize amount
+    if (!prizeAmount) {
+      return JobPriority.NORMAL;
+    }
+
+    if (prizeAmount >= this.vrfThresholdXlm) {
+      return JobPriority.HIGH;
+    }
+
+    return JobPriority.NORMAL;
+  }
+}

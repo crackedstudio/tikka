@@ -9,7 +9,7 @@ The randomness worker processes pending randomness requests from the queue. It d
 ```
 RandomnessRequested Event (Stellar Horizon)
         ↓
-    Bull Queue (Redis)
+    Bull Queue (Redis) with Priority
         ↓
 RandomnessWorker.handleRandomnessJob()
         ↓
@@ -19,8 +19,20 @@ RandomnessWorker.handleRandomnessJob()
     │ 3. Determine VRF/PRNG      │
     │ 4. Compute randomness      │
     │ 5. Submit to contract      │
+    │ 6. Track SLA (high-priority)│
     └────────────────────────────┘
 ```
+
+## Features
+
+### Priority Queue Processing
+- **Automatic priority assignment** based on prize amount
+- **High-stakes raffles (≥500 XLM)**: HIGH priority (processed first)
+- **Standard raffles (<500 XLM)**: NORMAL priority
+- **Manual priority override** via contract event flag
+- **SLA monitoring** for high-priority jobs (5s threshold)
+
+See [PRIORITY_QUEUE_IMPLEMENTATION.md](./PRIORITY_QUEUE_IMPLEMENTATION.md) for details.
 
 ## Processing Flow
 
@@ -196,6 +208,8 @@ The service requires the following environment variables for queue operations:
 - `TX_SUBMIT_MAX_ATTEMPTS`: max tx submit attempts (default: `5`)
 - `TX_SUBMIT_INITIAL_BACKOFF_MS`: initial backoff delay (default: `1000`)
 - `TX_SUBMIT_ALERT_WEBHOOK_URL`: optional alert webhook for persistent submit failures
+- `ORACLE_CB_FAILURE_THRESHOLD`: number of consecutive Horizon SSE failures before the circuit opens (default: `5`)
+- `ORACLE_CB_RESET_TIMEOUT_MS`: milliseconds the circuit stays open before allowing a probe attempt (default: `60000`)
 
 ## Implementation Status
 

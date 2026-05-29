@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query, UsePipes } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { UsersService } from './users.service';
 import { UserHistoryQuerySchema, UserHistoryQueryDto } from './dto/user-history-query.dto';
@@ -19,6 +19,7 @@ export class UsersController {
   @Get(':address')
   @ApiOperation({ summary: 'Get user profile by Stellar address' })
   @ApiParam({ name: 'address', description: 'Stellar address of the user' })
+  @ApiResponse({ status: 200, description: 'User profile retrieved successfully' })
   async getByAddress(@Param('address') address: string) {
     return this.usersService.getByAddress(address);
   }
@@ -30,6 +31,7 @@ export class UsersController {
   @Get(':address/history')
   @ApiOperation({ summary: 'Get user raffle participation history' })
   @ApiParam({ name: 'address', description: 'Stellar address of the user' })
+  @ApiResponse({ status: 200, description: 'User history retrieved successfully' })
   @UsePipes(new (createZodPipe(UserHistoryQuerySchema))())
   async getHistory(
     @Param('address') address: string,

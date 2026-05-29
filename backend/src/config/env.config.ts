@@ -53,6 +53,7 @@ export const env = {
   get siws() {
     return {
       domain: process.env.SIWS_DOMAIN ?? 'tikka.io',
+      nonceTtlSeconds: parseInt(process.env.SIWS_NONCE_TTL_SECONDS ?? '300', 10),
     };
   },
   get fcm() {
@@ -72,5 +73,8 @@ export const env = {
       providerUrl: process.env.GEO_PROVIDER_URL ?? 'http://ip-api.com/json',
       timeoutMs: parseInt(process.env.GEO_TIMEOUT_MS ?? '3000', 10),
     };
+  },
+  get blockedCountries() {
+    return process.env.BLOCKED_COUNTRIES ?? '';
   },
 } as const;

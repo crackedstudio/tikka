@@ -23,6 +23,7 @@ import { validate } from "./config/env.schema";
 import { IndexerBackfillModule } from "./services/indexer-backfill.module";
 import { MaintenanceModeGuard } from "./maintenance/maintenance-mode.guard";
 import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
+import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
     MonitorModule,
     IndexerBackfillModule,
     MaintenanceModeModule,
+    WebhooksModule,
   ],
   providers: [
     // 1. Maintenance guard first — blocks requests when MAINTENANCE_MODE is enabled

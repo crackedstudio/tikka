@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { RaffleFormData, CreateRaffleStep } from "../types/types";
 import ProgressStepper from "../components/create-raffle/ProgressStepper";
 import DetailsStep from "../components/create-raffle/DetailsStep";
@@ -11,6 +11,7 @@ import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const CreateRaffle: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0);
+    const stepPanelRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState<RaffleFormData>({
         title: "",
         description: "",
@@ -78,6 +79,38 @@ const CreateRaffle: React.FC = () => {
         }
     };
 
+    // Handle keyboard navigation
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Enter to advance to next step
+            if (e.key === "Enter" && e.ctrlKey) {
+                e.preventDefault();
+                if (currentStep < steps.length - 1) {
+                    handleNext();
+                }
+            }
+            // Escape to go back
+            if (e.key === "Escape") {
+                e.preventDefault();
+                if (currentStep > 0) {
+                    handleBack();
+                }
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [currentStep, steps.length]);
+
+    // Focus management: focus first focusable element in step panel when step changes
+    useEffect(() => {
+        if (!stepPanelRef.current) return;
+        const focusable = stepPanelRef.current.querySelector<HTMLElement>(
+            'input, textarea, button, [tabindex]:not([tabindex="-1"])'
+        );
+        focusable?.focus();
+    }, [currentStep]);
+
     const renderCurrentStep = () => {
         const stepProps = {
             formData,
@@ -127,7 +160,9 @@ const CreateRaffle: React.FC = () => {
                 {/* Main Content */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
                     {/* Left Panel - Form */}
-                    <div className="space-y-6">{renderCurrentStep()}</div>
+                    <div className="space-y-6" ref={stepPanelRef} role="region" aria-label={`Step ${currentStep + 1}: ${steps[currentStep].title}`}>
+                        {renderCurrentStep()}
+                    </div>
 
                     {/* Right Panel - Live Preview */}
                     <div className="lg:sticky lg:top-8 lg:h-fit">

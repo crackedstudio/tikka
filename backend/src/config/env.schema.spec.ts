@@ -7,6 +7,7 @@ const validEnv: Record<string, string> = {
   STELLAR_NETWORK: 'testnet',
   INDEXER_URL: 'http://localhost:3002',
   INDEXER_TIMEOUT_MS: '5000',
+  REDIS_URL: 'redis://localhost:6379',
   JWT_SECRET: 'a'.repeat(32),
   JWT_EXPIRES_IN: '7d',
   SIWS_DOMAIN: 'tikka.io',
@@ -28,6 +29,7 @@ describe('env.schema validate()', () => {
       SUPABASE_SERVICE_ROLE_KEY: 'key',
       STELLAR_NETWORK: 'testnet',
       INDEXER_URL: '',
+      REDIS_URL: 'redis://localhost:6379',
       JWT_SECRET: 'b'.repeat(32),
       VITE_FRONTEND_URL: 'https://app.tikka.io',
       ADMIN_TOKEN: 'my-admin-token',
@@ -40,6 +42,10 @@ describe('env.schema validate()', () => {
     expect(result.JWT_EXPIRES_IN).toBe('7d');
     expect(result.SIWS_DOMAIN).toBe('tikka.io');
     expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
+    expect(result.REDIS_URL).toBe('');
+    expect(result.METADATA_CACHE_TTL_SECONDS).toBe(600);
+    expect(result.RAFFLE_CREATE_RATE_LIMIT).toBe(5);
+    expect(result.RAFFLE_CREATE_RATE_WINDOW_SECONDS).toBe(600);
     expect(result.ADMIN_IP_ALLOWLIST).toBe('');
   });
 

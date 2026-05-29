@@ -14,8 +14,15 @@ import { FastifyRequest } from "fastify";
  */
 @Injectable()
 export class TikkaThrottlerGuard extends ThrottlerGuard {
-  protected async getTracker(req: ThrottlerRequest): Promise<string> {
+  protected async getTracker(
+    req: ThrottlerRequest,
+    context?: ExecutionContext,
+  ): Promise<string> {
     const fastifyReq = req as unknown as FastifyRequest;
+    const walletAddress = this.getWalletTracker(context);
+    if (walletAddress) {
+      return walletAddress;
+    }
 
     const forwarded = fastifyReq.headers["x-forwarded-for"];
     if (forwarded) {
@@ -27,6 +34,26 @@ export class TikkaThrottlerGuard extends ThrottlerGuard {
     }
 
     return fastifyReq.ip ?? "unknown";
+  }
+
+  private getWalletTracker(context?: ExecutionContext): string | null {
+    if (!context || context.getType() !== "http") {
+      return null;
+    }
+
+    const request = context.switchToHttp().getRequest<{
+      method?: string;
+      originalUrl?: string;
+      url?: string;
+      user?: { address?: string };
+    }>();
+
+    const method = request.method?.toUpperCase();
+    const requestUrl = request.originalUrl ?? request.url ?? "";
+    const isRaffleCreateRoute = method === "POST" && requestUrl.startsWith("/raffles");
+    const address = request.user?.address?.trim();
+
+    return isRaffleCreateRoute && address ? address : null;
   }
 
   /**

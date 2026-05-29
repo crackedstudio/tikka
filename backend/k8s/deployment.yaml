@@ -2,6 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tikka-backend
+  labels:
+    app: tikka-backend
+spec:
+  replicas: 2
   namespace: default
   labels:
     app: tikka-backend
@@ -17,6 +21,16 @@ spec:
     spec:
       containers:
       - name: tikka-backend
+        image: tikka-backend:latest
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
         image: crackedstudio/tikka-backend:latest
         ports:
         - containerPort: 3001

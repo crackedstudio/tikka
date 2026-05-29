@@ -15,6 +15,8 @@ export class LeaderboardService {
     const filters: IndexerLeaderboardFilters = {
       by: query.by,
       limit: query.limit,
+      cursor: query.cursor,
+      offset: query.offset,
     };
     return this.indexerService.getLeaderboard(filters);
   }
