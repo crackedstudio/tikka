@@ -70,10 +70,9 @@ export class DlqService {
 
       try {
         const event = { ...entry.rawPayload, type: entry.eventType } as DomainEvent;
-        const qr = await this.dispatcher.dispatch(event, entry.rawPayload);
-        if (qr) {
-          await qr.commitTransaction();
-          qr.release();
+        const result = await this.dispatcher.dispatch(event, entry.rawPayload);
+        if (result.outcome === 'failed') {
+          throw result.error ?? new Error(`Replay failed for ${entry.eventType}`);
         }
         await this.repo.delete(entry.id);
         replayed++;

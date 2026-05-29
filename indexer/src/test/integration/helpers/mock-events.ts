@@ -9,6 +9,8 @@
  * multiple integration test suites and keeps the fixture data in one place.
  */
 
+import { DomainEvent } from '../../../ingestor/event.types';
+
 // ─── Stellar address fixtures ────────────────────────────────────────────────
 
 /** A 56-character Stellar G-address used as a default creator across fixtures. */
@@ -104,6 +106,122 @@ export function makeTicketRefunded(
     recipient: BUYER_ADDRESS,
     amount: '10000000',
     txHash: mockTxHash(10),
+    ...overrides,
+  };
+}
+
+// ─── Raw event fixtures ──────────────────────────────────────────────────────
+
+export interface RawIngestionEvent {
+  id: string;
+  paging_token: string;
+  ledger: number;
+  contract_id: string;
+  topic: string[];
+  topics: string[];
+  value: Record<string, unknown>;
+  decodedPayload: Record<string, unknown>;
+}
+
+export function makeRawIngestionEvent(
+  eventType = 'RaffleCreated',
+  overrides: Partial<RawIngestionEvent> = {},
+): RawIngestionEvent {
+  const ledger = overrides.ledger ?? 1000;
+  const id = overrides.id ?? mockTxHash(`${eventType}:${ledger}`);
+
+  return {
+    id,
+    paging_token: overrides.paging_token ?? `${ledger}-${id}`,
+    ledger,
+    contract_id:
+      overrides.contract_id ??
+      'CCONTRACT00000000000000000000000000000000000000000000000000',
+    topic: overrides.topic ?? ['contract', eventType],
+    topics: overrides.topics ?? ['contract', eventType],
+    value: overrides.value ?? {},
+    decodedPayload: overrides.decodedPayload ?? {},
+    ...overrides,
+  };
+}
+
+// ─── Domain event fixtures ───────────────────────────────────────────────────
+
+export function makeRaffleCreatedEvent(
+  overrides: Partial<Extract<DomainEvent, { type: 'RaffleCreated' }>> = {},
+): Extract<DomainEvent, { type: 'RaffleCreated' }> {
+  const f = makeRaffleCreated();
+
+  return {
+    type: 'RaffleCreated',
+    raffle_id: f.raffleId,
+    creator: f.creator,
+    params: {
+      ticket_price: f.ticketPrice,
+      max_tickets: f.maxTickets,
+      end_time: Number(f.endTime),
+      asset: f.asset,
+      metadata_cid: f.metadataCid ?? '',
+      allow_multiple: true,
+    },
+    ...overrides,
+  };
+}
+
+export function makeTicketPurchasedEvent(
+  overrides: Partial<Extract<DomainEvent, { type: 'TicketPurchased' }>> = {},
+): Extract<DomainEvent, { type: 'TicketPurchased' }> {
+  const f = makeTicketPurchased();
+
+  return {
+    type: 'TicketPurchased',
+    raffle_id: f.raffleId,
+    buyer: f.buyer,
+    ticket_ids: f.ticketIds,
+    total_paid: f.totalCost,
+    ...overrides,
+  };
+}
+
+export function makeRaffleFinalizedEvent(
+  overrides: Partial<Extract<DomainEvent, { type: 'RaffleFinalized' }>> = {},
+): Extract<DomainEvent, { type: 'RaffleFinalized' }> {
+  const f = makeRaffleFinalized();
+
+  return {
+    type: 'RaffleFinalized',
+    raffle_id: f.raffleId,
+    winner: f.winner,
+    winning_ticket_id: 1,
+    prize_amount: f.prizeAmount,
+    ...overrides,
+  };
+}
+
+export function makeRaffleCancelledEvent(
+  overrides: Partial<Extract<DomainEvent, { type: 'RaffleCancelled' }>> = {},
+): Extract<DomainEvent, { type: 'RaffleCancelled' }> {
+  const f = makeRaffleCancelled();
+
+  return {
+    type: 'RaffleCancelled',
+    raffle_id: f.raffleId,
+    reason: f.reason,
+    ...overrides,
+  };
+}
+
+export function makeTicketRefundedEvent(
+  overrides: Partial<Extract<DomainEvent, { type: 'TicketRefunded' }>> = {},
+): Extract<DomainEvent, { type: 'TicketRefunded' }> {
+  const f = makeTicketRefunded();
+
+  return {
+    type: 'TicketRefunded',
+    raffle_id: f.raffleId,
+    ticket_id: f.ticketId,
+    recipient: f.recipient,
+    amount: f.amount,
     ...overrides,
   };
 }

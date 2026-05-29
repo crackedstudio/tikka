@@ -6,6 +6,7 @@ import { LedgerPollerService } from "./ledger-poller.service";
 import { EventHandlersModule } from "./event-handlers.module";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
+import { DeadLetterQueueService } from "./dead-letter-queue.service";
 import { ProcessorsModule } from "../processors/processors.module";
 import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity";
 import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
@@ -23,6 +24,7 @@ import { ReorgRollbackService } from "./reorg-rollback.service";
     EventParserService,
     LedgerPollerService,
     DryRunService,
+    DeadLetterQueueService,
     IngestionDispatcherService,
     DlqService,
     ReorgRollbackService,
@@ -32,6 +34,7 @@ import { ReorgRollbackService } from "./reorg-rollback.service";
     EventParserService,
     LedgerPollerService,
     DryRunService,
+    DeadLetterQueueService,
     IngestionDispatcherService,
     DlqService,
     ReorgRollbackService,

@@ -35,10 +35,10 @@ export class RaffleCreatedHandler extends BaseEventHandler {
         params: {
           ticket_price: String(p.ticket_price ?? p.price ?? "0"),
           max_tickets: Number(p.max_tickets),
-          end_time: Number(p.end_time ?? 0),
-          asset: String(p.asset ?? ""),
-          metadata_cid: String(p.metadata_cid ?? ""),
-          allow_multiple: Boolean(p.allow_multiple ?? false),
+          end_time: Number(p.end_time ?? p.endTime ?? 0),
+          asset: String(p.asset ?? "XLM"),
+          metadata_cid: String(p.metadata_cid ?? p.metadataCid ?? ""),
+          allow_multiple: Boolean(p.allow_multiple ?? p.allowMultiple ?? true),
         },
       };
     } catch (error) {
