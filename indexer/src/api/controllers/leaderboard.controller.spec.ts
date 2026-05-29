@@ -1,155 +1,136 @@
 import { LeaderboardController } from './leaderboard.controller';
+import { CacheService } from '../../cache/cache.service';
+import { UserEntity } from '../../database/entities/user.entity';
+
+type MockQb = {
+  orderBy: jest.Mock;
+  addOrderBy: jest.Mock;
+  andWhere: jest.Mock;
+  skip: jest.Mock;
+  take: jest.Mock;
+  getMany: jest.Mock;
+};
+
+function makeUser(
+  address: string,
+  wins: number,
+  tickets = wins,
+  prize = String(wins * 10),
+  firstSeenLedger = 1,
+): UserEntity {
+  return {
+    address,
+    totalTicketsBought: tickets,
+    totalRafflesEntered: tickets,
+    totalRafflesWon: wins,
+    totalPrizeXlm: prize,
+    firstSeenLedger,
+    lastTxHash: null,
+    updatedAt: new Date(),
+  };
+}
 
 describe('LeaderboardController', () => {
-  const users = [
-    {
-      address: 'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
-      totalTicketsBought: 5,
-      totalRafflesWon: 2,
-      totalPrizeXlm: '100',
-      firstSeenLedger: 30,
-    },
-    {
-      address: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-      totalTicketsBought: 5,
-      totalRafflesWon: 2,
-      totalPrizeXlm: '100',
-      firstSeenLedger: 10,
-    },
-    {
-      address: 'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-      totalTicketsBought: 5,
-      totalRafflesWon: 2,
-      totalPrizeXlm: '100',
-      firstSeenLedger: 10,
-    },
-    {
-      address: 'GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',
-      totalTicketsBought: 9,
-      totalRafflesWon: 1,
-      totalPrizeXlm: '200',
-      firstSeenLedger: 1,
-    },
-  ];
+  let controller: LeaderboardController;
+  let cacheService: { wrap: jest.Mock };
+  let createQueryBuilder: jest.Mock;
+  const builders: MockQb[] = [];
 
-  function makeController() {
-    const orderBys: Array<[string, 'ASC' | 'DESC']> = [];
-    let take = 50;
-    let skip = 0;
-
-    const query: any = {};
-    Object.assign(query, {
-      orderBy: jest.fn((field: string, direction: 'ASC' | 'DESC'): any => {
-        orderBys.push([field, direction]);
-        return query;
-      }),
-      addOrderBy: jest.fn((field: string, direction: 'ASC' | 'DESC'): any => {
-        orderBys.push([field, direction]);
-        return query;
-      }),
-      skip: jest.fn((value: number): any => {
-        skip = value;
-        return query;
-      }),
-      take: jest.fn((value: number): any => {
-        take = value;
-        return query;
-      }),
-      getMany: jest.fn(async () => {
-        const sorted = [...users].sort((left, right) => {
-          for (const [field, direction] of orderBys) {
-            const leftValue = valueFor(left, field);
-            const rightValue = valueFor(right, field);
-            const diff = compare(leftValue, rightValue);
-
-            if (diff !== 0) {
-              return direction === 'DESC' ? -diff : diff;
-            }
-          }
-
-          return 0;
-        });
-
-        return sorted.slice(skip, skip + take);
-      }),
-    });
-
-    const userRepo = {
-      createQueryBuilder: jest.fn(() => query),
+  beforeEach(() => {
+    builders.length = 0;
+    cacheService = {
+      wrap: jest.fn(async (_key, _ttl, fetcher) => fetcher()),
     };
-    const cacheService = {
-      wrap: jest.fn((_key: string, _ttl: number, fetcher: () => Promise<unknown>) =>
-        fetcher(),
-      ),
+    createQueryBuilder = jest.fn();
+
+    controller = new LeaderboardController(
+      { createQueryBuilder } as any,
+      cacheService as unknown as CacheService,
+    );
+  });
+
+  function setupQueryBuilder(rows: UserEntity[]): MockQb {
+    const qb: MockQb = {
+      orderBy: jest.fn(),
+      addOrderBy: jest.fn(),
+      andWhere: jest.fn(),
+      skip: jest.fn(),
+      take: jest.fn(),
+      getMany: jest.fn().mockResolvedValue(rows),
     };
 
-    return {
-      controller: new LeaderboardController(userRepo as any, cacheService as any),
-      query,
-      cacheService,
-    };
+    qb.orderBy.mockReturnValue(qb);
+    qb.addOrderBy.mockReturnValue(qb);
+    qb.andWhere.mockReturnValue(qb);
+    qb.skip.mockReturnValue(qb);
+    qb.take.mockReturnValue(qb);
+
+    builders.push(qb);
+    createQueryBuilder.mockReturnValueOnce(qb);
+    return qb;
   }
 
   it('applies deterministic tie-breakers and returns stable DTO ranks', async () => {
-    const { controller } = makeController();
+    const rows = [
+      makeUser('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 2, 5, '100', 10),
+      makeUser('GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', 2, 5, '100', 10),
+      makeUser('GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC', 2, 5, '100', 30),
+    ];
+    const qb = setupQueryBuilder(rows);
 
-    const first = await controller.getLeaderboard('wins', 3, 0);
-    const second = await controller.getLeaderboard('wins', 3, 0);
+    const page = await controller.getLeaderboard('wins', 3, undefined, 0);
 
-    expect(first).toEqual(second);
-    expect(first.entries.map((entry) => entry.address)).toEqual([
-      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-      'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-      'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
-    ]);
-    expect(first.entries.map((entry) => entry.rank)).toEqual([1, 2, 3]);
+    expect(qb.orderBy).toHaveBeenCalledWith('user.totalRafflesWon', 'DESC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('CAST(user.totalPrizeXlm AS NUMERIC)', 'DESC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('user.totalTicketsBought', 'DESC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('user.totalRafflesWon', 'DESC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('user.firstSeenLedger', 'ASC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('user.address', 'ASC');
+    expect(page.entries.map((entry) => entry.address)).toEqual(rows.map((row) => row.address));
+    expect(page.entries.map((entry) => entry.rank)).toEqual([1, 2, 3]);
   });
 
-  it('uses offset and limit for stable pagination boundaries', async () => {
-    const { controller, cacheService } = makeController();
+  it('returns cursor pages without duplicate entries', async () => {
+    const firstRows = [makeUser('A', 10), makeUser('B', 9), makeUser('C', 8)];
+    setupQueryBuilder(firstRows);
 
-    const page = await controller.getLeaderboard('wins', 2, 1);
+    const page1 = await controller.getLeaderboard('wins', 2);
+    expect(page1.entries.map((e) => e.address)).toEqual(['A', 'B']);
+    expect(page1.nextCursor).toBeTruthy();
 
-    expect(cacheService.wrap).toHaveBeenCalledWith(
-      'leaderboard:wins:2:1',
-      60,
-      expect.any(Function),
+    const secondRows = [makeUser('C', 8)];
+    const qb2 = setupQueryBuilder(secondRows);
+
+    const page2 = await controller.getLeaderboard(
+      'wins',
+      2,
+      page1.nextCursor ?? undefined,
     );
+    expect(page2.entries.map((e) => e.address)).toEqual(['C']);
+    expect(new Set([...page1.entries, ...page2.entries].map((e) => e.address)).size).toBe(3);
+    expect(qb2.andWhere).toHaveBeenCalled();
+  });
+
+  it('supports deprecated offset pagination with stable rank boundaries', async () => {
+    const qb = setupQueryBuilder([makeUser('B', 9), makeUser('C', 8)]);
+
+    const page = await controller.getLeaderboard('wins', 2, undefined, 1);
+
+    expect(qb.skip).toHaveBeenCalledWith(1);
     expect(page.entries.map((entry) => entry.rank)).toEqual([2, 3]);
-    expect(page.entries.map((entry) => entry.address)).toEqual([
-      'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-      'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
-    ]);
   });
 
   it('defines a primary ranking mode for each leaderboard type', async () => {
     for (const [mode, primaryOrder] of [
       ['wins', 'user.totalRafflesWon'],
-      ['volume', 'user.totalPrizeXlm::numeric'],
+      ['volume', 'CAST(user.totalPrizeXlm AS NUMERIC)'],
       ['tickets', 'user.totalTicketsBought'],
     ] as const) {
-      const { controller, query } = makeController();
+      const qb = setupQueryBuilder([makeUser('A', 1)]);
 
-      await controller.getLeaderboard(mode, 10, 0);
+      await controller.getLeaderboard(mode, 10, undefined, 0);
 
-      expect(query.orderBy).toHaveBeenCalledWith(primaryOrder, 'DESC');
+      expect(qb.orderBy).toHaveBeenCalledWith(primaryOrder, 'DESC');
     }
   });
 });
-
-function valueFor(user: any, field: string): string | number {
-  if (field === 'user.totalRafflesWon') return user.totalRafflesWon;
-  if (field === 'user.totalPrizeXlm::numeric') return Number(user.totalPrizeXlm);
-  if (field === 'user.totalTicketsBought') return user.totalTicketsBought;
-  if (field === 'user.firstSeenLedger') return user.firstSeenLedger;
-  if (field === 'user.address') return user.address;
-  throw new Error(`Unknown sort field ${field}`);
-}
-
-function compare(left: string | number, right: string | number): number {
-  if (typeof left === 'string' && typeof right === 'string') {
-    return left.localeCompare(right);
-  }
-
-  return Number(left) - Number(right);
-}

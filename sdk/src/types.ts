@@ -10,4 +10,4 @@ export interface NetworkConfig {
   networkPassphrase: string;
 }
 
-// Add any other core interfaces used by your services
+export * from './contract/response';

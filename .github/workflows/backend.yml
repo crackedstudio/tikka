@@ -53,6 +53,9 @@ jobs:
       - name: Test
         run: pnpm run test -- --ci
 
+      - name: Validate OpenAPI Spec
+        run: pnpm run validate:openapi
+
   deploy:
     name: Deploy Backend
     needs: build-and-test

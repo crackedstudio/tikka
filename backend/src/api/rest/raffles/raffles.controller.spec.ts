@@ -6,6 +6,7 @@ import {
 import { RafflesController } from './raffles.controller';
 import { RafflesService } from './raffles.service';
 import { StorageService } from '../../../services/storage.service';
+import { IdempotencyService } from '../../../common/idempotency/idempotency.service';
 import { MAX_UPLOAD_BYTES } from '../../../config/upload.config';
 
 function createMockFile(
@@ -49,6 +50,7 @@ describe('RafflesController — uploadImage', () => {
       providers: [
         { provide: RafflesService, useValue: {} },
         { provide: StorageService, useValue: storageService },
+        { provide: IdempotencyService, useValue: { get: jest.fn(), lock: jest.fn(), resolve: jest.fn() } },
       ],
     }).compile();
 

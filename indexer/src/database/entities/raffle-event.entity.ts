@@ -35,6 +35,10 @@ export class RaffleEventEntity {
   @Column({ type: "varchar", length: 64, name: "event_type" })
   eventType!: string;
 
+  /** Event schema version for forward-compatible parsing/routing. */
+  @Column({ type: "integer", name: "schema_version", default: 1 })
+  schemaVersion!: number;
+
   /** Ledger sequence in which the event was emitted. */
   @Column({ type: "integer", name: "ledger" })
   ledger!: number;

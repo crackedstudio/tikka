@@ -26,6 +26,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Auto-logout when wallet disconnects.
   // Skip the first render to allow wallet state to initialize.
   const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
+  const { isAuthenticated, address: authAddress, logout } = auth;
 
   useEffect(() => {
     if (!didInitialAuthCheck) {
@@ -33,18 +34,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
 
-    if (!isTestMode && !isConnected && auth.isAuthenticated) {
-      auth.logout();
+    if (!isTestMode && !isConnected && isAuthenticated) {
+      logout();
     }
-  }, [isConnected, auth.isAuthenticated, didInitialAuthCheck, auth, isTestMode]);
+  }, [isConnected, isAuthenticated, didInitialAuthCheck, logout, isTestMode]);
 
-  // Update auth address when wallet address changes
+  // Auto-logout when wallet address changes to a different non-null value.
+  // Null address is handled by the disconnect watcher above.
   useEffect(() => {
-    if (auth.address && address && auth.isAuthenticated && auth.address !== address) {
-      // Address mismatch - logout for security
-      auth.logout();
+    if (authAddress && address && isAuthenticated && authAddress !== address) {
+      logout();
     }
-  }, [address, auth.isAuthenticated, auth.address]);
+  }, [address, isAuthenticated, authAddress, logout]);
 
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }

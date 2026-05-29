@@ -27,19 +27,18 @@ export class RaffleCreatedHandler extends BaseEventHandler {
         return null;
       }
 
+      const p = params as Record<string, unknown>;
       return {
         type: "RaffleCreated",
         raffle_id: raffleId,
         creator: creator,
         params: {
-          ticket_price: String(params.ticket_price ?? params.price ?? "0"),
-          max_tickets: Number(params.max_tickets),
-          end_time: Number(params.end_time ?? params.endTime ?? 0),
-          asset: params.asset ?? "XLM",
-          metadata_cid: params.metadata_cid ?? params.metadataCid ?? "",
-          allow_multiple: Boolean(
-            params.allow_multiple ?? params.allowMultiple ?? true,
-          ),
+          ticket_price: String(p.ticket_price ?? p.price ?? "0"),
+          max_tickets: Number(p.max_tickets),
+          end_time: Number(p.end_time ?? p.endTime ?? 0),
+          asset: String(p.asset ?? "XLM"),
+          metadata_cid: String(p.metadata_cid ?? p.metadataCid ?? ""),
+          allow_multiple: Boolean(p.allow_multiple ?? p.allowMultiple ?? true),
         },
       };
     } catch (error) {

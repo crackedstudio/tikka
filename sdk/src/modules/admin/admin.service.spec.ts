@@ -26,61 +26,64 @@ describe('AdminService', () => {
   describe('pause', () => {
     it('should invoke the pause contract function', async () => {
       contractService.invoke.mockResolvedValue({
-        result: undefined,
-        txHash: 'abc123',
+        success: true,
+        value: undefined,
+        transactionHash: 'abc123',
         ledger: 100,
       });
 
       const result = await service.pause();
 
       expect(contractService.invoke).toHaveBeenCalledWith('pause', [], expect.anything());
-      expect(result).toEqual({ txHash: 'abc123', ledger: 100 });
+      expect(result).toEqual({ success: true, value: undefined, transactionHash: 'abc123', ledger: 100 });
     });
   });
 
   describe('unpause', () => {
     it('should invoke the unpause contract function', async () => {
       contractService.invoke.mockResolvedValue({
-        result: undefined,
-        txHash: 'def456',
+        success: true,
+        value: undefined,
+        transactionHash: 'def456',
         ledger: 101,
       });
 
       const result = await service.unpause();
 
      expect(contractService.invoke).toHaveBeenCalledWith('unpause', [], expect.anything());
-      expect(result).toEqual({ txHash: 'def456', ledger: 101 });
+      expect(result).toEqual({ success: true, value: undefined, transactionHash: 'def456', ledger: 101 });
     });
   });
 
   describe('isPaused', () => {
     it('should return true when contract is paused', async () => {
-      contractService.simulateReadOnly.mockResolvedValue(true);
+      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: true });
 
       const result = await service.isPaused();
 
       expect(contractService.simulateReadOnly).toHaveBeenCalledWith('is_paused', []);
-      expect(result).toBe(true);
+      expect(result.value).toBe(true);
     });
 
     it('should return false when contract is not paused', async () => {
-      contractService.simulateReadOnly.mockResolvedValue(false);
+      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: false });
 
       const result = await service.isPaused();
-      expect(result).toBe(false);
+      expect(result.value).toBe(false);
     });
   });
 
   describe('getAdmin', () => {
     it('should return the current admin address', async () => {
-      contractService.simulateReadOnly.mockResolvedValue(
-        'GADMIN1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB',
-      );
+      contractService.simulateReadOnly.mockResolvedValue({
+        success: true,
+        value: 'GADMIN1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB',
+      });
 
       const result = await service.getAdmin();
 
       expect(contractService.simulateReadOnly).toHaveBeenCalledWith('get_admin', []);
-      expect(result).toBe('GADMIN1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB');
+      expect(result.value).toBe('GADMIN1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB');
     });
   });
 
@@ -88,15 +91,16 @@ describe('AdminService', () => {
     it('should invoke transfer_admin with the new admin address', async () => {
       const newAdmin = 'GNEWADMIN234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
       contractService.invoke.mockResolvedValue({
-        result: undefined,
-        txHash: 'ghi789',
+        success: true,
+        value: undefined,
+        transactionHash: 'ghi789',
         ledger: 102,
       });
 
       const result = await service.transferAdmin(newAdmin);
 
       expect(contractService.invoke).toHaveBeenCalledWith('transfer_admin', [newAdmin], expect.anything());
-      expect(result).toEqual({ txHash: 'ghi789', ledger: 102 });
+      expect(result).toEqual({ success: true, value: undefined, transactionHash: 'ghi789', ledger: 102 });
     });
 
     it('should throw on empty address', async () => {
@@ -107,15 +111,16 @@ describe('AdminService', () => {
   describe('acceptAdmin', () => {
     it('should invoke accept_admin', async () => {
       contractService.invoke.mockResolvedValue({
-        result: undefined,
-        txHash: 'jkl012',
+        success: true,
+        value: undefined,
+        transactionHash: 'jkl012',
         ledger: 103,
       });
 
       const result = await service.acceptAdmin();
 
       expect(contractService.invoke).toHaveBeenCalledWith('accept_admin', [], expect.anything());
-      expect(result).toEqual({ txHash: 'jkl012', ledger: 103 });
+      expect(result).toEqual({ success: true, value: undefined, transactionHash: 'jkl012', ledger: 103 });
     });
   });
 });

@@ -1,15 +1,19 @@
 import { Controller, Post, Get, Body, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { RescueService } from './rescue.service';
+import { VrfService } from '../randomness/vrf.service';
 
-@Controller('rescue')
+@Controller()
 export class RescueController {
-  constructor(private readonly rescueService: RescueService) {}
+  constructor(
+    private readonly rescueService: RescueService,
+    private readonly vrfService: VrfService,
+  ) {}
 
   /**
    * Re-enqueue a failed job
    * POST /rescue/re-enqueue
    */
-  @Post('re-enqueue')
+  @Post('rescue/re-enqueue')
   @HttpCode(HttpStatus.OK)
   async reEnqueueJob(
     @Body('jobId') jobId: string,
@@ -23,7 +27,7 @@ export class RescueController {
    * Force submit randomness for a raffle
    * POST /rescue/force-submit
    */
-  @Post('force-submit')
+  @Post('rescue/force-submit')
   @HttpCode(HttpStatus.OK)
   async forceSubmit(
     @Body('raffleId') raffleId: number,
@@ -39,7 +43,7 @@ export class RescueController {
    * Force fail a job (mark as invalid/malicious)
    * POST /rescue/force-fail
    */
-  @Post('force-fail')
+  @Post('rescue/force-fail')
   @HttpCode(HttpStatus.OK)
   async forceFail(
     @Body('jobId') jobId: string,
@@ -53,7 +57,7 @@ export class RescueController {
    * Get failed jobs
    * GET /rescue/failed-jobs
    */
-  @Get('failed-jobs')
+  @Get('rescue/failed-jobs')
   async getFailedJobs() {
     return this.rescueService.getFailedJobs();
   }
@@ -62,7 +66,7 @@ export class RescueController {
    * Get all jobs by state
    * GET /rescue/jobs
    */
-  @Get('jobs')
+  @Get('rescue/jobs')
   async getAllJobs() {
     return this.rescueService.getAllJobs();
   }
@@ -71,7 +75,7 @@ export class RescueController {
    * Get rescue audit logs
    * GET /rescue/logs
    */
-  @Get('logs')
+  @Get('rescue/logs')
   async getRescueLogs(@Query('limit') limit?: string) {
     const parsedLimit = limit ? parseInt(limit, 10) : 100;
     return this.rescueService.getRescueLogs(parsedLimit);
@@ -81,8 +85,39 @@ export class RescueController {
    * Get rescue logs for a specific raffle
    * GET /rescue/logs/:raffleId
    */
-  @Get('logs/:raffleId')
+  @Get('rescue/logs/:raffleId')
   async getRescueLogsByRaffle(@Param('raffleId') raffleId: string) {
     return this.rescueService.getRescueLogsByRaffle(parseInt(raffleId, 10));
+  }
+
+  /**
+   * Verify an Ed25519-SHA256 VRF proof and derive the seed.
+   * POST /oracle/verify
+   */
+  @Post('oracle/verify')
+  @HttpCode(HttpStatus.OK)
+  verifyOracleProof(
+    @Body('requestId') requestId: string,
+    @Body('proof') proof: string,
+    @Body('publicKey') publicKey: string,
+  ): { valid: boolean; seed?: string } {
+    if (!requestId || !proof || !publicKey) {
+      return { valid: false };
+    }
+
+    return this.vrfService.verifyProof({
+      requestId,
+      proof,
+      publicKey,
+    });
+  }
+
+  /**
+   * Return this oracle's Ed25519 public key.
+   * GET /oracle/public-key
+   */
+  @Get('oracle/public-key')
+  async getOraclePublicKey() {
+    return this.vrfService.getPublicKey();
   }
 }

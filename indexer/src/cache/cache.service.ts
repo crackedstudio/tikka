@@ -13,7 +13,7 @@ export type CacheStats = {
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
-  private redis: any;
+  private redis!: InstanceType<typeof Redis>;
 
   private readonly MEM_WARN_THRESHOLD = 80;
   private readonly MEM_CRIT_THRESHOLD = 90;

@@ -13,10 +13,13 @@ import { HealthModule } from '../health/health.module';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { RANDOMNESS_QUEUE } from './randomness.queue';
+import { AuditLogModule } from '../audit/audit.module';
+import { PriorityClassifierService } from './priority-classifier.service';
 
 @Module({
   imports: [
     HealthModule,
+    AuditLogModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -48,7 +51,8 @@ import { RANDOMNESS_QUEUE } from './randomness.queue';
     FeeEstimatorService,
     HealthService,
     LagMonitorService,
+    PriorityClassifierService,
   ],
-  exports: [RandomnessWorker, CommitRevealWorker, BullModule.registerQueue({ name: RANDOMNESS_QUEUE })],
+  exports: [RandomnessWorker, CommitRevealWorker, BullModule.registerQueue({ name: RANDOMNESS_QUEUE }), PriorityClassifierService],
 })
 export class QueueModule { }

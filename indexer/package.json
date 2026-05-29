@@ -15,9 +15,12 @@
     "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",
     "status": "ts-node --transpile-only src/cli/status.command.ts",
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
+    "snapshot:export": "ts-node src/cli/snapshot-export.ts",
+    "snapshot:import": "ts-node src/cli/snapshot-import.ts",
     "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
-    "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate"
+    "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate",
+    "dlq:replay": "ts-node --transpile-only src/cli/dlq-replay.command.ts"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -28,7 +31,12 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "diagnostics": false
+        }
+      ]
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
@@ -37,6 +45,8 @@
     "testEnvironment": "node"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.500.0",
+    "@aws-sdk/lib-storage": "^3.500.0",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^10.4.0",
     "@nestjs/config": "^4.0.3",
@@ -58,6 +68,7 @@
     "@nestjs/cli": "^10.4.0",
     "@nestjs/testing": "^10.4.22",
     "@testcontainers/postgresql": "^11.13.0",
+    "@types/express": "^5.0.6",
     "@types/ioredis": "^4.28.10",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
@@ -67,6 +78,7 @@
     "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "fast-check": "^3.23.2",
     "ioredis-mock": "^8.13.1",
     "jest": "^30.2.0",
     "prettier": "^3.8.1",

@@ -6,6 +6,12 @@ export interface OracleConfig {
   weight: number;
 }
 
+export interface PeerOracleEndpoint {
+  id: string;
+  url: string;
+  publicKey: string;
+}
+
 export interface OracleSubmission {
   oracleId: string;
   publicKey: string;

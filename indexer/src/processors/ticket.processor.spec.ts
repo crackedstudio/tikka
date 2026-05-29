@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource, QueryRunner, EntityManager } from 'typeorm';
 import { TicketProcessor } from './ticket.processor';
 import { UserProcessor } from './user.processor';
 import { CacheService } from '../cache/cache.service';
@@ -8,34 +7,20 @@ import { RaffleEntity } from '../database/entities/raffle.entity';
 
 describe('TicketProcessor', () => {
   let processor: TicketProcessor;
-  let dataSource: DataSource;
   let userProcessor: UserProcessor;
   let cacheService: CacheService;
   let mockQueryRunner: any;
   let mockManager: any;
 
   beforeEach(async () => {
-    // Mock EntityManager
     mockManager = {
       createQueryBuilder: jest.fn(),
     };
 
-    // Mock QueryRunner
     mockQueryRunner = {
-      connect: jest.fn().mockResolvedValue(undefined),
-      startTransaction: jest.fn().mockResolvedValue(undefined),
-      commitTransaction: jest.fn().mockResolvedValue(undefined),
-      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
-      release: jest.fn().mockResolvedValue(undefined),
       manager: mockManager,
     };
 
-    // Mock DataSource
-    dataSource = {
-      createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
-    } as any;
-
-    // Mock services
     cacheService = {
       invalidateRaffleDetail: jest.fn().mockResolvedValue(undefined),
       invalidateUserProfile: jest.fn().mockResolvedValue(undefined),
@@ -44,12 +29,12 @@ describe('TicketProcessor', () => {
 
     userProcessor = {
       handleTicketPurchased: jest.fn().mockResolvedValue(undefined),
+      handleTicketRefunded: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TicketProcessor,
-        { provide: DataSource, useValue: dataSource },
         { provide: UserProcessor, useValue: userProcessor },
         { provide: CacheService, useValue: cacheService },
       ],
@@ -88,7 +73,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       // Verify each ticket was inserted
       expect(mockInsertBuilder.insert).toHaveBeenCalledTimes(3);
@@ -125,7 +110,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(mockUpdateBuilder.update).toHaveBeenCalledWith(RaffleEntity);
       expect(mockUpdateBuilder.set).toHaveBeenCalledWith({
@@ -162,7 +147,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(userProcessor.handleTicketPurchased).toHaveBeenCalledWith(
         raffleId,
@@ -201,7 +186,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
     });
@@ -233,12 +218,12 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(cacheService.invalidateUserProfile).toHaveBeenCalledWith(buyer);
     });
 
-    it('should rollback transaction on error', async () => {
+    it('should propagate errors from ticket insert', async () => {
       const error = new Error('Database error');
       const mockInsertBuilder = {
         insert: jest.fn().mockReturnThis(),
@@ -251,11 +236,8 @@ describe('TicketProcessor', () => {
       mockManager.createQueryBuilder.mockReturnValueOnce(mockInsertBuilder);
 
       await expect(
-        processor.handleTicketPurchased(1, 'GBUYER', [1], '100000000', 500, 'tx-hash'),
+        processor.handleTicketPurchased(1, 'GBUYER', [1], '100000000', 500, 'tx-hash', mockQueryRunner),
       ).rejects.toThrow(error);
-
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
     });
 
     it('should handle batch ticket purchase events', async () => {
@@ -289,7 +271,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       // Verify all 5 tickets were inserted
       expect(mockInsertBuilder.insert).toHaveBeenCalledTimes(5);
@@ -313,7 +295,14 @@ describe('TicketProcessor', () => {
 
       mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketRefunded(raffleId, ticketId, recipient, amount, txHash);
+      await processor.handleTicketRefunded(
+        raffleId,
+        ticketId,
+        recipient,
+        amount,
+        txHash,
+        mockQueryRunner,
+      );
 
       expect(mockUpdateBuilder.update).toHaveBeenCalledWith(TicketEntity);
       expect(mockUpdateBuilder.set).toHaveBeenCalledWith({
@@ -338,7 +327,14 @@ describe('TicketProcessor', () => {
 
       mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketRefunded(raffleId, ticketId, recipient, amount, txHash);
+      await processor.handleTicketRefunded(
+        raffleId,
+        ticketId,
+        recipient,
+        amount,
+        txHash,
+        mockQueryRunner,
+      );
 
       expect(mockUpdateBuilder.where).toHaveBeenCalledWith('id = :ticketId AND raffle_id = :raffleId', {
         ticketId,
@@ -362,7 +358,14 @@ describe('TicketProcessor', () => {
 
       mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketRefunded(raffleId, ticketId, recipient, amount, txHash);
+      await processor.handleTicketRefunded(
+        raffleId,
+        ticketId,
+        recipient,
+        amount,
+        txHash,
+        mockQueryRunner,
+      );
 
       expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
     });
@@ -383,12 +386,19 @@ describe('TicketProcessor', () => {
 
       mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketRefunded(raffleId, ticketId, recipient, amount, txHash);
+      await processor.handleTicketRefunded(
+        raffleId,
+        ticketId,
+        recipient,
+        amount,
+        txHash,
+        mockQueryRunner,
+      );
 
       expect(cacheService.invalidateUserProfile).toHaveBeenCalledWith(recipient);
     });
 
-    it('should rollback transaction on error during refund', async () => {
+    it('should propagate errors from refund update', async () => {
       const error = new Error('Refund error');
       const mockUpdateBuilder = {
         update: jest.fn().mockReturnThis(),
@@ -399,12 +409,9 @@ describe('TicketProcessor', () => {
 
       mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
 
-      await expect(processor.handleTicketRefunded(1, 1, 'GBUYER', '100000000', 'tx-hash')).rejects.toThrow(
-        error,
-      );
-
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
+      await expect(
+        processor.handleTicketRefunded(1, 1, 'GBUYER', '100000000', 'tx-hash', mockQueryRunner),
+      ).rejects.toThrow(error);
     });
   });
 
@@ -436,7 +443,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       const valuesCall = mockInsertBuilder.values.mock.calls[0][0];
       expect(valuesCall.owner).toBe(buyer);
@@ -473,7 +480,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       const setCall = mockUpdateBuilder.set.mock.calls[0][0];
       // The set function should increment by 5
@@ -514,9 +521,9 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockUpdateBuilder);
 
       // First call
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
       // Second call with same parameters
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash);
+      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       // orIgnore should prevent duplicate ticket insertion
       expect(mockInsertBuilder.orIgnore).toHaveBeenCalled();

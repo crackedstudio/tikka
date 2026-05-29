@@ -52,20 +52,22 @@ export class ThirdPartyRaffleCreatedHandler extends BaseEventHandler {
         // Could return null or apply custom logic
       }
 
-      // Map to standard DomainEvent format
+      const p = params as Record<string, unknown>;
+      // Map to standard DomainEvent.params; stash third-party fields in metadata_cid JSON
       return {
         type: "RaffleCreated",
         raffle_id: raffleId,
         creator: creator,
         params: {
-          ticket_price: String(params.ticket_price ?? params.price ?? "0"),
-          max_tickets: Number(params.max_tickets),
-          end_time: Number(params.end_time ?? params.endTime ?? 0),
-          asset: params.asset ?? category ?? "XLM",
-          metadata_cid: params.metadata_cid ?? params.metadataCid ?? "",
-          allow_multiple: Boolean(
-            params.allow_multiple ?? params.allowMultiple ?? true,
-          ),
+          ticket_price: String(p.ticket_price ?? p.price ?? "0"),
+          max_tickets: Number(p.max_tickets),
+          end_time: Number(p.end_time ?? p.endTime ?? 0),
+          asset: String(p.asset ?? category ?? "XLM"),
+          metadata_cid: JSON.stringify({
+            category,
+            metadata: p.metadata ?? p.metadata_cid ?? p.metadataCid ?? {},
+          }),
+          allow_multiple: Boolean(p.allow_multiple ?? p.allowMultiple ?? true),
         },
       };
     } catch (error) {

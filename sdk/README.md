@@ -52,6 +52,7 @@ The SDK provides a unified interface for multiple Stellar wallets. All adapters 
 | xBull | Browser extension / PWA | Mobile-friendly |
 | Albedo | Web-based | No extension required, popup-based |
 | LOBSTR | Browser extension | Large user base |
+| Rabet | Browser extension | Lightweight, open-source |
 
 ### Albedo Wallet
 
@@ -133,10 +134,86 @@ try {
 **Complete Example:**
 See [examples/albedo-wallet.ts](./examples/albedo-wallet.ts) for a full working example.
 
+### Rabet Wallet
+
+Rabet is a lightweight, open-source browser extension wallet for Stellar. It provides a simple and secure way to manage Stellar assets and interact with dApps.
+
+**Key Features:**
+- Lightweight browser extension
+- Open-source and community-driven
+- Simple and intuitive interface
+- Supports transaction signing
+- Network switching support
+
+**Installation:**
+Rabet doesn't require an npm package - it uses the global `window.rabet` object injected by the browser extension.
+
+**Basic Usage:**
+```typescript
+import { RabetAdapter } from '@tikka/sdk';
+import { Networks } from '@stellar/stellar-sdk';
+
+// Create adapter with network configuration
+const adapter = new RabetAdapter({
+  networkPassphrase: Networks.TESTNET
+});
+
+// Check if Rabet extension is installed
+if (adapter.isAvailable()) {
+  // Get public key (prompts user to connect)
+  const publicKey = await adapter.getPublicKey();
+  console.log('User public key:', publicKey);
+  
+  // Sign transaction
+  const { signedXdr } = await adapter.signTransaction(xdr, {
+    networkPassphrase: Networks.TESTNET
+  });
+}
+```
+
+**Advanced Usage:**
+```typescript
+// Use different network
+const { signedXdr } = await adapter.signTransaction(xdr, {
+  networkPassphrase: Networks.PUBLIC
+});
+
+// Get configured network
+const network = await adapter.getNetwork();
+console.log('Network:', network);
+```
+
+**Error Handling:**
+```typescript
+import { TikkaSdkError, TikkaSdkErrorCode } from '@tikka/sdk';
+
+try {
+  const publicKey = await adapter.getPublicKey();
+} catch (err) {
+  if (err instanceof TikkaSdkError) {
+    switch (err.code) {
+      case TikkaSdkErrorCode.UserRejected:
+        console.log('User cancelled the request');
+        break;
+      case TikkaSdkErrorCode.WalletNotInstalled:
+        console.log('Rabet extension not installed. Get it at https://rabet.io');
+        break;
+      default:
+        console.log('Unknown error:', err.message);
+    }
+  }
+}
+```
+
+**Important Notes:**
+- Rabet requires a network passphrase for transaction signing
+- Message signing is not supported by Rabet
+- Users must have the Rabet browser extension installed from [rabet.io](https://rabet.io)
+
 ### General Wallet Usage
 
 ```typescript
-import { FreighterAdapter, XBullAdapter, AlbedoAdapter, LobstrAdapter } from '@tikka/sdk';
+import { FreighterAdapter, XBullAdapter, AlbedoAdapter, LobstrAdapter, RabetAdapter } from '@tikka/sdk';
 
 // Create adapter instance
 const adapter = new FreighterAdapter({

@@ -10,6 +10,7 @@ import {
   IndexerListRafflesFilters,
   IndexerListRafflesResponse,
 } from '../../../services/indexer.service';
+import { PurchaseTicketPayload } from './dto';
 
 /** Merged raffle detail: contract data + off-chain metadata */
 export interface RaffleDetailResponse {
@@ -95,6 +96,25 @@ export class RafflesService {
     }
 
     return this.mergeRaffleDetail(id, indexerData ?? null, metadata ?? null);
+  }
+
+  /**
+   * Purchase tickets for a raffle.
+   * The actual on-chain transaction is submitted by the client via the SDK;
+   * this endpoint records the intent and returns a confirmation.
+   */
+  async purchaseTickets(
+    raffleId: number,
+    payload: PurchaseTicketPayload,
+    walletAddress: string,
+  ): Promise<{ raffleId: number; quantity: number; buyer: string }> {
+    const raffle = await this.indexerService.getRaffle(raffleId);
+    if (!raffle) {
+      throw new NotFoundException(`Raffle ${raffleId} not found`);
+    }
+
+    // TODO: submit on-chain transaction via SDK and persist DB record
+    return { raffleId, quantity: payload.quantity, buyer: walletAddress };
   }
 
   private mergeRaffleDetail(

@@ -192,6 +192,22 @@ EVENT_HANDLER_CONFIG_PATH=config/event-handlers.json
 7. Return typed DomainEvent or null
 ```
 
+## Schema Versioning Contract
+
+- Every parsed `DomainEvent` includes `schemaVersion` (defaults to `1`).
+- `EventParserV2Service` extracts `schemaVersion` from `topics[1]` when it is a positive numeric value.
+- `EventHandlerRegistry` routes handlers by `{ contractAddress, eventName, schemaVersion }`.
+- Multiple versions of handlers for the same event can coexist for rolling contract upgrades.
+- When no exact versioned handler exists, registry falls back to schema version `1` for backward compatibility.
+- `raffle_events.schema_version` persists the parsed version for auditability and replay tooling.
+
+### Versioned Handler Registration
+
+```typescript
+eventHandlerRegistry.registerHandler("CONTRACT_A", raffleCreatedV1Handler, 1);
+eventHandlerRegistry.registerHandler("CONTRACT_A", raffleCreatedV2Handler, 2);
+```
+
 ## Logging and Monitoring
 
 ### Event Categories

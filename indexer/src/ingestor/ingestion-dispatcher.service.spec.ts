@@ -20,14 +20,25 @@ describe('IngestionDispatcherService', () => {
       handleAdminTransferAccepted: jest.fn().mockResolvedValue(undefined),
     };
     const dlq = new DeadLetterQueueService();
+    const runner = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      startTransaction: jest.fn().mockResolvedValue(undefined),
+      commitTransaction: jest.fn().mockResolvedValue(undefined),
+      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+      release: jest.fn().mockResolvedValue(undefined),
+      manager: {},
+    };
+    const dataSource = {
+      createQueryRunner: jest.fn().mockReturnValue(runner),
+    };
 
     dlq.clear();
 
     return {
       service: new IngestionDispatcherService(
+        dataSource as any,
         raffleProcessor as any,
         ticketProcessor as any,
-        {} as any,
         adminProcessor as any,
         dlq,
       ),

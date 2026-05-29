@@ -48,6 +48,12 @@ export interface IndexerUserData {
   total_prize_xlm: string;
   first_seen_ledger: number;
   updated_at: string;
+  creator_stats?: {
+    raffles_created: number;
+    total_tickets_sold: number;
+    total_xlm_raised: string;
+    participant_win_rate: number;
+  };
 }
 
 export interface IndexerUserHistoryItem {
@@ -75,6 +81,7 @@ export interface IndexerLeaderboardEntry {
 
 export interface IndexerLeaderboardResponse {
   entries: IndexerLeaderboardEntry[];
+  nextCursor?: string | null;
 }
 
 export type LeaderboardSortBy = 'wins' | 'volume' | 'tickets';
@@ -82,6 +89,8 @@ export type LeaderboardSortBy = 'wins' | 'volume' | 'tickets';
 export interface IndexerLeaderboardFilters {
   by?: LeaderboardSortBy;
   limit?: number;
+  cursor?: string;
+  offset?: number;
 }
 
 export interface IndexerPlatformStats {
@@ -91,6 +100,23 @@ export interface IndexerPlatformStats {
   total_volume_xlm: string;
   unique_participants: number;
   prizes_distributed_xlm: string;
+}
+
+export interface IndexerTransparencyEntry {
+  id: string;
+  timestamp: string;
+  raffle_id: number;
+  request_id: string;
+  oracle_id: string;
+  seed: string;
+  proof: string;
+  tx_hash: string;
+  method: 'VRF' | 'PRNG';
+}
+
+export interface IndexerTransparencyLog {
+  entries: IndexerTransparencyEntry[];
+  total: number;
 }
 
 export class IndexerError extends Error {
@@ -235,6 +261,8 @@ export class IndexerService {
     const params = new URLSearchParams();
     if (filters.by) params.set('by', filters.by);
     if (filters.limit != null) params.set('limit', String(filters.limit));
+    if (filters.cursor) params.set('cursor', filters.cursor);
+    if (filters.offset != null) params.set('offset', String(filters.offset));
     const query = params.toString();
     const path = query ? `/leaderboard?${query}` : '/leaderboard';
     return this.fetch<IndexerLeaderboardResponse>(path);
@@ -243,6 +271,20 @@ export class IndexerService {
   /** Get platform-wide aggregate stats. */
   async getPlatformStats(): Promise<IndexerPlatformStats> {
     return this.fetch<IndexerPlatformStats>('/stats/platform');
+  }
+
+  /** Get paginated VRF/PRNG audit log entries. */
+  async getTransparencyLog(
+    limit = 10,
+    offset = 0,
+    raffleId?: number,
+  ): Promise<IndexerTransparencyLog> {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (raffleId != null) params.set('raffle_id', String(raffleId));
+    return this.fetch<IndexerTransparencyLog>(`/transparency?${params}`);
   }
 
   /** Submit a ledger and its transactions for re-indexing (backfill). */
