@@ -7,7 +7,9 @@
   "readme": "README.md",
   "includeVersion": true,
   "categorizeByGroup": true,
-  "groupOrder": ["Raffle", "Ticket", "Wallet", "User", "Network", "Utils", "*"],
+  "groupOrder": ["Raffle", "Ticket", "User", "Admin", "Wallet", "Network", "Fee", "Utils", "*"],
+  "excludeProtected": true,
+  "excludeInternal": true,
   "navigationLinks": {
     "GitHub": "https://github.com/crackedstudio/tikka"
   },
