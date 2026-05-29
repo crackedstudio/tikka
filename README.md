@@ -24,6 +24,51 @@ To regenerate locally: `cd sdk && npm run docs`
 
 Full ecosystem specification: **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — diagram, data flows, contract interface, API design, and roadmap.
 
-## Contracts
-
 Soroban (Rust) raffle contracts are maintained **outside this repo**. Deploy and invoke them via the SDK once addresses are configured.
+
+## Workspace Management & Local Development
+
+This repository is structured as a **declared pnpm workspace** to manage all packages under a single dependency graph efficiently.
+
+### 1. Installation
+To install all dependencies across the entire ecosystem from a clean checkout, simply run from the root:
+```bash
+pnpm install
+```
+
+### 2. Common Workspace Tasks
+Root scripts are configured to easily target all or specific packages.
+
+#### Build
+- Build all packages:
+  ```bash
+  pnpm build
+  ```
+- Build a specific package (e.g. `client`):
+  ```bash
+  pnpm build:client
+  ```
+
+#### Test
+- Test all packages:
+  ```bash
+  pnpm test
+  ```
+- Test a specific package (e.g. `sdk`):
+  ```bash
+  pnpm test:sdk
+  ```
+
+#### Lint
+- Lint all packages:
+  ```bash
+  pnpm lint
+  ```
+- Lint a specific package:
+  ```bash
+  pnpm lint:client
+  ```
+
+### 3. Package-Local Operations
+Local commands inside individual packages (e.g. `cd client && pnpm run dev`) remain completely unchanged and supported.
+
