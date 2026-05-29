@@ -416,10 +416,10 @@ Oracle              Contract           Indexer          Backend          User
 | Step | Owned By | Working Directory |
 |---|---|---|
 | Event processing | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
-| Leaderboard service | **Backend** | [backend/src/services/](../backend/src/services/) |
-| Leaderboard controller | **Backend** | [backend/src/api/rest/stats/](../backend/src/api/rest/) |
+| Leaderboard service | **Backend** | [backend/src/api/rest/leaderboard/](../backend/src/api/rest/leaderboard/) |
+| Leaderboard controller | **Backend** | [backend/src/api/rest/leaderboard/](../backend/src/api/rest/leaderboard/) |
 | Real-time updates | **Backend** | [backend/src/api/rest/](../backend/src/api/rest/) |
-| Statistics | **Backend** | [backend/src/services/](../backend/src/services/) |
+| Statistics | **Backend** | [backend/src/api/rest/stats/](../backend/src/api/rest/stats/) |
 
 ### Statistics Calculated
 
