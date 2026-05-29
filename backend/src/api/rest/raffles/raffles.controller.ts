@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -139,6 +140,25 @@ export class RafflesController {
     payload: UpsertMetadataDto,
   ) {
     return this.rafflesService.upsertMetadata(raffleId, payload, address);
+  }
+
+  /**
+   * DELETE /raffles/:raffleId/metadata — Soft-delete raffle metadata.
+   * Creator can delete their own raffle's metadata; admin can delete any.
+   * Requires JWT (SIWS).
+   */
+  @ApiBearerAuth()
+  @Delete(":raffleId/metadata")
+  @ApiOperation({ summary: "Soft-delete raffle metadata (creator or admin)" })
+  @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiResponse({ status: 200, description: "Metadata soft-deleted successfully" })
+  @ApiResponse({ status: 403, description: "Forbidden — not the creator" })
+  @ApiResponse({ status: 404, description: "Raffle or metadata not found" })
+  async deleteMetadata(
+    @Param("raffleId", ParseIntPipe) raffleId: number,
+    @CurrentUser("address") address: string,
+  ) {
+    return this.rafflesService.deleteMetadata(raffleId, address);
   }
 
   /**
