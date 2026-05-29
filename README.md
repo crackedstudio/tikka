@@ -27,3 +27,4 @@ Full ecosystem specification: **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)**
 ## Contracts
 
 Soroban (Rust) raffle contracts are maintained **outside this repo**. Deploy and invoke them via the SDK once addresses are configured.
+Minor doc tweak for sync
