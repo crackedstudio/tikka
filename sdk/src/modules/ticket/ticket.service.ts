@@ -3,12 +3,9 @@ import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import {
   BuyTicketParams,
-  BuyTicketResult,
   RefundTicketParams,
-  RefundTicketResult,
   GetUserTicketsParams,
   BuyBatchParams,
-  BuyBatchResult,
   BatchPurchaseResult,
 } from './ticket.types';
 import { ContractResponse } from '../../contract/response';
@@ -198,7 +195,6 @@ export class TicketService {
     const results: BatchPurchaseResult[] = [];
     let lastTxHash = '';
     let lastLedger = 0;
-    let totalFee = BigInt(0);
 
     for (const purchase of validPurchases) {
       try {
@@ -216,8 +212,6 @@ export class TicketService {
 
         lastTxHash = res.transactionHash || '';
         lastLedger = res.ledger || 0;
-        // Accumulate fees (simplified - in reality each tx has its own fee)
-        totalFee += BigInt(100000); // Base fee estimate
       } catch (err) {
         results.push({
           raffleId: purchase.raffleId,

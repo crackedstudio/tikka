@@ -3,15 +3,13 @@ import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import {
   RaffleParams,
-  CreateRaffleResult,
   RaffleData,
-  CancelRaffleResult,
   CancelRaffleParams,
   AssetDescriptor,
 } from './raffle.types';
 import { ContractResponse } from '../../contract/response';
-import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
-import { xlmToStroops } from '../../utils/formatting';
+import { assertPositiveInt } from '../../utils/validation';
+import { xlmToStroops, assertSafeAmount } from '../../utils/formatting';
 import { nativeToScVal } from '@stellar/stellar-sdk';
 
 /**
@@ -47,7 +45,7 @@ export class RaffleService {
    * @returns The on-chain raffle ID, transaction hash, and ledger.
    */
   async create(params: RaffleParams): Promise<ContractResponse<number>> {
-    assertNonEmpty(params.ticketPrice, 'ticketPrice');
+    assertSafeAmount(params.ticketPrice, 'ticketPrice');
     assertPositiveInt(params.maxTickets, 'maxTickets');
 
     const asset = normaliseAsset(params.asset);

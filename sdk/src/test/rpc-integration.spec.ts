@@ -3,7 +3,7 @@ import { RaffleService } from '../modules/raffle/raffle.service';
 import { ContractService } from '../contract/contract.service';
 import { HorizonService } from '../network/horizon.service';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
-import { xdr, nativeToScVal, TransactionBuilder, Networks, Keypair, rpc as StellarRpc } from '@stellar/stellar-sdk';
+import { nativeToScVal, TransactionBuilder, Networks, Keypair } from '@stellar/stellar-sdk';
 
 // Mock Stellar SDK rpc.assembleTransaction
 jest.mock('@stellar/stellar-sdk', () => {

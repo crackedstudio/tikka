@@ -2,7 +2,7 @@ import { TicketService } from './ticket.service';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import { BuyTicketParams, RefundTicketParams, BuyBatchParams } from './ticket.types';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+import { TikkaSdkError } from '../../utils/errors';
 
 describe('TicketService', () => {
   let service: TicketService;
