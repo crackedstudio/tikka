@@ -2,13 +2,13 @@ import { xdr, scValToNative } from "@stellar/stellar-sdk";
 import { Injectable, Logger } from "@nestjs/common";
 import {
   DomainEvent,
-  RaffleCreatedEvent,
-  TicketPurchasedEvent,
   DrawTriggeredEvent,
-  RandomnessRequestedEvent,
-  RandomnessReceivedEvent,
-  RaffleFinalizedEvent,
   RaffleCancelledEvent,
+  RaffleCreatedEvent,
+  RaffleFinalizedEvent,
+  RandomnessReceivedEvent,
+  RandomnessRequestedEvent,
+  TicketPurchasedEvent,
   TicketRefundedEvent,
 } from "./event.types";
 
