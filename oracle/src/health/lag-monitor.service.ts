@@ -51,4 +51,12 @@ export class LagMonitorService {
   getPendingRequests(): PendingRequest[] {
     return Array.from(this.pendingRequests.values());
   }
+
+  getCurrentLedger(): number {
+    return this.currentLedger;
+  }
+
+  getLagThresholdLedgers(): number {
+    return this.LAG_THRESHOLD_LEDGERS;
+  }
 }
