@@ -4,4 +4,9 @@ export type {
   EstimateFeeParams,
   FeeEstimateResult,
   FeeResourceBreakdown,
+  FeeQuote,
+  FeeQuoteConfidence,
+  FeeQuoteSource,
+  FeeQuoteWarning,
+  GetFeeQuoteParams,
 } from './fee-estimator.types';
