@@ -5,6 +5,7 @@ import { LedgerPollerService } from "./ledger-poller.service";
 import { EventHandlersModule } from "./event-handlers.module";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
+import { DeadLetterQueueService } from "./dead-letter-queue.service";
 import { ProcessorsModule } from "../processors/processors.module";
 
 @Module({
@@ -14,6 +15,7 @@ import { ProcessorsModule } from "../processors/processors.module";
     EventParserService,
     LedgerPollerService,
     DryRunService,
+    DeadLetterQueueService,
     IngestionDispatcherService,
   ],
   exports: [
@@ -21,6 +23,7 @@ import { ProcessorsModule } from "../processors/processors.module";
     EventParserService,
     LedgerPollerService,
     DryRunService,
+    DeadLetterQueueService,
     IngestionDispatcherService,
     EventHandlersModule,
   ],

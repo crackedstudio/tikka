@@ -4,6 +4,18 @@ import { TicketProcessor } from "../processors/ticket.processor";
 import { UserProcessor } from "../processors/user.processor";
 import { AdminProcessor } from "../processors/admin.processor";
 import { DomainEvent } from "./event.types";
+import { DeadLetterQueueService } from "./dead-letter-queue.service";
+
+export type HandlerOutcome = "succeeded" | "failed" | "skipped";
+
+export interface HandlerExecutionResult {
+  handlerName: string;
+  eventId: string;
+  eventType: string;
+  outcome: HandlerOutcome;
+  durationMs: number;
+  error?: Error;
+}
 
 /**
  * IngestionDispatcherService
@@ -20,6 +32,7 @@ export class IngestionDispatcherService {
     private readonly ticketProcessor: TicketProcessor,
     private readonly userProcessor: UserProcessor,
     private readonly adminProcessor: AdminProcessor,
+    private readonly deadLetterQueue: DeadLetterQueueService,
   ) {}
 
   /**
@@ -28,9 +41,15 @@ export class IngestionDispatcherService {
    * @param event The parsed DomainEvent
    * @param rawEvent The original raw event from Horizon (containing ledger, txHash, etc.)
    */
-  async dispatch(event: DomainEvent, rawEvent: any): Promise<void> {
+  async dispatch(
+    event: DomainEvent,
+    rawEvent: any,
+  ): Promise<HandlerExecutionResult> {
     const ledger = Number(rawEvent.ledger);
     const txHash = rawEvent.id || rawEvent.paging_token;
+    const eventId = String(rawEvent.id || rawEvent.paging_token || txHash || "unknown");
+    const handlerName = this.getHandlerName(event);
+    const startedAt = Date.now();
 
     this.logger.debug(`Dispatching event: ${event.type} from ledger ${ledger}`);
 
@@ -123,13 +142,96 @@ export class IngestionDispatcherService {
 
         default:
           this.logger.warn(`No processor method found for event type: ${(event as any).type}`);
+          return this.logResult({
+            handlerName,
+            eventId,
+            eventType: (event as any).type,
+            outcome: "skipped",
+            durationMs: Date.now() - startedAt,
+          });
       }
+
+      return this.logResult({
+        handlerName,
+        eventId,
+        eventType: event.type,
+        outcome: "succeeded",
+        durationMs: Date.now() - startedAt,
+      });
     } catch (error: any) {
-      this.logger.error(
-        `Failed to dispatch event ${event.type} for tx ${txHash}: ${error.message}`,
-        error.stack,
-      );
-      throw error; // Re-throw to allow LedgerPoller to handle retry/backoff
+      const result = this.logResult({
+        handlerName,
+        eventId,
+        eventType: event.type,
+        outcome: "failed",
+        durationMs: Date.now() - startedAt,
+        error,
+      });
+
+      await this.deadLetterQueue.enqueue({
+        handlerName,
+        eventId,
+        eventType: event.type,
+        ledger: Number.isFinite(ledger) ? ledger : null,
+        txHash: txHash ? String(txHash) : null,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        durationMs: result.durationMs,
+        event,
+        rawEvent,
+        failedAt: new Date().toISOString(),
+      });
+
+      return result;
     }
+  }
+
+  async dispatchMany(
+    items: Array<{ event: DomainEvent; rawEvent: any }>,
+  ): Promise<HandlerExecutionResult[]> {
+    const results: HandlerExecutionResult[] = [];
+
+    for (const item of items) {
+      results.push(await this.dispatch(item.event, item.rawEvent));
+    }
+
+    return results;
+  }
+
+  private getHandlerName(event: DomainEvent): string {
+    switch (event.type) {
+      case "RaffleCreated":
+        return "RaffleProcessor.handleRaffleCreated";
+      case "TicketPurchased":
+        return "TicketProcessor.handleTicketPurchased";
+      case "RaffleFinalized":
+        return "RaffleProcessor.handleRaffleFinalized";
+      case "RaffleCancelled":
+        return "RaffleProcessor.handleRaffleCancelled";
+      case "TicketRefunded":
+        return "TicketProcessor.handleTicketRefunded";
+      case "ContractPaused":
+        return "AdminProcessor.handleContractPaused";
+      case "ContractUnpaused":
+        return "AdminProcessor.handleContractUnpaused";
+      case "AdminTransferProposed":
+        return "AdminProcessor.handleAdminTransferProposed";
+      case "AdminTransferAccepted":
+        return "AdminProcessor.handleAdminTransferAccepted";
+      default:
+        return `${event.type}Handler`;
+    }
+  }
+
+  private logResult(result: HandlerExecutionResult): HandlerExecutionResult {
+    const line = `handler=${result.handlerName} eventId=${result.eventId} outcome=${result.outcome} durationMs=${result.durationMs}`;
+
+    if (result.outcome === "failed") {
+      this.logger.error(line, result.error?.stack);
+    } else {
+      this.logger.log(line);
+    }
+
+    return result;
   }
 }

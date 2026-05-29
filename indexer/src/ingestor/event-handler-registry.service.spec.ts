@@ -19,7 +19,14 @@ class MockEventHandler implements IEventHandler {
       type: "RaffleCreated" as any,
       raffle_id: 1,
       creator: "test",
-      params: {},
+      params: {
+        ticket_price: "0",
+        max_tickets: 0,
+        end_time: 0,
+        asset: "XLM",
+        metadata_cid: "",
+        allow_multiple: true,
+      },
     };
   }
 }

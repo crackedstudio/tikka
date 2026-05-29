@@ -152,11 +152,17 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
 
       if (parsed) {
         // Dispatch to processors for DB updates
-        await this.dispatcher.dispatch(parsed, rawEvent);
+        const result = await this.dispatcher.dispatch(parsed, rawEvent);
 
-        this.logger.log(
-          `Processed and dispatched ${parsed.type} event from ledger ${rawEvent.ledger}`,
-        );
+        if (result.outcome === "failed") {
+          this.logger.warn(
+            `Dispatched ${parsed.type} event from ledger ${rawEvent.ledger} to DLQ`,
+          );
+        } else {
+          this.logger.log(
+            `Processed and dispatched ${parsed.type} event from ledger ${rawEvent.ledger}`,
+          );
+        }
 
         // Advance cursor only after successful processing and parsing
         const nextToken = rawEvent.paging_token || rawEvent.id;
@@ -220,7 +226,6 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         `Polling error: ${error instanceof Error ? error.message : String(error)}`,
       );
       this.scheduleReconnection();
-      this.metrics.incrementEventsProcessed(response.events.length);
     }
   }
 

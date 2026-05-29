@@ -3,6 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { RafflesController } from "./controllers/raffles.controller";
 import { UsersController } from "./controllers/users.controller";
 import { StatsController } from "./controllers/stats.controller";
+import { LeaderboardController } from "./controllers/leaderboard.controller";
 import { ApiKeyGuard } from "./api-key.guard";
 import { RaffleEntity } from "../database/entities/raffle.entity";
 import { TicketEntity } from "../database/entities/ticket.entity";
@@ -20,7 +21,12 @@ import { CacheModule } from "../cache/cache.module";
     ]),
     CacheModule,
   ],
-  controllers: [RafflesController, UsersController, StatsController],
+  controllers: [
+    RafflesController,
+    UsersController,
+    StatsController,
+    LeaderboardController,
+  ],
   providers: [ApiKeyGuard],
 })
 export class ApiModule {}

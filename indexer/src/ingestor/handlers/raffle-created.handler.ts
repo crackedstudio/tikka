@@ -32,8 +32,14 @@ export class RaffleCreatedHandler extends BaseEventHandler {
         raffle_id: raffleId,
         creator: creator,
         params: {
-          price: Number(params.price),
+          ticket_price: String(params.ticket_price ?? params.price ?? "0"),
           max_tickets: Number(params.max_tickets),
+          end_time: Number(params.end_time ?? params.endTime ?? 0),
+          asset: params.asset ?? "XLM",
+          metadata_cid: params.metadata_cid ?? params.metadataCid ?? "",
+          allow_multiple: Boolean(
+            params.allow_multiple ?? params.allowMultiple ?? true,
+          ),
         },
       };
     } catch (error) {
