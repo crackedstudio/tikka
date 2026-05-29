@@ -180,8 +180,8 @@ export class RandomnessWorker {
       }
       const localOracle = this.oracleRegistry.getLocalOracle();
       if (localOracle) {
-        this.multiOracleCoordinator.recordSubmission(
-          raffleId, requestId, localOracleId, localOracle.publicKey, aggregated, result.txHash,
+       this.multiOracleCoordinator.recordSubmission(
+  raffleId, requestId, localOracleId, localOracle.publicKey, aggregated
         );
       }
 
