@@ -34,6 +34,65 @@ npm run docs        # generates sdk/docs/
 npm run docs:watch  # rebuilds on file change
 ```
 
+## SEP-10 Backend Integration
+
+The SDK includes SEP-10 helpers for building and verifying Stellar web authentication challenges.
+
+### Server-side challenge creation
+
+```ts
+import { buildChallenge } from '@tikka/sdk';
+import { Networks } from '@stellar/stellar-sdk';
+
+const challengeXdr = buildChallenge({
+  serverSecret: process.env.SEP10_SERVER_SECRET!,
+  clientAccount: clientPublicKey,
+  anchorDomain: 'example.com',
+  webAuthDomain: 'auth.example.com',
+  timeout: 300,
+  networkPassphrase: Networks.TESTNET,
+});
+
+return { xdr: challengeXdr };
+```
+
+### Server-side response verification
+
+```ts
+import { Sep10VerificationError, Sep10VerificationErrorCode, verifyResponse } from '@tikka/sdk';
+import { Networks } from '@stellar/stellar-sdk';
+
+const verifiedClient = await verifyResponse({
+  signedChallenge: responseXdr,
+  serverAccount: serverPublicKey,
+  clientAccount: clientPublicKey,
+  anchorDomain: 'example.com',
+  networkPassphrase: Networks.TESTNET,
+  nonceValidator: async (nonceBase64) => {
+    const key = `sep10:nonce:${nonceBase64}`;
+    const added = await redis.set(key, '1', { NX: true, EX: 300 });
+    return added === 'OK';
+  },
+});
+
+console.log('Authenticated client:', verifiedClient);
+```
+
+### Handling verification failures
+
+```ts
+try {
+  await verifyResponse(...);
+} catch (err) {
+  if (err instanceof Sep10VerificationError) {
+    if (err.code === Sep10VerificationErrorCode.ChallengeExpired) {
+      // prompt client to request a new challenge
+    }
+  }
+  throw err;
+}
+```
+
 The docs are organized by module: **Raffle** · **Ticket** · **Wallet** · **User** · **Network** · **Utils**.
 
 ## Architecture
