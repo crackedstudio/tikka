@@ -27,6 +27,7 @@ describe('AuthService', () => {
       insert: jest.fn().mockResolvedValue({ error: null }),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn(),
       update: jest.fn().mockReturnThis(),
     };
@@ -68,7 +69,7 @@ describe('AuthService', () => {
         data: { id: 1, address, nonce, issued_at: issuedAt, expires_at: expiresAt, consumed: false },
         error: null,
       });
-      supabaseClient.update.mockResolvedValue({ error: null });
+      supabaseClient.update.mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
 
       const result = await service.verify(address, signature, nonce, issuedAt);
 
@@ -81,7 +82,7 @@ describe('AuthService', () => {
       supabaseClient.maybeSingle.mockResolvedValue({ data: null, error: null });
 
       await expect(service.verify(address, signature, nonce, issuedAt))
-        .rejects.toThrow('Invalid or used nonce');
+        .rejects.toThrow('Invalid or expired nonce');
     });
 
     it('should throw error if nonce is expired (absolute)', async () => {

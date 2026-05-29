@@ -10,15 +10,17 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
+import { Throttle } from "@nestjs/throttler";
 import { UpsertMetadataPayload } from "../../../services/metadata.service";
 import {
   ListRafflesQuerySchema,
