@@ -107,6 +107,49 @@ npm start
 
 ---
 
+## CLI Commands
+
+### Status Command
+
+You can view the real-time status of the indexer, including lag, DLQ size, cache state, and last processed event using the CLI status command.
+
+```bash
+# View status as a human-readable table
+pnpm run status
+
+# View status as JSON (useful for scripts)
+pnpm run status -- --json
+```
+
+**Output example:**
+```
+Tikka Indexer Status  2023-10-27T10:00:00.000Z
+──────────────────────────────────────────────────
+Ledger
+  Current (indexed)          1000
+  Horizon (latest)           1005
+  Lag                        5 ledgers
+
+Events
+  Total processed            500
+  Last 24 h                  10
+  Last processed at          2023-10-27T09:55:00.000Z
+
+DLQ
+  Total size                 0
+
+Cache
+  Status                     ok
+  Latency                    2 ms
+
+Database
+  Status                     ok
+  Pool (total / idle / wait) 10 / 10 / 0
+──────────────────────────────────────────────────
+```
+
+---
+
 ## Migrations
 
 ### Run pending migrations manually
