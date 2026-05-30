@@ -37,11 +37,15 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
     };
   }
 
-  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string, raffleId?: number): boolean {
+  verifyProof(
+    publicKey: string | Buffer,
+    requestId: string,
+    proof: string,
+    raffleId?: number,
+  ): { valid: boolean; seed?: string } {
     try {
       const pubKeyBuf = typeof publicKey === 'string' ? Buffer.from(publicKey, 'hex') : publicKey;
       const proofBuf = Buffer.from(proof, 'hex');
-      const seedBuf = Buffer.from(seed, 'hex');
       const msgBuf = this.encodeInput(requestId, raffleId);
 
       if (!ed25519.verify(proofBuf, msgBuf, pubKeyBuf)) {
@@ -50,7 +54,7 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
 
       const seed = crypto.createHash('sha256').update(proofBuf).digest('hex');
       return { valid: true, seed };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`VRF proof verification failed: ${error.message}`);
       return { valid: false };
     }
@@ -64,7 +68,7 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
       const seedBuf = Buffer.from(seed, 'hex');
       const expectedSeed = Buffer.from(proofVerification.seed, 'hex');
       return Buffer.compare(expectedSeed, seedBuf) === 0;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`VRF verification failed: ${error.message}`);
       return false;
     }
