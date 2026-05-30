@@ -33,6 +33,9 @@ DB_DATABASE=tikka_indexer
 # Set to "true" on Supabase / Railway (requires SSL)
 DB_SSL=false
 
+# Slow query logging threshold in milliseconds (default: 200)
+SLOW_QUERY_THRESHOLD_MS=200
+
 # Application port (default: 3002)
 PORT=3002
 
@@ -45,6 +48,32 @@ LAG_THRESHOLD=100
 # Health: lag above this many ledgers triggers critical alerts and notifications (default: 50)
 INDEXER_LAG_ALERT_THRESHOLD_LEDGERS=50
 ```
+
+## Slow query observability
+
+The indexer exports two database metrics for query performance:
+
+- `tikka_db_query_duration_seconds` — histogram of all query durations
+- `tikka_db_slow_query_total` — counter of slow queries by query hash
+
+Slow queries are logged at WARN level with a stable SHA-256 hash of the normalized query template. Raw SQL text is not emitted by the logger.
+
+To correlate the query hash with PostgreSQL SQL text, enable `pg_stat_statements` and compute the same normalized SHA-256 hash:
+
+```sql
+SELECT
+  encode(digest(regexp_replace(query, '\s+', ' ', 'g'), 'sha256'), 'hex') AS query_hash,
+  query,
+  calls,
+  total_time,
+  mean_time
+FROM pg_stat_statements
+WHERE query ILIKE '%your_fragment%'
+ORDER BY total_time DESC
+LIMIT 20;
+```
+
+Replace `your_fragment` with a portion of the suspected slow query. The `query_hash` label in Prometheus should match the computed hash above.
 
 ### Local Postgres with Docker
 

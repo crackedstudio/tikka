@@ -1,7 +1,11 @@
 {
-  "$schema": "https://typedoc.org/schema.json",
   "plugin": ["typedoc-plugin-markdown"],
-  "entryPoints": ["src/index.ts"],
+  "entryPoints": [
+    "src/index.ts",
+    "src/index.read.ts",
+    "src/index.write.ts"
+  ],
+  "entryPointStrategy": "resolve",
   "out": "docs",
   "name": "Tikka SDK",
   "readme": "README.md",

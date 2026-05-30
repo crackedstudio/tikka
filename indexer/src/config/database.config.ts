@@ -21,12 +21,18 @@ export default registerAs("database", (): DataSourceOptions => {
     ? process.env.DATABASE_REPLICA_URL.split(",").map((u) => u.trim()).filter(Boolean)
     : [];
 
+  const slowQueryThresholdMs = Math.max(
+    0,
+    Number.parseInt(process.env.SLOW_QUERY_THRESHOLD_MS ?? "200", 10),
+  );
+
   const base = {
     entities: [__dirname + "/../database/entities/*.entity{.ts,.js}"],
     migrations: [__dirname + "/../database/migrations/*{.ts,.js}"],
     migrationsRun: true,
     synchronize: false,
-    logging: process.env.NODE_ENV !== "production",
+    logging: ["warn", "error"] as const,
+    maxQueryExecutionTime: slowQueryThresholdMs,
   };
 
   if (replicaUrls.length > 0) {
