@@ -3,6 +3,7 @@ import {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
+  WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
@@ -132,6 +133,19 @@ export class FreighterAdapter extends WalletAdapter {
     } catch {
       return undefined;
     }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Capabilities                                                       */
+  /* ------------------------------------------------------------------ */
+
+  getCapabilities(): WalletCapabilities {
+    return {
+      supportsGetPublicKey: true,
+      supportsSignTransaction: true,
+      supportsSignMessage: true,
+      supportsGetNetwork: true,
+    };
   }
 
   /* ------------------------------------------------------------------ */

@@ -19,7 +19,20 @@ import {
   EstimateFeeParams,
   FeeEstimateResult,
   FeeResourceBreakdown,
+  FeeQuote,
+  FeeQuoteWarning,
+  GetFeeQuoteParams,
 } from './fee-estimator.types';
+
+/** Default TTL for a simulation-derived fee quote (30 s). */
+const DEFAULT_STALE_AFTER_MS = 30_000;
+
+/**
+ * Fallback base estimate used when simulation is unavailable.
+ * Covers a typical Soroban invocation with moderate resource usage.
+ * 100 (base) + 50 000 (resource) = 50 100 stroops ≈ 0.0050100 XLM.
+ */
+const FALLBACK_RESOURCE_FEE_STROOPS = '50000';
 
 /**
  * Stellar protocol minimum base fee (100 stroops).
@@ -213,5 +226,108 @@ export class FeeEstimatorService {
       return new Address(val).toScVal();
     }
     return nativeToScVal(val);
+  }
+
+  // ─── Fee Quote API ──────────────────────────────────────────────────────────
+
+  /**
+   * Returns a reusable, typed `FeeQuote` that includes source, confidence,
+   * expiry, and any user-visible warnings.
+   *
+   * Behaviour:
+   * - Attempts a live `simulateTransaction` (source = `simulation`, confidence = `high`)
+   * - On simulation failure falls back to a static heuristic (source = `fallback`,
+   *   confidence = `low`) so the caller always receives a usable estimate.
+   * - Adds `MAX_FEE_EXCEEDED` warning when the estimate exceeds `maxFeeStroops`.
+   *
+   * @example
+   * ```ts
+   * const quote = await feeEstimator.getFeeQuote({
+   *   method: ContractFn.BUY_TICKET,
+   *   params: [raffleId, buyerKey, quantity],
+   *   maxFeeStroops: '100000',
+   * });
+   * if (quote.warnings.length) console.warn(quote.warnings.map(w => w.message));
+   * // Pass quote.stroops as the fee ceiling when building the real transaction.
+   * await wallet.signTransaction(tx, { fee: quote.stroops });
+   * ```
+   */
+  async getFeeQuote(params: GetFeeQuoteParams): Promise<FeeQuote> {
+    const staleAfterMs = params.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
+    const warnings: FeeQuoteWarning[] = [];
+
+    let estimate: FeeEstimateResult;
+    let source: FeeQuote['source'];
+    let confidence: FeeQuote['confidence'];
+
+    try {
+      estimate = await this.estimateFee(params);
+      source = 'simulation';
+      confidence = 'high';
+    } catch {
+      // Simulation failed — build a fallback quote from static heuristics.
+      const fallbackStroops = (
+        BigInt(BASE_FEE_STROOPS) + BigInt(FALLBACK_RESOURCE_FEE_STROOPS)
+      ).toString();
+
+      const fallbackResources: FeeResourceBreakdown = {
+        baseFeeStroops: String(BASE_FEE_STROOPS),
+        resourceFeeStroops: FALLBACK_RESOURCE_FEE_STROOPS,
+        cpuInstructions: 0,
+        diskReadBytes: 0,
+        writeBytes: 0,
+        readOnlyEntries: 0,
+        readWriteEntries: 0,
+      };
+
+      estimate = {
+        xlm: stroopsToXlm(fallbackStroops),
+        stroops: fallbackStroops,
+        resources: fallbackResources,
+      };
+      source = 'fallback';
+      confidence = 'low';
+      warnings.push({
+        code: 'FALLBACK_ESTIMATE',
+        message:
+          'Fee simulation failed — showing a static fallback estimate. ' +
+          'The actual fee may differ.',
+      });
+    }
+
+    // Max-fee guard
+    if (
+      params.maxFeeStroops !== undefined &&
+      BigInt(estimate.stroops) > BigInt(params.maxFeeStroops)
+    ) {
+      confidence = 'low';
+      warnings.push({
+        code: 'MAX_FEE_EXCEEDED',
+        message:
+          `Estimated fee (${estimate.stroops} stroops) exceeds your configured ` +
+          `maximum of ${params.maxFeeStroops} stroops. Review before signing.`,
+      });
+    }
+
+    return {
+      xlm: estimate.xlm,
+      stroops: estimate.stroops,
+      expiresAt: Date.now() + staleAfterMs,
+      source,
+      confidence,
+      warnings,
+      resources: estimate.resources,
+    };
+  }
+
+  /**
+   * Returns whether a previously obtained `FeeQuote` is still within its
+   * validity window.
+   *
+   * @param quote  - The quote to check.
+   * @param nowMs  - Override for the current time (defaults to `Date.now()`).
+   */
+  isQuoteStale(quote: FeeQuote, nowMs = Date.now()): boolean {
+    return nowMs >= quote.expiresAt;
   }
 }
