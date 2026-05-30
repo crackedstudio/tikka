@@ -4,19 +4,72 @@ This repository is the **Tikka ecosystem**: frontend, SDK, backend, indexer, and
 
 ## Packages
 
-| Package | Role |
-|---------|------|
-| [**client**](./client/) | Consumer web app — React 19, Vite, TypeScript. Reads from backend, writes via SDK. |
-| [**sdk**](./sdk/) | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). Published as `@tikka/sdk`. |
-| [**backend**](./backend/) | API layer — auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase. |
-| [**indexer**](./indexer/) | Blockchain event ingestion — Horizon → decode → PostgreSQL (+ Redis cache). NestJS. |
-| [**oracle**](./oracle/) | Randomness oracle — listens for draw requests, computes VRF/PRNG, submits to contract. NestJS. |
+| Package | Name | Role |
+|---------|------|------|
+| [**client**](./client/) | `tikka-client` | Consumer web app — React 19, Vite, TypeScript. Reads from backend, writes via SDK. |
+| [**sdk**](./sdk/) | `@tikka/sdk` | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). |
+| [**backend**](./backend/) | `tikka-backend` | API layer — auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase. |
+| [**indexer**](./indexer/) | `tikka-indexer` | Blockchain event ingestion — Horizon → decode → PostgreSQL (+ Redis cache). NestJS. |
+| [**oracle**](./oracle/) | `tikka-oracle` | Randomness oracle — listens for draw requests, computes VRF/PRNG, submits to contract. NestJS. |
 
-## Local Development
+## Workspace Setup
+
+This repo uses **pnpm workspaces**. All five packages are declared in [`pnpm-workspace.yaml`](./pnpm-workspace.yaml).
 
 ### Prerequisites
 
-Docker and Docker Compose v2.
+- **Node.js** ≥ 20
+- **pnpm** ≥ 9 (or use [Corepack](https://nodejs.org/api/corepack.html): `corepack enable`)
+- Docker and Docker Compose v2 (for infrastructure services)
+
+### Install all dependencies
+
+```bash
+pnpm install
+```
+
+This single command installs dependencies for **every** workspace package.
+
+### Build / test / lint all packages
+
+```bash
+pnpm run build        # build all packages
+pnpm run test         # test all packages
+pnpm run lint         # lint all packages
+```
+
+### Target a single package
+
+Use `pnpm --filter <name>` or the convenience root scripts:
+
+```bash
+# Using --filter directly
+pnpm --filter tikka-client run dev
+pnpm --filter tikka-backend run build
+pnpm --filter @tikka/sdk run test
+
+# Using root convenience scripts
+pnpm run build:client
+pnpm run test:backend
+pnpm run dev:client
+```
+
+### Available root scripts
+
+| Script | Description |
+|--------|-------------|
+| `build` | Build all packages |
+| `build:<pkg>` | Build a single package (`client`, `sdk`, `backend`, `indexer`, `oracle`) |
+| `test` | Run tests in all packages |
+| `test:<pkg>` | Run tests in a single package |
+| `lint` | Lint all packages |
+| `lint:<pkg>` | Lint a single package |
+| `dev:client` | Start Vite dev server |
+| `dev:backend` | Start backend in watch mode |
+| `dev:indexer` | Start indexer in watch mode |
+| `dev:oracle` | Start oracle in watch mode |
+
+## Local Development
 
 ### Setup
 
@@ -27,7 +80,7 @@ cp indexer/.env.example indexer/.env.local   # fill in SOROBAN_RPC_URL, TIKKA_CO
 cp oracle/.env.example oracle/.env.local
 ```
 
-### Profiles
+### Docker Compose Profiles
 
 | Profile | What starts |
 |---------|-------------|
@@ -55,7 +108,7 @@ docker compose --profile indexer up --build
 
 ```bash
 docker compose --profile backend up -d
-cd client && pnpm install && pnpm dev
+pnpm run dev:client
 ```
 
 ### Tear down
@@ -72,7 +125,7 @@ Auto-generated TypeDoc reference for `@tikka/sdk`:
 **[crackedstudio.github.io/tikka](https://crackedstudio.github.io/tikka)**
 
 Covers all public APIs organized by module: Raffle · Ticket · Wallet · User · Network · Utils.
-To regenerate locally: `cd sdk && npm run docs`
+To regenerate locally: `pnpm --filter @tikka/sdk run docs`
 
 ## Documentation
 
