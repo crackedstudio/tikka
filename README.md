@@ -24,9 +24,15 @@ To regenerate locally: `cd sdk && npm run docs`
 
 Full ecosystem specification: **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — diagram, data flows, contract interface, API design, and roadmap.
 
-Module boundary and package ownership guidance: **[docs/contributing/MODULE_BOUNDARIES.md](./docs/contributing/MODULE_BOUNDARIES.md)**.
+## Release & Versioning
 
-Backup and restore runbook for Postgres and Redis-backed state: **[docs/backups/README.md](./docs/backups/README.md)**.
+Release policy, versioning rules, and changelog procedures: **[docs/RELEASE.md](./docs/RELEASE.md)**
+
+- SDK: Semantic Versioning (`MAJOR.MINOR.PATCH`)
+- Apps: Calendar Versioning (`YYYY.MM.PATCH`)
+- Database: Timestamped migrations with rollback procedures
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
 ## Contracts
 
