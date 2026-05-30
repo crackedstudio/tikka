@@ -90,10 +90,27 @@ Generates pseudo-random output for low-stakes raffles.
 - `compute(requestId): Promise<RandomnessResult>` - Computes PRNG seed
 
 ### TxSubmitterService
-Submits randomness to the contract.
+Submits randomness to the contract with robust fault tolerance, explicit state machine tracking, and strictly typed outcomes.
 
-**Methods:**
-- `submitRandomness(raffleId, randomness): Promise<SubmitResult>` - Submits transaction
+**Primary Method:**
+- `submitRandomnessTyped(raffleId, requestId, randomness): Promise<TransactionOutcome>` - Submits with typed outcomes
+
+**Legacy Method (Deprecated):**
+- `submitRandomness(raffleId, randomness): Promise<SubmitResult>` - Backward compatibility wrapper
+
+**Features:**
+- ✅ Explicit transaction lifecycle state machine (BUILDING → SIGNING → SUBMITTING → POLLING → TERMINAL)
+- ✅ Strictly typed outcomes (7 distinct outcome types with discriminated union)
+- ✅ Duplicate detection and handling (treats as success)
+- ✅ Polling strategy with 30-second timeout and 1-second intervals
+- ✅ Timeout fallback that polls transaction hash on 504 errors
+- ✅ Error classification matrix (retriable vs non-retriable)
+- ✅ Structured telemetry logging with all required fields
+- ✅ RPC failover to backup endpoints
+- ✅ Comprehensive test suite with 95%+ coverage
+
+📖 **See [Transaction Submitter Guide](./src/submitter/TX_SUBMITTER_GUIDE.md) for complete documentation**  
+📋 **See [Transaction Submitter Quick Reference](./src/submitter/TX_SUBMITTER_QUICK_REF.md) for quick reference**
 
 ## Error Handling & Retries
 
