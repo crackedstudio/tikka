@@ -173,14 +173,67 @@ npm test
 - **Heartbeat**: Oracle pings the contract every `HEARTBEAT_INTERVAL_MS` (default: 1 hour)
 ## Queue & Redis
 
-The oracle uses **Bull** (backed by Redis) to reliably process randomness requests.
+The oracle uses **Bull** (backed by Redis) to reliably process randomness requests with an **explicit state machine** for lifecycle management.
 
-| Setting | Value |
-|---------|-------|
-| Queue name | `randomness-queue` |
-| Retries | 5 attempts, exponential backoff (2 s base) |
-| Failed jobs | Retained in Redis for inspection (`removeOnFail: false`) |
-| Alert | `[ALERT]` log emitted when all attempts are exhausted |
+### Queue State Machine
+
+The queue implements a robust state machine with 8 distinct states:
+
+```
+queued → generating → submitting → confirming → confirmed ✓
+   ↓         ↓            ↓            ↓
+   └─────────┴────────────┴────────────→ retrying → (back to generating or dead-lettered)
+```
+
+**States:**
+- `queued` - Waiting for processing slot
+- `generating` - Computing randomness (VRF/PRNG)
+- `submitting` - Sending transaction to network
+- `confirming` - Waiting for on-chain confirmation
+- `confirmed` - ✅ Success (terminal)
+- `retrying` - In backoff before next attempt
+- `failed` - ❌ Non-retriable error (terminal)
+- `dead-lettered` - ⚠️ Max retries exhausted, requires manual rescue (terminal)
+
+### Queue Configuration
+
+| Setting | Default | Environment Variable |
+|---------|---------|---------------------|
+| Queue name | `randomness-queue` | - |
+| Max retries | 5 | `QUEUE_MAX_RETRIES` |
+| Initial backoff | 2000ms | `QUEUE_INITIAL_BACKOFF_MS` |
+| Backoff multiplier | 2 (exponential) | `QUEUE_BACKOFF_MULTIPLIER` |
+| Max backoff | 60000ms (1 min) | `QUEUE_MAX_BACKOFF_MS` |
+| Confirmation timeout | 30000ms (30s) | `QUEUE_CONFIRMATION_TIMEOUT_MS` |
+| Max concurrency | 10 | `QUEUE_MAX_CONCURRENCY` |
+| Generation timeout | 15000ms (15s) | `QUEUE_GENERATION_TIMEOUT_MS` |
+| Submission timeout | 45000ms (45s) | `QUEUE_SUBMISSION_TIMEOUT_MS` |
+
+### Queue Monitoring Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /queue/metrics` | Comprehensive metrics by state |
+| `GET /queue/health` | Health status (healthy/degraded/unhealthy) |
+| `GET /queue/jobs/:state` | Jobs in specific state |
+| `GET /queue/dead-letter` | Jobs requiring manual rescue |
+| `GET /queue/config` | Current configuration |
+
+**Example metrics response:**
+```json
+{
+  "queuedCount": 5,
+  "generatingCount": 2,
+  "submittingCount": 1,
+  "confirmingCount": 3,
+  "retryingCount": 1,
+  "confirmedCount": 150,
+  "failedCount": 2,
+  "deadLetteredCount": 0,
+  "pendingCount": 12,
+  "totalFailedCount": 2
+}
+```
 
 **Required environment variables:**
 
@@ -194,6 +247,9 @@ Redis must be running before starting the oracle. A minimal local setup:
 ```bash
 docker run -d -p 6379:6379 redis:7-alpine
 ```
+
+📖 **See [QUEUE_STATE_MACHINE_IMPLEMENTATION.md](./QUEUE_STATE_MACHINE_IMPLEMENTATION.md) for complete documentation**  
+📋 **See [QUEUE_STATE_MACHINE_QUICK_REF.md](./QUEUE_STATE_MACHINE_QUICK_REF.md) for quick reference**
 
 ## Configuration
 

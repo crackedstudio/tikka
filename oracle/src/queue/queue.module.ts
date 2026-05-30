@@ -3,6 +3,9 @@ import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RandomnessWorker } from './randomness.worker';
 import { CommitRevealWorker } from './commit-reveal.worker';
+import { JobStateManager } from './job-state-manager';
+import { RandomnessProcessorService } from './randomness-processor.service';
+import { QueueHealthController } from './queue-health.controller';
 import { ContractService } from '../contract/contract.service';
 import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
@@ -41,8 +44,11 @@ import { PriorityClassifierService } from './priority-classifier.service';
     }),
   ],
   providers: [
+    JobStateManager,
+    RandomnessProcessorService,
     RandomnessWorker,
     CommitRevealWorker,
+    QueueHealthController,
     ContractService,
     VrfService,
     PrngService,
@@ -53,6 +59,14 @@ import { PriorityClassifierService } from './priority-classifier.service';
     LagMonitorService,
     PriorityClassifierService,
   ],
-  exports: [RandomnessWorker, CommitRevealWorker, BullModule.registerQueue({ name: RANDOMNESS_QUEUE }), PriorityClassifierService],
+  controllers: [QueueHealthController],
+  exports: [
+    JobStateManager,
+    RandomnessProcessorService,
+    RandomnessWorker,
+    CommitRevealWorker,
+    BullModule.registerQueue({ name: RANDOMNESS_QUEUE }),
+    PriorityClassifierService,
+  ],
 })
 export class QueueModule { }
