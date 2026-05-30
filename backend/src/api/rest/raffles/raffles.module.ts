@@ -14,7 +14,6 @@ import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.
   controllers: [RafflesController],
   providers: [
     RafflesService,
-    MetadataService,
     StorageService,
     ImageOptimizerService,
     IdempotencyService,
