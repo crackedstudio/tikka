@@ -20,9 +20,10 @@ Auto-generated TypeDoc reference for `@tikka/sdk`:
 Covers all public APIs organized by module: Raffle · Ticket · Wallet · User · Network · Utils.
 To regenerate locally: `cd sdk && npm run docs`
 
-## Architecture
+## Documentation
 
-Full ecosystem specification: **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — diagram, data flows, contract interface, API design, and roadmap.
+- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — Full ecosystem specification with diagrams, data flows, contract interface, and API design
+- **[RAFFLE_LIFECYCLE.md](./docs/RAFFLE_LIFECYCLE.md)** — Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
 
 ## Release & Versioning
 
