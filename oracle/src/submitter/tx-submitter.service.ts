@@ -4,6 +4,7 @@ import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
 import { FeeEstimatorService } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
+import { OracleLogFields } from '../logger/oracle-logger';
 
 export interface SubmitResult {
   txHash: string;
@@ -187,6 +188,7 @@ export class TxSubmitterService {
     this.logger.log(
       `Submitting randomness for raffle ${raffleId} with fee ${feeEstimate.cappedFee} stroops ` +
       `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
+      JSON.stringify({ raffle_id: raffleId } as OracleLogFields),
     );
 
     while (attempt < this.maxAttempts) {
@@ -213,6 +215,10 @@ export class TxSubmitterService {
         const confirm = await this.pollForConfirmation(txHash);
         if (confirm?.status === 'SUCCESS') {
           const ledger = (confirm.ledger as number) || (confirm.latestLedger as number) || 0;
+          this.logger.log(
+            `Randomness confirmed for raffle ${raffleId}: tx=${txHash}, ledger=${ledger}`,
+            JSON.stringify({ raffle_id: raffleId, tx_hash: txHash, ledger, outcome: 'success' } as OracleLogFields),
+          );
           return { txHash, ledger, success: true };
         }
 
@@ -236,7 +242,10 @@ export class TxSubmitterService {
         } else if (this.isInsufficientFeeError(msg)) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
         }
-        this.logger.error(`Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
+        this.logger.error(
+          `Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`,
+          JSON.stringify({ raffle_id: raffleId, attempt, outcome: 'failure' } as OracleLogFields),
+        );
         lastError = e;
         if (!this.isRetriableError(e, msg)) {
           break;
@@ -250,6 +259,7 @@ export class TxSubmitterService {
       attempt,
       lastError,
       `Persistent failure submitting randomness for raffle ${raffleId} after ${attempt} attempts.`,
+      { raffle_id: raffleId },
     );
     return { txHash: '', ledger: 0, success: false };
   }
@@ -385,8 +395,12 @@ export class TxSubmitterService {
     attempts: number,
     error: unknown,
     logMessage: string,
+    fields?: OracleLogFields,
   ): Promise<void> {
-    this.logger.error(`${logMessage} Last error: ${this.errorToString(error)}`);
+    this.logger.error(
+      `${logMessage} Last error: ${this.errorToString(error)}`,
+      fields ? JSON.stringify({ ...fields, outcome: 'failure' } as OracleLogFields) : undefined,
+    );
     await this.sendFailureAlert(operation, attempts, error);
   }
 
