@@ -14,6 +14,8 @@ export class MetricsService {
   private reorgDetectedCounter: Counter;
   private lagGauge: Gauge;
   private pollDurationHistogram: Histogram;
+  private slowQueryCounter: Counter;
+  private queryDurationHistogram: Histogram;
 
   constructor(private readonly healthService: HealthService) {
     // PrometheusExporter automatically initializes the Prometheus registry
@@ -48,6 +50,16 @@ export class MetricsService {
       unit: 's',
     });
 
+    this.slowQueryCounter = this.meter.createCounter('tikka_db_slow_query_total', {
+      description: 'Total number of slow database queries detected',
+      unit: '1',
+    });
+
+    this.queryDurationHistogram = this.meter.createHistogram('tikka_db_query_duration_seconds', {
+      description: 'Database query duration in seconds',
+      unit: 's',
+    });
+
     this.meter.createObservableGauge('tikka_indexer_memory_usage_bytes', {
       description: 'Current memory usage (heapUsed)',
     }).addCallback((result: ObservableResult) => {
@@ -73,6 +85,14 @@ export class MetricsService {
 
   recordPollDuration(seconds: number) {
     this.pollDurationHistogram.record(seconds);
+  }
+
+  recordDatabaseQueryDuration(durationSeconds: number, queryHash: string) {
+    this.queryDurationHistogram.record(durationSeconds, { query_hash: queryHash });
+  }
+
+  incrementSlowDbQuery(queryHash: string, amount: number = 1) {
+    this.slowQueryCounter.add(amount, { query_hash: queryHash });
   }
 
   /**
