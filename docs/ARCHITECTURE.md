@@ -4,6 +4,13 @@
 
 ---
 
+## Quick Links
+
+- **[RAFFLE_LIFECYCLE.md](./RAFFLE_LIFECYCLE.md)** ← Start here for a step-by-step walkthrough of raffle creation through leaderboard update
+- **This document** — Deep dive into component architecture, APIs, and design decisions
+
+---
+
 ## Ecosystem Overview
 
 ```

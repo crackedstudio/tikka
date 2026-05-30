@@ -8,7 +8,12 @@ import {
   CancelRaffleResult,
   CancelRaffleParams,
   AssetDescriptor,
+  TriggerDrawParams,
+  TriggerDrawResult,
+  WinnerResult,
+  RaffleStateError,
 } from './raffle.types';
+import { RaffleStatus } from '../../contract/bindings';
 import { ContractResponse } from '../../contract/response';
 import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
 import { xlmToStroops } from '../../utils/formatting';
@@ -141,15 +146,79 @@ export class RaffleService {
 
   /**
    * Cancels an OPEN raffle (must be the raffle creator).
+   * Throws `RaffleStateError` if the raffle is not in the Open state.
    */
   async cancel(params: CancelRaffleParams): Promise<ContractResponse<void>> {
     assertPositiveInt(params.raffleId, 'raffleId');
+
+    const current = await this.get(params.raffleId);
+    if (current.success && current.value!.status !== RaffleStatus.Open) {
+      throw new RaffleStateError(params.raffleId, current.value!.status, 'open→cancelled');
+    }
 
     return await this.contract.invoke<void>(
       ContractFn.CANCEL_RAFFLE,
       [params.raffleId],
       { memo: params.memo },
     );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  triggerDraw                                                        */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Initiates the randomness request for a raffle that has reached its
+   * end time or sold out. Transitions the raffle from `Open` → `Drawing`.
+   *
+   * Requires the caller to be authorised (oracle or protocol admin).
+   * Throws `RaffleStateError` if the raffle is not currently Open.
+   */
+  async triggerDraw(params: TriggerDrawParams): Promise<ContractResponse<TriggerDrawResult>> {
+    assertPositiveInt(params.raffleId, 'raffleId');
+
+    const current = await this.get(params.raffleId);
+    if (current.success && current.value!.status !== RaffleStatus.Open) {
+      throw new RaffleStateError(params.raffleId, current.value!.status, 'open→drawing');
+    }
+
+    return await this.contract.invoke<TriggerDrawResult>(
+      ContractFn.TRIGGER_DRAW,
+      [params.raffleId],
+      { memo: params.memo },
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  getWinner                                                          */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Reads the winner of a finalized raffle (read-only).
+   * Returns `undefined` fields when the raffle has not yet been finalized.
+   *
+   * Source of truth: contract RPC (`get_raffle_data`).
+   */
+  async getWinner(raffleId: number): Promise<ContractResponse<WinnerResult | null>> {
+    assertPositiveInt(raffleId, 'raffleId');
+
+    const res = await this.get(raffleId);
+    if (!res.success) return res as any;
+
+    const data = res.value!;
+    if (data.status !== RaffleStatus.Finalized || !data.winner) {
+      return { success: true, value: null };
+    }
+
+    return {
+      success: true,
+      value: {
+        raffleId,
+        winner: data.winner,
+        winningTicketId: data.winningTicketId!,
+        prizeAmount: data.prizeAmount ?? '0',
+      },
+    };
   }
 
   /* ------------------------------------------------------------------ */
