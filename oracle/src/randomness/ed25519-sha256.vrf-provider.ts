@@ -60,9 +60,9 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
     }
   }
 
-  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string): boolean {
+  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string, raffleId?: number): boolean {
     try {
-      const proofVerification = this.verifyProof(publicKey, requestId, proof);
+      const proofVerification = this.verifyProof(publicKey, requestId, proof, raffleId);
       if (!proofVerification.valid || !proofVerification.seed) return false;
 
       const seedBuf = Buffer.from(seed, 'hex');
