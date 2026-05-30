@@ -9,6 +9,8 @@ export interface SearchResult {
   description: string;
   image_url: string | null;
   category: string | null;
+  /** Timestamp of last index refresh */
+  lastIndexedAt?: string;
   /** On-chain data (Indexer) — present when the raffle exists on-chain */
   creator?: string;
   status?: string;
