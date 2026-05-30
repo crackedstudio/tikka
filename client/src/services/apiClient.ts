@@ -29,6 +29,28 @@ export function clearToken(): void {
   sessionStorage.removeItem("tikka_auth_token");
 }
 
+// ── Session-expiry pub/sub bridge ─────────────────────────────────────────────
+// Allows AuthProvider to be notified when a 401 is received without importing
+// React hooks into the service layer.
+
+let _onExpiredCallback: (() => void) | null = null;
+
+/**
+ * Register a callback to be invoked when any API request returns HTTP 401.
+ * AuthProvider registers auth.markExpired here on mount.
+ */
+export function registerExpiredHandler(fn: () => void): void {
+  _onExpiredCallback = fn;
+}
+
+/**
+ * Remove the previously registered 401 callback.
+ * AuthProvider calls this on unmount.
+ */
+export function unregisterExpiredHandler(): void {
+  _onExpiredCallback = null;
+}
+
 export interface RequestOptions extends RequestInit {
   requiresAuth?: boolean;
 }
@@ -96,10 +118,11 @@ export async function apiRequest<T = any>(
   }
 
   if (!response.ok) {
-    // Handle 401 Unauthorized - clear token and throw
+    // Handle 401 Unauthorized - clear token, notify auth layer, and throw
     if (response.status === 401) {
       clearToken();
-      toast.error("Unauthorized", {
+      _onExpiredCallback?.();
+      toast.error("Session expired", {
         description: "Please sign in again to continue.",
         action: { label: "Sign In", onClick: () => window.location.reload() },
       });

@@ -1,23 +1,22 @@
 import { TxMemo } from '../../contract/contract.service';
 
 /**
- * Parameters for purchasing tickets in a raffle.
- * @category Ticket
- *
- * @example
- * ```ts
- * const params: BuyTicketParams = {
- *   raffleId: 42,
- *   quantity: 5,
- *   memo: 'My lucky raffle'
- * };
- * const result = await ticketService.buyTicket(params, signer);
- * ```
+ * Constraints for ticket operations to prevent invalid inputs.
+ */
+export const TICKET_CONSTRAINTS = {
+  MIN_QUANTITY: 1,
+  MAX_QUANTITY: 1000,
+  MAX_BATCH_SIZE: 100,
+} as const;
+
+/**
+ * Parameters for purchasing tickets.
+ * Quantity must be a positive integer between 1 and 1000.
  */
 export interface BuyTicketParams {
-  /** ID of the raffle to purchase tickets for */
+  /** Raffle ID (must be positive integer) */
   raffleId: number;
-  /** Number of tickets to purchase */
+  /** Number of tickets to purchase (1-1000) */
   quantity: number;
   /**
    * Optional transaction memo for tracking or external integrations.
@@ -27,49 +26,28 @@ export interface BuyTicketParams {
 }
 
 /**
- * Result of a successful ticket purchase.
- * @category Ticket
- *
- * Contains the assigned ticket IDs and transaction details.
- *
- * @example
- * ```ts
- * if (result.success && result.value) {
- *   console.log(`Purchased tickets: ${result.value.ticketIds}`);
- *   console.log(`Fee paid: ${result.value.feePaid} stroops`);
- *   console.log(`Confirmed at block: ${result.value.ledger}`);
- * }
- * ```
+ * Result of a ticket purchase.
+ * Provides transaction confirmation and purchased ticket IDs.
  */
 export interface BuyTicketResult {
-  /** Array of assigned ticket IDs for this purchase */
+  /** Array of successfully purchased ticket IDs */
   ticketIds: number[];
-  /** Transaction hash on the Stellar network */
-  txHash: string;
-  /** Ledger number where the transaction was confirmed */
+  /** Transaction hash for confirmation */
+  transactionHash: string;
+  /** Ledger number where transaction was confirmed */
   ledger: number;
-  /** Total fee paid for this transaction in stroops */
+  /** Transaction fee paid in stroops */
   feePaid: string;
 }
 
 /**
- * Parameters for refunding a previously purchased ticket.
- * @category Ticket
- *
- * @example
- * ```ts
- * const params: RefundTicketParams = {
- *   raffleId: 42,
- *   ticketId: 1001,
- *   memo: 'Changed my mind'
- * };
- * const result = await ticketService.refundTicket(params, signer);
- * ```
+ * Parameters for refunding a ticket.
+ * Used when cancelling a raffle and returning funds to ticket holders.
  */
 export interface RefundTicketParams {
-  /** ID of the raffle containing the ticket */
+  /** Raffle ID (must be positive integer) */
   raffleId: number;
-  /** ID of the specific ticket to refund */
+  /** Ticket ID to refund (must be positive integer) */
   ticketId: number;
   /**
    * Optional transaction memo for tracking or external integrations.
@@ -79,88 +57,45 @@ export interface RefundTicketParams {
 }
 
 /**
- * Result of a successful ticket refund.
- * @category Ticket
- *
- * @example
- * ```ts
- * if (result.success) {
- *   console.log(`Refund confirmed at block: ${result.ledger}`);
- *   console.log(`Transaction: ${result.txHash}`);
- * }
- * ```
+ * Result of a ticket refund.
+ * Provides transaction confirmation.
  */
 export interface RefundTicketResult {
-  /** Transaction hash on the Stellar network */
-  txHash: string;
-  /** Ledger number where the transaction was confirmed */
+  /** Transaction hash for confirmation */
+  transactionHash: string;
+  /** Ledger number where transaction was confirmed */
   ledger: number;
+  /** Transaction fee paid in stroops */
+  feePaid: string;
 }
 
+
 /**
- * Parameters for querying user tickets in a raffle.
- * @category Ticket
- *
- * @example
- * ```ts
- * const params: GetUserTicketsParams = {
- *   raffleId: 42,
- *   userAddress: 'GBIQ4VH3TRO5A72SCCSHV5QZJVUHMFAZVD5K4PIWL3RBQFKBDLPHJ36'
- * };
- * const ticketIds = await ticketService.getUserTickets(params);
- * ```
+ * Parameters for querying user's tickets for a raffle.
  */
 export interface GetUserTicketsParams {
-  /** ID of the raffle to query */
+  /** Raffle ID (must be positive integer) */
   raffleId: number;
   /** User's Stellar public key address */
   userAddress: string;
 }
 
 /**
- * Single raffle purchase in a batch operation.
- * @category Ticket
- *
- * Represents one raffle and the quantity of tickets to purchase for it.
- * Used within {@link BuyBatchParams} for multi-raffle purchases.
- *
- * @example
- * ```ts
- * const purchase: BatchTicketPurchase = {
- *   raffleId: 42,
- *   quantity: 3
- * };
- * ```
+ * Single purchase in a batch operation.
  */
 export interface BatchTicketPurchase {
-  /** ID of the raffle to purchase tickets for */
+  /** Raffle ID (must be positive integer) */
   raffleId: number;
-  /** Number of tickets to purchase for this raffle */
+  /** Number of tickets to purchase (1-1000) */
   quantity: number;
 }
 
 /**
- * Parameters for purchasing tickets across multiple raffles in one transaction.
- * @category Ticket
- *
- * Allows atomically purchasing tickets for multiple raffles while
- * keeping operational overhead lower than individual purchases.
- *
- * @example
- * ```ts
- * const params: BuyBatchParams = {
- *   purchases: [
- *     { raffleId: 42, quantity: 5 },
- *     { raffleId: 43, quantity: 3 },
- *     { raffleId: 44, quantity: 2 }
- *   ],
- *   memo: 'Bulk purchase'
- * };
- * const result = await ticketService.buyBatch(params, signer);
- * ```
+ * Parameters for batch ticket purchases across multiple raffles.
+ * Supports up to 100 purchases per batch.
  */
 export interface BuyBatchParams {
-  /** Array of raffle purchases to execute atomically */
+  /** Array of purchases (1-100 items) */
   purchases: BatchTicketPurchase[];
   /**
    * Optional transaction memo for tracking or external integrations.
@@ -170,59 +105,31 @@ export interface BuyBatchParams {
 }
 
 /**
- * Result of a single raffle purchase within a batch operation.
- * @category Ticket
- *
- * Each purchase in a batch produces its own result status.
- *
- * @example
- * ```ts
- * const result: BatchPurchaseResult = {
- *   raffleId: 42,
- *   ticketIds: [1001, 1002, 1003],
- *   success: true
- * };
- * ```
+ * Result for a single purchase in a batch operation.
+ * Indicates success or failure with error details if failed.
  */
 export interface BatchPurchaseResult {
-  /** ID of the raffle this purchase is for */
+  /** Raffle ID for this purchase */
   raffleId: number;
-  /** Assigned ticket IDs if purchase was successful */
+  /** Array of purchased ticket IDs (empty if failed) */
   ticketIds: number[];
-  /** Whether this individual purchase succeeded */
+  /** Whether this purchase succeeded */
   success: boolean;
-  /** Error description if purchase failed */
+  /** Error message if purchase failed */
   error?: string;
 }
 
 /**
- * Result of a batch ticket purchase operation.
- * @category Ticket
- *
- * Contains individual results for each raffle in the batch,
- * along with overall transaction details.
- *
- * @example
- * ```ts
- * if (result.success) {
- *   console.log(`Batch completed at block: ${result.ledger}`);
- *   result.results.forEach(r => {
- *     if (r.success) {
- *       console.log(`Raffle ${r.raffleId}: Got ${r.ticketIds.length} tickets`);
- *     } else {
- *       console.log(`Raffle ${r.raffleId}: ${r.error}`);
- *     }
- *   });
- * }
- * ```
+ * Result of batch ticket purchases.
+ * Provides individual results for each raffle and aggregate transaction info.
  */
 export interface BuyBatchResult {
-  /** Array of individual purchase results for each raffle in the batch */
+  /** Individual results for each raffle purchase */
   results: BatchPurchaseResult[];
-  /** Transaction hash on the Stellar network */
-  txHash: string;
-  /** Ledger number where the transaction was confirmed */
+  /** Transaction hash for confirmation (hash of last successful transaction) */
+  transactionHash: string;
+  /** Ledger number where last transaction was confirmed */
   ledger: number;
-  /** Total fee paid for the entire batch in stroops */
+  /** Total transaction fee paid in stroops */
   feePaid: string;
 }
