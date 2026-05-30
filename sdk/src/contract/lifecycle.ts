@@ -24,7 +24,6 @@ import {
   rpc,
   xdr,
   scValToNative,
-  BASE_FEE,
   Memo,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';

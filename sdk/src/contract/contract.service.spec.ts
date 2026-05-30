@@ -15,7 +15,7 @@ import { TransactionLifecycle } from './lifecycle';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig, TikkaNetwork } from '../network/network.config';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { TikkaSdkErrorCode } from '../utils/errors';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
 import { ContractFn } from './bindings';
 
@@ -75,7 +75,7 @@ function buildService(withWallet = false) {
 describe('ContractService.simulateReadOnly()', () => {
   it('calls RpcService.simulateTransaction and decodes the return value', async () => {
     const { service } = buildService();
-    const { nativeToScVal, scValToNative } = jest.requireActual('@stellar/stellar-sdk');
+    const { nativeToScVal } = jest.requireActual('@stellar/stellar-sdk');
 
     const mockRetVal = 'mock-value';
     const simSpy = jest.spyOn(

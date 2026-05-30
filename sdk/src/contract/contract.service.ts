@@ -14,7 +14,7 @@ import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig } from '../network/network.config';
 import { WalletAdapter } from '../wallet/wallet.interface';
 import { getRaffleContractId } from './constants';
-import { ContractFnName } from './bindings';
+import { ContractFn, ContractFnName } from './bindings';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { TransactionLifecycle } from './lifecycle';
 import type { TxMemo, PollConfig } from './lifecycle';
@@ -223,11 +223,11 @@ export class ContractService {
 
   /* ---------------- BATCH INVOKE ---------------- */
 
-  async batchBuyTickets<T = any>(
+  async batchBuyTickets(
     raffleId: number,
     count: number,
     options: InvokeOptions = {},
-  ): Promise<InvokeResult<T[]>> {
+  ): Promise<any> {
     if (!this.wallet && !options.simulateOnly) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
@@ -274,8 +274,8 @@ export class ContractService {
     const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
-    const simResult = successSim.results
-      ? successSim.results.map(r => r.retval ? scValToNative(r.retval) : undefined)
+    const simResult = (successSim as any).results
+      ? (successSim as any).results.map((r: any) => r.retval ? scValToNative(r.retval) : undefined)
       : [];
 
     if (options.simulateOnly) {

@@ -1,8 +1,7 @@
 import { RaffleService } from "./raffle.service";
 import { ContractService } from "../../contract/contract.service";
 import { ContractFn } from "../../contract/bindings";
-import { RaffleParams, RaffleData } from "./raffle.types";
-import { nativeToScVal } from "@stellar/stellar-sdk";
+import { RaffleParams } from "./raffle.types";
 
 describe("RaffleService", () => {
   let service: RaffleService;
