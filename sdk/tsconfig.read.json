@@ -1,0 +1,48 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2020",
+    "moduleResolution": "node",
+    "outDir": "./dist/read",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationDir": "./dist/read",
+    "isolatedModules": false,
+    "emitDecoratorMetadata": false,
+    "experimentalDecorators": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/index.read.ts",
+    "src/network/rpc.service.ts",
+    "src/network/horizon.service.ts",
+    "src/network/network.config.ts",
+    "src/contract/bindings.ts",
+    "src/contract/response.ts",
+    "src/modules/raffle/raffle.types.ts",
+    "src/modules/ticket/ticket.types.ts",
+    "src/modules/user/user.types.ts",
+    "src/utils/**/*.ts",
+    "src/types.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/**/*.spec.ts",
+    "src/**/*.module.ts",
+    "src/contract/contract.service.ts",
+    "src/contract/lifecycle.ts",
+    "src/wallet/**",
+    "src/auth/**",
+    "src/fee-estimator/**",
+    "src/modules/raffle/raffle.service.ts",
+    "src/modules/raffle/raffle.module.ts",
+    "src/modules/ticket/ticket.service.ts",
+    "src/modules/ticket/ticket.module.ts",
+    "src/modules/user/user.service.ts",
+    "src/modules/user/user.module.ts",
+    "src/modules/admin/**",
+    "src/app.module.ts",
+    "src/main.ts"
+  ]
+}
