@@ -3,6 +3,7 @@ import {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
+  WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
@@ -84,6 +85,17 @@ export class XBullAdapter extends WalletAdapter {
         err
       );
     }
+  }
+
+  /* ---------------------- Capabilities ---------------------- */
+
+  getCapabilities(): WalletCapabilities {
+    return {
+      supportsGetPublicKey: true,
+      supportsSignTransaction: true,
+      supportsSignMessage: false,
+      supportsGetNetwork: false,
+    };
   }
 
   /* ---------------------- Helpers ---------------------- */

@@ -61,13 +61,13 @@ export class ThirdPartyRaffleCreatedHandler extends BaseEventHandler {
         params: {
           ticket_price: String(p.ticket_price ?? p.price ?? "0"),
           max_tickets: Number(p.max_tickets),
-          end_time: Number(p.end_time ?? 0),
-          asset: String(p.asset ?? ""),
+          end_time: Number(p.end_time ?? p.endTime ?? 0),
+          asset: String(p.asset ?? category ?? "XLM"),
           metadata_cid: JSON.stringify({
             category,
-            metadata: p.metadata ?? {},
+            metadata: p.metadata ?? p.metadata_cid ?? p.metadataCid ?? {},
           }),
-          allow_multiple: Boolean(p.allow_multiple ?? false),
+          allow_multiple: Boolean(p.allow_multiple ?? p.allowMultiple ?? true),
         },
       };
     } catch (error) {

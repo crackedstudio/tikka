@@ -3,6 +3,7 @@ import {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
+  WalletCapabilities,
 } from './wallet.interface';
 
 export interface MockWalletOptions extends WalletAdapterOptions {
@@ -49,6 +50,27 @@ export class MockWalletAdapter extends WalletAdapter {
       throw new Error('MockWalletAdapter: signMessage failure');
     }
     return `mock-signature:${message}`;
+  }
+
+  /**
+   * Returns mock network (always returns configured network or undefined)
+   */
+  override async getNetwork(): Promise<string | undefined> {
+    await this.wait();
+    return this.mockOptions.networkPassphrase;
+  }
+
+  /**
+   * Returns the capabilities supported by the mock adapter.
+   * Mock adapter supports all capabilities for testing.
+   */
+  getCapabilities(): WalletCapabilities {
+    return {
+      supportsGetPublicKey: true,
+      supportsSignTransaction: true,
+      supportsSignMessage: true,
+      supportsGetNetwork: true,
+    };
   }
 
   private async wait() {

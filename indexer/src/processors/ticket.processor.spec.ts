@@ -24,6 +24,7 @@ describe('TicketProcessor', () => {
     cacheService = {
       invalidateRaffleDetail: jest.fn().mockResolvedValue(undefined),
       invalidateUserProfile: jest.fn().mockResolvedValue(undefined),
+      invalidatePlatformStats: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     userProcessor = {

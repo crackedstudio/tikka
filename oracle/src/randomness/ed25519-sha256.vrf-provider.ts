@@ -54,7 +54,7 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
 
       const seed = crypto.createHash('sha256').update(proofBuf).digest('hex');
       return { valid: true, seed };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`VRF proof verification failed: ${error.message}`);
       return { valid: false };
     }
@@ -68,7 +68,7 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
       const seedBuf = Buffer.from(seed, 'hex');
       const expectedSeed = Buffer.from(proofVerification.seed, 'hex');
       return Buffer.compare(expectedSeed, seedBuf) === 0;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`VRF verification failed: ${error.message}`);
       return false;
     }
