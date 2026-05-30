@@ -22,6 +22,143 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 - `src/wallet/` — Multi-wallet adapter system.
 - `src/modules/` — Feature modules (Raffle, Ticket, User).
 - `src/utils/` — Shared utilities for formatting, validation, and error handling.
+- `bin/tikka.cjs` — Developer CLI for network testing and contract interaction.
+
+## CLI Commands
+
+The Tikka SDK includes a command-line interface for smoke testing, network configuration, and contract interaction.
+
+### Installation
+
+After building the SDK:
+```bash
+npm run build
+npm run cli -- --help
+```
+
+### Global Options
+
+- `-n, --network <type>` — Target network: `testnet` (default) or `mainnet`
+- `-j, --json` — Output results in JSON format (useful for scripting)
+- `--help` — Show help for a command
+- `--version` — Show CLI version
+
+### Read-Only Commands (no secrets required)
+
+These commands don't require wallet signing and are safe for smoke testing:
+
+#### `config-check`
+Verify CLI configuration and SDK initialization.
+```bash
+tikka config-check                 # Check on testnet
+tikka -n mainnet config-check      # Check on mainnet
+tikka config-check --json          # Output as JSON
+```
+
+#### `fee-quote <contractId>`
+Get estimated fees for a transaction.
+```bash
+tikka fee-quote CONTRACT_ABC123
+tikka fee-quote CONTRACT_ABC123 --function transfer
+tikka fee-quote CONTRACT_ABC123 --json
+tikka -n mainnet fee-quote CONTRACT_ABC123
+```
+
+#### `read <contractId>`
+Read contract data or state.
+```bash
+tikka read CONTRACT_ABC123
+tikka read CONTRACT_ABC123 --key account_balance
+tikka read CONTRACT_ABC123 --json
+tikka -n mainnet read CONTRACT_ABC123
+```
+
+#### `list`
+List active raffles on the network.
+```bash
+tikka list                    # List on testnet
+tikka list --limit 20         # Limit results
+tikka list --json             # Output as JSON
+tikka -n mainnet list         # List on mainnet
+```
+
+#### `info`
+Get contract status and network information.
+```bash
+tikka info                    # Get info on testnet
+tikka info --json             # Output as JSON
+tikka -n mainnet info         # Get info on mainnet
+```
+
+### Interactive Commands (wallet signing required)
+
+These commands require wallet integration for signing transactions:
+
+#### `create`
+Create a new raffle (interactive).
+```bash
+tikka create              # Guided setup on testnet
+tikka -n mainnet create   # Guided setup on mainnet
+```
+
+#### `buy`
+Purchase raffle tickets (interactive).
+```bash
+tikka buy                 # Purchase on testnet
+tikka -n mainnet buy      # Purchase on mainnet
+```
+
+### Examples
+
+```bash
+# Smoke test network configuration
+cd sdk
+npm run build
+npm run cli -- config-check
+
+# Get fee estimate for a contract (testnet)
+npm run cli -- fee-quote CBVG2R3YLEDVGIQKHY6K2HGX55CPJMK5QX2YQE7WALLVIQG5IHVIGISQ
+
+# Query contract state on mainnet
+npm run cli -- -n mainnet read CBVG2R3YLEDVGIQKHY6K2HGX55CPJMK5QX2YQE7WALLVIQG5IHVIGISQ --json
+
+# List raffles as JSON for automation
+npm run cli -- list --json > raffles.json
+
+# Get help for a specific command
+npm run cli -- fee-quote --help
+```
+
+### JSON Output
+
+All commands support the `--json` flag for machine-readable output:
+
+```bash
+# Output as JSON
+$ tikka config-check --json
+{
+  "version": "0.1.0",
+  "network": "testnet",
+  "rpcAvailable": true,
+  "contractAvailable": true,
+  "status": "OK"
+}
+
+# Errors also format as JSON
+$ tikka fee-quote INVALID --json
+{
+  "error": "Invalid contract ID"
+}
+```
+
+### Error Handling
+
+The CLI provides safe error messages that don't leak sensitive information:
+
+- **Read-only commands** fail gracefully with helpful error messages
+- **Interactive commands** confirm before executing wallet operations
+- **JSON output** includes error details in structured format
+- **Invalid commands** suggest the help flag for usage information
 
 ## API Documentation
 
