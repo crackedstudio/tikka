@@ -35,7 +35,13 @@ describe('SearchController', () => {
       total: 13,
     });
 
-    expect(searchService.search).toHaveBeenCalledWith('rare', 1, 5);
+    expect(searchService.search).toHaveBeenCalledWith({
+      query: 'rare',
+      limit: 1,
+      offset: 5,
+      category: undefined,
+      status: undefined,
+    });
   });
 
   it('returns empty result when query is too short', async () => {

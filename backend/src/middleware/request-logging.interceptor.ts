@@ -6,6 +6,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, finalize } from 'rxjs';
+import { env } from '../config/env.config';
 
 const DEFAULT_REDACT_FIELDS = [
   'authorization',
@@ -17,9 +18,9 @@ const DEFAULT_REDACT_FIELDS = [
 ];
 
 function getRedactFields(): string[] {
-  const env = process.env.LOG_REDACT_FIELDS;
-  if (env) {
-    return env.split(',').map((f) => f.trim().toLowerCase());
+  const redactEnv = env.logging.redactFields;
+  if (redactEnv) {
+    return redactEnv.split(',').map((f) => f.trim().toLowerCase());
   }
   return DEFAULT_REDACT_FIELDS;
 }
