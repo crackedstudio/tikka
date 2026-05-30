@@ -99,6 +99,53 @@ export class RafflesService {
   }
 
   /**
+   * Soft-delete raffle metadata. Creator can delete their own; admin bypass is
+   * handled at the controller level (AdminGuard). Here we enforce creator-only
+   * for the standard JWT path.
+   */
+  async deleteMetadata(
+    raffleId: number,
+    requesterAddress: string,
+  ): Promise<{ raffle_id: number; deleted_at: string }> {
+    const raffle = await this.indexerService.getRaffle(raffleId);
+    if (!raffle) {
+      throw new NotFoundException(`Raffle ${raffleId} not found`);
+    }
+
+    if (raffle.creator.toLowerCase() !== requesterAddress.toLowerCase()) {
+      throw new ForbiddenException(
+        `Only raffle creator ${raffle.creator} can delete metadata for raffle ${raffleId}`,
+      );
+    }
+
+    return this.softDeleteMetadata(raffleId);
+  }
+
+  /**
+   * Soft-delete raffle metadata (creator or admin).
+   * Callers must verify authorization before calling this method.
+   */
+  async softDeleteMetadata(raffleId: number): Promise<{ raffle_id: number; deleted_at: string }> {
+    const result = await this.metadataService.softDeleteMetadata(raffleId);
+    return { raffle_id: result.raffle_id, deleted_at: result.deleted_at as string };
+  }
+
+  /**
+   * Restore a soft-deleted raffle metadata record (admin only).
+   */
+  async restoreMetadata(raffleId: number): Promise<{ raffle_id: number }> {
+    const result = await this.metadataService.restoreMetadata(raffleId);
+    return { raffle_id: result.raffle_id };
+  }
+
+  /**
+   * Return all soft-deleted raffle metadata records (admin only).
+   */
+  async getArchivedMetadata() {
+    return this.metadataService.getArchivedMetadata();
+  }
+
+  /**
    * Purchase tickets for a raffle.
    * The actual on-chain transaction is submitted by the client via the SDK;
    * this endpoint records the intent and returns a confirmation.
