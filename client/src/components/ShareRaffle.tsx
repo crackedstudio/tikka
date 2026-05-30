@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import Union from "../assets/Union.png";
-import { Link2, Share2, Twitter } from "lucide-react";
+import { Download, Link2, Share2, Twitter } from "lucide-react";
 import { toast } from "sonner";
 
 type ShareSource = "twitter" | "telegram" | "native" | "copy";
@@ -39,8 +40,24 @@ function TelegramIcon({ className }: { className?: string }) {
 const iconButtonClass =
     "inline-flex items-center justify-center rounded-full bg-[#090E1F] p-2.5 text-[#00E6CC] ring-1 ring-[#00E6CC]/20 transition hover:bg-[#00E6CC]/10 hover:ring-[#00E6CC]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00E6CC]";
 
+/** Fallback copy for environments without Clipboard API (non-HTTPS, legacy browsers). */
+function copyViaExecCommand(text: string): boolean {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+        return document.execCommand("copy");
+    } finally {
+        document.body.removeChild(ta);
+    }
+}
+
 const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
     const [copied, setCopied] = useState(false);
+    const qrRef = useRef<SVGSVGElement | null>(null);
 
     const shareBlurb = useMemo(
         () => `Check out this raffle: ${title}`,
@@ -49,19 +66,13 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
 
     const twitterHref = useMemo(() => {
         const url = buildRaffleShareUrl(raffleId, "twitter");
-        const params = new URLSearchParams({
-            text: shareBlurb,
-            url: url,
-        });
+        const params = new URLSearchParams({ text: shareBlurb, url });
         return `https://twitter.com/intent/tweet?${params.toString()}`;
     }, [raffleId, shareBlurb]);
 
     const telegramHref = useMemo(() => {
         const url = buildRaffleShareUrl(raffleId, "telegram");
-        const params = new URLSearchParams({
-            url,
-            text: shareBlurb,
-        });
+        const params = new URLSearchParams({ url, text: shareBlurb });
         return `https://t.me/share/url?${params.toString()}`;
     }, [raffleId, shareBlurb]);
 
@@ -82,11 +93,7 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
     const handleNativeShare = useCallback(async () => {
         if (!canWebShare) return;
         try {
-            await navigator.share({
-                title,
-                text: shareBlurb,
-                url: nativeShareUrl,
-            });
+            await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
         } catch (err) {
             const name = err instanceof DOMException ? err.name : "";
             if (name === "AbortError") return;
@@ -95,15 +102,59 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
     }, [canWebShare, nativeShareUrl, shareBlurb, title]);
 
     const handleCopyLink = useCallback(async () => {
-        try {
-            await navigator.clipboard.writeText(copyHref);
+        let success = false;
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(copyHref);
+                success = true;
+            } catch {
+                // fall through to execCommand
+            }
+        }
+        if (!success) {
+            success = copyViaExecCommand(copyHref);
+        }
+        if (success) {
             setCopied(true);
             toast.success("Link copied to clipboard");
             window.setTimeout(() => setCopied(false), 2000);
-        } catch {
+        } else {
             toast.error("Could not copy link");
         }
     }, [copyHref]);
+
+    const handleDownloadQr = useCallback(() => {
+        const svg = qrRef.current;
+        if (!svg) return;
+
+        const serialized = new XMLSerializer().serializeToString(svg);
+        const img = new Image();
+        const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            // Render at 2× for sharper prints
+            canvas.width = img.naturalWidth * 2;
+            canvas.height = img.naturalHeight * 2;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+            ctx.scale(2, 2);
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                const pngUrl = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = pngUrl;
+                a.download = `raffle-${raffleId}-qr.png`;
+                a.click();
+                URL.revokeObjectURL(pngUrl);
+            }, "image/png");
+        };
+        img.src = url;
+    }, [raffleId]);
 
     return (
         <div className="bg-white dark:bg-[#11172E] rounded-3xl flex flex-col md:flex-row justify-between items-center border border-gray-200 dark:border-[#1F263F] mt-8 overflow-hidden">
@@ -146,21 +197,46 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
                     >
                         <TelegramIcon className="h-5 w-5" />
                     </a>
+
+                    {/* Copy Link button */}
                     <button
                         type="button"
-                        className={iconButtonClass}
+                        className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
                         onClick={handleCopyLink}
-                        aria-label="Copy raffle link"
+                        aria-label={copied ? "Copied!" : "Copy raffle link"}
                     >
-                        <Link2 className="h-5 w-5" />
-                        {copied ? (
-                            <span className="sr-only">Copied</span>
-                        ) : null}
+                        <Link2 className="h-5 w-5 shrink-0" />
+                        <span className="text-gray-100">{copied ? "Copied!" : "Copy Link"}</span>
+                    </button>
+                </div>
+
+                {/* QR code section */}
+                <div className="mt-6 flex flex-col items-start gap-3">
+                    <p className="text-xs text-gray-500 dark:text-[#6B7280] uppercase tracking-wide font-medium">
+                        QR Code
+                    </p>
+                    <div className="p-3 bg-white rounded-xl ring-1 ring-gray-200 dark:ring-[#1F263F] inline-block">
+                        <QRCodeSVG
+                            ref={qrRef}
+                            value={copyHref}
+                            size={128}
+                            level="M"
+                            aria-label={`QR code for raffle: ${title}`}
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
+                        onClick={handleDownloadQr}
+                        aria-label="Download QR code as PNG"
+                    >
+                        <Download className="h-5 w-5 shrink-0" />
+                        <span className="text-gray-100">Download QR</span>
                     </button>
                 </div>
             </div>
 
-            <div className="md:flex-shrink-0 hidden w-full md:w-auto ">
+            <div className="md:flex-shrink-0 hidden w-full md:w-auto">
                 <img
                     src={Union}
                     alt=""

@@ -79,8 +79,15 @@ async function main() {
 
     // Step 2: Verify raffle is open
     console.log('📋 Step 2: Verifying raffle status...');
-    const raffle = await raffleService.get(raffleId);
+    const raffleRes = await raffleService.get(raffleId);
     
+    if (!raffleRes.success || !raffleRes.value) {
+      console.error(`❌ Failed to fetch raffle ${raffleId}: ${raffleRes.error}`);
+      await app.close();
+      process.exit(1);
+    }
+    const raffle = raffleRes.value;
+
     if (raffle.status !== RaffleStatus.Open) {
       console.error(`❌ Raffle ${raffleId} is not open (status=${raffle.status})`);
       await app.close();
@@ -105,20 +112,26 @@ async function main() {
     
     const result = await ticketService.buy({ raffleId, quantity });
 
+    if (!result.success) {
+      console.error(`\n❌ Purchase failed: ${result.error}`);
+      await app.close();
+      process.exit(1);
+    }
+
     console.log('\n✅ Tickets purchased successfully!');
-    console.log(`   Ticket IDs: ${result.ticketIds.join(', ')}`);
-    console.log(`   Transaction: ${result.txHash}`);
+    console.log(`   Ticket IDs: ${(result.value ?? []).join(', ')}`);
+    console.log(`   Transaction: ${result.transactionHash}`);
     console.log(`   Ledger: ${result.ledger}\n`);
 
     // Step 4: Verify tickets
     console.log('📋 Step 4: Verifying your tickets...');
-    const myTickets = await ticketService.getUserTickets({ 
+    const myTicketsRes = await ticketService.getUserTickets({ 
       raffleId, 
       userAddress: publicKey 
     });
     
     console.log(`✅ All your tickets for raffle ${raffleId}:`);
-    console.log(`   [${myTickets.join(', ')}]\n`);
+    console.log(`   [${(myTicketsRes.value ?? []).join(', ')}]\n`);
 
   } catch (err: any) {
     console.error('\n❌ Error:', err.message);
