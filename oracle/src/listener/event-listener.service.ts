@@ -167,6 +167,14 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
     private handleRaffleCreated(eventXdr: StellarSdk.xdr.ContractEvent) {
         const payload = this.parseEventData(eventXdr);
+        
+        // Version routing for safe failure path
+        const version = payload['version'];
+        if (version !== undefined && version > 1) {
+            this.logger.error(`[RaffleCreated] Unknown event version: ${version}. Safe failure path triggered. Ignoring event.`);
+            return;
+        }
+
         const raffleId = payload['raffle_id'];
         const endTime = payload['end_time'];
 
@@ -183,6 +191,14 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
     private handleDrawTriggered(eventXdr: StellarSdk.xdr.ContractEvent) {
         const payload = this.parseEventData(eventXdr);
+
+        // Version routing for safe failure path
+        const version = payload['version'];
+        if (version !== undefined && version > 1) {
+            this.logger.error(`[DrawTriggered] Unknown event version: ${version}. Safe failure path triggered. Ignoring event.`);
+            return;
+        }
+
         const raffleId = payload['raffle_id'];
         const requestId = payload['request_id'];
 
@@ -199,6 +215,14 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
     private handleRandomnessRequested(eventXdr: StellarSdk.xdr.ContractEvent, ledger: number) {
         const payload = this.parseEventData(eventXdr);
+
+        // Version routing for safe failure path
+        const version = payload['version'];
+        if (version !== undefined && version > 1) {
+            this.logger.error(`[RandomnessRequested] Unknown event version: ${version}. Safe failure path triggered. Ignoring event.`);
+            return;
+        }
+
         const raffleId = payload['raffle_id'];
         const requestId = payload['request_id'];
         const prizeAmount = payload['prize_amount'];
