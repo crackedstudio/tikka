@@ -14,11 +14,12 @@ import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig } from '../network/network.config';
 import { WalletAdapter } from '../wallet/wallet.interface';
 import { getRaffleContractId } from './constants';
-import { ContractFnName } from './bindings';
+import { ContractFn, ContractFnName } from './bindings';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { TransactionLifecycle } from './lifecycle';
-import type { TxMemo, PollConfig } from './lifecycle';
+import type { TxMemo, PollConfig, SimulateResult, SubmitResult, InvokeLifecycleOptions } from './lifecycle';
 export type { TxMemo } from './lifecycle';
+export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
 
 import { ContractResponse } from './response';
 
@@ -61,6 +62,13 @@ function isExternalSimulationError(errorMsg: string): boolean {
   return /external|token|sep-?41/i.test(errorMsg);
 }
 
+/** @deprecated Use SubmitResult from lifecycle instead. Kept for batchBuyTickets compatibility. */
+export interface InvokeResult<T = any> {
+  result: T;
+  txHash: string;
+  ledger: number;
+}
+
 @Injectable()
 export class ContractService {
   private contractId: string;
@@ -84,6 +92,45 @@ export class ContractService {
   setWallet(adapter: WalletAdapter): void {
     this.wallet = adapter;
     this.lifecycle.setWallet(adapter);
+  }
+
+  /* ---------------- STAGE METHODS (fine-grained pipeline) ---------------- */
+
+  /**
+   * Phase 1 — Build and simulate a transaction.
+   * Returns the assembled XDR, decoded return value, fee, and network passphrase.
+   * Safe to call without a wallet (uses anonymous fallback key).
+   */
+  async simulate<T = unknown>(
+    method: ContractFnName | string,
+    params: any[],
+    options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
+  ): Promise<SimulateResult<T>> {
+    return this.lifecycle.simulate<T>(method, params, options);
+  }
+
+  /**
+   * Phase 2 — Sign an assembled transaction XDR via the connected wallet.
+   * Returns the signed XDR string.
+   */
+  async sign(assembledXdr: string, networkPassphrase?: string): Promise<string> {
+    return this.lifecycle.sign(assembledXdr, networkPassphrase);
+  }
+
+  /**
+   * Phase 3 — Submit a signed transaction XDR to the network.
+   * Returns the transaction hash.
+   */
+  async submit(signedXdr: string): Promise<string> {
+    return this.lifecycle.submit(signedXdr);
+  }
+
+  /**
+   * Phase 4 — Poll for transaction confirmation.
+   * Returns the on-chain return value, tx hash, and ledger.
+   */
+  async poll<T = unknown>(txHash: string, config?: PollConfig): Promise<SubmitResult<T>> {
+    return this.lifecycle.poll<T>(txHash, config);
   }
 
   /* ---------------- READ ONLY ---------------- */
@@ -274,8 +321,8 @@ export class ContractService {
     const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
-    const simResult = successSim.results
-      ? successSim.results.map(r => r.retval ? scValToNative(r.retval) : undefined)
+    const simResult = successSim.result?.retval
+      ? [scValToNative(successSim.result.retval)]
       : [];
 
     if (options.simulateOnly) {
