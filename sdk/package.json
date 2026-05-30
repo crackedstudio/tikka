@@ -27,7 +27,7 @@
     "example:offline-signing": "ts-node examples/offline-signing.ts",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
-    "size-check": "powershell (Get-Item dist/light/index.light.js).Length"
+    "size-check": "node -e \"const fs=require('fs'); const p='dist/light/index.light.js'; console.log(fs.statSync(p).size);\""
   },
   "dependencies": {
     "@albedo-link/intent": "^0.13.0",
