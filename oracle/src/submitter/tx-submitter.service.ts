@@ -4,6 +4,7 @@ import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
 import { FeeEstimatorService } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
+import { CostEstimatorService } from './cost-estimator.service';
 
 export interface SubmitResult {
   txHash: string;
@@ -32,6 +33,7 @@ export class TxSubmitterService {
     private readonly configService: ConfigService,
     private readonly feeEstimator: FeeEstimatorService,
     private readonly keyService: KeyService,
+    private readonly costEstimator: CostEstimatorService,
   ) {
     const primary =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
@@ -136,25 +138,34 @@ export class TxSubmitterService {
 
         const confirm = await this.pollForConfirmation(txHash);
         if (confirm?.status === 'SUCCESS') {
-          return { txHash, ledger: (confirm.ledger as number) || 0, success: true };
+          const feePaid = Number(confirm.feeCharged) || Number(fee);
+          const raffleIdArg = args.find(arg => arg.switch?.name === 'scvU32')?.u32 || 0;
+          this.costEstimator.recordRevealCost(raffleIdArg, 'PRNG', feePaid);
+          return { txHash, ledger: (confirm.ledger as number) || 0, success: true, feePaid };
         }
         const confirmMessage = JSON.stringify(confirm);
         if (this.isInsufficientFeeError(confirmMessage)) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(0, 'PRNG');
         }
         const failure = new Error(`${method} failed (status=${confirm?.status || 'UNKNOWN'})`);
         lastError = failure;
         if (!this.isRetriableError(failure, confirmMessage)) {
+          this.costEstimator.recordSubmissionFailure(0, 'PRNG', confirmMessage);
           break;
         }
         await this.logRetryAndBackoff(method, attempt, lastError);
       } catch (e: any) {
         const msg = e?.message || String(e);
         if (this.isRpcError(msg)) this.failoverRpc();
-        else if (this.isInsufficientFeeError(msg)) feeBump = Math.max(feeBump * 2, feeBump + 1);
+        else if (this.isInsufficientFeeError(msg)) {
+          feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(0, 'PRNG');
+        }
         this.logger.error(`Error calling ${method} (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
         lastError = e;
         if (!this.isRetriableError(e, msg)) {
+          this.costEstimator.recordSubmissionFailure(0, 'PRNG', msg);
           break;
         }
         await this.logRetryAndBackoff(method, attempt, lastError);
@@ -202,6 +213,7 @@ export class TxSubmitterService {
           const msg = JSON.stringify(sendRes);
           if (this.isInsufficientFeeError(msg)) {
             feeBump = Math.max(feeBump * 2, feeBump + 1);
+            this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
             await this.logRetryAndBackoff('receive_randomness', attempt, msg);
             continue;
           }
@@ -213,11 +225,14 @@ export class TxSubmitterService {
         const confirm = await this.pollForConfirmation(txHash);
         if (confirm?.status === 'SUCCESS') {
           const ledger = (confirm.ledger as number) || (confirm.latestLedger as number) || 0;
-          return { txHash, ledger, success: true };
+          const feePaid = Number(confirm.feeCharged) || (Number((StellarSdk as any).BASE_FEE || 100) * feeBump);
+          this.costEstimator.recordRevealCost(raffleId, 'VRF', feePaid);
+          return { txHash, ledger, success: true, feePaid };
         }
 
         if (confirm && this.isInsufficientFeeError(JSON.stringify(confirm))) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
           await this.logRetryAndBackoff('receive_randomness', attempt, JSON.stringify(confirm));
           continue;
         }
@@ -226,6 +241,7 @@ export class TxSubmitterService {
           `Transaction failed or not confirmed (status=${confirm?.status || 'UNKNOWN'})`,
         );
         if (!this.isRetriableError(lastError, JSON.stringify(confirm))) {
+          this.costEstimator.recordSubmissionFailure(raffleId, 'VRF', JSON.stringify(confirm));
           break;
         }
         await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
@@ -235,10 +251,12 @@ export class TxSubmitterService {
           this.failoverRpc();
         } else if (this.isInsufficientFeeError(msg)) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
         }
         this.logger.error(`Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
         lastError = e;
         if (!this.isRetriableError(e, msg)) {
+          this.costEstimator.recordSubmissionFailure(raffleId, 'VRF', msg);
           break;
         }
         await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
