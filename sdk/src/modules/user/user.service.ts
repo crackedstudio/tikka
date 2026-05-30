@@ -4,7 +4,7 @@ import { ContractFn } from '../../contract/bindings';
 import { UserParticipation, GetParticipationParams } from './user.types';
 import { assertValidPublicKey } from '../../utils/validation';
 
-import { ContractResponse } from '../../contract/response';
+import { UserTxResponse } from '../../contract/response';
 
 @Injectable()
 export class UserService {
@@ -14,7 +14,7 @@ export class UserService {
    * Retrieves user participation data from the Soroban contract.
    * Read-only — no signing required.
    */
-  async getParticipation(params: GetParticipationParams): Promise<ContractResponse<UserParticipation>> {
+  async getParticipation(params: GetParticipationParams): Promise<UserTxResponse<UserParticipation>> {
     const { address } = params;
     assertValidPublicKey(address);
 
@@ -25,13 +25,13 @@ export class UserService {
       raffle_ids: number[];
     }>(ContractFn.GET_USER_PARTICIPATION, [address]);
 
-    if (!response.success) {
-      return { success: false, error: response.error };
+    if (response.status !== 'SUCCESS') {
+      return { status: 'ERROR', error: response.error };
     }
 
     const contractData = response.value!;
     return {
-      success: true,
+      status: 'SUCCESS',
       value: {
         address,
         totalRafflesEntered: contractData.total_raffles_entered,

@@ -3,13 +3,11 @@ import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import {
   RaffleParams,
-  CreateRaffleResult,
   RaffleData,
-  CancelRaffleResult,
   CancelRaffleParams,
   AssetDescriptor,
 } from './raffle.types';
-import { ContractResponse } from '../../contract/response';
+import { RaffleTxResponse, TxResponse } from '../../contract/response';
 import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
 import { xlmToStroops } from '../../utils/formatting';
 import { nativeToScVal } from '@stellar/stellar-sdk';
@@ -46,7 +44,7 @@ export class RaffleService {
    *
    * @returns The on-chain raffle ID, transaction hash, and ledger.
    */
-  async create(params: RaffleParams): Promise<ContractResponse<number>> {
+  async create(params: RaffleParams): Promise<RaffleTxResponse<number>> {
     assertNonEmpty(params.ticketPrice, 'ticketPrice');
     assertPositiveInt(params.maxTickets, 'maxTickets');
 
@@ -91,7 +89,7 @@ export class RaffleService {
   /**
    * Fetches on-chain data for a single raffle (read-only).
    */
-  async get(raffleId: number): Promise<ContractResponse<RaffleData>> {
+  async get(raffleId: number): Promise<RaffleTxResponse<RaffleData>> {
     assertPositiveInt(raffleId, 'raffleId');
 
     const res = await this.contract.simulateReadOnly<any>(
@@ -99,10 +97,10 @@ export class RaffleService {
       [raffleId],
     );
 
-    if (!res.success) return res as any;
+    if (res.status !== 'SUCCESS') return res as any;
     
     return {
-      success: true,
+      status: 'SUCCESS',
       value: this.mapRaffleData(raffleId, res.value),
     };
   }
@@ -114,7 +112,7 @@ export class RaffleService {
   /**
    * Returns IDs of all currently active (OPEN) raffles.
    */
-  async listActive(): Promise<ContractResponse<number[]>> {
+  async listActive(): Promise<RaffleTxResponse<number[]>> {
     return this.contract.simulateReadOnly<number[]>(
       ContractFn.GET_ACTIVE_RAFFLE_IDS,
       [],
@@ -128,7 +126,7 @@ export class RaffleService {
   /**
    * Returns IDs of all raffles (any state).
    */
-  async listAll(): Promise<ContractResponse<number[]>> {
+  async listAll(): Promise<RaffleTxResponse<number[]>> {
     return this.contract.simulateReadOnly<number[]>(
       ContractFn.GET_ALL_RAFFLE_IDS,
       [],
@@ -142,7 +140,7 @@ export class RaffleService {
   /**
    * Cancels an OPEN raffle (must be the raffle creator).
    */
-  async cancel(params: CancelRaffleParams): Promise<ContractResponse<void>> {
+  async cancel(params: CancelRaffleParams): Promise<TxResponse<void>> {
     assertPositiveInt(params.raffleId, 'raffleId');
 
     return await this.contract.invoke<void>(

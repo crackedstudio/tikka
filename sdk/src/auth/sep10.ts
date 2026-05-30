@@ -194,7 +194,7 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   let transaction: Transaction;
   try {
     transaction = new Transaction(signedChallenge, networkPassphrase);
-  } catch (err) {
+  } catch {
     throw new Error('Invalid signedChallenge xdr');
   }
 
@@ -228,7 +228,6 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   }
 
   let hasAnchorChallengeData = false;
-  let hasWebAuthDomainOp = false;
   let nonceValue: Buffer | undefined;
 
   for (const operation of transaction.operations) {
@@ -244,7 +243,6 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
       assert(normalized.length <= 64, 'Challenge nonce must be at most 64 bytes');
       nonceValue = normalized;
     } else if (operation.name === 'web_auth_domain') {
-      hasWebAuthDomainOp = true;
       assert(operation.value !== undefined, 'web_auth_domain value must be set if present');
       const normalized = normalizeBufferString(operation.value).toString('utf8');
       assert(normalized.length > 0, 'web_auth_domain must be non-empty');

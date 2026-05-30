@@ -3,15 +3,12 @@ import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import {
   BuyTicketParams,
-  BuyTicketResult,
   RefundTicketParams,
-  RefundTicketResult,
   GetUserTicketsParams,
   BuyBatchParams,
-  BuyBatchResult,
   BatchPurchaseResult,
 } from './ticket.types';
-import { ContractResponse } from '../../contract/response';
+import { TicketTxResponse, TxResponse } from '../../contract/response';
 import { assertPositiveInt } from '../../utils/validation';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
@@ -27,7 +24,7 @@ export class TicketService {
    * are surfaced as `ExternalContractError` so callers can handle them
    * separately from generic network/contract errors.
    */
-  async buy(params: BuyTicketParams): Promise<ContractResponse<number[]>> {
+  async buy(params: BuyTicketParams): Promise<TicketTxResponse<number[]>> {
     const { raffleId, quantity } = params;
     assertPositiveInt(raffleId, 'raffleId');
     assertPositiveInt(quantity, 'quantity');
@@ -60,7 +57,7 @@ export class TicketService {
    *
    * Token transfer failures during refund are surfaced as `ExternalContractError`.
    */
-  async refund(params: RefundTicketParams): Promise<ContractResponse<void>> {
+  async refund(params: RefundTicketParams): Promise<TxResponse<void>> {
     const { raffleId, ticketId } = params;
     assertPositiveInt(raffleId, 'raffleId');
     assertPositiveInt(ticketId, 'ticketId');
@@ -90,7 +87,7 @@ export class TicketService {
    * Gets all ticket IDs owned by a user for a specific raffle.
    * Read-only operation (no signing required).
    */
-  async getUserTickets(params: GetUserTicketsParams): Promise<ContractResponse<number[]>> {
+  async getUserTickets(params: GetUserTicketsParams): Promise<TicketTxResponse<number[]>> {
     const { raffleId, userAddress } = params;
     assertPositiveInt(raffleId, 'raffleId');
 
@@ -123,7 +120,7 @@ export class TicketService {
    * });
    * ```
    */
-  async buyBatch(params: BuyBatchParams): Promise<ContractResponse<BatchPurchaseResult[]>> {
+  async buyBatch(params: BuyBatchParams): Promise<TicketTxResponse<BatchPurchaseResult[]>> {
     const { purchases, memo } = params;
 
     // Validate inputs
@@ -168,13 +165,13 @@ export class TicketService {
         simulationResults.push({
           raffleId: purchase.raffleId,
           ticketIds: [],
-          success: true,
+          status: 'SUCCESS',
         });
       } catch (err) {
         simulationResults.push({
           raffleId: purchase.raffleId,
           ticketIds: [],
-          success: false,
+          status: 'ERROR',
           error: err instanceof Error ? err.message : String(err),
         });
       }
@@ -182,7 +179,7 @@ export class TicketService {
 
     // Filter out failed simulations
     const validPurchases = purchases.filter((_, index) => 
-      simulationResults[index].success
+      simulationResults[index].status === 'SUCCESS'
     );
 
     if (validPurchases.length === 0) {
@@ -211,10 +208,10 @@ export class TicketService {
         results.push({
           raffleId: purchase.raffleId,
           ticketIds: res.value || [],
-          success: true,
+          status: 'SUCCESS',
         });
 
-        lastTxHash = res.transactionHash || '';
+        lastTxHash = res.txHash || '';
         lastLedger = res.ledger || 0;
         // Accumulate fees (simplified - in reality each tx has its own fee)
         totalFee += BigInt(100000); // Base fee estimate
@@ -222,7 +219,7 @@ export class TicketService {
         results.push({
           raffleId: purchase.raffleId,
           ticketIds: [],
-          success: false,
+          status: 'ERROR',
           error: err instanceof TikkaSdkError 
             ? err.message 
             : err instanceof Error 
@@ -237,7 +234,7 @@ export class TicketService {
     let validIndex = 0;
     
     for (let i = 0; i < purchases.length; i++) {
-      if (simulationResults[i].success) {
+      if (simulationResults[i].status === 'SUCCESS') {
         finalResults.push(results[validIndex]);
         validIndex++;
       } else {
@@ -246,10 +243,11 @@ export class TicketService {
     }
 
     return {
-      success: true,
+      status: 'SUCCESS',
       value: finalResults,
-      transactionHash: lastTxHash,
+      txHash: lastTxHash,
       ledger: lastLedger,
+      feeCharged: totalFee.toString(),
     };
   }
 }

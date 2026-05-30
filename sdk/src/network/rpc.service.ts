@@ -107,7 +107,7 @@ export class RpcService {
   /**
    * Estimate fee using Horizon's fee stats endpoint.
    */
-  async estimateFee(operation?: xdr.Operation): Promise<{ minFee: number; suggestedFee: number }> {
+  async estimateFee(_operation?: xdr.Operation): Promise<{ minFee: number; suggestedFee: number }> {
     const fetchClient = this.resolveFetchClient();
     try {
       const response = await fetchClient(`${this.networkConfig.horizonUrl}/fee_stats`);

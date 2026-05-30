@@ -54,7 +54,7 @@ export interface BuyBatchParams {
 export interface BatchPurchaseResult {
   raffleId: number;
   ticketIds: number[];
-  success: boolean;
+  status: 'SUCCESS' | 'ERROR';
   error?: string;
 }
 
