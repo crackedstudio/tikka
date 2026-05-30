@@ -3,6 +3,7 @@ export {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
+  WalletCapabilities,
 } from './wallet.interface';
 
 export { FreighterAdapter } from './freighter.adapter';

@@ -335,4 +335,24 @@ describe('RabetAdapter', () => {
       expect(result.signedXdr).toBe(signedXdr);
     });
   });
+
+  describe('capabilities', () => {
+    it('should report correct capabilities', () => {
+      const caps = adapter.getCapabilities();
+
+      expect(caps.supportsGetPublicKey).toBe(true);
+      expect(caps.supportsSignTransaction).toBe(true);
+      expect(caps.supportsSignMessage).toBe(false);
+      expect(caps.supportsGetNetwork).toBe(true);
+    });
+
+    it('should have consistent capability types', () => {
+      const caps = adapter.getCapabilities();
+
+      expect(typeof caps.supportsGetPublicKey).toBe('boolean');
+      expect(typeof caps.supportsSignTransaction).toBe('boolean');
+      expect(typeof caps.supportsSignMessage).toBe('boolean');
+      expect(typeof caps.supportsGetNetwork).toBe('boolean');
+    });
+  });
 });

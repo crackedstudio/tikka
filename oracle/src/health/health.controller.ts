@@ -4,6 +4,7 @@ import { LagMonitorService } from './lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Controller()
 export class HealthController {
@@ -13,6 +14,7 @@ export class HealthController {
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
     private readonly txSubmitter: TxSubmitterService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   @Get('health')
@@ -76,6 +78,9 @@ export class HealthController {
       },
       overallStatus: this.healthService.isHealthy() ? 'healthy' : this.healthService.isDegraded() ? 'degraded' : 'unhealthy',
     };
+  @Get('metrics')
+  async getMetrics() {
+    return this.metricsService.getMetrics();
   }
 
   @Get('oracle/status')

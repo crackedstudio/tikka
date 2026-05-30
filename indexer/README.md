@@ -33,6 +33,9 @@ DB_DATABASE=tikka_indexer
 # Set to "true" on Supabase / Railway (requires SSL)
 DB_SSL=false
 
+# Slow query logging threshold in milliseconds (default: 200)
+SLOW_QUERY_THRESHOLD_MS=200
+
 # Application port (default: 3002)
 PORT=3002
 
@@ -45,6 +48,32 @@ LAG_THRESHOLD=100
 # Health: lag above this many ledgers triggers critical alerts and notifications (default: 50)
 INDEXER_LAG_ALERT_THRESHOLD_LEDGERS=50
 ```
+
+## Slow query observability
+
+The indexer exports two database metrics for query performance:
+
+- `tikka_db_query_duration_seconds` — histogram of all query durations
+- `tikka_db_slow_query_total` — counter of slow queries by query hash
+
+Slow queries are logged at WARN level with a stable SHA-256 hash of the normalized query template. Raw SQL text is not emitted by the logger.
+
+To correlate the query hash with PostgreSQL SQL text, enable `pg_stat_statements` and compute the same normalized SHA-256 hash:
+
+```sql
+SELECT
+  encode(digest(regexp_replace(query, '\s+', ' ', 'g'), 'sha256'), 'hex') AS query_hash,
+  query,
+  calls,
+  total_time,
+  mean_time
+FROM pg_stat_statements
+WHERE query ILIKE '%your_fragment%'
+ORDER BY total_time DESC
+LIMIT 20;
+```
+
+Replace `your_fragment` with a portion of the suspected slow query. The `query_hash` label in Prometheus should match the computed hash above.
 
 ### Local Postgres with Docker
 
@@ -288,6 +317,12 @@ src/
 │   ├── processors.module.ts
 │   ├── raffle.processor.ts
 │   └── user.processor.ts
+├── maintenance/
+│   ├── archive-raffle-events.ts        # Resumable archiving utility
+│   ├── archive-raffle-events.spec.ts   # Archiving tests
+│   ├── ARCHIVE_RAFFLE_EVENTS_GUIDE.md  # Comprehensive guide
+│   ├── ARCHIVE_QUICK_REF.md            # Quick reference
+│   └── ARCHIVE_IMPLEMENTATION_SUMMARY.md # Technical summary
 └── database/
     ├── database.module.ts       # TypeOrmModule wiring
     ├── entities/
@@ -296,15 +331,70 @@ src/
     │   ├── user.entity.ts
     │   ├── raffle-event.entity.ts
     │   ├── platform-stat.entity.ts
-    │   └── indexer-cursor.entity.ts
+    │   ├── indexer-cursor.entity.ts
+    │   └── archive-checkpoint.entity.ts  # Archiving checkpoint tracking
     └── migrations/
         ├── 1700000000000-CreateRaffles.ts
         ├── 1700000000001-CreateTickets.ts
         ├── 1700000000002-CreateUsers.ts
         ├── 1700000000003-CreateRaffleEvents.ts
         ├── 1700000000004-CreatePlatformStats.ts
-        └── 1700000000005-CreateIndexerCursor.ts
+        ├── 1700000000005-CreateIndexerCursor.ts
+        └── 1748589373000-CreateArchiveCheckpoints.ts
 ```
+
+---
+
+## Maintenance: Archiving Old Events
+
+The indexer includes a robust archiving utility for managing `raffle_events` table growth. The archiver exports old events to CSV and safely removes them from the database with built-in resumption support.
+
+### Quick Start
+
+```bash
+# Test archiving (dry-run, no changes)
+npm run archive:raffle-events
+
+# Production archiving (actually deletes records)
+DRY_RUN=false npm run archive:raffle-events
+
+# Archive events older than 90 days
+RAFFLE_EVENTS_RETENTION_DAYS=90 DRY_RUN=false npm run archive:raffle-events
+```
+
+### Key Features
+
+✅ **Resumable Checkpointing** - Automatically resumes after interruptions  
+✅ **Dry-Run Mode** - Test without modifying database  
+✅ **Batch Limits** - Control processing with `MAX_BATCH` parameter  
+✅ **Transactional Safety** - Atomic checkpoint updates with deletions  
+✅ **Structured Logging** - JSON-formatted progress tracking  
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RAFFLE_EVENTS_RETENTION_DAYS` | `30` | Archive events older than N days |
+| `BATCH_SIZE` | `500` | Records per batch |
+| `MAX_BATCH` | unlimited | Maximum batches per run |
+| `DRY_RUN` | `true` | Simulate without changes |
+| `RESUME` | `true` | Resume from checkpoint |
+
+### Output
+
+Archives are written to `./archives/` directory:
+```
+raffle_events_2026-05-30_batch0001.csv
+raffle_events_2026-05-30_batch0002.csv
+```
+
+### Documentation
+
+- 📖 [Comprehensive Guide](./src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md) - Full documentation
+- 📋 [Quick Reference](./src/maintenance/ARCHIVE_QUICK_REF.md) - Common commands
+- 🔧 [Implementation Summary](./src/maintenance/ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
+
+---
 
 ## Resource Guidelines
 

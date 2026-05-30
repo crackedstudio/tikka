@@ -69,29 +69,52 @@ console.log(`Avg per reveal: ${metrics.avgCostPerReveal / 10_000_000} XLM`);
 
 ### Monitoring Cost Per Reveal
 
-```typescript
-// Get current cost per reveal (last 100 reveals)
-const costPerReveal = costEstimator.getCostPerRevealMetric();
+The oracle now exports real-time cost metrics in Prometheus format. These can be scraped by a Prometheus server and visualized in Grafana.
 
-// Export to Prometheus/Grafana
-prometheusGauge.set(costPerReveal / 10_000_000);
+**Metrics Endpoint**: `/metrics`
+
+**Exported Metrics**:
+- `tikka_oracle_estimated_fee_stroops`: Current estimated fee for the next submission.
+- `tikka_oracle_actual_fee_total_stroops`: Cumulative actual fees paid for successful submissions.
+- `tikka_oracle_submission_outcome_total`: Counter for submission outcomes (`success`, `failure`, `retry`).
+- `tikka_oracle_memory_usage_bytes`: Current memory usage of the oracle process.
+
+**Labels**:
+- `network`: The network passphrase (e.g., `testnet`, `public`).
+- `method`: The submission method (`VRF` or `PRNG`).
+- `outcome`: For outcome metrics (`success`, `failure`, `retry`).
+
+**Example Grafana Query**:
+```promql
+# Average cost per VRF reveal over the last hour
+rate(tikka_oracle_actual_fee_total_stroops{method="VRF"}[1h]) 
+/ 
+rate(tikka_oracle_submission_outcome_total{method="VRF", outcome="success"}[1h])
 ```
 
 ### Cost Alerts
 
-```typescript
-// Check if actual costs exceed estimates
-const alerts = await costEstimator.checkCostThresholds(
-  estimate,
-  actualMetrics,
-);
+The `CostEstimatorService` automatically generates alerts for abnormal costs or failed submissions.
 
-alerts.forEach((alert) => {
-  if (alert.severity === 'HIGH') {
-    // Send to monitoring system
-    sendToSlack(alert.message);
-  }
-});
+**Alert Types**:
+- `COST_EXCEEDED`: Actual average cost > 150% of estimate.
+- `HIGH_FEE_DETECTED`: Single reveal fee > 0.5 XLM.
+- `BUDGET_WARNING`: Projected monthly cost > 90% of budget.
+- `SUBMISSION_FAILED`: A transaction submission failed after all retries.
+
+**Severity Levels**:
+- `LOW`: Informational.
+- `MEDIUM`: Requires attention (e.g., fee spike).
+- `HIGH`: Critical issue (e.g., submission failure or extreme fee).
+
+## Alerting Implementation
+
+Alerts are currently logged to the console with appropriate severity levels and emojis. In production, these should be integrated with a monitoring system (e.g., Slack webhooks, PagerDuty).
+
+```typescript
+// Example of a HIGH severity alert in logs
+🚨 [SUBMISSION_FAILED] Submission failed for raffle 123: tx_insufficient_fee
+CRITICAL COST ALERT: {"error":"tx_insufficient_fee"}
 ```
 
 ## Alert Types
