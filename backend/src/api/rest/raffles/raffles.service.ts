@@ -117,6 +117,20 @@ export class RafflesService {
     return { raffleId, quantity: payload.quantity, buyer: walletAddress };
   }
 
+  /**
+   * Get recent participants for a raffle.
+   * Returns list of participant addresses with timestamps, optionally filtered by 'since' timestamp.
+   */
+  async getRecentParticipants(
+    raffleId: number,
+    sinceTimestamp: number = 0,
+  ): Promise<Array<{ address: string; timestamp: number }>> {
+    // TODO: Query blockchain events or database for ticket purchases
+    // For now, return empty array as placeholder
+    // This will be populated by the indexer service once ticket purchase events are indexed
+    return [];
+  }
+
   private mergeRaffleDetail(
     id: number,
     contract: IndexerRaffleData | null,

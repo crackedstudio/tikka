@@ -10,10 +10,12 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
@@ -97,6 +99,23 @@ export class RafflesController {
   @ApiResponse({ status: 200, description: "Raffle details retrieved successfully" })
   async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
+  }
+
+  /**
+   * GET /raffles/:id/participants?since= — Get recent participants for a raffle.
+   * Optional query param 'since' (unix timestamp in ms) to get participants since that time.
+   */
+  @Public()
+  @Get(":id/participants")
+  @ApiOperation({ summary: "Get recent participants for a raffle" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
+  @ApiResponse({ status: 200, description: "Recent participants retrieved successfully" })
+  async getParticipants(
+    @Param("id", ParseIntPipe) id: number,
+    @Query("since") since?: string,
+  ) {
+    const sinceTimestamp = since ? parseInt(since, 10) : 0;
+    return this.rafflesService.getRecentParticipants(id, sinceTimestamp);
   }
 
   /**
