@@ -35,6 +35,8 @@ Release policy, versioning rules, and changelog procedures: **[docs/RELEASE.md](
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
+Module boundary and package ownership guidance: **[docs/contributing/MODULE_BOUNDARIES.md](./docs/contributing/MODULE_BOUNDARIES.md)**.
+
 ## Contracts
 
 Soroban (Rust) raffle contracts are maintained **outside this repo**. Deploy and invoke them via the SDK once addresses are configured.
