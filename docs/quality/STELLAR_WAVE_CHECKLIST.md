@@ -17,6 +17,22 @@ Stellar Wave issues require robust implementation across:
 
 ---
 
+## Acceptance Criteria
+
+Every Stellar Wave issue MUST meet these explicit acceptance criteria before being marked "ready for review":
+
+- **Complete Documentation:** API surface, examples, error codes, and runbook/troubleshooting are present and linked from the package README.
+- **Tests Passing:** Unit, integration, and applicable E2E tests are implemented and pass locally and in CI; new logic achieves the stated coverage targets.
+- **Telemetry & Alerts:** Structured logging, tracing spans for critical flows, and error reporting are instrumented; key metrics and alert thresholds are documented.
+- **Robust Error Handling:** User-facing errors are actionable and localized; unexpected failures are captured and do not expose internals.
+- **Safe Migrations:** Database migrations are reversible or have a documented rollback plan; data migration steps preserve existing data integrity.
+- **Package Expectations Met:** The package-specific checklist entries in this document are fully satisfied for every affected package.
+- **CI Integration:** The PR triggers relevant CI jobs and artifacts (builds, test reports, docs) and all jobs succeed.
+
+These criteria map directly to the Review Checklist below — maintainers should verify each bullet when reviewing a PR.
+
+---
+
 ## Universal Requirements
 
 All Stellar Wave issues **must** satisfy these baseline requirements:
