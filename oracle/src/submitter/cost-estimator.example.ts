@@ -14,6 +14,7 @@
 import { ConfigService } from '@nestjs/config';
 import { CostEstimatorService } from './cost-estimator.service';
 import { FeeEstimatorService } from './fee-estimator.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 async function main() {
   console.log('🔮 Oracle Cost Estimator Example\n');
@@ -21,7 +22,8 @@ async function main() {
   // Initialize services
   const configService = new ConfigService();
   const feeEstimator = new FeeEstimatorService(configService);
-  const costEstimator = new CostEstimatorService(configService, feeEstimator);
+  const metricsService = new MetricsService();
+  const costEstimator = new CostEstimatorService(configService, feeEstimator, metricsService);
 
   // Example 1: Estimate monthly costs for different volumes
   console.log('📊 Example 1: Monthly Cost Estimates\n');

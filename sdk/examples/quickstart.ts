@@ -38,7 +38,7 @@ async function main() {
 
   // 1. Create a raffle
   console.log('Creating raffle...');
-  const { raffleId, txHash } = await raffleService.create({
+  const createRes = await raffleService.create({
     ticketPrice: '1',           // 1 XLM
     maxTickets: 100,
     endTime: Date.now() + 24 * 60 * 60 * 1000, // 24 h from now
@@ -46,16 +46,27 @@ async function main() {
     asset: 'XLM',
     metadataCid: '',
   });
-  console.log(`Raffle created — id=${raffleId}  tx=${txHash}`);
+  if (!createRes.success) {
+    console.error('Failed to create raffle:', createRes.error);
+    await app.close();
+    process.exit(1);
+  }
+  const raffleId = createRes.value!;
+  console.log(`Raffle created — id=${raffleId}  tx=${createRes.transactionHash}`);
 
   // 2. Buy tickets
   console.log('Buying 2 tickets...');
-  const { ticketIds, txHash: buyTx } = await ticketService.buy({ raffleId, quantity: 2 });
-  console.log(`Tickets purchased — ids=${ticketIds.join(',')}  tx=${buyTx}`);
+  const buyRes = await ticketService.buy({ raffleId, quantity: 2 });
+  if (!buyRes.success) {
+    console.error('Failed to buy tickets:', buyRes.error);
+    await app.close();
+    process.exit(1);
+  }
+  console.log(`Tickets purchased — ids=${(buyRes.value ?? []).join(',')}  tx=${buyRes.transactionHash}`);
 
   // 3. Read raffle state
-  const raffle = await raffleService.get(raffleId);
-  console.log('Raffle state:', raffle);
+  const raffleRes = await raffleService.get(raffleId);
+  console.log('Raffle state:', raffleRes.value);
 
   await app.close();
 }
