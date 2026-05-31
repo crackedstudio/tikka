@@ -172,4 +172,87 @@ describe('env.schema validate()', () => {
       'Environment validation failed',
     );
   });
+
+  // -------------------------------------------------------------------------
+  // New fields added in #531
+  // -------------------------------------------------------------------------
+
+  it('defaults NODE_ENV to development', () => {
+    const result = validate(validEnv);
+    expect(result.NODE_ENV).toBe('development');
+  });
+
+  it('accepts custom NODE_ENV', () => {
+    const result = validate({ ...validEnv, NODE_ENV: 'production' });
+    expect(result.NODE_ENV).toBe('production');
+  });
+
+  it('throws when PORT is a non-numeric string', () => {
+    expect(() => validate({ ...validEnv, PORT: 'abc' })).toThrow(
+      'Environment validation failed',
+    );
+  });
+
+  it('throws when PORT is negative', () => {
+    expect(() => validate({ ...validEnv, PORT: '-1' })).toThrow(
+      'Environment validation failed',
+    );
+  });
+
+  it('throws when REDIS_URL is missing', () => {
+    const { REDIS_URL: _, ...rest } = validEnv;
+    expect(() => validate(rest)).toThrow('Environment validation failed');
+  });
+
+  it('throws when SUPABASE_URL is not a URL', () => {
+    expect(() => validate({ ...validEnv, SUPABASE_URL: 'not-a-url' })).toThrow(
+      'Environment validation failed',
+    );
+  });
+
+  it('defaults FCM_ENABLED to false', () => {
+    const result = validate(validEnv);
+    expect(result.FCM_ENABLED).toBe(false);
+  });
+
+  it('coerces FCM_ENABLED from string', () => {
+    const result = validate({ ...validEnv, FCM_ENABLED: 'true' });
+    expect(result.FCM_ENABLED).toBe(true);
+  });
+
+  it('defaults backfill settings', () => {
+    const result = validate(validEnv);
+    expect(result.BACKFILL_MAX_RANGE).toBe(10000);
+    expect(result.BACKFILL_RETRY_COUNT).toBe(3);
+    expect(result.BACKFILL_RETRY_DELAY_MS).toBe(1000);
+    expect(result.BACKFILL_HORIZON_TIMEOUT_MS).toBe(10000);
+  });
+
+  it('defaults throttle settings', () => {
+    const result = validate(validEnv);
+    expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
+    expect(result.THROTTLE_DEFAULT_TTL).toBe(60);
+    expect(result.THROTTLE_AUTH_LIMIT).toBe(10);
+    expect(result.THROTTLE_AUTH_TTL).toBe(60);
+    expect(result.THROTTLE_NONCE_LIMIT).toBe(30);
+    expect(result.THROTTLE_NONCE_TTL).toBe(60);
+  });
+
+  it('defaults geo settings', () => {
+    const result = validate(validEnv);
+    expect(result.GEO_PROVIDER_URL).toBe('http://ip-api.com/json');
+    expect(result.GEO_TIMEOUT_MS).toBe(3000);
+    expect(result.BLOCKED_COUNTRIES).toBe('');
+  });
+
+  it('includes descriptive error messages listing all invalid fields', () => {
+    try {
+      validate({});
+      fail('should have thrown');
+    } catch (e: any) {
+      expect(e.message).toContain('Environment validation failed');
+      expect(e.message).toContain('SUPABASE_URL');
+      expect(e.message).toContain('.env.example');
+    }
+  });
 });

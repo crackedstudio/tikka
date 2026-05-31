@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -14,6 +15,7 @@ import {
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
@@ -21,6 +23,7 @@ import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
 import { Throttle } from "@nestjs/throttler";
+import { env } from "../../../config/env.config";
 import { UpsertMetadataPayload } from "../../../services/metadata.service";
 import {
   ListRafflesQuerySchema,
@@ -48,10 +51,8 @@ interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
 
-const RAFFLE_CREATE_RATE_LIMIT = Number(process.env.RAFFLE_CREATE_RATE_LIMIT ?? 5);
-const RAFFLE_CREATE_RATE_WINDOW_SECONDS = Number(
-  process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? 600,
-);
+const RAFFLE_CREATE_RATE_LIMIT = env.rateLimits.raffleCreateLimit;
+const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSeconds;
 
 @ApiTags("Raffles")
 @Controller("raffles")
@@ -102,6 +103,23 @@ export class RafflesController {
   }
 
   /**
+   * GET /raffles/:id/participants?since= — Get recent participants for a raffle.
+   * Optional query param 'since' (unix timestamp in ms) to get participants since that time.
+   */
+  @Public()
+  @Get(":id/participants")
+  @ApiOperation({ summary: "Get recent participants for a raffle" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
+  @ApiResponse({ status: 200, description: "Recent participants retrieved successfully" })
+  async getParticipants(
+    @Param("id", ParseIntPipe) id: number,
+    @Query("since") since?: string,
+  ) {
+    const sinceTimestamp = since ? parseInt(since, 10) : 0;
+    return this.rafflesService.getRecentParticipants(id, sinceTimestamp);
+  }
+
+  /**
    * GET /raffles/:id/ipfs — Redirect to IPFS metadata for the raffle.
    */
   @Public()
@@ -115,7 +133,7 @@ export class RafflesController {
     if (!detail.metadata_cid) {
       throw new NotFoundException(`IPFS metadata not found for raffle ${id}`);
     }
-    const gateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs/';
+    const gateway = env.storage.ipfsGatewayUrl;
     res.redirect(`${gateway}${detail.metadata_cid}`);
   }
 
@@ -141,6 +159,25 @@ export class RafflesController {
     payload: UpsertMetadataDto,
   ) {
     return this.rafflesService.upsertMetadata(raffleId, payload, address);
+  }
+
+  /**
+   * DELETE /raffles/:raffleId/metadata — Soft-delete raffle metadata.
+   * Creator can delete their own raffle's metadata; admin can delete any.
+   * Requires JWT (SIWS).
+   */
+  @ApiBearerAuth()
+  @Delete(":raffleId/metadata")
+  @ApiOperation({ summary: "Soft-delete raffle metadata (creator or admin)" })
+  @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiResponse({ status: 200, description: "Metadata soft-deleted successfully" })
+  @ApiResponse({ status: 403, description: "Forbidden — not the creator" })
+  @ApiResponse({ status: 404, description: "Raffle or metadata not found" })
+  async deleteMetadata(
+    @Param("raffleId", ParseIntPipe) raffleId: number,
+    @CurrentUser("address") address: string,
+  ) {
+    return this.rafflesService.deleteMetadata(raffleId, address);
   }
 
   /**
