@@ -13,8 +13,8 @@ import {
 } from './raffle.types';
 import { RaffleStatus } from '../../contract/bindings';
 import { ContractResponse } from '../../contract/response';
-import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
-import { xlmToStroops } from '../../utils/formatting';
+import { assertPositiveInt } from '../../utils/validation';
+import { xlmToStroops, assertSafeAmount } from '../../utils/formatting';
 import { nativeToScVal } from '@stellar/stellar-sdk';
 
 /**

@@ -223,7 +223,7 @@ export class ContractService {
 
   /* ---------------- BATCH INVOKE ---------------- */
 
-  async batchBuyTickets<T = any>(
+  async batchBuyTickets(
     raffleId: number,
     count: number,
     options: InvokeOptions = {},

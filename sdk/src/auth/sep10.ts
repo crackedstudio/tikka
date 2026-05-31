@@ -227,6 +227,7 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   try {
     transaction = new Transaction(signedChallenge, networkPassphrase);
   } catch {
+    throw new Error('Invalid signedChallenge xdr');
     createVerificationError(Sep10VerificationErrorCode.InvalidXdr, 'Invalid signedChallenge xdr or network passphrase');
   }
 
