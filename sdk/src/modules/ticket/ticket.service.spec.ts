@@ -31,9 +31,9 @@ describe('TicketService', () => {
       };
 
       const mockResult = {
-        success: true,
+        status: 'SUCCESS' as const,
         value: [101, 102, 103, 104, 105],
-        transactionHash: 'tx-hash',
+        txHash: 'tx-hash',
         ledger: 1000,
         feePaid: '10000',
       };
@@ -143,9 +143,9 @@ describe('TicketService', () => {
       };
 
       const mockInvokeResult = {
-        success: true,
+        status: 'SUCCESS' as const,
         value: undefined,
-        transactionHash: 'refund-hash',
+        txHash: 'refund-hash',
         ledger: 1001,
         feePaid: '10000',
       };
@@ -185,7 +185,7 @@ describe('TicketService', () => {
       };
 
       const mockTicketIds = [101, 105, 110];
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: mockTicketIds });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: mockTicketIds });
 
       const result = await service.getUserTickets(params);
 
@@ -212,20 +212,20 @@ describe('TicketService', () => {
       };
 
       // Mock simulation success for both
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [101, 102, 103] });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [101, 102, 103] });
 
       // Mock invoke results
       contractService.invoke
         .mockResolvedValueOnce({
-          success: true,
+          status: 'SUCCESS' as const,
           value: [101, 102, 103],
-          transactionHash: 'tx-hash-1',
+          txHash: 'tx-hash-1',
           ledger: 1000,
         })
         .mockResolvedValueOnce({
-          success: true,
+          status: 'SUCCESS' as const,
           value: [201, 202, 203, 204, 205],
-          transactionHash: 'tx-hash-2',
+          txHash: 'tx-hash-2',
           ledger: 1001,
         });
 
@@ -239,14 +239,14 @@ describe('TicketService', () => {
       expect(result.value![0]).toEqual({
         raffleId: 1,
         ticketIds: [101, 102, 103],
-        success: true,
+        status: 'SUCCESS' as const,
       });
       expect(result.value![1]).toEqual({
         raffleId: 2,
         ticketIds: [201, 202, 203, 204, 205],
-        success: true,
+        status: 'SUCCESS' as const,
       });
-      expect(result.transactionHash).toBe('tx-hash-2');
+      expect(result.txHash).toBe('tx-hash-2');
       expect(result.ledger).toBe(1001);
     });
 
@@ -260,22 +260,22 @@ describe('TicketService', () => {
 
       // First simulation succeeds, second fails
       contractService.simulateReadOnly
-        .mockResolvedValueOnce({ success: true, value: [101, 102, 103] })
+        .mockResolvedValueOnce({ status: 'SUCCESS' as const, value: [101, 102, 103] })
         .mockRejectedValueOnce(new Error('Raffle not found'));
 
       // Only first invoke should happen
       contractService.invoke.mockResolvedValueOnce({
-        success: true,
+        status: 'SUCCESS' as const,
         value: [101, 102, 103],
-        transactionHash: 'tx-hash-1',
+        txHash: 'tx-hash-1',
         ledger: 1000,
       });
 
       const result = await service.buyBatch(params);
 
       expect(result.value).toHaveLength(2);
-      expect(result.value![0].success).toBe(true);
-      expect(result.value![1].success).toBe(false);
+      expect(result.value![0].status).toBe('SUCCESS');
+      expect(result.value![1].status).toBe('ERROR');
       expect(result.value![1].error).toContain('Raffle not found');
     });
 
@@ -323,11 +323,11 @@ describe('TicketService', () => {
         memo: { type: 'text', value: 'Batch purchase' },
       };
 
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [101, 102, 103] });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [101, 102, 103] });
       contractService.invoke.mockResolvedValue({
-        success: true,
+        status: 'SUCCESS' as const,
         value: [101, 102, 103],
-        transactionHash: 'tx-hash',
+        txHash: 'tx-hash',
         ledger: 1000,
       });
 

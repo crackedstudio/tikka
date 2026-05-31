@@ -3,16 +3,13 @@ import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import {
   BuyTicketParams,
-  BuyTicketResult,
   RefundTicketParams,
-  RefundTicketResult,
   GetUserTicketsParams,
   BuyBatchParams,
-  BuyBatchResult,
   BatchPurchaseResult,
   TICKET_CONSTRAINTS,
 } from './ticket.types';
-import { ContractResponse } from '../../contract/response';
+import { TicketTxResponse, TxResponse } from '../../contract/response';
 import { assertPositiveInt } from '../../utils/validation';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
@@ -294,13 +291,13 @@ export class TicketService {
         simulationResults.push({
           raffleId: purchase.raffleId,
           ticketIds: [],
-          success: true,
+          status: 'SUCCESS',
         });
       } catch (err) {
         simulationResults.push({
           raffleId: purchase.raffleId,
           ticketIds: [],
-          success: false,
+          status: 'ERROR',
           error: err instanceof Error ? err.message : String(err),
         });
       }
@@ -308,7 +305,7 @@ export class TicketService {
 
     // Filter out failed simulations
     const validPurchases = purchases.filter((_, index) => 
-      simulationResults[index].success
+      simulationResults[index].status === 'SUCCESS'
     );
 
     if (validPurchases.length === 0) {
@@ -340,10 +337,10 @@ export class TicketService {
         results.push({
           raffleId: purchase.raffleId,
           ticketIds: res.value || [],
-          success: true,
+          status: 'SUCCESS',
         });
 
-        lastTxHash = res.transactionHash || '';
+        lastTxHash = res.txHash || '';
         lastLedger = res.ledger || 0;
         // Accumulate fees as integers (stroops) to avoid floating point issues
         const feeLamports = parseInt(res.feePaid || '0', 10);
@@ -368,7 +365,7 @@ export class TicketService {
     let validIndex = 0;
 
     for (let i = 0; i < purchases.length; i++) {
-      if (simulationResults[i].success) {
+      if (simulationResults[i].status === 'SUCCESS') {
         finalResults.push(results[validIndex]);
         validIndex++;
       } else {

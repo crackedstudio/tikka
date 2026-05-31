@@ -3,7 +3,7 @@ import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import { assertNonEmpty } from '../../utils/validation';
 import { AdminWriteOptions } from './admin.types';
-import { ContractResponse } from '../../contract/response';
+import { AdminTxResponse, TxResponse } from '../../contract/response';
 
 /**
  * @category Admin

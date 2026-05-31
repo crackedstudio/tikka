@@ -79,13 +79,13 @@ export class UserService {
       raffle_ids: number[];
     }>(ContractFn.GET_USER_PARTICIPATION, [address]);
 
-    if (!response.success) {
-      return { success: false, error: response.error };
+    if (response.status !== 'SUCCESS') {
+      return { status: 'ERROR', error: response.error };
     }
 
     const d = response.value!;
     return {
-      success: true,
+      status: 'SUCCESS',
       value: {
         address,
         totalRafflesEntered: d.total_raffles_entered,

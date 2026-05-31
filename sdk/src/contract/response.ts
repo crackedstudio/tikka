@@ -32,4 +32,12 @@ export interface ContractResponse<T = any> {
   transactionHash?: string;
   /** Ledger number where transaction was confirmed if applicable */
   ledger?: number;
+  feeCharged?: string;
+  resultXdr?: string;
+  warnings?: string[];
 }
+
+export type TicketTxResponse<T = number[]> = TxResponse<T>;
+export type RaffleTxResponse<T = number> = TxResponse<T>;
+export type AdminTxResponse<T = void> = TxResponse<T>;
+export type UserTxResponse<T = any> = TxResponse<T>;

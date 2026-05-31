@@ -22,7 +22,7 @@ describe('UserService', () => {
 
   describe('getParticipation', () => {
     it('should call GET_USER_PARTICIPATION with the address', async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: mockContractData });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: mockContractData });
 
       await service.getParticipation({ address: VALID_ADDRESS });
 
@@ -33,10 +33,10 @@ describe('UserService', () => {
     });
 
     it('should map contract data to UserParticipation', async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: mockContractData });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: mockContractData });
 
       const result = await service.getParticipation({ address: VALID_ADDRESS });
-      expect(result.success).toBe(true);
+      expect(result.status).toBe('SUCCESS');
       expect(result.value).toEqual({
         address: VALID_ADDRESS,
         totalRafflesEntered: 5,

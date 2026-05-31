@@ -18,49 +18,50 @@
 │                          TIKKA ECOSYSTEM                                │
 │                                                                         │
 │  ┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐   │
-│  │tikka-frontend│────▶│  tikka-sdk   │────▶│  tikka-contracts     │   │
+│  │    client    │────▶│     sdk      │────▶│ contracts (external) │   │
 │  │  React/Vite  │     │   NestJS     │     │  Soroban (Rust)      │   │
 │  └──────┬───────┘     └──────────────┘     └──────────┬───────────┘   │
 │         │                                              │               │
 │         │             ┌──────────────┐                │               │
-│         └────────────▶│tikka-backend │◀───────────────┘               │
+│         └────────────▶│   backend    │◀───────────────┘               │
 │                       │   NestJS     │                                 │
 │                       └──────┬───────┘                                 │
 │                              │                                          │
 │              ┌───────────────┼───────────────┐                        │
 │              ▼               ▼               ▼                        │
 │      ┌──────────────┐ ┌──────────────┐ ┌──────────────┐              │
-│      │tikka-indexer │ │  PostgreSQL  │ │    Redis     │              │
+│      │   indexer    │ │  PostgreSQL  │ │    Redis     │              │
 │      │   NestJS     │ │   (Supabase) │ │   (Cache)    │              │
 │      └──────┬───────┘ └──────────────┘ └──────────────┘              │
 │             │                                                          │
 │             ▼                                                          │
 │      ┌──────────────┐                                                  │
-│      │ tikka-oracle │◀──── Stellar Ledger Events                      │
+│      │    oracle    │◀──── Stellar Ledger Events                      │
 │      │   NestJS     │────▶ Soroban Contract (randomness reveal)       │
 │      └──────────────┘                                                  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Repository | Stack | Role |
+| Package / Build Location | Stack | Role |
 |---|---|---|
-| `tikka-contracts` | Rust, Soroban SDK | Onchain raffle logic, state machine, payouts |
-| `tikka-sdk` | NestJS, TypeScript, Stellar SDK | SDK library for contract interaction |
-| `tikka-indexer` | NestJS, PostgreSQL, Redis | Blockchain event ingestion & query layer |
-| `tikka-backend` | NestJS, Fastify, Supabase | API, auth, metadata, notifications |
-| `tikka-oracle` | NestJS, Stellar SDK | Randomness oracle — commit/reveal + VRF |
-| `tikka-frontend` | React 19, Vite, TypeScript | Consumer web app |
+| `contracts` (External) | Rust, Soroban SDK | Onchain raffle logic, state machine, payouts |
+| `./sdk` | NestJS, TypeScript, Stellar SDK | SDK library for contract interaction |
+| `./indexer` | NestJS, PostgreSQL, Redis | Blockchain event ingestion & query layer |
+| `./backend` | NestJS, Fastify, Supabase | API, auth, metadata, notifications |
+| `./oracle` | NestJS, Stellar SDK | Randomness oracle — commit/reveal + VRF |
+| `./client` | React 19, Vite, TypeScript | Consumer web app |
 
 ---
 
-## 1. `tikka-contracts`
+## 1. `contracts` (External Repository)
 
 > **Language:** Rust · **Platform:** Soroban (Stellar)
+> **Note:** The contracts are maintained in a separate external repository. The following structures and interfaces represent our current assumptions and integration points.
 
 ### Structure
 
 ```
-tikka-contracts/
+contracts/
 ├── contracts/
 │   ├── raffle/
 │   │   ├── src/
@@ -146,7 +147,7 @@ TicketRefunded       { raffle_id, ticket_id, recipient, amount }
 
 ---
 
-## 2. `tikka-sdk`
+## 2. `sdk` (Build Location: `./sdk`)
 
 > **Stack:** NestJS · TypeScript · Stellar SDK · Published as `@tikka/sdk`
 
@@ -155,7 +156,7 @@ The SDK is a first-class NestJS library that abstracts all Soroban contract inte
 ### Structure
 
 ```
-tikka-sdk/
+sdk/
 ├── src/
 │   ├── tikka-sdk.module.ts          # NestJS root module
 │   ├── tikka-sdk.service.ts         # Main SDK entry point
@@ -294,7 +295,7 @@ and do not consume the poll timeout.
 
 ---
 
-## 3. `tikka-indexer`
+## 3. `indexer` (Build Location: `./indexer`)
 
 > **Stack:** NestJS · PostgreSQL · Redis · Horizon API
 
@@ -303,7 +304,7 @@ The indexer is a persistent NestJS service that subscribes to Stellar ledger eve
 ### Structure
 
 ```
-tikka-indexer/
+indexer/
 ├── src/
 │   ├── app.module.ts
 │   ├── ingestor/
@@ -419,7 +420,7 @@ LedgerPoller  ──── new events ────▶  EventParser  (XDR decode)
 
 ---
 
-## 4. `tikka-backend`
+## 4. `backend` (Build Location: `./backend`)
 
 > **Stack:** NestJS · Fastify · Supabase · Redis
 
@@ -428,7 +429,7 @@ The backend is the API layer — it merges contract data from the indexer with o
 ### Structure
 
 ```
-tikka-backend/
+backend/
 ├── src/
 │   ├── app.module.ts
 │   ├── api/
@@ -523,7 +524,7 @@ GET /raffles/:id response =
 
 ---
 
-## 5. `tikka-oracle`
+## 5. `oracle` (Build Location: `./oracle`)
 
 > **Stack:** NestJS · Stellar SDK · Soroban SDK
 
@@ -532,7 +533,7 @@ The oracle is a standalone NestJS service responsible for generating verifiable 
 ### Structure
 
 ```
-tikka-oracle/
+oracle/
 ├── src/
 │   ├── app.module.ts
 │   ├── listener/
@@ -633,7 +634,7 @@ This prevents the oracle from observing ticket purchases after committing, elimi
 
 ---
 
-## 6. `tikka-frontend` (Updated Role)
+## 6. `client` (Build Location: `./client`)
 
 > **Stack:** React 19 · Vite · TypeScript · `@tikka/sdk`
 
@@ -642,8 +643,8 @@ With the SDK and backend in place, the frontend becomes a thin consumer layer.
 ### Data Flow
 
 ```
-Reads:  Frontend → tikka-backend REST API → indexer DB + Supabase
-Writes: Frontend → @tikka/sdk → Soroban RPC → Stellar blockchain
+Reads:  Client → backend REST API → indexer DB + Supabase
+Writes: Client → @tikka/sdk → Soroban RPC → Stellar blockchain
 ```
 
 ### Create Raffle Flow
@@ -671,9 +672,9 @@ Writes: Frontend → @tikka/sdk → Soroban RPC → Stellar blockchain
 
 ---
 
-## 7. Shared Package: `@tikka/types`
+## 7. Shared Package: `@tikka/types` (Planned)
 
-> Single npm package of shared TypeScript interfaces used across all repos.
+> Single npm package of shared TypeScript interfaces used across all packages. Note: This package is planned and currently types are defined per package.
 
 ```typescript
 // Domain types
@@ -700,10 +701,10 @@ RaffleFinalizedEvent, RandomnessRequestedEvent
 
 | Service | Platform |
 |---|---|
-| `tikka-frontend` | Vercel (edge CDN, preview deploys) |
-| `tikka-backend` | Railway / Fly.io (auto-scale) |
-| `tikka-indexer` | Railway / Fly.io (persistent, keep-alive) |
-| `tikka-oracle` | Fly.io (persistent, low-latency to Horizon) |
+| `client` | Vercel (edge CDN, preview deploys) |
+| `backend` | Railway / Fly.io (auto-scale) |
+| `indexer` | Railway / Fly.io (persistent, keep-alive) |
+| `oracle` | Fly.io (persistent, low-latency to Horizon) |
 | PostgreSQL | Supabase (managed, PITR backups) |
 | Redis | Upstash (serverless) |
 | Image Storage | Supabase Storage |
@@ -768,17 +769,17 @@ SentryModule   → error tracking
 
 ---
 
-## 10. Repository Summary
+## 10. Package Responsibility Map
 
-| Repo | Language | Primary Consumers | Phase |
-|---|---|---|---|
-| `tikka-contracts` | Rust | SDK, Oracle | 1 |
-| `tikka-sdk` | NestJS / TS | Frontend, third-party devs | 1 |
-| `tikka-oracle` | NestJS / TS | Soroban contract (callback) | 1 |
-| `tikka-indexer` | NestJS / TS | Backend | 1 |
-| `tikka-backend` | NestJS / TS | Frontend, external consumers | 2 |
-| `tikka-frontend` | React / TS | End users | Ongoing |
-| `@tikka/types` | TS (npm pkg) | All repos | 1 |
+| Package | Build Location | Language | Primary Consumers | Phase |
+|---|---|---|---|---|
+| Contracts | External Repo | Rust | SDK, Oracle | 1 |
+| SDK | `./sdk` | NestJS / TS | Client, third-party devs | 1 |
+| Oracle | `./oracle` | NestJS / TS | Soroban contract (callback) | 1 |
+| Indexer | `./indexer` | NestJS / TS | Backend | 1 |
+| Backend | `./backend` | NestJS / TS | Client, external consumers | 2 |
+| Client | `./client` | React / TS | End users | Ongoing |
+| Types | *(Planned)* | TS (npm pkg) | All local packages | 1 |
 
 ---
 

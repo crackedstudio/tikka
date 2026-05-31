@@ -1,6 +1,6 @@
 import { LobstrAdapter } from './lobstr.adapter';
 import { WalletName } from './wallet.interface';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { TikkaSdkErrorCode } from '../utils/errors';
 
 jest.mock('@lobstrco/signer-extension-api', () => ({
   isConnected: jest.fn(),
