@@ -24,6 +24,10 @@ npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --re
 
 # View logs
 npm run oracle:rescue logs
+
+# Stuck draw detection (human-readable or JSON)
+npm run oracle:rescue list-stuck
+npm run oracle:rescue list-stuck --json
 ```
 
 ## Files
@@ -46,6 +50,7 @@ See parent directory for comprehensive guides:
 - `POST /rescue/re-enqueue` - Re-enqueue failed job
 - `POST /rescue/force-submit` - Force submit randomness
 - `POST /rescue/force-fail` - Force fail job
+- `GET /rescue/stuck-draws` - Stuck draw detection report
 - `GET /rescue/failed-jobs` - List failed jobs
 - `GET /rescue/jobs` - List all jobs
 - `GET /rescue/logs` - View audit logs

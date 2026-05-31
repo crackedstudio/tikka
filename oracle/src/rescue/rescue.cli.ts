@@ -11,6 +11,7 @@
  *   npm run oracle:rescue force-fail <jobId> --operator <name> --reason <reason>
  *   npm run oracle:rescue list-failed
  *   npm run oracle:rescue list-all
+ *   npm run oracle:rescue list-stuck [--json]
  *   npm run oracle:rescue logs [--raffle <raffleId>] [--limit <n>]
  */
 
@@ -18,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { RescueService } from './rescue.service';
+import { StuckDrawReport, StuckDrawReportEntry } from './stuck-draw.types';
 
 interface CliArgs {
   command: string;
@@ -102,6 +104,11 @@ COMMANDS:
   list-all
     List all jobs by state (waiting, active, completed, failed, delayed)
 
+  list-stuck
+    Detect stuck, pending, confirmed, and failed draw requests
+    Options:
+      --json            Output machine-readable JSON (full report)
+
   logs
     View rescue operation audit logs
     Options:
@@ -130,6 +137,12 @@ EXAMPLES:
   # List failed jobs
   npm run oracle:rescue list-failed
 
+  # Stuck draw report (human-readable)
+  npm run oracle:rescue list-stuck
+
+  # Stuck draw report (JSON for automation)
+  npm run oracle:rescue list-stuck --json
+
   # View rescue logs
   npm run oracle:rescue logs --limit 50
 
@@ -138,8 +151,65 @@ EXAMPLES:
 `);
 }
 
-async function runRescueCli(argv: string[]): Promise<number> {
-  const { command, args, options } = parseArgs(argv);
+function formatAge(ageMs: number): string {
+  const sec = Math.floor(ageMs / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ${sec % 60}s`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h ${min % 60}m`;
+}
+
+function printStuckDrawEntry(entry: StuckDrawReportEntry): void {
+  console.log(`  Raffle ${entry.raffleId} | request ${entry.requestId} | ${entry.status.toUpperCase()}`);
+  if (entry.jobId) console.log(`    Job ID: ${entry.jobId}`);
+  console.log(`    Contract: ${entry.contractStatus}${entry.queueState ? ` | Queue: ${entry.queueState}` : ''}`);
+  console.log(
+    `    Age: ${formatAge(entry.ageMs)} (since ${entry.since})`,
+  );
+  console.log(
+    `    Ledgers: ${entry.ledgerRange.requestedAtLedger} → ${entry.ledgerRange.currentLedger} (lag ${entry.ledgerRange.lagLedgers})`,
+  );
+  if (entry.lastError) console.log(`    Last error: ${entry.lastError}`);
+  console.log(`    Next step: ${entry.nextStep}`);
+  if (entry.signals.length > 0) {
+    console.log(`    Signals: ${entry.signals.join(', ')}`);
+  }
+  console.log('');
+}
+
+function printStuckDrawReport(report: StuckDrawReport, jsonMode: boolean): void {
+  if (jsonMode) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  console.log(`Stuck draw report (${report.timestamp})`);
+  console.log(`Current ledger: ${report.currentLedger}`);
+  console.log(
+    `Thresholds: ledger lag ≥${report.thresholds.stuckLedgerLag}, queue age ≥${formatAge(report.thresholds.stuckQueueAgeMs)}`,
+  );
+  console.log('');
+
+  const groups: Array<StuckDrawReportEntry['status']> = ['stuck', 'failed', 'pending', 'confirmed'];
+  for (const status of groups) {
+    const group = report.entries.filter((e) => e.status === status);
+    if (group.length === 0) continue;
+    console.log(`${status.toUpperCase()} (${group.length}):`);
+    group.forEach(printStuckDrawEntry);
+  }
+
+  if (report.entries.length === 0) {
+    console.log('No draw requests found in queue or lag monitor.');
+  }
+
+  console.log(
+    `Summary: stuck=${report.summary.stuck} failed=${report.summary.failed} pending=${report.summary.pending} confirmed=${report.summary.confirmed} total=${report.summary.total}`,
+  );
+}
+
+async function main() {
+  const { command, args, options } = parseArgs();
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printUsage();
@@ -211,23 +281,37 @@ export async function executeRescueCommand(
         return 0;
       }
 
-      console.error(`✗ Failed: ${result.message}`);
-      return 1;
-    }
+      case 'list-stuck': {
+        const jsonMode = options.json === 'true';
+        if (!jsonMode) {
+          console.log('Building stuck draw report...\n');
+        }
+        const report = await rescueService.getStuckDrawReport();
+        printStuckDrawReport(report, jsonMode);
+        if (report.summary.stuck > 0 && !jsonMode) {
+          process.exitCode = 2;
+        }
+        break;
+      }
 
-    case 'force-submit': {
-      const raffleId = Number(args[0]);
-      const requestId = args[1];
-      const operator = options.operator;
-      const reason = options.reason;
-      const prizeAmount = options.prize ? parseFloat(options.prize) : undefined;
+      case 'list-all': {
+        console.log('Fetching all jobs...\n');
+        const allJobs = await rescueService.getAllJobs();
+        
+        console.log(`Waiting: ${allJobs.waiting.length}`);
+        console.log(`Active: ${allJobs.active.length}`);
+        console.log(`Completed: ${allJobs.completed.length}`);
+        console.log(`Failed: ${allJobs.failed.length}`);
+        console.log(`Delayed: ${allJobs.delayed.length}`);
+        console.log('');
 
-      if (!raffleId || !requestId || !operator || !reason) {
-        console.error('Error: Missing required arguments');
-        console.error(
-          'Usage: npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason <reason> [--prize <amount>] [--execute]',
-        );
-        return 1;
+        if (allJobs.failed.length > 0) {
+          console.log('Failed Jobs:');
+          allJobs.failed.forEach((job) => {
+            console.log(`  ${job.id} - Raffle ${job.raffleId} - ${job.failedReason || 'Unknown error'}`);
+          });
+        }
+        break;
       }
 
       const preview = await rescueService.getForceSubmitPreview(
