@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OracleRegistryService } from './oracle-registry.service';
-import { 
-  OracleSubmission, 
+import {
   SubmissionTracker,
   AggregatedRandomness,
   PeerOracleEndpoint,
@@ -15,7 +14,7 @@ import * as https from 'https';
 @Injectable()
 export class MultiOracleCoordinatorService {
   private readonly logger = new Logger(MultiOracleCoordinatorService.name);
-  
+
   private readonly submissionTrackers: Map<string, SubmissionTracker> = new Map();
   private readonly SUBMISSION_TIMEOUT_MS = 5 * 60 * 1000;
   private readonly multiTimeoutMs: number;
@@ -24,93 +23,85 @@ export class MultiOracleCoordinatorService {
     private readonly oracleRegistry: OracleRegistryService,
     private readonly configService: ConfigService,
   ) {
-    this.multiTimeoutMs = this.configService.get<number>('ORACLE_MULTI_TIMEOUT_MS', 10_000);
+    this.multiTimeoutMs =
+      this.configService.get<number>('ORACLE_MULTI_TIMEOUT_MS') ?? 10_000;
   }
 
-  /**
-   * Broadcast a draw request to all peer oracles and collect their VRF outputs.
-   * Requires Math.ceil(peers/2)+1 responses within ORACLE_MULTI_TIMEOUT_MS.
-   * Falls back to single-oracle result if threshold not met in time.
-   *
-   * @param requestId  The randomness request ID
-   * @param localResult The local oracle's own VRF output (always included)
-   * @returns Aggregated seed (XOR of all collected seeds) or localResult on fallback
-   */
+  // ===============================
+  // 🔹 CORE QUORUM LOGIC
+  // ===============================
   async broadcastAndCollect(
     requestId: string,
     localResult: RandomnessResult,
-  ): Promise<{ aggregated: RandomnessResult; usedOracles: string[]; fellBack: boolean }> {
+  ): Promise<{
+    aggregated: RandomnessResult;
+    usedOracles: string[];
+    fellBack: boolean;
+  }> {
     const peers = this.oracleRegistry.getPeerEndpoints();
     const localOracleId = this.oracleRegistry.getLocalOracleId();
     const threshold = this.oracleRegistry.getThreshold();
 
-    if (peers.length === 0) {
-      this.logger.warn(`No peer endpoints configured — falling back to single-oracle mode`);
-      return { aggregated: localResult, usedOracles: [localOracleId], fellBack: true };
+    if (!peers.length) {
+      return {
+        aggregated: localResult,
+        usedOracles: [localOracleId],
+        fellBack: true,
+      };
     }
-
-    this.logger.log(
-      `Broadcasting draw request to ${peers.length} peers for requestId=${requestId}, threshold=${threshold}`
-    );
 
     const peerResults = await this.fetchFromPeers(requestId, peers);
 
-    // Combine local + peer results
-    const allResults: Array<{ id: string; result: RandomnessResult }> = [
+    const allResults = [
       { id: localOracleId, result: localResult },
       ...peerResults,
-    ];
+    ].sort((a, b) => a.id.localeCompare(b.id));
 
+    // ❗ insufficient quorum
     if (allResults.length < threshold) {
-      this.logger.warn(
-        `Only ${allResults.length}/${threshold} oracles responded for requestId=${requestId} — falling back to single-oracle`
-      );
-      return { aggregated: localResult, usedOracles: [localOracleId], fellBack: true };
+      return {
+        aggregated: localResult,
+        usedOracles: [localOracleId],
+        fellBack: true,
+      };
     }
 
-    // Use exactly threshold responses (local + first threshold-1 peers)
+    // deterministic selection
     const selected = allResults.slice(0, threshold);
-    const seeds = selected.map(r => r.result.seed);
-    const proofs = selected.map(r => r.result.proof);
-    const usedOracles = selected.map(r => r.id);
 
-    const aggregatedSeed = this.xorSeeds(seeds);
-    const aggregatedProof = this.combineProofs(proofs);
-
-    this.logger.log(
-      `Consensus reached for requestId=${requestId}: ${selected.length} oracles [${usedOracles.join(', ')}]`
-    );
+    const aggregatedSeed = this.xorSeeds(selected.map(r => r.result.seed));
+    const aggregatedProof = this.combineProofs(selected.map(r => r.result.proof));
 
     return {
       aggregated: { seed: aggregatedSeed, proof: aggregatedProof },
-      usedOracles,
+      usedOracles: selected.map(r => r.id),
       fellBack: false,
     };
   }
 
-  /**
-   * Fan out HTTP POST requests to all peer oracles and collect responses within timeout.
-   */
+  // ===============================
+  // 🔹 PEER FETCH (with failure handling)
+  // ===============================
   private async fetchFromPeers(
     requestId: string,
     peers: PeerOracleEndpoint[],
   ): Promise<Array<{ id: string; result: RandomnessResult }>> {
-    const requests = peers.map(peer =>
-      this.fetchFromPeer(peer, requestId)
-        .then(result => ({ id: peer.id, result }))
-        .catch(err => {
-          this.logger.warn(`Peer ${peer.id} (${peer.url}) failed: ${err.message}`);
-          return null;
-        }),
+    const results = await Promise.all(
+      peers.map(peer =>
+        this.fetchFromPeer(peer, requestId)
+          .then(result => ({ id: peer.id, result }))
+          .catch(err => {
+            this.logger.warn(`Peer ${peer.id} failed: ${err.message}`);
+            return null;
+          }),
+      ),
     );
 
-    const settled = await Promise.all(requests);
-    return settled.filter((r): r is { id: string; result: RandomnessResult } => r !== null);
+    return results.filter(
+      (r): r is { id: string; result: RandomnessResult } => r !== null,
+    );
   }
 
-  /**
-   * POST /vrf/compute to a single peer oracle with a timeout.
-   */
   private fetchFromPeer(
     peer: PeerOracleEndpoint,
     requestId: string,
@@ -118,76 +109,81 @@ export class MultiOracleCoordinatorService {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({ requestId });
       const url = new URL(`${peer.url}/vrf/compute`);
-      const isHttps = url.protocol === 'https:';
-      const transport = isHttps ? https : http;
+      const transport = url.protocol === 'https:' ? https : http;
 
-      const options: http.RequestOptions = {
-        hostname: url.hostname,
-        port: url.port || (isHttps ? 443 : 80),
-        path: url.pathname,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
+      const req = transport.request(
+        {
+          hostname: url.hostname,
+          port: url.port || (url.protocol === 'https:' ? 443 : 80),
+          path: url.pathname,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(body),
+          },
+          timeout: this.multiTimeoutMs,
         },
-        timeout: this.multiTimeoutMs,
-      };
+        res => {
+          let data = '';
 
-      const req = transport.request(options, res => {
-        let data = '';
-        res.on('data', chunk => (data += chunk));
-        res.on('end', () => {
-          if (res.statusCode !== 200) {
-            return reject(new Error(`HTTP ${res.statusCode} from peer ${peer.id}`));
-          }
-          try {
-            const parsed = JSON.parse(data) as RandomnessResult;
-            if (!parsed.seed || !parsed.proof) {
-              return reject(new Error(`Invalid response from peer ${peer.id}`));
+          res.on('data', chunk => (data += chunk));
+          res.on('end', () => {
+            if (res.statusCode !== 200) {
+              return reject(new Error(`HTTP ${res.statusCode}`));
             }
-            resolve(parsed);
-          } catch {
-            reject(new Error(`Failed to parse response from peer ${peer.id}`));
-          }
-        });
-      });
+
+            try {
+              const parsed = JSON.parse(data);
+
+              if (!parsed.seed || !parsed.proof) {
+                return reject(new Error('Invalid peer response'));
+              }
+
+              resolve(parsed);
+            } catch {
+              reject(new Error('Parse error'));
+            }
+          });
+        },
+      );
 
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error(`Timeout waiting for peer ${peer.id}`));
+        reject(new Error(`Timeout peer ${peer.id}`));
       });
 
-      req.on('error', err => reject(err));
+      req.on('error', reject);
       req.write(body);
       req.end();
     });
   }
 
-  async startTracking(
-    raffleId: number,
-    requestId: string,
-  ): Promise<void> {
-    const key = this.getTrackerKey(raffleId, requestId);
-    
-    if (this.submissionTrackers.has(key)) {
-      this.logger.debug(`Tracker already exists for ${key}`);
-      return;
-    }
+  // ===============================
+  // 🔹 TRACKING (REQUIRED BY WORKER + HEALTH)
+  // ===============================
+  startTracking(raffleId: number, requestId: string): void {
+    const key = this.getKey(raffleId, requestId);
 
-    const tracker: SubmissionTracker = {
-      requestId,
+    if (this.submissionTrackers.has(key)) return;
+
+    this.submissionTrackers.set(key, {
       raffleId,
+      requestId,
       submissions: new Map(),
       threshold: this.oracleRegistry.getThreshold(),
       completed: false,
-    };
+    });
 
-    this.submissionTrackers.set(key, tracker);
-    this.logger.log(
-      `Started tracking multi-oracle submission: raffle=${raffleId}, request=${requestId}, threshold=${tracker.threshold}`
-    );
+    // prevent test memory leaks
+    const timer = setTimeout(() => {
+      this.submissionTrackers.delete(key);
+    }, this.SUBMISSION_TIMEOUT_MS);
 
-    this.scheduleCleanup(key);
+    timer.unref();
+  }
+
+  isTracked(raffleId: number, requestId: string): boolean {
+    return this.submissionTrackers.has(this.getKey(raffleId, requestId));
   }
 
   recordSubmission(
@@ -196,94 +192,78 @@ export class MultiOracleCoordinatorService {
     oracleId: string,
     publicKey: string,
     randomness: RandomnessResult,
-    txHash?: string,
   ): { ready: boolean; aggregated?: AggregatedRandomness } {
-    const key = this.getTrackerKey(raffleId, requestId);
-    const tracker = this.submissionTrackers.get(key);
+    const key = this.getKey(raffleId, requestId);
+    let tracker = this.submissionTrackers.get(key);
 
     if (!tracker) {
-      this.logger.warn(`No tracker found for ${key}, creating new one`);
       this.startTracking(raffleId, requestId);
-      return this.recordSubmission(raffleId, requestId, oracleId, publicKey, randomness, txHash);
-    }
-
-    if (tracker.completed) {
-      this.logger.debug(`Tracker already completed for ${key}`);
-      return { ready: true, aggregated: this.buildAggregatedResult(tracker) };
+      tracker = this.submissionTrackers.get(key)!;
     }
 
     if (tracker.submissions.has(oracleId)) {
-      this.logger.debug(`Oracle ${oracleId} already submitted for ${key}`);
       return { ready: false };
     }
 
-    const submission: OracleSubmission = {
+    tracker.submissions.set(oracleId, {
       oracleId,
       publicKey,
       seed: randomness.seed,
       proof: randomness.proof,
       timestamp: Date.now(),
-      txHash,
-    };
-
-    tracker.submissions.set(oracleId, submission);
-    this.oracleRegistry.recordSubmission(oracleId);
-
-    this.logger.log(
-      `Recorded submission from ${oracleId} for ${key}: ${tracker.submissions.size}/${tracker.threshold}`
-    );
+    });
 
     if (tracker.submissions.size >= tracker.threshold) {
       tracker.completed = true;
-      const aggregated = this.buildAggregatedResult(tracker);
-      this.logger.log(
-        `Threshold reached for ${key}: ${tracker.submissions.size} submissions, ready to finalize`
-      );
-      return { ready: true, aggregated };
+
+      return {
+        ready: true,
+        aggregated: this.aggregateTracker(tracker),
+      };
     }
 
     return { ready: false };
   }
 
-  private buildAggregatedResult(tracker: SubmissionTracker): AggregatedRandomness {
-    const seeds: string[] = [];
-    const proofs: string[] = [];
-    const submittedBy: string[] = [];
+  getPendingTrackers() {
+    return Array.from(this.submissionTrackers.values())
+      .filter(t => !t.completed)
+      .map(t => ({
+        raffleId: t.raffleId,
+        requestId: t.requestId,
+        submissions: t.submissions.size,
+        threshold: t.threshold,
+      }));
+  }
 
-    for (const [oracleId, submission] of tracker.submissions) {
-      seeds.push(submission.seed);
-      proofs.push(submission.proof);
-      submittedBy.push(oracleId);
-    }
+  // ===============================
+  // 🔹 AGGREGATION
+  // ===============================
+  private aggregateTracker(tracker: SubmissionTracker): AggregatedRandomness {
+    const seeds = Array.from(tracker.submissions.values())
+      .map(s => s.seed)
+      .sort();
 
-    seeds.sort();
-    proofs.sort();
-
-    const aggregatedSeed = this.xorSeeds(seeds);
-    const aggregatedProof = this.combineProofs(proofs);
+    const proofs = Array.from(tracker.submissions.values())
+      .map(s => s.proof)
+      .sort();
 
     return {
-      seed: aggregatedSeed,
-      proof: aggregatedProof,
-      submittedBy,
+      seed: this.xorSeeds(seeds),
+      proof: this.combineProofs(proofs),
+      submittedBy: Array.from(tracker.submissions.keys()).sort(),
     };
   }
 
   private xorSeeds(seeds: string[]): string {
-    if (seeds.length === 0) {
-      return Buffer.alloc(32).toString('hex');
-    }
-
-    if (seeds.length === 1) {
-      return seeds[0];
-    }
+    if (!seeds.length) return Buffer.alloc(32).toString('hex');
 
     let result = Buffer.from(seeds[0], 'hex');
-    
+
     for (let i = 1; i < seeds.length; i++) {
-      const seedBuf = Buffer.from(seeds[i], 'hex');
-      for (let j = 0; j < Math.min(result.length, seedBuf.length); j++) {
-        result[j] ^= seedBuf[j];
+      const buf = Buffer.from(seeds[i], 'hex');
+      for (let j = 0; j < Math.min(result.length, buf.length); j++) {
+        result[j] ^= buf[j];
       }
     }
 
@@ -291,90 +271,16 @@ export class MultiOracleCoordinatorService {
   }
 
   private combineProofs(proofs: string[]): string {
-    if (proofs.length === 0) {
-      return '';
-    }
+    if (!proofs.length) return '';
+    if (proofs.length === 1) return proofs[0];
 
-    if (proofs.length === 1) {
-      return proofs[0];
-    }
-
-    const combined = proofs.map(p => Buffer.from(p, 'hex'));
-    const concatenated = Buffer.concat(combined);
-    return crypto.createHash('sha512').update(concatenated).digest('hex');
+    return crypto
+      .createHash('sha512')
+      .update(Buffer.concat(proofs.map(p => Buffer.from(p, 'hex'))))
+      .digest('hex');
   }
 
-  getTracker(raffleId: number, requestId: string): SubmissionTracker | undefined {
-    const key = this.getTrackerKey(raffleId, requestId);
-    return this.submissionTrackers.get(key);
-  }
-
-  getSubmissionCount(raffleId: number, requestId: string): number {
-    const tracker = this.getTracker(raffleId, requestId);
-    return tracker?.submissions.size ?? 0;
-  }
-
-  isReady(raffleId: number, requestId: string): boolean {
-    const tracker = this.getTracker(raffleId, requestId);
-    return tracker?.completed ?? false;
-  }
-
-  isTracked(raffleId: number, requestId: string): boolean {
-    const key = this.getTrackerKey(raffleId, requestId);
-    return this.submissionTrackers.has(key);
-  }
-
-  hasSubmitted(raffleId: number, requestId: string, oracleId?: string): boolean {
-    const tracker = this.getTracker(raffleId, requestId);
-    if (!tracker) return false;
-    
-    if (oracleId) {
-      return tracker.submissions.has(oracleId);
-    }
-    
-    return tracker.submissions.size > 0;
-  }
-
-  private getTrackerKey(raffleId: number, requestId: string): string {
+  private getKey(raffleId: number, requestId: string) {
     return `${raffleId}:${requestId}`;
-  }
-
-  private scheduleCleanup(key: string): void {
-    setTimeout(() => {
-      const tracker = this.submissionTrackers.get(key);
-      if (tracker && !tracker.completed) {
-        this.logger.warn(`Cleaning up incomplete tracker for ${key}`);
-        this.submissionTrackers.delete(key);
-      }
-    }, this.SUBMISSION_TIMEOUT_MS);
-  }
-
-  clearTracker(raffleId: number, requestId: string): void {
-    const key = this.getTrackerKey(raffleId, requestId);
-    this.submissionTrackers.delete(key);
-    this.logger.debug(`Cleared tracker for ${key}`);
-  }
-
-  clearAllTrackers(): void {
-    const count = this.submissionTrackers.size;
-    this.submissionTrackers.clear();
-    this.logger.log(`Cleared all ${count} submission trackers`);
-  }
-
-  getPendingTrackers(): { raffleId: number; requestId: string; submissions: number; threshold: number }[] {
-    const pending: { raffleId: number; requestId: string; submissions: number; threshold: number }[] = [];
-    
-    for (const tracker of this.submissionTrackers.values()) {
-      if (!tracker.completed) {
-        pending.push({
-          raffleId: tracker.raffleId,
-          requestId: tracker.requestId,
-          submissions: tracker.submissions.size,
-          threshold: tracker.threshold,
-        });
-      }
-    }
-    
-    return pending;
   }
 }

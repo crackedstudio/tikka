@@ -22,6 +22,143 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 - `src/wallet/` — Multi-wallet adapter system.
 - `src/modules/` — Feature modules (Raffle, Ticket, User).
 - `src/utils/` — Shared utilities for formatting, validation, and error handling.
+- `bin/tikka.cjs` — Developer CLI for network testing and contract interaction.
+
+## CLI Commands
+
+The Tikka SDK includes a command-line interface for smoke testing, network configuration, and contract interaction.
+
+### Installation
+
+After building the SDK:
+```bash
+npm run build
+npm run cli -- --help
+```
+
+### Global Options
+
+- `-n, --network <type>` — Target network: `testnet` (default) or `mainnet`
+- `-j, --json` — Output results in JSON format (useful for scripting)
+- `--help` — Show help for a command
+- `--version` — Show CLI version
+
+### Read-Only Commands (no secrets required)
+
+These commands don't require wallet signing and are safe for smoke testing:
+
+#### `config-check`
+Verify CLI configuration and SDK initialization.
+```bash
+tikka config-check                 # Check on testnet
+tikka -n mainnet config-check      # Check on mainnet
+tikka config-check --json          # Output as JSON
+```
+
+#### `fee-quote <contractId>`
+Get estimated fees for a transaction.
+```bash
+tikka fee-quote CONTRACT_ABC123
+tikka fee-quote CONTRACT_ABC123 --function transfer
+tikka fee-quote CONTRACT_ABC123 --json
+tikka -n mainnet fee-quote CONTRACT_ABC123
+```
+
+#### `read <contractId>`
+Read contract data or state.
+```bash
+tikka read CONTRACT_ABC123
+tikka read CONTRACT_ABC123 --key account_balance
+tikka read CONTRACT_ABC123 --json
+tikka -n mainnet read CONTRACT_ABC123
+```
+
+#### `list`
+List active raffles on the network.
+```bash
+tikka list                    # List on testnet
+tikka list --limit 20         # Limit results
+tikka list --json             # Output as JSON
+tikka -n mainnet list         # List on mainnet
+```
+
+#### `info`
+Get contract status and network information.
+```bash
+tikka info                    # Get info on testnet
+tikka info --json             # Output as JSON
+tikka -n mainnet info         # Get info on mainnet
+```
+
+### Interactive Commands (wallet signing required)
+
+These commands require wallet integration for signing transactions:
+
+#### `create`
+Create a new raffle (interactive).
+```bash
+tikka create              # Guided setup on testnet
+tikka -n mainnet create   # Guided setup on mainnet
+```
+
+#### `buy`
+Purchase raffle tickets (interactive).
+```bash
+tikka buy                 # Purchase on testnet
+tikka -n mainnet buy      # Purchase on mainnet
+```
+
+### Examples
+
+```bash
+# Smoke test network configuration
+cd sdk
+npm run build
+npm run cli -- config-check
+
+# Get fee estimate for a contract (testnet)
+npm run cli -- fee-quote CBVG2R3YLEDVGIQKHY6K2HGX55CPJMK5QX2YQE7WALLVIQG5IHVIGISQ
+
+# Query contract state on mainnet
+npm run cli -- -n mainnet read CBVG2R3YLEDVGIQKHY6K2HGX55CPJMK5QX2YQE7WALLVIQG5IHVIGISQ --json
+
+# List raffles as JSON for automation
+npm run cli -- list --json > raffles.json
+
+# Get help for a specific command
+npm run cli -- fee-quote --help
+```
+
+### JSON Output
+
+All commands support the `--json` flag for machine-readable output:
+
+```bash
+# Output as JSON
+$ tikka config-check --json
+{
+  "version": "0.1.0",
+  "network": "testnet",
+  "rpcAvailable": true,
+  "contractAvailable": true,
+  "status": "OK"
+}
+
+# Errors also format as JSON
+$ tikka fee-quote INVALID --json
+{
+  "error": "Invalid contract ID"
+}
+```
+
+### Error Handling
+
+The CLI provides safe error messages that don't leak sensitive information:
+
+- **Read-only commands** fail gracefully with helpful error messages
+- **Interactive commands** confirm before executing wallet operations
+- **JSON output** includes error details in structured format
+- **Invalid commands** suggest the help flag for usage information
 
 ## API Documentation
 
@@ -34,11 +171,180 @@ npm run docs        # generates sdk/docs/
 npm run docs:watch  # rebuilds on file change
 ```
 
+## SEP-10 Backend Integration
+
+The SDK includes SEP-10 helpers for building and verifying Stellar web authentication challenges.
+
+### Server-side challenge creation
+
+```ts
+import { buildChallenge } from '@tikka/sdk';
+import { Networks } from '@stellar/stellar-sdk';
+
+const challengeXdr = buildChallenge({
+  serverSecret: process.env.SEP10_SERVER_SECRET!,
+  clientAccount: clientPublicKey,
+  anchorDomain: 'example.com',
+  webAuthDomain: 'auth.example.com',
+  timeout: 300,
+  networkPassphrase: Networks.TESTNET,
+});
+
+return { xdr: challengeXdr };
+```
+
+### Server-side response verification
+
+```ts
+import { Sep10VerificationError, Sep10VerificationErrorCode, verifyResponse } from '@tikka/sdk';
+import { Networks } from '@stellar/stellar-sdk';
+
+const verifiedClient = await verifyResponse({
+  signedChallenge: responseXdr,
+  serverAccount: serverPublicKey,
+  clientAccount: clientPublicKey,
+  anchorDomain: 'example.com',
+  networkPassphrase: Networks.TESTNET,
+  nonceValidator: async (nonceBase64) => {
+    const key = `sep10:nonce:${nonceBase64}`;
+    const added = await redis.set(key, '1', { NX: true, EX: 300 });
+    return added === 'OK';
+  },
+});
+
+console.log('Authenticated client:', verifiedClient);
+```
+
+### Handling verification failures
+
+```ts
+try {
+  await verifyResponse(...);
+} catch (err) {
+  if (err instanceof Sep10VerificationError) {
+    if (err.code === Sep10VerificationErrorCode.ChallengeExpired) {
+      // prompt client to request a new challenge
+    }
+  }
+  throw err;
+}
+```
+
 The docs are organized by module: **Raffle** · **Ticket** · **Wallet** · **User** · **Network** · **Utils**.
 
 ## Architecture
 
 Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section 2 — tikka-sdk).
+
+## Examples
+
+All runnable examples live in [`examples/`](./examples/). They use `MockWalletAdapter` so they compile and run without a browser wallet — swap it for `FreighterAdapter` or another adapter when you need real signing.
+
+**Setup:**
+```bash
+cp examples/.env.example examples/.env
+# fill in TIKKA_PUBLIC_KEY and any other vars you need
+```
+
+**Type-check all examples (no network required):**
+```bash
+npm run examples:check
+```
+
+### [quickstart.ts](./examples/quickstart.ts)
+
+End-to-end walkthrough: bootstrap → create raffle → buy tickets → read state.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | `testnet` \| `mainnet` \| `standalone` |
+| `TIKKA_PUBLIC_KEY` | no | mock key | Stellar G… address |
+
+```bash
+TIKKA_NETWORK=testnet npx ts-node examples/quickstart.ts
+```
+
+### [create-raffle.ts](./examples/create-raffle.ts)
+
+Create a new raffle on-chain with configurable price, asset, and duration.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_PUBLIC_KEY` | **yes** | — | Signer address |
+| `TIKKA_TICKET_PRICE` | no | `1` | Amount per ticket |
+| `TIKKA_ASSET_CODE` | no | `XLM` | Asset code |
+| `TIKKA_ASSET_ISSUER` | no | `""` | Issuer for non-native assets |
+| `TIKKA_MAX_TICKETS` | no | `50` | Max tickets available |
+| `TIKKA_DURATION_HOURS` | no | `24` | Hours until raffle closes |
+| `TIKKA_METADATA_CID` | no | `""` | IPFS CID for metadata |
+
+```bash
+TIKKA_PUBLIC_KEY=G... npx ts-node examples/create-raffle.ts
+# USDC example:
+TIKKA_ASSET_CODE=USDC TIKKA_ASSET_ISSUER=GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN \
+  TIKKA_PUBLIC_KEY=G... npx ts-node examples/create-raffle.ts
+```
+
+### [buy-tickets.ts](./examples/buy-tickets.ts)
+
+Purchase tickets for an existing raffle, with pre-flight status checks.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_PUBLIC_KEY` | **yes** | — | Buyer address |
+| `TIKKA_RAFFLE_ID` | **yes** | — | Numeric raffle ID |
+| `TIKKA_QUANTITY` | no | `1` | Number of tickets |
+
+```bash
+TIKKA_PUBLIC_KEY=G... TIKKA_RAFFLE_ID=1 npx ts-node examples/buy-tickets.ts
+```
+
+### [listen-events.ts](./examples/listen-events.ts)
+
+Poll Soroban contract events (`RaffleCreated`, `TicketPurchased`, `RaffleFinalized`) with optional raffle filter. Runs until Ctrl+C.
+
+> **Network required** — connects to the Soroban RPC to stream events.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_RAFFLE_ID` | no | all | Filter events for one raffle |
+| `TIKKA_POLL_MS` | no | `5000` | Polling interval (ms) |
+| `TIKKA_CONTRACT_ID` | no | built-in | Override contract address |
+
+```bash
+TIKKA_NETWORK=testnet npx ts-node examples/listen-events.ts
+# filter to raffle #1:
+TIKKA_RAFFLE_ID=1 npx ts-node examples/listen-events.ts
+```
+
+### [offline-signing.ts](./examples/offline-signing.ts)
+
+Cold-wallet / air-gapped signing flow. Step 1 builds an unsigned XDR; Step 3 submits a pre-signed XDR. Useful for multisig and hardware wallets.
+
+> **Network required** — Step 1 calls `simulateTransaction`; Step 3 submits to the network.
+
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `TIKKA_NETWORK` | no | `testnet` | Network |
+| `TIKKA_PUBLIC_KEY` | **yes** | — | Source account address |
+| `TIKKA_SIGNED_XDR` | no | — | Provide to skip to Step 3 (submit) |
+
+```bash
+# Step 1 — build unsigned XDR:
+TIKKA_PUBLIC_KEY=G... npx ts-node examples/offline-signing.ts
+
+# Step 3 — submit after signing offline:
+TIKKA_PUBLIC_KEY=G... TIKKA_SIGNED_XDR=<xdr> npx ts-node examples/offline-signing.ts
+```
+
+### [albedo-wallet.ts](./examples/albedo-wallet.ts) · [rabet-wallet.ts](./examples/rabet-wallet.ts)
+
+Browser-wallet integration demos. These require a browser environment (Albedo opens a popup; Rabet needs the extension installed).
+
+> **Browser + wallet required** — not runnable via `ts-node` in a plain terminal.
 
 ## Wallet Adapters
 
