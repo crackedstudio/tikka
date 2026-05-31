@@ -17,6 +17,7 @@ export interface RaffleMetadata {
   metadata_cid: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 export interface SearchMetadataResult {
@@ -71,7 +72,8 @@ export class MetadataService {
     const { data, error } = await this.client
       .from(TABLE)
       .select('*')
-      .in('raffle_id', raffleIds);
+      .in('raffle_id', raffleIds)
+      .is('deleted_at', null);
 
     if (error) {
       throw new Error(`Failed to fetch batch metadata: ${error.message}`);
@@ -109,6 +111,7 @@ export class MetadataService {
       .from(TABLE)
       .select('*')
       .eq('raffle_id', raffleId)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (error) {
@@ -155,6 +158,7 @@ export class MetadataService {
       let builder = this.client
         .from(TABLE)
         .select('*', { count: 'exact' })
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .range(off, off + lim - 1);
 
@@ -233,5 +237,74 @@ export class MetadataService {
     await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
 
     return saved;
+  }
+
+  /**
+   * Soft-delete raffle metadata by setting deleted_at = now().
+   * Returns the updated record.
+   */
+  async softDeleteMetadata(raffleId: number): Promise<RaffleMetadata> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('raffle_id', raffleId)
+      .is('deleted_at', null)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to soft-delete metadata for raffle ${raffleId}: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error(`No active metadata found for raffle ${raffleId}`);
+    }
+
+    await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
+
+    return data as RaffleMetadata;
+  }
+
+  /**
+   * Restore a soft-deleted raffle metadata record by clearing deleted_at.
+   * Returns the restored record.
+   */
+  async restoreMetadata(raffleId: number): Promise<RaffleMetadata> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .update({ deleted_at: null })
+      .eq('raffle_id', raffleId)
+      .not('deleted_at', 'is', null)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to restore metadata for raffle ${raffleId}: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error(`No archived metadata found for raffle ${raffleId}`);
+    }
+
+    await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
+
+    return data as RaffleMetadata;
+  }
+
+  /**
+   * Return all soft-deleted raffle metadata records (admin-only).
+   */
+  async getArchivedMetadata(): Promise<RaffleMetadata[]> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('*')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch archived metadata: ${error.message}`);
+    }
+
+    return (data ?? []) as RaffleMetadata[];
   }
 }
