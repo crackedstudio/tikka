@@ -102,7 +102,7 @@ describe('ContractService.simulateReadOnly()', () => {
 
     const result = await service.simulateReadOnly(ContractFn.IS_PAUSED, []);
     expect(simSpy).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ success: true, value: mockRetVal });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: mockRetVal });
   });
 });
 
@@ -110,7 +110,7 @@ describe('ContractService.invoke()', () => {
   it('throws WalletNotInstalled immediately when no wallet and simulateOnly is false', async () => {
     const { service } = buildService(false);
     const result = await service.invoke(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1]);
-    expect(result.success).toBe(false);
+    expect(result.status).toBe('ERROR');
     expect(result.error).toContain('Wallet required');
   });
 
@@ -134,7 +134,7 @@ describe('ContractService.invoke()', () => {
     expect(lifecycle.sign).toHaveBeenCalledWith(ASSEMBLED_XDR, Networks.TESTNET);
     expect(lifecycle.submit).toHaveBeenCalledWith(SIGNED_XDR);
     expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH, undefined);
-    expect(result).toEqual({ success: true, value: 99, transactionHash: TX_HASH, ledger: 300 });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: 99, txHash: TX_HASH, ledger: 300 });
   });
 
   it('returns simulated result early when simulateOnly is true', async () => {
@@ -149,7 +149,7 @@ describe('ContractService.invoke()', () => {
     });
 
     expect(signSpy).not.toHaveBeenCalled();
-    expect(result).toEqual({ success: true, value: 42, transactionHash: '', ledger: 0 });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: 42, txHash: '', ledger: 0 });
   });
 
   it('passes memo through to lifecycle.simulate()', async () => {
@@ -204,7 +204,7 @@ describe('ContractService.buildUnsigned()', () => {
     );
     expect(result).toEqual({
       unsignedXdr: ASSEMBLED_XDR,
-      simulatedResult: { success: true, value: 42 },
+      simulatedResult: { status: 'SUCCESS' as const, value: 42 },
       fee: '5000',
       networkPassphrase: Networks.TESTNET,
     });
@@ -229,7 +229,7 @@ describe('ContractService.submitSigned()', () => {
 
     expect(lifecycle.submit).toHaveBeenCalledWith(SIGNED_XDR);
     expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH);
-    expect(result).toEqual({ success: true, value: 99, transactionHash: TX_HASH, ledger: 300 });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: 99, txHash: TX_HASH, ledger: 300 });
   });
 
   it('throws InvalidParams when signedXdr is empty', async () => {

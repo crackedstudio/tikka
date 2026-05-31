@@ -134,7 +134,7 @@ describe('Soroban RPC Integration (Mock)', () => {
 
     // Verify expectations
     expect(result).toBeDefined();
-    expect(result.transactionHash).toBe('1234567890abcdef');
+    expect(result.txHash).toBe('1234567890abcdef');
     expect(result.ledger).toBe(101);
 
     // Verify wallet interactions
@@ -175,7 +175,7 @@ describe('Soroban RPC Integration (Mock)', () => {
     };
 
     const result = await raffleService.create(params);
-    expect(result.success).toBe(false);
+    expect(result.status).toBe('ERROR');
     expect(result.error).toContain('Simulation failed: insufficient funds');
   });
 

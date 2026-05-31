@@ -4,6 +4,7 @@ import {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
+  WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
@@ -85,6 +86,18 @@ export class LobstrAdapter extends WalletAdapter {
         error,
       );
     }
+  }
+
+  /**
+   * Returns the capabilities supported by LOBSTR adapter.
+   */
+  getCapabilities(): WalletCapabilities {
+    return {
+      supportsGetPublicKey: true,
+      supportsSignTransaction: true,
+      supportsSignMessage: false,
+      supportsGetNetwork: false,
+    };
   }
 
   private isUserRejection(err: any): boolean {

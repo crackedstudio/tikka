@@ -29,9 +29,9 @@ describe("RaffleService", () => {
       };
 
       const mockInvokeResult = {
-        success: true,
+        status: 'SUCCESS' as const,
         value: 1,
-        transactionHash: "abc",
+        txHash: "abc",
         ledger: 100,
       };
 
@@ -46,9 +46,9 @@ describe("RaffleService", () => {
       );
 
       expect(result).toEqual({
-        success: true,
+        status: 'SUCCESS' as const,
         value: 1,
-        transactionHash: "abc",
+        txHash: "abc",
         ledger: 100,
       });
     });
@@ -97,7 +97,7 @@ describe("RaffleService", () => {
       };
 
       contractService.simulateReadOnly.mockResolvedValue({
-        success: true,
+        status: 'SUCCESS' as const,
         value: mockRawData,
       });
 
@@ -125,7 +125,7 @@ describe("RaffleService", () => {
     it("should return active raffle IDs", async () => {
       const mockIds = [1, 2, 3];
       contractService.simulateReadOnly.mockResolvedValue({
-        success: true,
+        status: 'SUCCESS' as const,
         value: mockIds,
       });
 
@@ -143,7 +143,7 @@ describe("RaffleService", () => {
     it("should return all raffle IDs", async () => {
       const mockIds = [1, 2, 3, 4];
       contractService.simulateReadOnly.mockResolvedValue({
-        success: true,
+        status: 'SUCCESS' as const,
         value: mockIds,
       });
 
@@ -160,9 +160,9 @@ describe("RaffleService", () => {
   describe("cancel", () => {
     it("should invoke CANCEL_RAFFLE", async () => {
       const mockInvokeResult = {
-        success: true,
+        status: 'SUCCESS' as const,
         value: undefined,
-        transactionHash: "hash",
+        txHash: "hash",
         ledger: 200,
       };
 
@@ -179,7 +179,7 @@ describe("RaffleService", () => {
     });
 
     it("should pass memo to invoke", async () => {
-      contractService.invoke.mockResolvedValue({ success: true, value: undefined, transactionHash: "h", ledger: 1 });
+      contractService.invoke.mockResolvedValue({ status: 'SUCCESS' as const, value: undefined, txHash: "h", ledger: 1 });
 
       await service.cancel({ raffleId: 2, memo: { type: "text", value: "cancel-ref" } });
 
@@ -213,7 +213,7 @@ describe("RaffleService", () => {
     };
 
     it("should pass memo to invoke", async () => {
-      contractService.invoke.mockResolvedValue({ success: true, value: 7, transactionHash: "tx7", ledger: 42 });
+      contractService.invoke.mockResolvedValue({ status: 'SUCCESS' as const, value: 7, txHash: "tx7", ledger: 42 });
 
       await service.create({ ...baseParams, memo: { type: "id", value: "99" } });
 
@@ -225,7 +225,7 @@ describe("RaffleService", () => {
     });
 
     it("should default metadataCid to empty string when omitted", async () => {
-      contractService.invoke.mockResolvedValue({ success: true, value: 3, transactionHash: "tx3", ledger: 10 });
+      contractService.invoke.mockResolvedValue({ status: 'SUCCESS' as const, value: 3, txHash: "tx3", ledger: 10 });
       const result = await service.create(baseParams);
       expect(result.value).toBe(3);
     });
@@ -240,7 +240,7 @@ describe("RaffleService", () => {
   describe("get — additional edge cases", () => {
     it("should map optional winner fields when present", async () => {
       contractService.simulateReadOnly.mockResolvedValue({
-        success: true,
+        status: 'SUCCESS' as const,
         value: {
           creator: "GABC",
           status: 2,
@@ -265,7 +265,7 @@ describe("RaffleService", () => {
 
     it("should leave winner fields undefined when absent", async () => {
       contractService.simulateReadOnly.mockResolvedValue({
-        success: true,
+        status: 'SUCCESS' as const,
         value: {
           creator: "GABC",
           status: 0,
@@ -292,7 +292,7 @@ describe("RaffleService", () => {
 
   describe("listActive — edge cases", () => {
     it("should return empty array when no active raffles", async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [] });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [] });
       const result = await service.listActive();
       expect(result.value!).toEqual([]);
     });
@@ -300,7 +300,7 @@ describe("RaffleService", () => {
 
   describe("listAll — edge cases", () => {
     it("should return empty array when no raffles exist", async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [] });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [] });
       const result = await service.listAll();
       expect(result.value!).toEqual([]);
     });

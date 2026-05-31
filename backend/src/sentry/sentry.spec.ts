@@ -238,6 +238,8 @@ describe('buildSentryOptions — unit tests', () => {
       dsn: 'https://abc@sentry.io/123',
       environment: 'production',
       tracesSampleRate: 0.5,
+      integrations: expect.any(Array),
+      profilesSampleRate: 1.0,
     });
   });
 

@@ -13,7 +13,7 @@ describe('MetadataService', () => {
     upsert: jest.Mock;
     in: jest.Mock;
   };
-  let client: { from: jest.Mock };
+  let client: { from: jest.Mock; rpc: jest.Mock };
   let redis: jest.Mocked<
     Pick<
       MetadataRedisService,
@@ -22,6 +22,7 @@ describe('MetadataService', () => {
   >;
   let metrics: MetadataCacheMetricsService;
   let config: { get: jest.Mock };
+  let pinningService: { pin: jest.Mock };
 
   beforeEach(() => {
     queryBuilder = {
@@ -36,6 +37,7 @@ describe('MetadataService', () => {
 
     client = {
       from: jest.fn().mockReturnValue(queryBuilder),
+      rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
 
     redis = {
@@ -43,6 +45,10 @@ describe('MetadataService', () => {
       get: jest.fn().mockResolvedValue(null),
       setEx: jest.fn().mockResolvedValue(undefined),
       del: jest.fn().mockResolvedValue(undefined),
+    };
+
+    pinningService = {
+      pin: jest.fn().mockResolvedValue(null),
     };
 
     metrics = new MetadataCacheMetricsService();
@@ -53,6 +59,7 @@ describe('MetadataService', () => {
 
     service = new MetadataService(
       client as any,
+      pinningService as any,
       config as any,
       redis as unknown as MetadataRedisService,
       metrics,
@@ -62,13 +69,14 @@ describe('MetadataService', () => {
   it('searches metadata using full-text search vector', async () => {
     await service.searchMetadata('raffle');
 
-    expect(queryBuilder.textSearch).toHaveBeenCalledWith(
-      'search_vector',
-      'raffle',
-      expect.objectContaining({
-        config: 'english',
-        type: 'websearch',
-      }),
+    expect(client.rpc).toHaveBeenCalledWith(
+      'search_raffles_ranked',
+      {
+        search_query: 'raffle',
+        p_category: null,
+        p_limit: 20,
+        p_offset: 0,
+      },
     );
   });
 

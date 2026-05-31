@@ -22,6 +22,7 @@ import { RaffleEventEntity } from '../../../database/entities/raffle-event.entit
 import { PlatformStatEntity } from '../../../database/entities/platform-stat.entity';
 import { PlatformStateEntity } from '../../../database/entities/platform-state.entity';
 import { IndexerCursorEntity } from '../../../database/entities/indexer-cursor.entity';
+import { WebhookEntity } from '../../../database/entities/webhook.entity';
 
 import { CreateRaffles1700000000000 } from '../../../database/migrations/1700000000000-CreateRaffles';
 import { CreateTickets1700000000001 } from '../../../database/migrations/1700000000001-CreateTickets';
@@ -30,6 +31,8 @@ import { CreateRaffleEvents1700000000003 } from '../../../database/migrations/17
 import { CreatePlatformStats1700000000004 } from '../../../database/migrations/1700000000004-CreatePlatformStats';
 import { CreateIndexerCursor1700000000005 } from '../../../database/migrations/1700000000005-CreateIndexerCursor';
 import { CreatePlatformState1700000000006 } from '../../../database/migrations/1700000000006-CreatePlatformState';
+import { AddWebhooksTable1720000000000 } from '../../../database/migrations/1720000000000-AddWebhooksTable';
+import { AddUserLastTxHash1720000000001 } from '../../../database/migrations/1720000000001-AddUserLastTxHash';
 
 /** How long to wait for the container to be ready (ms). */
 export const CONTAINER_STARTUP_MS = 120_000;
@@ -88,6 +91,7 @@ export function buildDataSource(container: StartedPostgreSqlContainer): DataSour
       PlatformStatEntity,
       PlatformStateEntity,
       IndexerCursorEntity,
+      WebhookEntity,
     ],
     migrations: [
       CreateRaffles1700000000000,
@@ -97,6 +101,8 @@ export function buildDataSource(container: StartedPostgreSqlContainer): DataSour
       CreatePlatformStats1700000000004,
       CreateIndexerCursor1700000000005,
       CreatePlatformState1700000000006,
+      AddWebhooksTable1720000000000,
+      AddUserLastTxHash1720000000001,
     ],
     migrationsRun: false,
     synchronize: false,

@@ -63,6 +63,8 @@ export interface SubmitResult<T = unknown> {
   txHash: string;
   /** Ledger sequence in which the transaction was included. */
   ledger: number;
+  /** Base64-encoded transaction result XDR (safe to surface in responses). */
+  resultXdr?: string;
 }
 
 /** Configures the polling loop that waits for transaction confirmation. */
@@ -320,6 +322,9 @@ export class TransactionLifecycle {
             : null,
           txHash,
           ledger: ok.ledger,
+          resultXdr: typeof ok.resultXdr?.toXDR === 'function'
+            ? ok.resultXdr.toXDR('base64')
+            : String(ok.resultXdr ?? ''),
         };
       }
 

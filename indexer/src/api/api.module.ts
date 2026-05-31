@@ -3,6 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { RafflesController } from "./controllers/raffles.controller";
 import { UsersController } from "./controllers/users.controller";
 import { StatsController } from "./controllers/stats.controller";
+import { LeaderboardController } from "./controllers/leaderboard.controller";
 import { SnapshotController } from "./controllers/snapshot.controller";
 import { ApiKeyGuard } from "./api-key.guard";
 import { RaffleEntity } from "../database/entities/raffle.entity";
@@ -27,6 +28,7 @@ import { MaintenanceModule } from "../maintenance/maintenance.module";
     RafflesController,
     UsersController,
     StatsController,
+    LeaderboardController,
     SnapshotController,
   ],
   providers: [ApiKeyGuard],
