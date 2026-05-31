@@ -22,7 +22,6 @@ import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
-import { Throttle } from "@nestjs/throttler";
 import { env } from "../../../config/env.config";
 import { UpsertMetadataPayload } from "../../../services/metadata.service";
 import {
@@ -190,6 +189,9 @@ export class RafflesController {
   @ApiOperation({ summary: "Purchase tickets for a raffle" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
   @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+  @ApiResponse({ status: 201, description: "Tickets purchased successfully" })
+  @ApiResponse({ status: 400, description: "Invalid purchase request" })
+  @ApiResponse({ status: 404, description: "Raffle not found" })
   @UseInterceptors(IdempotencyInterceptor)
   async purchaseTickets(
     @Param("raffleId", ParseIntPipe) raffleId: number,
