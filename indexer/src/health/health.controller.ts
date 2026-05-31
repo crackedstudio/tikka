@@ -1,6 +1,7 @@
 import { Controller, Get, ServiceUnavailableException, Optional } from '@nestjs/common';
 import { HealthService, HealthResult } from './health.service';
 import { DlqService } from '../ingestor/dlq.service';
+import { PipelineStateSnapshot } from '../ingestor/pipeline-state';
 
 @Controller()
 export class HealthController {
@@ -30,5 +31,15 @@ export class HealthController {
   async getDlqSize(): Promise<{ dlq_size: number }> {
     const dlq_size = this.dlqService ? await this.dlqService.count() : 0;
     return { dlq_size };
+  }
+
+  /**
+   * GET /health/pipeline — returns the current ingestion pipeline state so
+   * operators can inspect what the indexer is doing (polling, parsing,
+   * dispatching, updating cursor, dead-letter, rolling back, shutting down).
+   */
+  @Get('health/pipeline')
+  getPipeline(): { pipeline: PipelineStateSnapshot | null } {
+    return { pipeline: this.healthService.getPipelineState() };
   }
 }

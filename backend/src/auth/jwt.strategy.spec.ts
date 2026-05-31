@@ -2,7 +2,17 @@ import { JwtPayload, JwtStrategy } from './jwt.strategy';
 
 // Prevent the strategy constructor from reading process.env / env.config
 jest.mock('../config/env.config', () => ({
-  env: { jwt: { secret: 'test-secret' } },
+  env: {
+    auth: {
+      jwtSecret: 'test-secret',
+      jwtExpiresIn: '7d',
+      siwsDomain: 'tikka.io',
+      siwsNonceTtlSeconds: 300,
+      adminToken: '',
+      adminIpAllowlist: '',
+    },
+    jwt: { secret: 'test-secret', expiresIn: '7d', refreshExpiresIn: '30d' },
+  },
 }));
 
 describe('JwtStrategy', () => {

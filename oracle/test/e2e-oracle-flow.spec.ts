@@ -280,7 +280,7 @@ describe('E2E Oracle Flow Integration Tests', () => {
         // Verify flow
         expect(contractServiceSpy.isRandomnessSubmitted).toHaveBeenCalledWith(raffleId);
         expect(contractServiceSpy.getRaffleData).toHaveBeenCalledWith(raffleId);
-        expect(prngServiceSpy).toHaveBeenCalledWith(requestId);
+        expect(prngServiceSpy).toHaveBeenCalledWith(requestId, raffleId);
         expect(vrfServiceSpy).not.toHaveBeenCalled(); // Should use PRNG, not VRF
         expect(txSubmitterSpy).toHaveBeenCalledWith(
             raffleId,
@@ -320,7 +320,7 @@ describe('E2E Oracle Flow Integration Tests', () => {
         // Verify flow
         expect(contractServiceSpy.isRandomnessSubmitted).toHaveBeenCalledWith(raffleId);
         expect(contractServiceSpy.getRaffleData).toHaveBeenCalledWith(raffleId);
-        expect(vrfServiceSpy).toHaveBeenCalledWith(requestId);
+        expect(vrfServiceSpy).toHaveBeenCalledWith(requestId, raffleId);
         expect(prngServiceSpy).not.toHaveBeenCalled(); // Should use VRF, not PRNG
         expect(txSubmitterSpy).toHaveBeenCalledWith(
             raffleId,

@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, QueryRunner } from 'typeorm';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
+import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
 
 export interface IndexerCursor {
   lastLedger: number;
@@ -18,6 +19,7 @@ export class CursorManagerService {
   constructor(
     @InjectRepository(IndexerCursorEntity)
     private readonly cursorRepo: Repository<IndexerCursorEntity>,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
   async getCursor(): Promise<IndexerCursor | null> {
@@ -66,6 +68,8 @@ export class CursorManagerService {
       },
       ['id'],
     );
+
+    this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
   }
 
   /**
