@@ -755,10 +755,8 @@ export class TxSubmitterService {
       this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    return this.submitContractCall('commit_randomness', [
-      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(commitment, 32)),
-    ]);
+    const inv = ContractBuilders.buildCommitRandomness(raffleId, commitment);
+    return this.submitContractCall(inv.method, inv.args);
   }
 
   async estimateRandomnessSubmission(
@@ -782,11 +780,8 @@ export class TxSubmitterService {
       this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    return this.submitContractCall('reveal_randomness', [
-      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(secret, 32)),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(nonce, 16)),
-    ]);
+    const inv = ContractBuilders.buildRevealRandomness(raffleId, secret, nonce);
+    return this.submitContractCall(inv.method, inv.args);
   }
 
   private async submitContractCall(method: string, args: any[]): Promise<SubmitResult> {
@@ -995,19 +990,14 @@ export class TxSubmitterService {
     const account = await this.rpcServer.getAccount(sourceAddress);
     const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeStroops).toString();
 
-    const seedBytes = this.parseToBytes(randomness.seed, 32);
-    const proofBytes = this.parseToBytes(randomness.proof, 64);
-
     const contract = new (StellarSdk as any).Contract(this.contractId);
-    const u32 = (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0);
-    const seedVal = (StellarSdk as any).xdr.ScVal.scvBytes(seedBytes);
-    const proofVal = (StellarSdk as any).xdr.ScVal.scvBytes(proofBytes);
+    const inv = ContractBuilders.buildReceiveRandomness(raffleId, randomness);
 
     const tx = new (StellarSdk as any).TransactionBuilder(account, {
       fee,
       networkPassphrase: this.networkPassphrase,
     })
-      .addOperation(contract.call('receive_randomness', u32, seedVal, proofVal))
+      .addOperation(contract.call(inv.method, ...inv.args))
       .setTimeout(30)
       .build();
 
@@ -1133,20 +1123,5 @@ export class TxSubmitterService {
 
   private delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  private parseToBytes(input: string, expectedLen?: number): Buffer {
-    if (!input) return Buffer.alloc(expectedLen ?? 0);
-    const hexLike = /^[0-9a-fA-F]+$/.test(input) && input.length % 2 === 0;
-    let buf = hexLike ? Buffer.from(input, 'hex') : Buffer.from(input, 'utf8');
-    if (expectedLen !== undefined) {
-      if (buf.length > expectedLen) buf = buf.subarray(0, expectedLen);
-      else if (buf.length < expectedLen) {
-        const padded = Buffer.alloc(expectedLen);
-        buf.copy(padded);
-        buf = padded;
-      }
-    }
-    return buf;
   }
 }
