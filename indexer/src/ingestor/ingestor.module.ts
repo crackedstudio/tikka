@@ -12,6 +12,7 @@ import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity"
 import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
 import { DlqService } from "./dlq.service";
 import { ReorgRollbackService } from "./reorg-rollback.service";
+import { PipelineStateMachine } from "./pipeline-state";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ReorgRollbackService } from "./reorg-rollback.service";
     IngestionDispatcherService,
     DlqService,
     ReorgRollbackService,
+    PipelineStateMachine,
   ],
   exports: [
     CursorManagerService,
@@ -38,6 +40,7 @@ import { ReorgRollbackService } from "./reorg-rollback.service";
     IngestionDispatcherService,
     DlqService,
     ReorgRollbackService,
+    PipelineStateMachine,
     EventHandlersModule,
   ],
 })

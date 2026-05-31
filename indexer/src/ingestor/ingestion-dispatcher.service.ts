@@ -6,6 +6,7 @@ import { AdminProcessor } from "../processors/admin.processor";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { DomainEvent } from "./event.types";
 import { DeadLetterQueueService } from "./dead-letter-queue.service";
+import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 
 export type HandlerOutcome = "succeeded" | "failed" | "skipped";
 
@@ -33,6 +34,7 @@ export class IngestionDispatcherService {
     private readonly ticketProcessor: TicketProcessor,
     private readonly adminProcessor: AdminProcessor,
     @Optional() private readonly deadLetterQueue?: DeadLetterQueueService,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
   async dispatch(
@@ -94,6 +96,8 @@ export class IngestionDispatcherService {
         error: error instanceof Error ? error : new Error(String(error)),
       });
 
+      this.pipeline?.apply(PipelineTransition.HANDLER_FAILURE);
+
       await this.deadLetterQueue?.enqueue({
         handlerName,
         eventId,
@@ -107,6 +111,8 @@ export class IngestionDispatcherService {
         rawEvent: raw,
         failedAt: new Date().toISOString(),
       });
+
+      this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
 
       return result;
     }
