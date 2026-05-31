@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
@@ -33,14 +33,26 @@ export interface SearchMetadataOptions {
 }
 
 /** Payload for creating or updating raffle metadata */
-export interface UpsertMetadataPayload {
-  title?: string;
-  description?: string;
-  image_url?: string | null;
-  image_urls?: string[] | null;
-  category?: string | null;
-  metadata_cid?: string | null;
+enum ValidationErrorReason {
+  TITLE_TOO_LONG = 'Title exceeds maximum length',
+  TITLE_EMPTY = 'Title cannot be empty',
+  DESCRIPTION_TOO_LONG = 'Description exceeds maximum length',
+  INVALID_URL = 'Invalid URL format',
+  UNSUPPORTED_IMAGE_TYPE = 'Unsupported image MIME type',
+  UNSAFE_CONTENT = 'Contains unsafe HTML/script content',
 }
+
+interface ValidationResult {
+  field: string;
+  reason: ValidationErrorReason;
+}
+
+/**
+ * Validates raffle metadata payload for safety and moderation.
+ * Throws BadRequestException with details if validation fails.
+ */
+}
+
 
 const TABLE = 'raffle_metadata';
 
@@ -199,9 +211,13 @@ export class MetadataService {
     raffleId: number,
     payload: UpsertMetadataPayload,
   ): Promise<RaffleMetadata> {
+    // Validate payload before processing
+    this.validateMetadata(payload);
+
     const normalizedImageUrls = payload.image_urls
       ?.map((url) => url?.trim())
       .filter((url): url is string => Boolean(url));
+
 
     const metadataCid = await this.pinningService.pin({
       raffle_id: raffleId,
