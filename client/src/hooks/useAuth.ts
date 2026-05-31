@@ -273,6 +273,55 @@ export function useAuth(): UseAuthReturn {
   }, [abortPendingRequests]);
 
   /**
+   * Refresh the access token using the refresh token.
+   */
+  const handleRefresh = useCallback(async () => {
+    const currentRefreshToken = getRefreshToken();
+    const currentAddress = getAuthAddress();
+
+    if (!currentRefreshToken || !currentAddress) {
+      logout();
+      return;
+    }
+
+    setState((prev: AuthState) =>
+      deriveComputed("refreshing", {
+        ...prev,
+        status: "refreshing",
+        error: null,
+      }),
+    );
+
+    try {
+      const { accessToken, refreshToken: newRefreshToken } =
+        await refresh(currentRefreshToken);
+
+      setTokens(accessToken, newRefreshToken, currentAddress);
+
+      setState(
+        deriveComputed("authenticated", {
+          status: "authenticated",
+          address: currentAddress,
+          token: accessToken,
+          error: null,
+        }),
+      );
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      setState((prev: AuthState) =>
+        deriveComputed("failed", {
+          ...prev,
+          status: "failed",
+          error: error instanceof Error ? error.message : "Refresh failed",
+        }),
+      );
+      // On refresh failure, we typically want to log out
+      logout();
+      throw error;
+    }
+  }, [logout]);
+
+  /**
    * Transition to `expired` when apiClient receives HTTP 401.
    * The token has already been cleared by apiClient before this is called.
    * Aborts any pending requests that still hold the old bearer token.
