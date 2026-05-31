@@ -5,7 +5,6 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Request } from "express";
 
 /**
  * Optional internal-only API key guard.
@@ -24,7 +23,9 @@ export class ApiKeyGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     if (!this.apiKey) return true; // guard disabled — no key configured
 
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ headers: Record<string, string | string[] | undefined> }>();
     const provided = request.headers["x-api-key"];
 
     if (provided !== this.apiKey) {

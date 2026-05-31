@@ -4,15 +4,23 @@ Manual intervention system for failed oracle jobs.
 
 ## Quick Start
 
+Commands that change state are dry-run by default. Add `--execute` to actually perform the operation.
+
 ```bash
 # List failed jobs
 npm run oracle:rescue list-failed
 
-# Re-enqueue a job
+# Preview re-enqueue a job
 npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason "<reason>"
 
-# Force submit randomness
+# Execute re-enqueue
+npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason "<reason>" --execute
+
+# Preview force submit randomness
 npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason "<reason>"
+
+# Execute force submit
+npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason "<reason>" --execute
 
 # View logs
 npm run oracle:rescue logs

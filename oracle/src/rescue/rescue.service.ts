@@ -247,6 +247,140 @@ export class RescueService {
     }
   }
 
+  async getForceSubmitPreview(
+    raffleId: number,
+    requestId: string,
+    prizeAmount?: number,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    preview?: {
+      raffleId: number;
+      requestId: string;
+      prizeAmount: number;
+      method: RandomnessMethod;
+      network: string;
+      sourceAccount: string;
+      feeEstimate: any;
+      contractId: string;
+      rpcUrl: string;
+    };
+  }> {
+    try {
+      const alreadySubmitted = await this.contractService.isRandomnessSubmitted(raffleId);
+      if (alreadySubmitted) {
+        return {
+          success: false,
+          message: `Raffle ${raffleId} already finalized`,
+        };
+      }
+
+      let finalPrizeAmount = prizeAmount;
+      if (finalPrizeAmount === undefined) {
+        const raffleData = await this.contractService.getRaffleData(raffleId);
+        finalPrizeAmount = raffleData.prizeAmount;
+      }
+
+      const method = this.determineMethod(finalPrizeAmount);
+      const randomness = await this.computeRandomness(method, requestId);
+      const estimate = await this.txSubmitter.estimateRandomnessSubmission(raffleId, randomness);
+
+      return {
+        success: true,
+        message: `Preview ready`,
+        preview: {
+          raffleId,
+          requestId,
+          prizeAmount: finalPrizeAmount,
+          method,
+          network: estimate.networkPassphrase,
+          sourceAccount: estimate.sourceAddress,
+          feeEstimate: estimate.feeEstimate,
+          contractId: estimate.contractId,
+          rpcUrl: estimate.rpcUrl,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to build preview: ${error.message}`,
+      };
+    }
+  }
+
+  async previewReEnqueueJob(
+    jobId: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    preview?: {
+      jobId: string;
+      raffleId: number;
+      requestId: string;
+      alreadyFinalized: boolean;
+    };
+  }> {
+    const job = await this.randomnessQueue.getJob(jobId);
+    if (!job) {
+      return { success: false, message: `Job ${jobId} not found` };
+    }
+
+    const payload = job.data as RandomnessJobPayload;
+    const alreadySubmitted = await this.contractService.isRandomnessSubmitted(payload.raffleId);
+
+    if (alreadySubmitted) {
+      return {
+        success: false,
+        message: `Raffle ${payload.raffleId} already finalized, cannot re-enqueue`,
+        preview: {
+          jobId,
+          raffleId: payload.raffleId,
+          requestId: payload.requestId,
+          alreadyFinalized: true,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      message: `Preview ready`,
+      preview: {
+        jobId,
+        raffleId: payload.raffleId,
+        requestId: payload.requestId,
+        alreadyFinalized: false,
+      },
+    };
+  }
+
+  async previewForceFailJob(
+    jobId: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    preview?: {
+      jobId: string;
+      raffleId: number;
+      requestId: string;
+    };
+  }> {
+    const job = await this.randomnessQueue.getJob(jobId);
+    if (!job) {
+      return { success: false, message: `Job ${jobId} not found` };
+    }
+
+    const payload = job.data as RandomnessJobPayload;
+    return {
+      success: true,
+      message: `Preview ready`,
+      preview: {
+        jobId,
+        raffleId: payload.raffleId,
+        requestId: payload.requestId,
+      },
+    };
+  }
+
   /**
    * Force fail a job (mark as invalid/malicious)
    */

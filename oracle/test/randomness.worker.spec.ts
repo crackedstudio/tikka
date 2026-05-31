@@ -9,6 +9,7 @@ import { HealthService } from '../src/health/health.service';
 import { LagMonitorService } from '../src/health/lag-monitor.service';
 import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../src/multi-oracle/multi-oracle-coordinator.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('RandomnessWorker', () => {
   let worker: RandomnessWorker;
@@ -80,6 +81,12 @@ describe('RandomnessWorker', () => {
             recordSubmission: jest.fn().mockReturnValue({ ready: false, aggregated: null }),
           },
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, defaultValue?: string) => defaultValue),
+          },
+        },
       ],
     }).compile();
 
@@ -103,6 +110,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ prizeAmount: 100 });
       prngService.compute.mockResolvedValue({
         seed: 'prng-seed',
         proof: '0'.repeat(128),
@@ -115,7 +123,7 @@ describe('RandomnessWorker', () => {
 
       await worker.processRequest(request);
 
-      expect(prngService.compute).toHaveBeenCalledWith('req-123');
+      expect(prngService.compute).toHaveBeenCalledWith('req-123', 1);
       expect(vrfService.compute).not.toHaveBeenCalled();
       expect(txSubmitter.submitRandomness).toHaveBeenCalledWith(1, {
         seed: 'prng-seed',
@@ -133,6 +141,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ prizeAmount: 1000 });
       vrfService.compute.mockResolvedValue({
         seed: 'vrf-seed',
         proof: 'vrf-proof',
@@ -145,7 +154,7 @@ describe('RandomnessWorker', () => {
 
       await worker.processRequest(request);
 
-      expect(vrfService.compute).toHaveBeenCalledWith('req-456');
+      expect(vrfService.compute).toHaveBeenCalledWith('req-456', 2);
       expect(prngService.compute).not.toHaveBeenCalled();
       expect(txSubmitter.submitRandomness).toHaveBeenCalledWith(2, {
         seed: 'vrf-seed',
@@ -194,6 +203,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ prizeAmount: 100 });
       prngService.compute.mockResolvedValue({
         seed: 'seed',
         proof: '0'.repeat(128),
@@ -238,6 +248,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ prizeAmount: 100 });
       prngService.compute.mockResolvedValue({
         seed: 'seed',
         proof: '0'.repeat(128),

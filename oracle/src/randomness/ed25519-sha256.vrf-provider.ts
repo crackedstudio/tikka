@@ -52,21 +52,15 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
         return { valid: false };
       }
 
-      const derivedSeed = crypto.createHash('sha256').update(proofBuf).digest('hex');
-      return { valid: true, seed: derivedSeed };
+      const seed = crypto.createHash('sha256').update(proofBuf).digest('hex');
+      return { valid: true, seed };
     } catch (error: any) {
       this.logger.error(`VRF proof verification failed: ${error.message}`);
       return { valid: false };
     }
   }
 
-  verify(
-    publicKey: string | Buffer,
-    requestId: string,
-    proof: string,
-    seed: string,
-    raffleId?: number,
-  ): boolean {
+  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string, raffleId?: number): boolean {
     try {
       const proofVerification = this.verifyProof(publicKey, requestId, proof, raffleId);
       if (!proofVerification.valid || !proofVerification.seed) return false;
