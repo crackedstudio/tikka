@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
-import { FeeEstimatorService } from './fee-estimator.service';
+import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 import { CostEstimatorService } from './cost-estimator.service';
 
@@ -100,6 +100,14 @@ export interface SubmitResult {
   ledger: number;
   success: boolean;
   feePaid?: number;
+}
+
+export interface RandomnessSubmissionPreview {
+  networkPassphrase: string;
+  sourceAddress: string;
+  feeEstimate: FeeEstimate;
+  contractId: string;
+  rpcUrl: string;
 }
 
 @Injectable()
@@ -751,6 +759,22 @@ export class TxSubmitterService {
       (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
       (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(commitment, 32)),
     ]);
+  }
+
+  async estimateRandomnessSubmission(
+    raffleId: number,
+    randomness: RandomnessResult,
+  ): Promise<RandomnessSubmissionPreview> {
+    const sourceAddress = await this.keyService.getPublicKey();
+    const feeEstimate = await this.feeEstimator.estimateFee(0);
+
+    return {
+      networkPassphrase: this.networkPassphrase,
+      sourceAddress,
+      feeEstimate,
+      contractId: this.contractId,
+      rpcUrl: this.rpcUrls[this.currentRpcIndex],
+    };
   }
 
   async submitReveal(raffleId: number, secret: string, nonce: string): Promise<SubmitResult> {

@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { xdr } from "@stellar/stellar-sdk";
 import { BaseEventHandler } from "./base-event.handler";
 import { DomainEvent } from "../event.types";
-import { RawSorobanEvent } from "../event-parser.service";
+import { RawSorobanEvent } from "../event-parser.interface";
 
 @Injectable()
 export class RaffleCreatedHandler extends BaseEventHandler {
@@ -13,7 +13,7 @@ export class RaffleCreatedHandler extends BaseEventHandler {
   parse(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-    _rawEvent: RawSorobanEvent,
+    rawEvent: RawSorobanEvent,
   ): DomainEvent | null {
     try {
       // Assuming topics[1] is raffle_id, topics[2] is creator
@@ -30,6 +30,7 @@ export class RaffleCreatedHandler extends BaseEventHandler {
       const p = params as Record<string, unknown>;
       return {
         type: "RaffleCreated",
+        schemaVersion: this.schemaVersion(rawEvent),
         raffle_id: raffleId,
         creator: creator,
         params: {

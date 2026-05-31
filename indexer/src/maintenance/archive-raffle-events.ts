@@ -229,10 +229,9 @@ if (require.main === module) {
     const dryRun = process.env.DRY_RUN !== "false"; // default true
 
     await AppDataSource.initialize();
-    const repo = AppDataSource.getRepository(RaffleEventEntity);
 
     console.log(`Starting archival: retentionDays=${retentionDays}, dryRun=${dryRun}`);
-    const result = await archiveOldRaffleEvents(repo, {
+    const result = await archiveOldRaffleEvents(AppDataSource, {
       retentionDays,
       dryRun,
       batchSize: 500,

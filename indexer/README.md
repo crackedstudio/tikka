@@ -107,6 +107,49 @@ npm start
 
 ---
 
+## CLI Commands
+
+### Status Command
+
+You can view the real-time status of the indexer, including lag, DLQ size, cache state, and last processed event using the CLI status command.
+
+```bash
+# View status as a human-readable table
+pnpm run status
+
+# View status as JSON (useful for scripts)
+pnpm run status -- --json
+```
+
+**Output example:**
+```
+Tikka Indexer Status  2023-10-27T10:00:00.000Z
+──────────────────────────────────────────────────
+Ledger
+  Current (indexed)          1000
+  Horizon (latest)           1005
+  Lag                        5 ledgers
+
+Events
+  Total processed            500
+  Last 24 h                  10
+  Last processed at          2023-10-27T09:55:00.000Z
+
+DLQ
+  Total size                 0
+
+Cache
+  Status                     ok
+  Latency                    2 ms
+
+Database
+  Status                     ok
+  Pool (total / idle / wait) 10 / 10 / 0
+──────────────────────────────────────────────────
+```
+
+---
+
 ## Migrations
 
 ### Run pending migrations manually
@@ -142,6 +185,21 @@ npm run migration:generate -- src/database/migrations/YourMigrationName
 | `indexer_cursor` | Singleton row tracking the last processed ledger |
 
 Full schema specification: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) § Data Model.
+
+### Entity Ownership & Field Documentation
+
+Each entity includes raw chain state (source-of-truth from Stellar ledger) and derived query state (computed aggregates). Contributors need to understand which fields are safe to recalculate and which are immutable.
+
+**📖 [Entity Ownership Documentation](./src/database/entities/ENTITY_OWNERSHIP.md)**
+
+This document describes:
+- Field ownership (raw chain state vs derived)
+- Updater handlers for each entity
+- Which fields are safe to recalculate
+- Idempotency keys and replay protection
+- Migration ownership rules
+
+All entity files include inline comments marking derived fields and their updater handlers.
 
 ---
 

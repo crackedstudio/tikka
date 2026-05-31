@@ -1,18 +1,21 @@
 import {
+  Inject,
   Injectable,
   Logger,
+  Optional,
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Horizon } from "@stellar/stellar-sdk";
 import { CursorManagerService } from "./cursor-manager.service";
-import { EventParserV2Service } from "./event-parser-v2.service";
+import { EVENT_PARSER, IEventParser } from "./event-parser.interface";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
 import { DomainEvent } from "./event.types";
 import { MetricsService } from "../metrics/metrics.service";
 import { ReorgRollbackService } from "./reorg-rollback.service";
+import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -36,11 +39,12 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private configService: ConfigService,
     private cursorManager: CursorManagerService,
-    private eventParser: EventParserV2Service,
+    @Inject(EVENT_PARSER) private eventParser: IEventParser,
     private dryRun: DryRunService,
     private dispatcher: IngestionDispatcherService,
     private metrics: MetricsService,
     private reorgRollback: ReorgRollbackService,
+    @Optional() private pipeline?: PipelineStateMachine,
   ) {
     const horizonUrl =
       this.configService.get<string>("HORIZON_URL") ||
@@ -68,12 +72,14 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       `Starting Ledger Poller for contracts: ${this.contractIds.join(", ")} (batch size ${this.batchSize})`,
     );
     this.isRunning = true;
+    this.pipeline?.apply(PipelineTransition.START);
     this.startIngestion();
   }
 
   async onModuleDestroy() {
     this.logger.log("Stopping Ledger Poller...");
     this.isRunning = false;
+    this.pipeline?.apply(PipelineTransition.SHUTDOWN);
     this.stopIngestion();
     try {
       await this.chain;
@@ -82,6 +88,8 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(
         `Error while flushing ingestion buffer on shutdown: ${error instanceof Error ? error.message : String(error)}`,
       );
+    } finally {
+      this.pipeline?.apply(PipelineTransition.STOP);
     }
   }
 
@@ -175,7 +183,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       if (reorgAt !== null) {
         this.logger.error(`Reorg detected at ledger ${reorgAt} - rolling back`);
         this.metrics.incrementReorgDetected();
+        this.pipeline?.apply(PipelineTransition.REORG_DETECTED);
         await this.reorgRollback.rollback(reorgAt);
+        this.pipeline?.apply(PipelineTransition.ROLLBACK_COMPLETE);
         return;
       }
     }
@@ -200,6 +210,10 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
 
     const parsed = this.eventParser.parse(rawSorobanEvent as never);
     if (!parsed) {
+      // Unparseable event: model the parser-failure path and resume polling.
+      this.pipeline?.apply(PipelineTransition.EVENTS_RECEIVED);
+      this.pipeline?.apply(PipelineTransition.PARSE_FAILURE);
+      this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
       return;
     }
 
@@ -229,10 +243,17 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     const lastRaw = batch[batch.length - 1].raw;
     const lastId = lastRaw.id as string | undefined;
 
+    // Drive the success path for this batch: parsed events are dispatched and
+    // the cursor advanced. Per-event handler failures are reported by the
+    // dispatcher itself (HANDLER_FAILURE → DLQ_ENQUEUED).
+    this.pipeline?.apply(PipelineTransition.EVENTS_RECEIVED);
+    this.pipeline?.apply(PipelineTransition.PARSE_SUCCESS);
+
     try {
       const results = await this.dispatcher.dispatchBatch(
         batch.map((b) => ({ event: b.parsed, raw: b.raw })),
       );
+      this.pipeline?.apply(PipelineTransition.DISPATCH_SUCCESS);
 
       const nextToken = (lastRaw.paging_token as string | undefined) || lastId;
       const ledger = Number(lastRaw.ledger);
@@ -243,6 +264,11 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
           `[DRY-RUN] Would save cursor: ledger=${ledger} token=${nextToken}`,
         );
         this.metrics.incrementEventsProcessed('batch', batch.length);
+        for (const item of batch) {
+          this.metrics.incrementEventsProcessed(item.parsed.type);
+        }
+        this.metrics.incrementEventsProcessed(batch.length);
+        this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
         return;
       }
 

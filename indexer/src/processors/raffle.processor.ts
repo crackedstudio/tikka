@@ -5,6 +5,7 @@ import { UserProcessor } from "./user.processor";
 import { RaffleEntity, RaffleStatus } from "../database/entities/raffle.entity";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { WebhookService } from "../webhooks/webhook.service";
+import { CURRENT_SCHEMA_VERSION } from "../ingestor/handlers/schema-version";
 
 @Injectable()
 export class RaffleProcessor {
@@ -37,6 +38,7 @@ export class RaffleProcessor {
       metadata_cid: string;
       allow_multiple: boolean;
     },
+    schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleCreated for raffle ${raffleId} (tx ${txHash})`);
     const runner = this.dataSource.createQueryRunner();
@@ -75,7 +77,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleCreated",
-          schemaVersion: 1,
+          schemaVersion,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, creator, params },
@@ -119,6 +121,7 @@ export class RaffleProcessor {
     prizeAmount: string,
     ledger: number,
     txHash: string,
+    schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleFinalized for raffle ${raffleId}, winner ${winner} (tx ${txHash})`);
     const runner = this.dataSource.createQueryRunner();
@@ -151,7 +154,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleFinalized",
-          schemaVersion: 1,
+          schemaVersion,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, winner, winning_ticket_id: winningTicketId, prize_amount: prizeAmount },
@@ -194,6 +197,7 @@ export class RaffleProcessor {
     reason: string,
     ledger: number,
     txHash: string,
+    schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleCancelled for raffle ${raffleId} (tx ${txHash})`);
     const runner = this.dataSource.createQueryRunner();
@@ -223,7 +227,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleCancelled",
-          schemaVersion: 1,
+          schemaVersion,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, reason },
