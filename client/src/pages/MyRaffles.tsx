@@ -5,6 +5,8 @@ import { useUserProfile, useUserHistory } from "../hooks/useRaffles";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import type { ApiUserHistoryItem } from "../types/types";
+import { API_CONFIG } from "../config/api";
+import { getToken } from "../services/apiClient";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -101,6 +103,80 @@ const StatItem: React.FC<{ label: string; value: string | number }> = ({ label, 
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
     </div>
 );
+
+// ── CSV export ────────────────────────────────────────────────────────────────
+
+function useExportCsv(address: string | null) {
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportError, setExportError] = useState<string | null>(null);
+
+    const exportCsv = async () => {
+        if (!address) return;
+        const token = getToken();
+        if (!token) {
+            setExportError("Sign in to export your history.");
+            return;
+        }
+
+        setIsExporting(true);
+        setExportError(null);
+
+        try {
+            const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.users.historyExport(address)}`;
+            const response = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (response.status === 429) {
+                setExportError("Rate limit reached — please wait a minute before exporting again.");
+                return;
+            }
+            if (!response.ok) {
+                setExportError("Export failed. Please try again.");
+                return;
+            }
+
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = objectUrl;
+            anchor.download = `tikka-history-${address}.csv`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(objectUrl);
+        } catch {
+            setExportError("Export failed. Please try again.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    return { exportCsv, isExporting, exportError };
+}
+
+const ExportCsvButton: React.FC<{ address: string }> = ({ address }) => {
+    const { exportCsv, isExporting, exportError } = useExportCsv(address);
+    return (
+        <div className="flex flex-col items-center gap-1">
+            <button
+                onClick={exportCsv}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Export participation history as CSV"
+            >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {isExporting ? "Exporting…" : "Export CSV"}
+            </button>
+            {exportError && (
+                <p className="text-xs text-red-400">{exportError}</p>
+            )}
+        </div>
+    );
+};
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -276,6 +352,9 @@ const MyRaffles: React.FC = () => {
                     <p className="text-gray-500 dark:text-gray-400 text-sm font-mono truncate">
                         {address}
                     </p>
+                    <div className="mt-3">
+                        <ExportCsvButton address={address} />
+                    </div>
                 </div>
 
                 {/* Stats */}

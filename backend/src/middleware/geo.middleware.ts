@@ -53,6 +53,8 @@ export class GeoMiddleware implements NestMiddleware {
         this.logger.debug(`IP ${ip} resolved to country: ${countryCode}`);
       }
     } catch (err) {
+      // Set to empty string so downstream handlers know the lookup failed
+      (req.headers as Record<string, string>)['x-country-code'] = '';
       // Never block the request due to a geo error
       const message = err instanceof Error ? err.message : String(err);
       this.logger.warn(`GeoMiddleware error: ${message}`);
@@ -67,12 +69,12 @@ export class GeoMiddleware implements NestMiddleware {
    */
   private extractIp(req: FastifyRequest): string {
     const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) {
+    if (forwarded !== undefined && forwarded !== null) {
       const first = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
-      return first.trim();
+      return first?.trim() ?? '';
     }
 
     // Fastify exposes the parsed IP directly
-    return req.ip ?? req.raw.socket?.remoteAddress ?? 'unknown';
+    return req.ip ?? req.raw?.socket?.remoteAddress ?? 'unknown';
   }
 }

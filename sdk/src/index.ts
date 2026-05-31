@@ -5,10 +5,13 @@
  * ## Modules
  * - **Raffle** — create, fetch, list, and cancel raffles
  * - **Ticket** — buy and refund tickets; query user holdings
- * - **Wallet** — browser wallet adapters (Freighter, XBull, Albedo, LOBSTR)
+ * - **Wallet** — browser wallet adapters (Freighter, XBull, Albedo, LOBSTR, Rabet)
  * - **User** — query on-chain participation data
+ * - **Admin** — pause/unpause contract and manage admin rights
  * - **Network** — RPC / Horizon service configuration
+ * - **Fee Estimator** — estimate transaction fees before signing
  * - **Utils** — formatting, validation, error classes
+ * - **Auth** — SEP-10 challenge/verification for wallet authentication
  *
  * @example
  * ```ts
@@ -36,6 +39,9 @@ export * from './modules/ticket';
 
 // ── User ────────────────────────────────────────────────────────────────────
 export * from './modules/user';
+
+// ── Admin ───────────────────────────────────────────────────────────────────
+export * from './modules/admin';
 
 // ── Wallet adapters ─────────────────────────────────────────────────────────
 export * from './wallet';

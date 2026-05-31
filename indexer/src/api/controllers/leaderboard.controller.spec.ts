@@ -133,4 +133,28 @@ describe('LeaderboardController', () => {
       expect(qb.orderBy).toHaveBeenCalledWith(primaryOrder, 'DESC');
     }
   });
+
+  it('hides internal fields like firstSeenLedger from DTO responses', async () => {
+    const rows = [
+      makeUser('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 2, 5, '100', 10),
+    ];
+    const qb = setupQueryBuilder(rows);
+
+    const page = await controller.getLeaderboard('wins', 1, undefined, 0);
+
+    expect(page.entries).toHaveLength(1);
+    const entry = page.entries[0];
+
+    // Verify exposed fields
+    expect(entry).toHaveProperty('rank');
+    expect(entry).toHaveProperty('address');
+    expect(entry).toHaveProperty('totalTicketsBought');
+    expect(entry).toHaveProperty('totalRafflesWon');
+    expect(entry).toHaveProperty('totalPrizeXlm');
+
+    // Verify internal fields are HIDDEN
+    expect(entry).not.toHaveProperty('firstSeenLedger');
+    expect((entry as any).firstSeenLedger).toBeUndefined();
+    expect((entry as any).lastTxHash).toBeUndefined();
+  });
 });

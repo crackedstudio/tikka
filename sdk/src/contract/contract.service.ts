@@ -14,7 +14,7 @@ import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig } from '../network/network.config';
 import { WalletAdapter } from '../wallet/wallet.interface';
 import { getRaffleContractId } from './constants';
-import { ContractFnName, ContractFn } from './bindings';
+import { ContractFn, ContractFnName } from './bindings';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { TransactionLifecycle } from './lifecycle';
 import type { TxMemo, PollConfig } from './lifecycle';
@@ -227,7 +227,7 @@ export class ContractService {
     raffleId: number,
     count: number,
     options: InvokeOptions = {},
-  ): Promise<TxResponse<T[]>> {
+  ): Promise<ContractResponse<T[]>> {
     if (!this.wallet && !options.simulateOnly) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
@@ -274,12 +274,12 @@ export class ContractService {
     const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
-    const simResult = successSim.result?.retval
+    const simResult: any[] = successSim.result?.retval
       ? [scValToNative(successSim.result.retval)]
       : [];
 
     if (options.simulateOnly) {
-      return { status: 'SUCCESS', value: simResult as any, txHash: '', ledger: 0 };
+      return { success: true, value: simResult as any, transactionHash: '', ledger: 0 };
     }
 
     const { signedXdr } = await this.wallet!.signTransaction(
@@ -313,9 +313,9 @@ export class ContractService {
     const successTx = txResp as rpc.Api.GetSuccessfulTransactionResponse;
 
     return {
-      status: 'SUCCESS',
+      success: true,
       value: (successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult) as any,
-      txHash: sendResp.hash,
+      transactionHash: sendResp.hash,
       ledger: successTx.ledger,
     };
   }
