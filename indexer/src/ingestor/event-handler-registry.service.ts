@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { IEventHandler, ContractConfig } from "./event-handler.interface";
 import { xdr } from "@stellar/stellar-sdk";
 import { DomainEvent } from "./event.types";
-import { RawSorobanEvent } from "./event-parser.service";
+import { RawSorobanEvent } from "./event-parser.interface";
 
 /**
  * Registry for managing event handlers across multiple contracts

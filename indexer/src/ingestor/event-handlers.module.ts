@@ -2,6 +2,7 @@ import { Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { EventParserV2Service } from "./event-parser-v2.service";
+import { EVENT_PARSER } from "./event-parser.interface";
 
 // Import all default handlers
 import { RaffleCreatedHandler } from "./handlers/raffle-created.handler";
@@ -27,6 +28,9 @@ import {
   providers: [
     EventHandlerRegistry,
     EventParserV2Service,
+    // Bind the parser contract token to the single chosen parser (V2) so
+    // ingestion services depend on IEventParser rather than a concrete class.
+    { provide: EVENT_PARSER, useExisting: EventParserV2Service },
     // Register all default handler classes
     RaffleCreatedHandler,
     TicketPurchasedHandler,
@@ -41,7 +45,7 @@ import {
     AdminTransferProposedHandler,
     AdminTransferAcceptedHandler,
   ],
-  exports: [EventHandlerRegistry, EventParserV2Service],
+  exports: [EventHandlerRegistry, EventParserV2Service, EVENT_PARSER],
 })
 export class EventHandlersModule implements OnModuleInit {
   constructor(

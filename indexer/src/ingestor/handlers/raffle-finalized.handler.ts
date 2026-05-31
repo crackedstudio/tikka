@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { xdr } from "@stellar/stellar-sdk";
 import { BaseEventHandler } from "./base-event.handler";
 import { DomainEvent } from "../event.types";
-import { RawSorobanEvent } from "../event-parser.service";
+import { RawSorobanEvent } from "../event-parser.interface";
 
 @Injectable()
 export class RaffleFinalizedHandler extends BaseEventHandler {

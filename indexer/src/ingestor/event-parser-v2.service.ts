@@ -2,14 +2,17 @@ import { xdr, scValToNative } from "@stellar/stellar-sdk";
 import { Injectable, Logger } from "@nestjs/common";
 import { DomainEvent } from "./event.types";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
-import { RawSorobanEvent } from "./event-parser.service";
+import { IEventParser, RawSorobanEvent } from "./event-parser.interface";
 
 /**
  * Extensible Event Parser Service (V2)
- * Uses a dynamic registry system to support multiple contracts and custom event handlers
+ * Uses a dynamic registry system to support multiple contracts and custom event handlers.
+ *
+ * This is the single, canonical parser for the ingestion pipeline; it
+ * implements the {@link IEventParser} contract.
  */
 @Injectable()
-export class EventParserV2Service {
+export class EventParserV2Service implements IEventParser {
   private readonly logger = new Logger(EventParserV2Service.name);
 
   constructor(private readonly handlerRegistry: EventHandlerRegistry) {}

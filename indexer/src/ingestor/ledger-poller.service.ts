@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   Logger,
   Optional,
@@ -8,7 +9,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { Horizon } from "@stellar/stellar-sdk";
 import { CursorManagerService } from "./cursor-manager.service";
-import { EventParserV2Service } from "./event-parser-v2.service";
+import { EVENT_PARSER, IEventParser } from "./event-parser.interface";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
 import { DomainEvent } from "./event.types";
@@ -38,7 +39,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private configService: ConfigService,
     private cursorManager: CursorManagerService,
-    private eventParser: EventParserV2Service,
+    @Inject(EVENT_PARSER) private eventParser: IEventParser,
     private dryRun: DryRunService,
     private dispatcher: IngestionDispatcherService,
     private metrics: MetricsService,

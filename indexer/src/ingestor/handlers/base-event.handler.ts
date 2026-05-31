@@ -2,7 +2,7 @@ import { scValToNative, xdr } from "@stellar/stellar-sdk";
 import { Logger } from "@nestjs/common";
 import { IEventHandler } from "../event-handler.interface";
 import { DomainEvent } from "../event.types";
-import { RawSorobanEvent } from "../event-parser.service";
+import { RawSorobanEvent } from "../event-parser.interface";
 
 /**
  * Base class for event handlers providing common utilities
