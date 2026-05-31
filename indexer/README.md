@@ -143,6 +143,21 @@ npm run migration:generate -- src/database/migrations/YourMigrationName
 
 Full schema specification: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) § Data Model.
 
+### Entity Ownership & Field Documentation
+
+Each entity includes raw chain state (source-of-truth from Stellar ledger) and derived query state (computed aggregates). Contributors need to understand which fields are safe to recalculate and which are immutable.
+
+**📖 [Entity Ownership Documentation](./src/database/entities/ENTITY_OWNERSHIP.md)**
+
+This document describes:
+- Field ownership (raw chain state vs derived)
+- Updater handlers for each entity
+- Which fields are safe to recalculate
+- Idempotency keys and replay protection
+- Migration ownership rules
+
+All entity files include inline comments marking derived fields and their updater handlers.
+
 ---
 
 ## Redis Cache TTL Strategy
