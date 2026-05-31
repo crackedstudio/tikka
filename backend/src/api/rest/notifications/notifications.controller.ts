@@ -42,7 +42,6 @@ export class NotificationsController {
       raffleId: dto.raffleId,
       userAddress,
       channel: dto.channel,
-      events: dto.events,
     });
   }
 
@@ -109,7 +108,6 @@ export class NotificationsController {
       userAddress,
       dto.deviceToken,
       dto.platform,
-      dto.events,
     );
   }
 

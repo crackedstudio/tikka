@@ -22,6 +22,8 @@ import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
+import { Throttle } from "@nestjs/throttler";
+import { env } from "../../../config/env.config";
 import { UpsertMetadataPayload } from "../../../services/metadata.service";
 import {
   ListRafflesQuerySchema,
@@ -49,10 +51,8 @@ interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
 
-const RAFFLE_CREATE_RATE_LIMIT = Number(process.env.RAFFLE_CREATE_RATE_LIMIT ?? 5);
-const RAFFLE_CREATE_RATE_WINDOW_SECONDS = Number(
-  process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? 600,
-);
+const RAFFLE_CREATE_RATE_LIMIT = env.rateLimits.raffleCreateLimit;
+const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSeconds;
 
 @ApiTags("Raffles")
 @Controller("raffles")
@@ -133,7 +133,7 @@ export class RafflesController {
     if (!detail.metadata_cid) {
       throw new NotFoundException(`IPFS metadata not found for raffle ${id}`);
     }
-    const gateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs/';
+    const gateway = env.storage.ipfsGatewayUrl;
     res.redirect(`${gateway}${detail.metadata_cid}`);
   }
 
