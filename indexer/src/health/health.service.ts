@@ -1,4 +1,5 @@
-import { Injectable, Optional, EventEmitter } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { EventEmitter } from 'events';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { CacheService } from '../cache/cache.service';

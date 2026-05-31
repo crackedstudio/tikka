@@ -263,6 +263,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(
           `[DRY-RUN] Would save cursor: ledger=${ledger} token=${nextToken}`,
         );
+        for (const item of batch) {
+          this.metrics.incrementEventsProcessed(item.parsed.type);
+        }
         this.metrics.incrementEventsProcessed(batch.length);
         this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
         return;
