@@ -13,7 +13,7 @@ export class RaffleFinalizedHandler extends BaseEventHandler {
   parse(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-    _rawEvent: RawSorobanEvent,
+    rawEvent: RawSorobanEvent,
   ): DomainEvent | null {
     try {
       const raffleId = this.toNumber(topics[1]);
@@ -27,6 +27,7 @@ export class RaffleFinalizedHandler extends BaseEventHandler {
 
       return {
         type: "RaffleFinalized",
+        schemaVersion: this.schemaVersion(rawEvent),
         raffle_id: raffleId,
         winner: winner,
         winning_ticket_id: Number(data.winning_ticket_id),

@@ -162,7 +162,10 @@ export class EventHandlerRegistry {
 
     try {
       const parsed = handler.parse(topics, value, rawEvent);
-      return parsed ? { ...parsed, schemaVersion } : null;
+      if (!parsed) return null;
+      // Prefer the version the handler resolved; fall back to the routing
+      // version so every parsed event carries a schema version.
+      return { ...parsed, schemaVersion: parsed.schemaVersion ?? schemaVersion };
     } catch (error) {
       this.logger.error(
         `Handler failed for ${eventName}: ${error instanceof Error ? error.message : String(error)}`,

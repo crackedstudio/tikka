@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { DomainEvent } from "./event.types";
+import { DlqReason } from "../database/entities/dead-letter-event.entity";
 
 export interface DeadLetterEvent {
   handlerName: string;
@@ -7,6 +8,10 @@ export interface DeadLetterEvent {
   eventType: string;
   ledger: number | null;
   txHash: string | null;
+  /** Schema version of the failed event, for forward-compatible triage. */
+  schemaVersion: number;
+  /** Why the event failed (parser/handler/db/schema) — drives replay policy. */
+  reason: DlqReason;
   errorMessage: string;
   errorStack?: string;
   durationMs: number;

@@ -3,6 +3,7 @@ import { Logger } from "@nestjs/common";
 import { IEventHandler } from "../event-handler.interface";
 import { DomainEvent } from "../event.types";
 import { RawSorobanEvent } from "../event-parser.interface";
+import { resolveSchemaVersion } from "./schema-version";
 
 /**
  * Base class for event handlers providing common utilities
@@ -53,6 +54,15 @@ export abstract class BaseEventHandler implements IEventHandler {
     const native = this.toNative(scVal);
     if (native === null) return null;
     return String(native);
+  }
+
+  /**
+   * Resolve the schema version for the event being parsed. Handlers should tag
+   * their returned `DomainEvent` with this so the version is persisted and
+   * routed consistently (see `schema-version.ts`).
+   */
+  protected schemaVersion(rawEvent: RawSorobanEvent): number {
+    return resolveSchemaVersion(rawEvent);
   }
 
   /**

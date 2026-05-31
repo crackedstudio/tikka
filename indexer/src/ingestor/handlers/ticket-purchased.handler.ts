@@ -13,7 +13,7 @@ export class TicketPurchasedHandler extends BaseEventHandler {
   parse(
     topics: xdr.ScVal[],
     value: xdr.ScVal,
-    _rawEvent: RawSorobanEvent,
+    rawEvent: RawSorobanEvent,
   ): DomainEvent | null {
     try {
       const raffleId = this.toNumber(topics[1]);
@@ -27,6 +27,7 @@ export class TicketPurchasedHandler extends BaseEventHandler {
 
       return {
         type: "TicketPurchased",
+        schemaVersion: this.schemaVersion(rawEvent),
         raffle_id: raffleId,
         buyer: buyer,
         ticket_ids: data.ticket_ids.map(Number),

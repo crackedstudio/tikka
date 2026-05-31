@@ -3,6 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { DomainEvent } from "./event.types";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { IEventParser, RawSorobanEvent } from "./event-parser.interface";
+import { resolveSchemaVersion } from "./handlers/schema-version";
 
 /**
  * Extensible Event Parser Service (V2)
@@ -34,7 +35,7 @@ export class EventParserV2Service implements IEventParser {
 
       // topic[0] usually contains the event name (symbol)
       const eventName = scValToNative(topics[0]);
-      const schemaVersion = this.extractSchemaVersion(topics);
+      const schemaVersion = resolveSchemaVersion(rawEvent);
       const contractAddress = this.getContractAddress(rawEvent);
 
       // Use registry to parse the event
@@ -66,19 +67,6 @@ export class EventParserV2Service implements IEventParser {
         `Failed to parse event: ${e instanceof Error ? e.message : String(e)}`,
       );
       return null;
-    }
-  }
-
-  private extractSchemaVersion(topics: xdr.ScVal[]): number {
-    if (topics.length < 2) {
-      return 1;
-    }
-
-    try {
-      const maybeVersion = Number(scValToNative(topics[1]));
-      return Number.isFinite(maybeVersion) && maybeVersion > 0 ? maybeVersion : 1;
-    } catch {
-      return 1;
     }
   }
 
