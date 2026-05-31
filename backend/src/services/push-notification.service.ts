@@ -3,6 +3,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
 import { env } from '../config/env.config';
 import * as admin from 'firebase-admin';
+import { NotificationRetryService } from './notification-retry.service';
 
 const TABLE = 'push_tokens';
 const FAILURE_TABLE = 'push_delivery_failures';
@@ -83,6 +84,7 @@ export class PushNotificationService {
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+    private readonly retryService: NotificationRetryService,
   ) {
     this.initializeFirebase();
   }
@@ -339,6 +341,30 @@ export class PushNotificationService {
     // Record every per-token failure (counters + durable log).
     await Promise.all(failures.map((f) => this.recordFailure(userAddress, f)));
 
+    // Enqueue retries for retryable tokens
+    if (retryableTokens.length > 0) {
+      await Promise.all(
+        retryableTokens.map(async (token) => {
+          const failure = failures.find(f => f.token === token);
+          if (failure) {
+            try {
+              await this.retryService.enqueueRetry(
+                userAddress,
+                token,
+                payload,
+                failure.errorCode,
+                `FCM error: ${failure.errorCode}`,
+              );
+            } catch (error) {
+              this.logger.error(
+                `Failed to enqueue retry for token ${token.substring(0, 10)}...: ${(error as Error).message}`,
+              );
+            }
+          }
+        }),
+      );
+    }
+
     if (invalidTokens.length > 0) {
       await this.client
         .from(TABLE)
@@ -359,3 +385,10 @@ export class PushNotificationService {
     };
   }
 }
+
+  /**
+   * Get delivery statistics from the retry service.
+   */
+  async getDeliveryStats(hoursBack = 24): Promise<Record<string, any>> {
+    return this.retryService.getDeliveryStats(hoursBack);
+  }
