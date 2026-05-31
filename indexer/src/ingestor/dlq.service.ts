@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, FindOptionsWhere, IsNull, Repository } from 'typeorm';
 import { DeadLetterEventEntity, DlqReason } from '../database/entities/dead-letter-event.entity';
 import { DomainEvent } from './event.types';
 import { IngestionDispatcherService } from './ingestion-dispatcher.service';
+import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
 
 export { DlqReason };
 
@@ -55,6 +56,7 @@ export class DlqService {
     @InjectRepository(DeadLetterEventEntity)
     private readonly repo: Repository<DeadLetterEventEntity>,
     private readonly dispatcher: IngestionDispatcherService,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
   /**
@@ -89,6 +91,8 @@ export class DlqService {
         replayedAt: null,
       }),
     );
+
+    this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
 
     this.logger.warn(
       `DLQ [${reason}] stored ${event.type} at ledger ${ledger} (retryable=${retryable}): ${errorMessage}`,
@@ -148,6 +152,8 @@ export class DlqService {
       const delay = BASE_DELAY_MS * Math.pow(2, entry.retryCount);
       await sleep(delay);
 
+      this.pipeline?.apply(PipelineTransition.RETRY);
+
       try {
         const event = { ...entry.rawPayload, type: entry.eventType } as DomainEvent;
         const result = await this.dispatcher.dispatch(event, entry.rawPayload);
@@ -158,12 +164,18 @@ export class DlqService {
         entry.replayedAt = new Date();
         await this.repo.save(entry);
         replayed++;
+        this.pipeline?.apply(PipelineTransition.RETRY_SUCCESS);
         this.logger.log(`DLQ: replayed ${entry.eventType} ledger=${entry.ledger} id=${entry.id}`);
       } catch (err) {
         entry.retryCount += 1;
         entry.errorMessage = err instanceof Error ? err.message : String(err);
         await this.repo.save(entry);
         failed++;
+        this.pipeline?.apply(
+          entry.retryCount >= MAX_RETRIES
+            ? PipelineTransition.RETRY_EXHAUSTED
+            : PipelineTransition.HANDLER_FAILURE,
+        );
         this.logger.warn(
           `DLQ: retry ${entry.retryCount}/${MAX_RETRIES} failed for ${entry.eventType} id=${entry.id}: ${entry.errorMessage}`,
         );

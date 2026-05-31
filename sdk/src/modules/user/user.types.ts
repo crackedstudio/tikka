@@ -21,7 +21,20 @@ export interface UserParticipation {
   raffleIds: number[];
 }
 
+/**
+ * Parameters for querying user participation statistics.
+ * @category User
+ *
+ * @example
+ * ```ts
+ * const params: GetParticipationParams = {
+ *   address: userAddress
+ * };
+ * const result = await userService.getParticipation(params);
+ * ```
+ */
 export interface GetParticipationParams {
+  /** User's Stellar public key address to query */
   address: string;
 }
 
