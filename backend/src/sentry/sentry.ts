@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { Logger } from '@nestjs/common';
+import { env } from '../config/env.config';
 
 export interface IngestionErrorContext {
   /** Stellar ledger sequence number. Omitted from tags if undefined. */
@@ -19,22 +20,22 @@ export interface IngestionErrorContext {
  * Build the Sentry init options from environment variables.
  * Exported as a pure function so it can be unit-tested without side effects.
  */
-export function buildSentryOptions(env: {
+export function buildSentryOptions(envInput: {
   SENTRY_DSN?: string;
   NODE_ENV?: string;
   SENTRY_TRACES_SAMPLE_RATE?: string | number;
 }): Sentry.NodeOptions | null {
-  const dsn = env.SENTRY_DSN?.trim();
+  const dsn = envInput.SENTRY_DSN?.trim();
   if (!dsn) return null;
 
   const tracesSampleRate =
-    env.SENTRY_TRACES_SAMPLE_RATE !== undefined
-      ? Number(env.SENTRY_TRACES_SAMPLE_RATE)
+    envInput.SENTRY_TRACES_SAMPLE_RATE !== undefined
+      ? Number(envInput.SENTRY_TRACES_SAMPLE_RATE)
       : 0.1;
 
   return {
     dsn,
-    environment: env.NODE_ENV ?? 'development',
+    environment: envInput.NODE_ENV ?? 'development',
     tracesSampleRate,
     integrations: [nodeProfilingIntegration()],
     profilesSampleRate: 1.0,
@@ -46,7 +47,11 @@ export function buildSentryOptions(env: {
  * Safe to call when DSN is absent — logs a warning and returns.
  */
 export function initSentry(logger: Logger): void {
-  const options = buildSentryOptions(process.env as Record<string, string>);
+  const options = buildSentryOptions({
+    SENTRY_DSN: env.sentry.dsn,
+    NODE_ENV: env.server.nodeEnv,
+    SENTRY_TRACES_SAMPLE_RATE: env.sentry.tracesSampleRate,
+  });
   if (!options) {
     logger.warn('SENTRY_DSN not set — Sentry is disabled');
     return;

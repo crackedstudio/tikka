@@ -9,16 +9,19 @@ import { AdminGuard } from './admin.guard';
 import { BackfillLock } from '../../../services/backfill-lock';
 import { HorizonClientService } from '../../../services/horizon-client.service';
 import { IndexerService } from '../../../services/indexer.service';
-
-@Module({
-  imports: [SupabaseModule, ConfigModule],
-  controllers: [MonitorController, ReplayController],
-  providers: [MonitorService, ReplayService, AdminGuard, BackfillLock, HorizonClientService, IndexerService],
 import { AuditLogInterceptor } from './audit-log.interceptor';
 
 @Module({
   imports: [SupabaseModule, ConfigModule],
-  controllers: [MonitorController],
-  providers: [MonitorService, AdminGuard, AuditLogInterceptor],
+  controllers: [MonitorController, ReplayController],
+  providers: [
+    MonitorService,
+    ReplayService,
+    AdminGuard,
+    BackfillLock,
+    HorizonClientService,
+    IndexerService,
+    AuditLogInterceptor,
+  ],
 })
 export class MonitorModule {}
