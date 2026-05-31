@@ -31,7 +31,7 @@ export const useLeaderboard = (params?: LeaderboardParams) => {
         setIsLoading(false);
       }
     }
-  }, [params?.by, params?.limit]);
+  }, [params?.by, params?.limit, params?.period]);
 
   useEffect(() => {
     loadLeaderboard();

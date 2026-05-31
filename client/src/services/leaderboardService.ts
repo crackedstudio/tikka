@@ -14,15 +14,17 @@ export interface LeaderboardResponse {
 }
 
 export type LeaderboardSortBy = "wins" | "volume" | "tickets";
+export type LeaderboardPeriod = "all" | "monthly" | "weekly";
 
 export interface LeaderboardParams {
   by?: LeaderboardSortBy;
   limit?: number;
+  period?: LeaderboardPeriod;
 }
 
 /**
  * Fetch leaderboard data from the backend
- * @param params - Optional query parameters (by, limit)
+ * @param params - Optional query parameters (by, limit, period)
  * @returns Leaderboard response with entries
  */
 export async function fetchLeaderboard(
@@ -36,6 +38,10 @@ export async function fetchLeaderboard(
   
   if (params.limit !== undefined) {
     queryParams.set("limit", String(params.limit));
+  }
+
+  if (params.period) {
+    queryParams.set("period", params.period);
   }
 
   const queryString = queryParams.toString();

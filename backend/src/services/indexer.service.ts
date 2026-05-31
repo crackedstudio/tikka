@@ -85,12 +85,14 @@ export interface IndexerLeaderboardResponse {
 }
 
 export type LeaderboardSortBy = 'wins' | 'volume' | 'tickets';
+export type LeaderboardPeriod = 'all' | 'monthly' | 'weekly';
 
 export interface IndexerLeaderboardFilters {
   by?: LeaderboardSortBy;
   limit?: number;
   cursor?: string;
   offset?: number;
+  period?: LeaderboardPeriod;
 }
 
 export interface IndexerPlatformStats {
@@ -263,6 +265,7 @@ export class IndexerService {
     if (filters.limit != null) params.set('limit', String(filters.limit));
     if (filters.cursor) params.set('cursor', filters.cursor);
     if (filters.offset != null) params.set('offset', String(filters.offset));
+    if (filters.period) params.set('period', filters.period);
     const query = params.toString();
     const path = query ? `/leaderboard?${query}` : '/leaderboard';
     return this.fetch<IndexerLeaderboardResponse>(path);
