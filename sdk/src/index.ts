@@ -5,10 +5,13 @@
  * ## Modules
  * - **Raffle** — create, fetch, list, and cancel raffles
  * - **Ticket** — buy and refund tickets; query user holdings
- * - **Wallet** — browser wallet adapters (Freighter, XBull, Albedo, LOBSTR)
+ * - **Wallet** — browser wallet adapters (Freighter, XBull, Albedo, LOBSTR, Rabet)
  * - **User** — query on-chain participation data
+ * - **Admin** — pause/unpause contract and manage admin rights
  * - **Network** — RPC / Horizon service configuration
+ * - **Fee Estimator** — estimate transaction fees before signing
  * - **Utils** — formatting, validation, error classes
+ * - **Auth** — SEP-10 challenge/verification for wallet authentication
  *
  * @example
  * ```ts
@@ -18,8 +21,8 @@
 
 // ── Contract bindings & types (public API surface) ──────────────────────────
 export { ContractFn, RaffleStatus } from './contract/bindings';
-export { ContractResponse } from './contract/response';
-export type { TxMemo, UnsignedTxResult, InvokeOptions, InvokeResult } from './contract/contract.service';
+export { TxResponse } from './contract/response';
+export type { TxMemo } from './contract/contract.service';
 export { TransactionLifecycle } from './contract/lifecycle';
 export type {
   SimulateResult,
@@ -36,6 +39,9 @@ export * from './modules/ticket';
 
 // ── User ────────────────────────────────────────────────────────────────────
 export * from './modules/user';
+
+// ── Admin ───────────────────────────────────────────────────────────────────
+export * from './modules/admin';
 
 // ── Wallet adapters ─────────────────────────────────────────────────────────
 export * from './wallet';

@@ -23,11 +23,11 @@
     {
       "address": "THIRD_PARTY_CONTRACT_ADDRESS_HERE",
       "version": "v1",
-      "description": "Third-party raffle contract",
+      "description": "Third-party raffle contract (disabled example template)",
       "enabled": false,
       "eventHandlers": {
         "RaffleCreated": "ThirdPartyRaffleCreatedHandler",
-        "CustomEvent": "CustomEventHandler"
+        "CustomPrizeDistribution": "ThirdPartyCustomEventHandler"
       }
     }
   ],

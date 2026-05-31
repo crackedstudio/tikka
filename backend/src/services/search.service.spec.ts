@@ -26,7 +26,7 @@ describe('SearchService', () => {
       indexerService as any,
     );
 
-    await expect((service as any).search('summer', 5, 10)).resolves.toEqual({
+    await expect((service as any).search({ query: 'summer', limit: 5, offset: 10 })).resolves.toEqual({
       raffles: [
         {
           id: 2,
@@ -39,6 +39,11 @@ describe('SearchService', () => {
       total: 11,
     });
 
-    expect(metadataService.searchMetadata).toHaveBeenCalledWith('summer', 5, 10);
+    expect(metadataService.searchMetadata).toHaveBeenCalledWith({
+      query: 'summer',
+      limit: 5,
+      offset: 10,
+      category: undefined,
+    });
   });
 });

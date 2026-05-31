@@ -10,6 +10,8 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
 import { JobPriority } from '../queue/queue.types';
+import { PriorityClassifierService } from '../queue/priority-classifier.service';
+import { DrawRequestIdentity, DrawRequestLedgerService } from './draw-request-ledger.service';
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
@@ -35,9 +37,10 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         private readonly lagMonitor: LagMonitorService,
         private readonly randomnessWorker: RandomnessWorker,
         private readonly commitRevealWorker: CommitRevealWorker,
-        private readonly circuitBreaker: CircuitBreakerService,
+        @Optional() private readonly circuitBreaker?: CircuitBreakerService,
         @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue<RandomnessJobPayload>,
         @Optional() private readonly priorityClassifier?: PriorityClassifierService,
+        @Optional() private readonly drawRequestLedger?: DrawRequestLedgerService,
     ) {
         // Config parsing
         const horizonUrl = this.configService.get<string>('HORIZON_URL', 'https://horizon-testnet.stellar.org');
@@ -84,7 +87,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         if (!this.raffleContractId) return;
 
         // Task 4.2: Gate with circuit breaker before any Horizon SSE API call
-        if (!this.circuitBreaker.canAttempt()) {
+        if (this.circuitBreaker && !this.circuitBreaker.canAttempt()) {
             this.healthService.updateStreamStatus('disconnected');
             const cooldown = this.circuitBreaker.getRemainingCooldownMs() || this.INITIAL_RETRY_DELAY;
             this.logger.debug(`Circuit breaker open. Scheduling retry in ${cooldown}ms.`);
@@ -107,22 +110,22 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 .forContract(this.raffleContractId)
                 .cursor('now')
                 .stream({
-                    onmessage: (event: any) => this.handleEvent(event),
+                    onmessage: (event: any) => void this.handleEvent(event),
                     onerror: (err: any) => this.handleStreamError(err),
                 });
             
             // Task 4.3: Record success after stream is opened
-            this.circuitBreaker.recordSuccess();
+            this.circuitBreaker?.recordSuccess();
             this.logger.log('Successfully connected to Horizon event stream.');
         } catch (err: any) {
             this.logger.error(`Failed to start SSE stream: ${err.message}`, err.stack);
             // Task 4.4: Record failure in catch block
-            this.circuitBreaker.recordFailure();
+            this.circuitBreaker?.recordFailure();
             this.scheduleReconnect();
         }
     }
 
-    private handleEvent(eventResponse: any) {
+    private async handleEvent(eventResponse: any) {
         // Double check contract ID just in case, though Horizon should filter it
         if (eventResponse.contractId !== this.raffleContractId) {
             return;
@@ -134,8 +137,6 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 this.lagMonitor.updateCurrentLedger(eventResponse.ledger);
             }
 
-            // Decode the raw XDR to see topics and value
-            const eventXdr = StellarSdk.xdr.ContractEvent.fromXDR(eventResponse.value, 'base64');
             const topics = (eventResponse.topic || []).map((t: string) => StellarSdk.xdr.ScVal.fromXDR(t, 'base64'));
 
             if (topics.length === 0) return;
@@ -148,13 +149,13 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
             switch (eventName) {
                 case 'RaffleCreated':
-                    this.handleRaffleCreated(eventXdr);
+                    this.handleRaffleCreated(this.decodeContractEvent(eventResponse));
                     break;
                 case 'DrawTriggered':
-                    this.handleDrawTriggered(eventXdr);
+                    this.handleDrawTriggered(this.decodeContractEvent(eventResponse));
                     break;
                 case 'RandomnessRequested':
-                    this.handleRandomnessRequested(eventXdr, eventResponse.ledger || 0);
+                    await this.handleRandomnessRequested(this.decodeContractEvent(eventResponse), eventResponse);
                     break;
                 default:
                     this.logger.debug(`Unhandled event type: ${eventName}`);
@@ -165,8 +166,20 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    private decodeContractEvent(eventResponse: any): StellarSdk.xdr.ContractEvent {
+        return StellarSdk.xdr.ContractEvent.fromXDR(eventResponse.value, 'base64');
+    }
+
     private handleRaffleCreated(eventXdr: StellarSdk.xdr.ContractEvent) {
         const payload = this.parseEventData(eventXdr);
+        
+        // Version routing for safe failure path
+        const version = payload['version'];
+        if (version !== undefined && version > 1) {
+            this.logger.error(`[RaffleCreated] Unknown event version: ${version}. Safe failure path triggered. Ignoring event.`);
+            return;
+        }
+
         const raffleId = payload['raffle_id'];
         const endTime = payload['end_time'];
 
@@ -183,6 +196,14 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
     private handleDrawTriggered(eventXdr: StellarSdk.xdr.ContractEvent) {
         const payload = this.parseEventData(eventXdr);
+
+        // Version routing for safe failure path
+        const version = payload['version'];
+        if (version !== undefined && version > 1) {
+            this.logger.error(`[DrawTriggered] Unknown event version: ${version}. Safe failure path triggered. Ignoring event.`);
+            return;
+        }
+
         const raffleId = payload['raffle_id'];
         const requestId = payload['request_id'];
 
@@ -197,8 +218,16 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
-    private handleRandomnessRequested(eventXdr: StellarSdk.xdr.ContractEvent, ledger: number) {
+    private async handleRandomnessRequested(eventXdr: StellarSdk.xdr.ContractEvent, eventResponse: any) {
         const payload = this.parseEventData(eventXdr);
+
+        // Version routing for safe failure path
+        const version = payload['version'];
+        if (version !== undefined && version > 1) {
+            this.logger.error(`[RandomnessRequested] Unknown event version: ${version}. Safe failure path triggered. Ignoring event.`);
+            return;
+        }
+
         const raffleId = payload['raffle_id'];
         const requestId = payload['request_id'];
         const prizeAmount = payload['prize_amount'];
@@ -207,25 +236,48 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         if (raffleId !== undefined && requestId !== undefined) {
             const reqIdStr = String(requestId);
             const prizeAmountNum = prizeAmount ? Number(prizeAmount) / 10_000_000 : undefined; // Convert stroops to XLM
-            
-            // Determine priority using the worker's logic
-            const priority = this.randomnessWorker.determinePriority(prizeAmountNum, priorityFlag);
+            const priority = this.determinePriority(prizeAmountNum, priorityFlag);
+            const identity = this.buildDrawRequestIdentity(eventResponse, Number(raffleId), reqIdStr);
+            const replayOverride = this.isReplayOverride(eventResponse);
+
+            if (this.drawRequestLedger) {
+                let claimResult: 'claimed' | 'duplicate' | 'replayed';
+                try {
+                    claimResult = await this.drawRequestLedger.claim(identity, replayOverride);
+                } catch (err: any) {
+                    this.logger.error(
+                        `Failed idempotency check for draw request ${identity.stableRequestId}: ${err.message}`,
+                    );
+                    return;
+                }
+
+                if (claimResult === 'duplicate') {
+                    this.logger.warn(
+                        `[RandomnessRequested] duplicate request skipped: ${identity.stableRequestId}`,
+                    );
+                    return;
+                }
+            }
             
             this.logger.log(
-                `[RandomnessRequested] raffle=${raffleId}, request=${reqIdStr}, prize=${prizeAmountNum} XLM, priority=${priority}`
+                `[RandomnessRequested] raffle=${raffleId}, request=${reqIdStr}, stable=${identity.stableRequestId}, prize=${prizeAmountNum} XLM, priority=${priority}`
             );
             
             // Track in lag monitor for health alerting
-            this.lagMonitor.trackRequest(reqIdStr, raffleId, ledger);
+            this.lagMonitor.trackRequest(reqIdStr, raffleId, identity.ledger);
+
+            const jobPayload: RandomnessJobPayload = {
+                raffleId,
+                requestId: reqIdStr,
+                stableRequestId: identity.stableRequestId,
+                replayOverride,
+                prizeAmount: prizeAmountNum,
+                priority,
+            };
 
             if (this.randomnessQueue) {
                 this.randomnessQueue.add(
-                    {
-                        raffleId,
-                        requestId: reqIdStr,
-                        prizeAmount: prizeAmountNum,
-                        priority,
-                    },
+                    jobPayload,
                     {
                         priority,
                     }
@@ -237,18 +289,84 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 });
             } else {
                 // Fallback for environments without Redis
-                this.randomnessWorker.processRequest({ 
-                    raffleId, 
-                    requestId: reqIdStr,
-                    prizeAmount: prizeAmountNum,
-                    priority,
-                }).catch(err => {
+                this.randomnessWorker.processRequest(jobPayload).catch(err => {
                     this.logger.error(`Direct request processing failed for raffle ${raffleId}: ${err.message}`);
                 });
             }
         } else {
             this.logger.warn(`Could not parse RandomnessRequested payload: ${JSON.stringify(payload)}`);
         }
+    }
+
+    private determinePriority(prizeAmount?: number, priorityFlag?: any): number {
+        if (priorityFlag === true || priorityFlag === 'high' || priorityFlag === 'critical') {
+            return JobPriority.HIGH;
+        }
+
+        if (this.priorityClassifier) {
+            return this.priorityClassifier.classify(prizeAmount).priority;
+        }
+
+        return JobPriority.NORMAL;
+    }
+
+    private buildDrawRequestIdentity(
+        eventResponse: any,
+        raffleId: number,
+        contractRequestId: string,
+    ): DrawRequestIdentity {
+        const ledger = Number(eventResponse.ledger ?? 0);
+        const txHash = String(
+            eventResponse.txHash ??
+            eventResponse.tx_hash ??
+            eventResponse.transactionHash ??
+            eventResponse.transaction_hash ??
+            eventResponse.transaction?.hash ??
+            'unknown',
+        );
+        const eventIndex = this.extractEventIndex(eventResponse);
+        const stableRequestId = [
+            `ledger:${ledger}`,
+            `tx:${txHash}`,
+            `event:${eventIndex}`,
+            `raffle:${raffleId}`,
+        ].join(':');
+
+        return {
+            stableRequestId,
+            ledger,
+            txHash,
+            eventIndex,
+            raffleId,
+            contractRequestId,
+        };
+    }
+
+    private extractEventIndex(eventResponse: any): number {
+        const explicitIndex =
+            eventResponse.eventIndex ??
+            eventResponse.event_index ??
+            eventResponse.index;
+
+        if (explicitIndex !== undefined && explicitIndex !== null) {
+            return Number(explicitIndex);
+        }
+
+        const token = String(eventResponse.id ?? eventResponse.paging_token ?? '');
+        const parts = token.split('-');
+        const lastPart = parts[parts.length - 1];
+        const parsed = Number(lastPart);
+
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    private isReplayOverride(eventResponse: any): boolean {
+        const configReplay = this.configService.get<string>('ORACLE_DRAW_REQUEST_REPLAY', 'false');
+        return (
+            eventResponse.replay === true ||
+            eventResponse.replayOverride === true ||
+            configReplay.toLowerCase() === 'true'
+        );
     }
 
     private parseEventData(eventXdr: StellarSdk.xdr.ContractEvent): Record<string, any> {
@@ -289,7 +407,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         this.logger.error(`Horizon SSE Stream Error: ${err.message || 'Unknown error'}`);
         this.stopListening();
         // Task 4.4: Record failure before scheduling reconnect
-        this.circuitBreaker.recordFailure();
+        this.circuitBreaker?.recordFailure();
         this.scheduleReconnect();
     }
 

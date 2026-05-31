@@ -1,4 +1,7 @@
 import { RandomnessRequest, RandomnessMethod, RandomnessResult, JobPriority } from './queue.types';
+import { JobState } from './job-state.types';
+import { JobStateManager } from './job-state-manager';
+import { RandomnessProcessorService } from './randomness-processor.service';
 import { ContractService } from '../contract/contract.service';
 import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
@@ -23,6 +26,8 @@ export class RandomnessWorker {
   private highPriorityJobStartTimes = new Map<string, number>();
 
   constructor(
+    private readonly stateManager: JobStateManager,
+    private readonly processor: RandomnessProcessorService,
     private readonly contractService: ContractService,
     private readonly vrfService: VrfService,
     private readonly prngService: PrngService,
@@ -51,11 +56,52 @@ export class RandomnessWorker {
       `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}, priority=${priority}`,
     );
     
-    await this.processRequest(job.data);
+    // Use the new processor with state management
+    const result = await this.processor.processRequest(job.data);
+
+    if (!result.success && result.shouldRetry) {
+      // Increment attempt and check if we should dead-letter
+      const shouldDeadLetter = this.stateManager.incrementAttempt(job.data.requestId);
+      
+      if (shouldDeadLetter) {
+        this.stateManager.transitionState(
+          job.data.requestId,
+          JobState.DEAD_LETTERED,
+          `Exhausted ${this.stateManager.getConfig().maxRetries} attempts`,
+          result.error,
+        );
+        this.logger.error(
+          `[DEAD-LETTER] Job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId} ` +
+          `exhausted all retry attempts. Manual intervention required.`,
+        );
+        throw new Error(`Dead-lettered: ${result.error}`);
+      } else {
+        // Calculate backoff and schedule retry
+        const backoffMs = this.stateManager.calculateBackoff(
+          this.stateManager.getJobMetadata(job.data.requestId)?.attemptCount ?? 0,
+        );
+        this.logger.warn(
+          `Job ${job.id} will retry after ${backoffMs}ms backoff (attempt ${this.stateManager.getJobMetadata(job.data.requestId)?.attemptCount})`,
+        );
+        await this.delay(backoffMs);
+        throw new Error(`Retry: ${result.error}`);
+      }
+    } else if (!result.success) {
+      // Non-retriable failure
+      this.logger.error(
+        `[FAILED] Job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId} ` +
+        `failed with non-retriable error: ${result.error}`,
+      );
+      throw new Error(`Failed: ${result.error}`);
+    }
 
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   clearProcessedCache() {
@@ -180,8 +226,8 @@ export class RandomnessWorker {
       }
       const localOracle = this.oracleRegistry.getLocalOracle();
       if (localOracle) {
-        this.multiOracleCoordinator.recordSubmission(
-          raffleId, requestId, localOracleId, localOracle.publicKey, aggregated, result.txHash,
+       this.multiOracleCoordinator.recordSubmission(
+  raffleId, requestId, localOracleId, localOracle.publicKey, aggregated
         );
       }
 

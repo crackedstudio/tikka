@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Horizon } from '@stellar/stellar-sdk';
-import { resolveStellarHorizonUrl } from '../config/stellar.constants';
+import { env } from '../config/env.config';
 import {
   HorizonLedgerData,
   HorizonTransactionRecord,
@@ -12,9 +12,7 @@ export class HorizonClientService {
   private readonly server: Horizon.Server;
 
   constructor(private readonly config: ConfigService) {
-    const horizonUrl = resolveStellarHorizonUrl(
-      process.env as Record<string, string | undefined>,
-    );
+    const horizonUrl = env.stellar.horizonUrl;
     const timeoutMs = this.config.get<number>(
       'BACKFILL_HORIZON_TIMEOUT_MS',
       10_000,
