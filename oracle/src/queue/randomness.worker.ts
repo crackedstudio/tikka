@@ -16,6 +16,7 @@ import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OracleLogFields } from '../logger/oracle-logger';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
@@ -54,6 +55,7 @@ export class RandomnessWorker {
 
     this.logger.log(
       `Processing randomness request job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId}, priority=${priority}`,
+      JSON.stringify({ raffle_id: job.data.raffleId, request_id: job.data.requestId } as OracleLogFields),
     );
     
     // Use the new processor with state management
@@ -141,8 +143,10 @@ export class RandomnessWorker {
       const finalPrizeAmount = raffleData.prizeAmount;
 
       const method = this.determineMethod(finalPrizeAmount);
+      const provider: OracleLogFields['provider'] = method === RandomnessMethod.VRF ? 'vrf' : 'prng';
       this.logger.log(
-        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${method === RandomnessMethod.VRF ? 'vrf' : 'prng'}`,
+        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${provider}`,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, provider } as OracleLogFields),
       );
 
       const randomness = await this.computeRandomness(method, requestId, raffleId);
@@ -156,13 +160,14 @@ export class RandomnessWorker {
 
       this.logger.log(
         `Successfully submitted randomness for raffle ${raffleId}: tx=${result.txHash}, ledger=${result.ledger}`,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, tx_hash: result.txHash, ledger: result.ledger, provider, outcome: 'success' } as OracleLogFields),
       );
       this.healthService.recordSuccess(requestId);
       this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
         `Failed to process randomness request for raffle ${raffleId}: ${error.message}`,
-        error.stack,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, outcome: 'failure' } as OracleLogFields),
       );
       this.healthService.recordFailure(requestId, raffleId, error.message);
       throw error;
@@ -177,7 +182,8 @@ export class RandomnessWorker {
     const threshold = this.oracleRegistry.getThreshold();
 
     this.logger.log(
-      `Multi-oracle mode: raffle=${raffleId}, request=${requestId}, localOracle=${localOracleId}, threshold=${threshold}`
+      `Multi-oracle mode: raffle=${raffleId}, request=${requestId}, localOracle=${localOracleId}, threshold=${threshold}`,
+      JSON.stringify({ raffle_id: raffleId, request_id: requestId, oracle_id: localOracleId } as OracleLogFields),
     );
 
     try {
@@ -191,8 +197,10 @@ export class RandomnessWorker {
       const finalPrizeAmount = raffleData.prizeAmount;
 
       const method = this.determineMethod(finalPrizeAmount);
+      const provider: OracleLogFields['provider'] = method === RandomnessMethod.VRF ? 'vrf' : 'prng';
       this.logger.log(
-        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${method === RandomnessMethod.VRF ? 'vrf' : 'prng'}`,
+        `requestId=${requestId} raffle=${raffleId} prize=${finalPrizeAmount} provider=${provider}`,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, provider, oracle_id: localOracleId } as OracleLogFields),
       );
 
       // Compute local oracle's VRF output
@@ -232,14 +240,15 @@ export class RandomnessWorker {
       }
 
       this.logger.log(
-        `Successfully submitted multi-oracle randomness for raffle ${raffleId}: tx=${result.txHash}, ledger=${result.ledger}`
+        `Successfully submitted multi-oracle randomness for raffle ${raffleId}: tx=${result.txHash}, ledger=${result.ledger}`,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, tx_hash: result.txHash, ledger: result.ledger, provider, oracle_id: localOracleId, outcome: 'success' } as OracleLogFields),
       );
       this.healthService.recordSuccess(requestId);
       this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
         `Failed to process multi-oracle request for raffle ${raffleId}: ${error.message}`,
-        error.stack,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, oracle_id: localOracleId, outcome: 'failure' } as OracleLogFields),
       );
       this.healthService.recordFailure(`${requestId}:${localOracleId}`, raffleId, error.message);
       throw error;
