@@ -116,7 +116,7 @@ export async function getNetwork(): Promise<string | null> {
   }
 }
 
-export async function signTransaction(transaction: any): Promise<any> {
+export async function signTransaction(transaction: any): Promise<WalletSignResult> {
   if (IS_TEST_MODE) {
     return {
       success: true,
@@ -124,8 +124,8 @@ export async function signTransaction(transaction: any): Promise<any> {
     };
   }
 
-  if (!getSelectedWalletId()) throw new Error("No wallet connected");
-  return await getKit().signTransaction(transaction);
+  if (!getSelectedWalletId()) throw new WalletUserRejectedError("No wallet connected");
+  return await getKit().signTransaction(transaction) as WalletSignResult;
 }
 
 export async function isWalletConnected(): Promise<boolean> {
@@ -163,4 +163,27 @@ export async function setNetwork(network: string): Promise<void> {
 // Placeholder for future Kit support
 export async function promptNetworkSwitch(_targetNetwork: string): Promise<void> {
   console.warn("Manual network switch required in the wallet extension.");
+}
+
+// ─── Typed signing result ─────────────────────────────────────────────────────
+
+/** Typed return value of `signTransaction`. */
+export interface WalletSignResult {
+  success: boolean;
+  signedTransaction?: unknown;
+  error?: string;
+}
+
+/**
+ * Thrown (or surfaced as `error` string) by wallet adapters when the user
+ * explicitly dismisses the signing prompt.
+ *
+ * `classifySignError` in `transactionPipeline.ts` maps any error whose message
+ * matches this sentinel's keywords to `PipelineError { code: "USER_REJECTED" }`.
+ */
+export class WalletUserRejectedError extends Error {
+  constructor(message = "User rejected the transaction.") {
+    super(message);
+    this.name = "WalletUserRejectedError";
+  }
 }

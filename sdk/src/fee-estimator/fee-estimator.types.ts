@@ -1,5 +1,75 @@
 import { ContractFnName } from '../contract/bindings';
 
+// ─── Fee Quote API ────────────────────────────────────────────────────────────
+
+/**
+ * How the fee estimate was derived.
+ * - `simulation` — live `simulateTransaction` RPC call (most accurate)
+ * - `fallback`   — static heuristic used when simulation is unavailable
+ */
+export type FeeQuoteSource = 'simulation' | 'fallback';
+
+/**
+ * Confidence level of the fee estimate.
+ * - `high`   — live simulation succeeded; safe to present to the user
+ * - `medium` — simulation data is stale (past `staleAfterMs`) but usable
+ * - `low`    — fallback estimate; actual fee may differ significantly
+ */
+export type FeeQuoteConfidence = 'high' | 'medium' | 'low';
+
+/**
+ * User-visible warnings attached to a fee quote.
+ * Consumers should surface at least the `message` in their UI.
+ */
+export interface FeeQuoteWarning {
+  /** Machine-readable code for programmatic handling */
+  code: 'STALE_QUOTE' | 'FALLBACK_ESTIMATE' | 'MAX_FEE_EXCEEDED' | 'SIMULATION_ERROR';
+  /** Human-readable explanation */
+  message: string;
+}
+
+/**
+ * A reusable, typed fee quote returned by `FeeEstimatorService.getFeeQuote()`.
+ *
+ * Carries everything a signing flow needs:
+ * - The estimated amounts (`xlm`, `stroops`)
+ * - Where the estimate came from (`source`)
+ * - How reliable it is (`confidence`)
+ * - When it expires (`expiresAt`) — re-fetch if `Date.now() > expiresAt`
+ * - Any caveats the UI should surface (`warnings`)
+ * - The full resource breakdown for power-user UIs (`resources`)
+ */
+export interface FeeQuote {
+  /** Estimated total fee in human-readable XLM (7 decimal places) */
+  xlm: string;
+  /** Estimated total fee in stroops (string to avoid overflow) */
+  stroops: string;
+  /** Timestamp (ms since epoch) when this quote should be considered stale */
+  expiresAt: number;
+  /** How the estimate was derived */
+  source: FeeQuoteSource;
+  /** Reliability of this estimate */
+  confidence: FeeQuoteConfidence;
+  /** Warnings the UI should surface (empty when confidence is high) */
+  warnings: FeeQuoteWarning[];
+  /** Detailed per-component resource breakdown */
+  resources: FeeResourceBreakdown;
+}
+
+/** Options accepted by `FeeEstimatorService.getFeeQuote()`. */
+export interface GetFeeQuoteParams extends EstimateFeeParams {
+  /**
+   * Hard ceiling in stroops. If the estimated fee exceeds this value a
+   * `MAX_FEE_EXCEEDED` warning is added and confidence is downgraded to `low`.
+   */
+  maxFeeStroops?: string;
+  /**
+   * How long (ms) a simulation-derived quote remains `high`-confidence.
+   * Defaults to 30 000 ms (30 s).
+   */
+  staleAfterMs?: number;
+}
+
 /**
  * Detailed breakdown of the fee components returned by `estimateFee()`.
  *
