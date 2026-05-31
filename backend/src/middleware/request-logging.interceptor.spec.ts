@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { lastValueFrom, of } from 'rxjs';
 import { RequestLoggingInterceptor, redact } from './request-logging.interceptor';
+import { REQUEST_ID_HEADER } from './request-id.middleware';
+import * as Sentry from '@sentry/node';
 
 function createExecutionContext(
   request: Record<string, unknown>,
@@ -84,6 +86,53 @@ describe('RequestLoggingInterceptor', () => {
     await expect(lastValueFrom(interceptor.intercept(context, next))).resolves.toBe('ok');
 
     expect(logSpy).toHaveBeenCalledWith('GET /health 200 15ms', expect.any(Object));
+  });
+
+  it('includes request ID in logs when present', async () => {
+    const interceptor = new RequestLoggingInterceptor();
+    const requestId = 'test-request-id-123';
+    const context = createExecutionContext(
+      { 
+        method: 'GET', 
+        url: '/health',
+        headers: { [REQUEST_ID_HEADER]: requestId }
+      },
+      { statusCode: 200 },
+    );
+    const next: CallHandler = { handle: () => of('ok') };
+
+    jest.spyOn(Date, 'now').mockReturnValueOnce(100).mockReturnValueOnce(115);
+    const logSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    await lastValueFrom(interceptor.intercept(context, next));
+
+    const [message, meta] = logSpy.mock.calls.at(-1) ?? [];
+    expect(message).toBe('GET /health 200 15ms');
+    expect((meta as Record<string, unknown>).requestId).toBe(requestId);
+  });
+
+  it('sets Sentry context with request ID', async () => {
+    const interceptor = new RequestLoggingInterceptor();
+    const requestId = 'sentry-test-id-456';
+    const context = createExecutionContext(
+      { 
+        method: 'POST', 
+        url: '/api/test',
+        headers: { [REQUEST_ID_HEADER]: requestId }
+      },
+      { statusCode: 201 },
+    );
+    const next: CallHandler = { handle: () => of('created') };
+
+    const setTagSpy = jest.spyOn(Sentry, 'setTag').mockImplementation(() => {});
+    const setContextSpy = jest.spyOn(Sentry, 'setContext').mockImplementation(() => {});
+
+    await lastValueFrom(interceptor.intercept(context, next));
+
+    expect(setTagSpy).toHaveBeenCalledWith('requestId', requestId);
+    expect(setContextSpy).toHaveBeenCalledWith('request', { id: requestId });
   });
 
   it('does not log sensitive request data', async () => {

@@ -1,9 +1,14 @@
-import { Injectable, Optional, EventEmitter } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { EventEmitter } from 'events';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
 import { CursorManagerService } from '../ingestor/cursor-manager.service';
 import { DlqService } from '../ingestor/dlq.service';
+import {
+  PipelineStateMachine,
+  PipelineStateSnapshot,
+} from '../ingestor/pipeline-state';
 
 export const LAG_THRESHOLD_DEFAULT = 100;
 export const LAG_ALERT_THRESHOLD_DEFAULT = 50;
@@ -19,6 +24,7 @@ export interface HealthResult {
   cursor: 'ok' | 'error';
   dlq_size: number;
   dlqPressure: 'ok' | 'high';
+  pipeline?: PipelineStateSnapshot | null;
 }
 
 @Injectable()
@@ -36,6 +42,7 @@ export class HealthService {
     private readonly cacheService: CacheService,
     private readonly cursorManagerService: CursorManagerService,
     @Optional() private readonly dlqService?: DlqService,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {
     this.horizonUrl = this.configService.get<string>(
       'HORIZON_URL',
@@ -113,6 +120,25 @@ export class HealthService {
       dlq_size, 
       dlqPressure,
     };
+      db === 'error' || redis === 'error' || degradedByLag ? 'degraded' : 'ok';
+
+    const pipeline = this.pipeline ? this.pipeline.snapshot() : null;
+
+    return {
+      status,
+      lag_ledgers,
+      lagStatus,
+      db,
+      redis,
+      redis_latency_ms: redisLatency,
+      dlq_size,
+      pipeline,
+    };
+  }
+
+  /** Returns the current pipeline state snapshot, or null when unavailable. */
+  getPipelineState(): PipelineStateSnapshot | null {
+    return this.pipeline ? this.pipeline.snapshot() : null;
   }
 
   private async checkDb(): Promise<boolean> {

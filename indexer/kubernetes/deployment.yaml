@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tikka-indexer
+  namespace: tikka
   labels:
     app: tikka-indexer
 spec:
@@ -14,6 +15,11 @@ spec:
       labels:
         app: tikka-indexer
     spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: tikka-indexer
           image: ghcr.io/crackedstudio/tikka-indexer:latest
@@ -56,3 +62,9 @@ spec:
             failureThreshold: 3
             timeoutSeconds: 5
       terminationGracePeriodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
