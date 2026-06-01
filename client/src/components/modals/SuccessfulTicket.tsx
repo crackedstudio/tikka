@@ -1,22 +1,52 @@
-import { X, Check } from "lucide-react";
+/**
+ * SuccessfulTicket.tsx
+ *
+ * Ticket-purchase success modal.
+ * Now accepts `TransactionModalState` (phase "confirmed") so the parent can
+ * hand the same state object to whichever modal is currently mounted, while
+ * the copy here stays ticket-purchase specific.
+ */
 
-interface SuccessfulTicketProps {
+import { X, Check } from "lucide-react";
+import type { ConfirmedState } from "./transactionModalState";
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+export interface SuccessfulTicketProps {
     onClose?: () => void;
     onContinue?: () => void;
     raffleName?: string;
     isVisible?: boolean;
+    /**
+     * Optional confirmed state from the shared model.
+     * When provided the component can display the reference ID / network.
+     */
+    modalState?: ConfirmedState;
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 const SuccessfulTicket = ({
     onClose,
     onContinue,
     raffleName = "Bali All Sponsored Ticket",
     isVisible = true,
+    modalState,
 }: SuccessfulTicketProps) => {
     if (!isVisible) return null;
 
+    const referenceId = modalState?.referenceId;
+    const network = modalState?.network;
+
     return (
-        <div data-testid="success-modal" className="w-full max-w-[500px] mx-auto px-4 sm:px-6">
+        <div
+            data-testid="success-modal"
+            className="w-full max-w-[500px] mx-auto px-4 sm:px-6"
+        >
             {/* Close Button */}
             {onClose && (
                 <div className="flex justify-end mb-4 sm:mb-6">
@@ -39,8 +69,11 @@ const SuccessfulTicket = ({
 
             {/* Main Heading */}
             <div className="text-center mb-4 sm:mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-                    Let's go!!!
+                <h2
+                    id="modal-title"
+                    className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4"
+                >
+                    Let&apos;s go!!!
                 </h2>
                 <p className="text-gray-900 dark:text-white text-xs sm:text-sm leading-relaxed px-2">
                     Your tickets purchase for{" "}
@@ -48,6 +81,40 @@ const SuccessfulTicket = ({
                     successful.
                 </p>
             </div>
+
+            {/* Optional on-chain details */}
+            {(referenceId || network) && (
+                <div className="bg-[#090E1F] rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
+                    <div className="space-y-3">
+                        {referenceId && (
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-xs sm:text-sm">
+                                    Tx Hash:
+                                </span>
+                                <span className="text-gray-900 dark:text-white font-mono text-xs truncate ml-2 max-w-[160px]">
+                                    {referenceId}
+                                </span>
+                            </div>
+                        )}
+                        {referenceId && network && (
+                            <div className="border-t border-gray-200 dark:border-[#1F263F]" />
+                        )}
+                        {network && (
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-xs sm:text-sm">
+                                    Network:
+                                </span>
+                                <div className="flex items-center space-x-1 sm:space-x-2">
+                                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full" />
+                                    <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
+                                        {network}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Continue Button */}
             <div className="w-full">
