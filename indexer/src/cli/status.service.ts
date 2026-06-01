@@ -12,12 +12,24 @@ export interface DbPoolStats {
   waiting: number;
 }
 
+export interface CheckpointInfo {
+  sequence: number;
+  ledger_hash: string;
+  processed_event_count: number;
+  saved_at: string;
+  version: number;
+}
+
 export interface StatusResult {
   timestamp: string;
   indexer: {
     current_ledger: number;
     horizon_ledger: number | null;
     lag_ledgers: number | null;
+    /** Ingestor operational mode (RUNNING | DEGRADED | STOPPED). null if unknown. */
+    mode: 'RUNNING' | 'DEGRADED' | 'STOPPED' | null;
+    /** Last persisted checkpoint details. null if no checkpoint exists. */
+    checkpoint: CheckpointInfo | null;
   };
   events: {
     total_processed: number;
@@ -86,17 +98,32 @@ export async function fetchStatus(): Promise<StatusResult> {
   let last24hEvents = 0;
   let lastProcessedAt: string | null = null;
   let pool: DbPoolStats | null = null;
-  let dlqTotal = 0;
+  let checkpoint: CheckpointInfo | null = null;
 
   try {
     await ds.initialize();
     dbStatus = 'ok';
 
-    // Last processed ledger from the cursor singleton row
+    // Last processed ledger + checkpoint details from the cursor singleton row
     const cursorRow = await ds
       .getRepository(IndexerCursorEntity)
       .findOne({ where: { id: 1 } });
     currentLedger = cursorRow?.lastLedger ?? 0;
+
+    if (cursorRow && cursorRow.lastLedger > 0) {
+      const hashes = cursorRow.ledgerHashes ?? [];
+      const lastHash = hashes[hashes.length - 1]?.hash ?? '';
+      checkpoint = {
+        sequence: cursorRow.lastLedger,
+        ledger_hash: lastHash,
+        processed_event_count: Number(cursorRow.processedEventCount),
+        saved_at:
+          cursorRow.savedAt instanceof Date
+            ? cursorRow.savedAt.toISOString()
+            : String(cursorRow.savedAt),
+        version: cursorRow.checkpointVersion,
+      };
+    }
 
     // Event counts
     const eventRepo = ds.getRepository(RaffleEventEntity);
@@ -180,6 +207,10 @@ export async function fetchStatus(): Promise<StatusResult> {
       current_ledger: currentLedger,
       horizon_ledger: horizonLedger,
       lag_ledgers: lagLedgers,
+      // mode is runtime state held in-memory by CursorManagerService;
+      // the CLI reads the DB directly so we cannot know the live mode here.
+      mode: null,
+      checkpoint,
     },
     events: {
       total_processed: totalEvents,
