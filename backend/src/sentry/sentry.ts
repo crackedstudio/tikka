@@ -37,8 +37,30 @@ export function buildSentryOptions(envInput: {
     dsn,
     environment: envInput.NODE_ENV ?? 'development',
     tracesSampleRate,
-    integrations: [nodeProfilingIntegration()],
+    sendDefaultPii: false,
+    integrations: [nodeProfilingIntegration() as any],
     profilesSampleRate: 1.0,
+    /**
+     * Strip sensitive data from every event before it leaves the process.
+     * This is a defence-in-depth measure on top of per-scope redaction.
+     */
+    beforeSend(event) {
+      // Redact request headers
+      if (event.request?.headers) {
+        event.request.headers = redactSensitive(event.request.headers) as Record<string, string>;
+      }
+      // Drop request body entirely — may contain signatures, tokens, or PII
+      if (event.request) {
+        delete event.request.data;
+      }
+      // Redact query string params
+      if (event.request?.query_string) {
+        event.request.query_string = redactSensitive(event.request.query_string) as
+          | string
+          | Record<string, string>;
+      }
+      return event;
+    },
   };
 }
 
@@ -59,6 +81,49 @@ export function initSentry(logger: Logger): void {
   Sentry.init(options);
   logger.log(`Sentry initialized (env=${options.environment})`);
 }
+
+// ---------------------------------------------------------------------------
+// Per-request context
+// ---------------------------------------------------------------------------
+
+export interface RequestSentryContext {
+  /** Unique request identifier (e.g. from x-request-id header or generated). */
+  requestId?: string | null;
+  /** Matched route pattern, e.g. /raffles/:id */
+  route?: string | null;
+  /** HTTP status code of the response. */
+  statusCode?: number | null;
+  /** Raw wallet address — will be hashed before attaching. */
+  walletAddress?: string | null;
+}
+
+/**
+ * Attach safe request metadata to the current Sentry scope.
+ * Call this inside an interceptor or filter that has access to the request/response.
+ *
+ * - requestId, route, and statusCode are attached as tags for easy filtering.
+ * - walletAddress is one-way hashed (SHA-256, first 16 hex chars) before attaching.
+ *   The raw address is never sent to Sentry.
+ */
+export function setSentryRequestContext(scope: Sentry.Scope, ctx: RequestSentryContext): void {
+  if (ctx.requestId) {
+    scope.setTag('request_id', ctx.requestId);
+  }
+  if (ctx.route) {
+    scope.setTag('route', ctx.route);
+  }
+  if (ctx.statusCode != null) {
+    scope.setTag('http.status_code', String(ctx.statusCode));
+  }
+  const walletHash = hashWallet(ctx.walletAddress);
+  if (walletHash) {
+    scope.setTag('wallet_hash', walletHash);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ingestion error capture
+// ---------------------------------------------------------------------------
 
 /**
  * Capture an ingestion error with structured tags and context.
