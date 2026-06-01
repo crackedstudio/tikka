@@ -38,7 +38,7 @@ export class JobStateManager {
   /**
    * Initialize a new job in the queued state.
    */
-  initializeJob(requestId: string, raffleId: number): JobMetadata {
+  function initializeJob(requestId: string, raffleId: number): JobMetadata {
     const now = Date.now();
     const metadata: JobMetadata = {
       requestId,
@@ -65,7 +65,7 @@ export class JobStateManager {
   /**
    * Transition a job to a new state with validation.
    */
-  transitionState(
+  function transitionState(
     requestId: string,
     toState: JobState,
     reason?: string,
@@ -124,7 +124,7 @@ export class JobStateManager {
   /**
    * Increment attempt count and check if job should be dead-lettered.
    */
-  incrementAttempt(requestId: string): boolean {
+  function incrementAttempt(requestId: string): boolean {
     const metadata = this.jobMetadata.get(requestId);
     if (!metadata) {
       return false;
@@ -147,14 +147,14 @@ export class JobStateManager {
   /**
    * Check if a job can acquire a processing slot based on concurrency limits.
    */
-  canAcquireProcessingSlot(): boolean {
+  function canAcquireProcessingSlot(): boolean {
     return this.activeProcessingCount < this.config.maxConcurrency;
   }
 
   /**
    * Calculate exponential backoff delay for retry.
    */
-  calculateBackoff(attemptCount: number): number {
+  function calculateBackoff(attemptCount: number): number {
     if (attemptCount <= 0) {
       return 0;
     }
@@ -168,7 +168,7 @@ export class JobStateManager {
   /**
    * Record transaction hash and ledger for a job.
    */
-  recordTransactionResult(requestId: string, txHash: string, ledger: number): void {
+  function recordTransactionResult(requestId: string, txHash: string, ledger: number): void {
     const metadata = this.jobMetadata.get(requestId);
     if (metadata) {
       metadata.txHash = txHash;
@@ -180,14 +180,14 @@ export class JobStateManager {
   /**
    * Get job metadata by request ID.
    */
-  getJobMetadata(requestId: string): JobMetadata | undefined {
+  function getJobMetadata(requestId: string): JobMetadata | undefined {
     return this.jobMetadata.get(requestId);
   }
 
   /**
    * Get all jobs in a specific state.
    */
-  getJobsByState(state: JobState): JobMetadata[] {
+  function getJobsByState(state: JobState): JobMetadata[] {
     return Array.from(this.jobMetadata.values()).filter(
       (metadata) => metadata.currentState === state,
     );
@@ -196,14 +196,14 @@ export class JobStateManager {
   /**
    * Get queue configuration.
    */
-  getConfig(): QueueConfig {
+  function getConfig(): QueueConfig {
     return { ...this.config };
   }
 
   /**
    * Get comprehensive queue metrics for operator visibility.
    */
-  getMetrics(): QueueMetrics {
+  function getMetrics(): QueueMetrics {
     const jobs = Array.from(this.jobMetadata.values());
 
     const queuedCount = jobs.filter((j) => j.currentState === JobState.QUEUED).length;
@@ -235,7 +235,7 @@ export class JobStateManager {
   /**
    * Clean up completed or terminal jobs older than retention period.
    */
-  cleanupOldJobs(retentionMs: number = 3600000): number {
+  function cleanupOldJobs(retentionMs: number = 3600000): number {
     const now = Date.now();
     let cleaned = 0;
 
@@ -297,14 +297,14 @@ export class JobStateManager {
   /**
    * Get active processing count for monitoring.
    */
-  getActiveProcessingCount(): number {
+  function getActiveProcessingCount(): number {
     return this.activeProcessingCount;
   }
 
   /**
    * Reset all state (for testing purposes).
    */
-  reset(): void {
+  function reset(): void {
     this.jobMetadata.clear();
     this.activeProcessingCount = 0;
     this.logger.log('JobStateManager reset');

@@ -11,9 +11,6 @@ import {
   HttpStatus,
   UsePipes,
   NotFoundException,
-  Query,
-  ParseIntPipe as ParseIntPipeDecorator,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
@@ -127,20 +124,5 @@ export class NotificationsController {
     @CurrentUser('address') userAddress: string,
   ) {
     await this.notificationsService.unregisterDeviceToken(userAddress, dto.deviceToken);
-  }
-
-  /**
-   * GET /notifications/delivery-stats — Get delivery statistics (admin only)
-   * Requires JWT (SIWS) with admin role
-   */
-  @Get('delivery-stats')
-  @ApiOperation({ summary: 'Get push notification delivery statistics (admin only)' })
-  @ApiResponse({ status: 200, description: 'Delivery statistics' })
-  async getDeliveryStats(
-    @Query('hoursBack', new ParseIntPipe({ optional: true })) hoursBack?: number,
-  ) {
-    // TODO: Add admin role check here
-    // For now, this endpoint is accessible to authenticated users
-    return this.notificationsService.getDeliveryStats(hoursBack);
   }
 }

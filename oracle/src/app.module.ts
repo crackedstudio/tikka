@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { OracleConfigModule } from './config';
+import { ConfigModule } from '@nestjs/config';
 import { QueueModule } from './queue/queue.module';
 import { HealthModule } from './health/health.module';
 import { SubscriberModule } from './subscriber/subscriber.module';
@@ -12,7 +12,7 @@ import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
-    OracleConfigModule.forRoot(),
+    ConfigModule.forRoot({ isGlobal: true }),
     KeysModule,
     QueueModule,
     HealthModule,

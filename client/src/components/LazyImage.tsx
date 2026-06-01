@@ -6,32 +6,27 @@
  * - Blur-up placeholder effect
  * - Async decoding
  * - Fixed aspect ratio to prevent layout shift
- * - Deterministic fallback for load failures
+ * - Fallback for browsers without lazy loading support
  */
 
-import React, { useState, useRef, useEffect } from "react";
-import { generateBlurPlaceholder } from "../utils/imageOptimization";
+import React, { useState, useRef, useEffect } from 'react';
+import { generateBlurPlaceholder } from '../utils/imageOptimization';
 
-type LoadHandler = (event: React.SyntheticEvent<HTMLImageElement, Event>) => void;
-type ErrorHandler = (event: React.SyntheticEvent<HTMLImageElement, Event>) => void;
-
-interface LazyImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src" | "alt" | "onLoad" | "onError" | "onClick"> {
+interface LazyImageProps {
   src: string;
   alt: string;
   className?: string;
   containerClassName?: string;
   /** Aspect ratio as width/height (e.g., 16/9, 1/1) */
-  aspectRatio?: number | string;
+  aspectRatio?: number;
   /** Whether to use blur-up effect */
   blurUp?: boolean;
   /** Callback when image finishes loading */
-  onLoad?: LoadHandler;
+  onLoad?: () => void;
   /** Callback on load error */
-  onError?: ErrorHandler;
+  onError?: () => void;
   /** Intersection observer options for lazy loading */
   observerOptions?: IntersectionObserverInit;
-  /** Click handler */
-  onClick?: () => void;
 }
 
 const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
@@ -39,28 +34,26 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
     {
       src,
       alt,
-      className = "w-full h-full object-cover",
-      containerClassName = "",
+      className = 'w-full h-full object-cover',
+      containerClassName = '',
       aspectRatio,
       blurUp = true,
       onLoad,
       onError,
-      onClick,
-      observerOptions = { rootMargin: "50px" },
-      ...rest
+      observerOptions = { rootMargin: '50px' },
     },
-    ref,
+    ref
   ) => {
-    const [imageSrc, setImageSrc] = useState<string>(
-      blurUp ? generateBlurPlaceholder() : src,
-    );
+    const [imageSrc, setImageSrc] = useState<string>(blurUp ? generateBlurPlaceholder() : src);
     const [isLoaded, setIsLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
+    // Merge refs
     useEffect(() => {
       if (ref) {
-        if (typeof ref === "function") {
+        if (typeof ref === 'function') {
           ref(imgRef.current);
         } else {
           ref.current = imgRef.current;
@@ -68,13 +61,13 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
       }
     }, [ref]);
 
+    // Set up intersection observer for lazy loading
     useEffect(() => {
-      if (hasError) return;
       const img = imgRef.current;
       if (!img) return;
 
       // Check if browser supports IntersectionObserver
-      if (typeof window === "undefined" || !("IntersectionObserver" in window)) {
+      if (!('IntersectionObserver' in window)) {
         // Fallback: load immediately
         setImageSrc(src);
         return;
@@ -94,73 +87,49 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
       return () => {
         observer.disconnect();
       };
-    }, [src, observerOptions, hasError]);
+    }, [src, observerOptions]);
 
-    useEffect(() => {
-      if (blurUp) {
-        setImageSrc(generateBlurPlaceholder());
-      } else {
-        setImageSrc(src);
-      }
-      setIsLoaded(false);
-      setHasError(false);
-    }, [src, blurUp]);
-
-    const handleLoad = (event: React.SyntheticEvent<HTMLImageElement, Event>) => {
-      const currentSrc = event.currentTarget.currentSrc || event.currentTarget.src;
-      if (currentSrc.startsWith("data:")) {
-        return;
-      }
-
+    const handleLoad = () => {
       setIsLoaded(true);
-      onLoad?.(event);
+      onLoad?.();
     };
 
-    const handleError = (event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const handleError = () => {
       setHasError(true);
-      onError?.(event);
+      onError?.();
     };
 
     const containerStyle: React.CSSProperties = {};
-    if (aspectRatio !== undefined) {
-      containerStyle.aspectRatio = aspectRatio;
+    if (aspectRatio) {
+      containerStyle.aspectRatio = `${aspectRatio}`;
     }
 
     return (
       <div
-        data-testid="lazyimage-container"
+        ref={containerRef}
         className={`overflow-hidden bg-gray-200 dark:bg-gray-700 ${containerClassName}`}
         style={containerStyle}
-        onClick={onClick}
       >
-        {!hasError ? (
-          <img
-            data-testid="lazyimage-img"
-            ref={imgRef}
-            src={imageSrc}
-            alt={alt}
-            className={`${className} ${isLoaded ? "opacity-100" : "opacity-75"} transition-opacity duration-300`}
-            loading="lazy"
-            decoding="async"
-            onLoad={handleLoad}
-            onError={handleError}
-            {...rest}
-          />
-        ) : (
-          <div
-            data-testid="lazyimage-fallback"
-            className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-sm"
-            role="img"
-            aria-label={alt}
-          >
-            Image unavailable
+        <img
+          ref={imgRef}
+          src={imageSrc}
+          alt={alt}
+          className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-75'} transition-opacity duration-300`}
+          loading="lazy"
+          decoding="async"
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+        {hasError && (
+          <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-sm">
+            Failed to load image
           </div>
         )}
       </div>
     );
-  },
+  }
 );
 
-LazyImage.displayName = "LazyImage";
+LazyImage.displayName = 'LazyImage';
 
 export default LazyImage;

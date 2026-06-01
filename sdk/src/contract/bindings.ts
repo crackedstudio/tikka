@@ -2,8 +2,14 @@
  * Soroban contract bindings — typed wrappers that map SDK calls
  * to Soroban contract function names and argument shapes.
  *
- * Regeneration workflow, version metadata, and compatibility tests:
- * see README.md in this directory.
+ * If the contract ABI changes, regenerate with:
+ *   stellar contract bindings typescript \
+ *     --network testnet \
+ *     --contract-id <CONTRACT_ID> \
+ *     --output-dir ./src/contract/generated
+ *
+ * Until auto-generation is wired up, these hand-written bindings
+ * serve as the canonical reference.
  */
 
 /** Contract function names — must exactly match the Rust `pub fn` names. */

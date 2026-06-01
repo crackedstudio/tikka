@@ -95,8 +95,6 @@ const envSchemaInner = z
 
     // Admin dashboard
     ADMIN_TOKEN: z.string().min(1),
-    ADMIN_MONITOR_TOKEN: z.string().min(1).optional(),
-    ADMIN_REPLAY_TOKEN: z.string().min(1).optional(),
     ADMIN_IP_ALLOWLIST: z.string().default(''),
 
     // Push notifications (FCM)

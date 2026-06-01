@@ -10,8 +10,6 @@ import { HealthService } from '../src/health/health.service';
 describe('Health (e2e)', () => {
   let app: NestFastifyApplication;
   const mockHealthService = {
-    getLiveness: jest.fn(),
-    getReadiness: jest.fn(),
     getHealth: jest.fn(),
   };
 
@@ -34,56 +32,11 @@ describe('Health (e2e)', () => {
     await app.close();
   });
 
-  it('GET /health/live returns 200', () => {
-    mockHealthService.getLiveness.mockReturnValueOnce({
-      status: 'ok',
-      uptimeMs: 100,
-      timestamp: new Date().toISOString(),
-    });
-
-    return request(app.getHttpServer())
-      .get('/health/live')
-      .expect(200)
-      .expect((res) => {
-        expect(res.body.status).toBe('ok');
-      });
-  });
-
-  it('GET /health/ready returns 200 when ready', () => {
-    mockHealthService.getReadiness.mockResolvedValueOnce({
-      status: 'ready',
-      checks: {},
-      timestamp: new Date().toISOString(),
-    });
-
-    return request(app.getHttpServer())
-      .get('/health/ready')
-      .expect(200)
-      .expect((res) => {
-        expect(res.body.status).toBe('ready');
-      });
-  });
-
-  it('GET /health/ready returns 503 when not ready', () => {
-    mockHealthService.getReadiness.mockResolvedValueOnce({
-      status: 'not_ready',
-      checks: { redis: { status: 'error' } },
-      timestamp: new Date().toISOString(),
-    });
-
-    return request(app.getHttpServer())
-      .get('/health/ready')
-      .expect(503)
-      .expect((res) => {
-        expect(res.body.status).toBe('not_ready');
-      });
-  });
-
   it('GET /health returns 200 when ok', () => {
     mockHealthService.getHealth.mockResolvedValueOnce({
       status: 'ok',
-      dependencies: {},
-      pushDelivery: {},
+      indexer: 'ok',
+      supabase: 'ok',
       timestamp: new Date().toISOString(),
     });
 
@@ -92,14 +45,17 @@ describe('Health (e2e)', () => {
       .expect(200)
       .expect((res) => {
         expect(res.body.status).toBe('ok');
+        expect(res.body.indexer).toBe('ok');
+        expect(res.body.supabase).toBe('ok');
+        expect(res.body.timestamp).toBeDefined();
       });
   });
 
-  it('GET /health returns 503 when unhealthy', () => {
+  it('GET /health returns 503 when degraded', () => {
     mockHealthService.getHealth.mockResolvedValueOnce({
-      status: 'unhealthy',
-      dependencies: { redis: { status: 'error' } },
-      pushDelivery: {},
+      status: 'degraded',
+      indexer: 'error',
+      supabase: 'ok',
       timestamp: new Date().toISOString(),
     });
 
@@ -107,7 +63,8 @@ describe('Health (e2e)', () => {
       .get('/health')
       .expect(503)
       .expect((res) => {
-        expect(res.body.status).toBe('unhealthy');
+        expect(res.body.status).toBe('degraded');
+        expect(res.body.indexer).toBe('error');
       });
   });
 });

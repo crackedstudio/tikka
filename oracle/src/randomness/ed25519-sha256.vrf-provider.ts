@@ -2,14 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import { KeyService } from '../keys/key.service';
 import { IVrfProvider, VrfAlgorithm } from './vrf.interface';
-import {
-  IRandomnessProvider,
-  RandomnessProviderType,
-  RandomnessProviderMetadata,
-  RandomnessRequestInput,
-  RandomnessResponse,
-  VerificationResult,
-} from './randomness-provider.interface';
 import { ed25519 } from '@noble/curves/ed25519';
 import * as crypto from 'crypto';
 
@@ -24,18 +16,16 @@ import * as crypto from 'crypto';
  *
  * Adding a new algorithm
  * ----------------------
- * 1. Create a class that implements `IRandomnessProvider` in this directory.
- * 2. Add a new value to `RandomnessProviderType` in `randomness-provider.interface.ts`.
- * 3. Register the provider in the randomness service factory.
+ * 1. Create a class that implements `IVrfProvider` in this directory.
+ * 2. Add a new value to `VrfAlgorithm` in `vrf.interface.ts`.
+ * 3. Register the provider in `VrfService.getProvider()`.
  */
 @Injectable()
-export class Ed25519Sha256VrfProvider implements IVrfProvider, IRandomnessProvider {
+export class Ed25519Sha256VrfProvider implements IVrfProvider {
   readonly algorithm = VrfAlgorithm.Ed25519Sha256;
   private readonly logger = new Logger(Ed25519Sha256VrfProvider.name);
 
   constructor(private readonly keyService: KeyService) {}
-
-  // ── IVrfProvider implementation (legacy interface) ──────────────────────
 
   async compute(requestId: string, raffleId?: number): Promise<RandomnessResult> {
     const msg = this.encodeInput(requestId, raffleId);
@@ -53,89 +43,26 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider, IRandomnessProvid
     proof: string,
     raffleId?: number,
   ): { valid: boolean; seed?: string } {
-    const result = this.verifyProofInternal(publicKey, requestId, proof, raffleId);
-    return { valid: result.valid, seed: result.seed };
-  }
-
-  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string, raffleId?: number): boolean {
-    return this.verifyInternal(publicKey, requestId, proof, seed, raffleId);
-  }
-
-  // ── IRandomnessProvider implementation ──────────────────────────────────
-
-  getMetadata(): RandomnessProviderMetadata {
-    return {
-      type: RandomnessProviderType.VRF,
-      algorithm: this.algorithm,
-      description: 'Ed25519-SHA-256 Verifiable Random Function',
-      isVerifiable: true,
-    };
-  }
-
-  validateRequest(input: RandomnessRequestInput): boolean {
-    if (!input.requestId || typeof input.requestId !== 'string') {
-      this.logger.warn('Invalid request: requestId is required and must be a string');
-      return false;
-    }
-    if (input.raffleId !== undefined && (!Number.isInteger(input.raffleId) || input.raffleId < 0)) {
-      this.logger.warn('Invalid request: raffleId must be a non-negative integer');
-      return false;
-    }
-    return true;
-  }
-
-  async generate(input: RandomnessRequestInput): Promise<RandomnessResponse> {
-    if (!this.validateRequest(input)) {
-      throw new Error('Invalid randomness request input');
-    }
-
-    const result = await this.compute(input.requestId, input.raffleId);
-    return {
-      ...result,
-      provider: RandomnessProviderType.VRF,
-      algorithm: this.algorithm,
-      generatedAt: new Date(),
-    };
-  }
-
-  // ── Internal verification methods ───────────────────────────────────────
-
-  private verifyProofInternal(
-    publicKey: string | Buffer | null,
-    requestId: string,
-    proof: string,
-    raffleId?: number,
-  ): VerificationResult {
-    if (!publicKey) {
-      return { valid: false, error: 'Public key is required for VRF verification' };
-    }
-
     try {
       const pubKeyBuf = typeof publicKey === 'string' ? Buffer.from(publicKey, 'hex') : publicKey;
       const proofBuf = Buffer.from(proof, 'hex');
       const msgBuf = this.encodeInput(requestId, raffleId);
 
       if (!ed25519.verify(proofBuf, msgBuf, pubKeyBuf)) {
-        return { valid: false, error: 'Proof signature verification failed' };
+        return { valid: false };
       }
 
       const seed = crypto.createHash('sha256').update(proofBuf).digest('hex');
       return { valid: true, seed };
     } catch (error: any) {
       this.logger.error(`VRF proof verification failed: ${error.message}`);
-      return { valid: false, error: error.message };
+      return { valid: false };
     }
   }
 
-  private verifyInternal(
-    publicKey: string | Buffer | null,
-    requestId: string,
-    proof: string,
-    seed: string,
-    raffleId?: number,
-  ): boolean {
+  verify(publicKey: string | Buffer, requestId: string, proof: string, seed: string, raffleId?: number): boolean {
     try {
-      const proofVerification = this.verifyProofInternal(publicKey, requestId, proof, raffleId);
+      const proofVerification = this.verifyProof(publicKey, requestId, proof, raffleId);
       if (!proofVerification.valid || !proofVerification.seed) return false;
 
       const seedBuf = Buffer.from(seed, 'hex');
@@ -146,8 +73,6 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider, IRandomnessProvid
       return false;
     }
   }
-
-  // ── Helpers ─────────────────────────────────────────────────────────────
 
   /** Encodes VRF input: requestId_bytes [|| raffleId_u32_BE] */
   private encodeInput(requestId: string, raffleId?: number): Buffer {

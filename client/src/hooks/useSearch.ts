@@ -1,30 +1,27 @@
 import { useState, useEffect, useRef } from "react";
 import { searchRaffles } from "../services/raffleService";
-import type { ApiRaffleListItem, SearchFilters } from "../types/types";
+import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
 
-export const useSearch = (filters: SearchFilters) => {
+export const useSearch = (query: string) => {
     const [results, setResults] = useState<ApiRaffleListItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const requestId = useRef(0);
 
-    const serializedFilters = JSON.stringify(filters);
-
     useEffect(() => {
         const currentRequest = ++requestId.current;
 
-        if (!filters.q?.trim()) {
+        if (!query.trim()) {
             setResults([]);
             setIsLoading(false);
-            setError(null);
             return;
         }
 
         setIsLoading(true);
         setError(null);
 
-        searchRaffles(filters)
-            .then((response) => {
+        searchRaffles(query)
+            .then((response: ApiRaffleListResponse) => {
                 if (currentRequest !== requestId.current) return;
                 setResults(response.raffles);
             })
@@ -36,7 +33,7 @@ export const useSearch = (filters: SearchFilters) => {
                 if (currentRequest !== requestId.current) return;
                 setIsLoading(false);
             });
-    }, [serializedFilters]);
+    }, [query]);
 
     return { results, isLoading, error };
 };

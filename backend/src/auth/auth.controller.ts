@@ -7,7 +7,7 @@ import {
   Query,
   BadRequestException,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { Public } from "./decorators/public.decorator";
 import { Throttle } from "../middleware/throttle.decorator";
@@ -39,8 +39,6 @@ export class AuthController {
   @Get("nonce")
   @ApiOperation({ summary: "Get signing nonce for SIWS" })
   @ApiQuery({ name: "address", description: "Stellar address of the user" })
-  @ApiResponse({ status: 200, description: "Signing nonce issued successfully" })
-  @ApiResponse({ status: 400, description: "Invalid Stellar address" })
   @UsePipes(new (createZodPipe(GetNonceQuerySchema))())
   async getNonce(@Query("address") address: string) {
     return this.authService.getNonce(address);
@@ -57,8 +55,6 @@ export class AuthController {
   @Throttle({ auth: { limit: 5, ttl: 60000 } })
   @Post("verify")
   @ApiOperation({ summary: "Verify wallet signature and issue JWT" })
-  @ApiResponse({ status: 201, description: "Wallet signature verified and tokens issued" })
-  @ApiResponse({ status: 400, description: "Verification failed" })
   @UsePipes(new (createZodPipe(VerifyBodySchema))())
   async verify(@Body() payload: VerifyBodyDto) {
     try {
@@ -81,8 +77,6 @@ export class AuthController {
   @Throttle({ auth: { limit: 30, ttl: 60000 } })
   @Post("refresh")
   @ApiOperation({ summary: "Exchange refresh token for new access + refresh tokens" })
-  @ApiResponse({ status: 201, description: "Access and refresh tokens issued" })
-  @ApiResponse({ status: 400, description: "Refresh failed" })
   @UsePipes(new (createZodPipe(RefreshBodySchema))())
   async refresh(@Body() body: RefreshBodyDto) {
     try {

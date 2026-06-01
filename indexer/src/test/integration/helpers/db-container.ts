@@ -33,8 +33,6 @@ import { CreateIndexerCursor1700000000005 } from '../../../database/migrations/1
 import { CreatePlatformState1700000000006 } from '../../../database/migrations/1700000000006-CreatePlatformState';
 import { AddWebhooksTable1720000000000 } from '../../../database/migrations/1720000000000-AddWebhooksTable';
 import { AddUserLastTxHash1720000000001 } from '../../../database/migrations/1720000000001-AddUserLastTxHash';
-import { AddLedgerHashesToCursor1730000000001 } from '../../../database/migrations/1730000000001-AddLedgerHashesToCursor';
-import { AddCheckpointIntegrityColumns1748736000000 } from '../../../database/migrations/1748736000000-AddCheckpointIntegrityColumns';
 
 /** How long to wait for the container to be ready (ms). */
 export const CONTAINER_STARTUP_MS = 120_000;
@@ -105,8 +103,6 @@ export function buildDataSource(container: StartedPostgreSqlContainer): DataSour
       CreatePlatformState1700000000006,
       AddWebhooksTable1720000000000,
       AddUserLastTxHash1720000000001,
-      AddLedgerHashesToCursor1730000000001,
-      AddCheckpointIntegrityColumns1748736000000,
     ],
     migrationsRun: false,
     synchronize: false,

@@ -1,5 +1,5 @@
 import { Controller, Get, Param, ParseIntPipe, Res, Header } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiParam } from "@nestjs/swagger";
 import { FastifyReply } from "fastify";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { RafflesService, RaffleDetailResponse } from "./raffles.service";
@@ -47,8 +47,6 @@ export class OgRenderController {
     summary: "Pre-render OG meta tags for a raffle (for social media crawlers)",
   })
   @ApiParam({ name: "id", description: "Raffle ID" })
-  @ApiResponse({ status: 200, description: "OG HTML rendered successfully" })
-  @ApiResponse({ status: 404, description: "Generic OG HTML rendered for missing raffle" })
   @Header("Cache-Control", "public, max-age=300, s-maxage=600")
   async renderRaffleOg(
     @Param("id", ParseIntPipe) id: number,
