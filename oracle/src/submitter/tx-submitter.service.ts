@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
-import { FeeEstimatorService } from './fee-estimator.service';
+import { FeeEstimatorService, FeeUnsafeError } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 
 export interface SubmitResult {
@@ -182,11 +182,22 @@ export class TxSubmitterService {
     let lastError: unknown = null;
     let feeBump = 1;
 
-    // Get initial fee estimate from network stats
-    const feeEstimate = await this.feeEstimator.estimateFee(0);
+    // Get initial fee estimate from network stats; refuse if unsafe
+    let feeEstimate: Awaited<ReturnType<FeeEstimatorService['estimateFee']>>;
+    try {
+      feeEstimate = await this.feeEstimator.estimateFee(0);
+    } catch (e) {
+      if (e instanceof FeeUnsafeError) {
+        this.logger.error(
+          `Refusing to submit randomness for raffle ${raffleId}: ${e.message}`,
+        );
+        return { txHash: '', ledger: 0, success: false };
+      }
+      throw e;
+    }
     this.logger.log(
       `Submitting randomness for raffle ${raffleId} with fee ${feeEstimate.cappedFee} stroops ` +
-      `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
+      `(source: ${feeEstimate.source}, confidence: ${feeEstimate.confidence}, capped: ${feeEstimate.isCapped})`,
     );
 
     while (attempt < this.maxAttempts) {
