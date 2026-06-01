@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
-import type { RaffleFormData, CreateRaffleStep } from "../types/types";
+import React, { useRef, useEffect } from "react";
 import ProgressStepper from "../components/create-raffle/ProgressStepper";
 import DetailsStep from "../components/create-raffle/DetailsStep";
 import ImageStep from "../components/create-raffle/ImageStep";
@@ -7,77 +6,21 @@ import PricingStep from "../components/create-raffle/PricingStep";
 import DurationStep from "../components/create-raffle/DurationStep";
 import ReviewStep from "../components/create-raffle/ReviewStep";
 import LivePreview from "../components/create-raffle/LivePreview";
+import { useCreateRaffleWizard } from "../components/create-raffle/useCreateRaffleWizard";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const CreateRaffle: React.FC = () => {
-    const [currentStep, setCurrentStep] = useState(0);
     const stepPanelRef = useRef<HTMLDivElement>(null);
-    const [formData, setFormData] = useState<RaffleFormData>({
-        title: "",
-        description: "",
-        image: null,
-        images: [],
-        pricePerTicket: 0,
-        totalTickets: 0,
-        duration: {
-            days: 0,
-            hours: 0,
-        },
-    });
-
-    const steps: CreateRaffleStep[] = [
-        {
-            id: "details",
-            title: "Details",
-            icon: "document",
-            completed: currentStep > 0,
-            active: currentStep === 0,
-        },
-        {
-            id: "image",
-            title: "Image",
-            icon: "image",
-            completed: currentStep > 1,
-            active: currentStep === 1,
-        },
-        {
-            id: "pricing",
-            title: "Pricing",
-            icon: "dollar",
-            completed: currentStep > 2,
-            active: currentStep === 2,
-        },
-        {
-            id: "duration",
-            title: "Duration",
-            icon: "clock",
-            completed: currentStep > 3,
-            active: currentStep === 3,
-        },
-        {
-            id: "review",
-            title: "Review",
-            icon: "check",
-            completed: currentStep > 4,
-            active: currentStep === 4,
-        },
-    ];
-
-    const updateFormData = (data: Partial<RaffleFormData>) => {
-        setFormData((prev) => ({ ...prev, ...data }));
-    };
-
-    const handleNext = () => {
-        if (currentStep < steps.length - 1) {
-            setCurrentStep((prev) => prev + 1);
-        }
-    };
-
-    const handleBack = () => {
-        if (currentStep > 0) {
-            setCurrentStep((prev) => prev - 1);
-        }
-    };
+    const {
+        formData,
+        currentStep,
+        steps,
+        updateFormData,
+        handleNext,
+        handleBack,
+        canGoNext,
+        reset,
+    } = useCreateRaffleWizard();
 
     // Handle keyboard navigation
     useEffect(() => {
@@ -85,7 +28,7 @@ const CreateRaffle: React.FC = () => {
             // Enter to advance to next step
             if (e.key === "Enter" && e.ctrlKey) {
                 e.preventDefault();
-                if (currentStep < steps.length - 1) {
+                if (canGoNext) {
                     handleNext();
                 }
             }
@@ -100,7 +43,7 @@ const CreateRaffle: React.FC = () => {
 
         document.addEventListener("keydown", handleKeyDown);
         return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [currentStep, steps.length]);
+    }, [canGoNext, currentStep, handleBack, handleNext]);
 
     // Focus management: focus first focusable element in step panel when step changes
     useEffect(() => {
@@ -129,7 +72,7 @@ const CreateRaffle: React.FC = () => {
             case 3:
                 return <DurationStep {...stepProps} />;
             case 4:
-                return <ReviewStep {...stepProps} />;
+                return <ReviewStep {...stepProps} onNext={reset} />;
             default:
                 return <DetailsStep {...stepProps} />;
         }
