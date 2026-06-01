@@ -7,6 +7,7 @@ import type {
     ApiUserProfile,
     ApiUserHistoryResponse,
     RaffleListFilters,
+    SearchFilters,
     FormattedRaffle,
 } from "../types/types";
 
@@ -43,10 +44,17 @@ export async function fetchRaffleDetail(
 
 
 export async function searchRaffles(
-    query: string
+    filters: SearchFilters = {}
 ): Promise<ApiRaffleListResponse> {
-    const trimmedQuery = query.trim();
-    const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
+    const params = new URLSearchParams();
+    if (filters.q) params.set("q", filters.q);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.min_price) params.set("min_price", filters.min_price);
+    if (filters.max_price) params.set("max_price", filters.max_price);
+    if (filters.creator) params.set("creator", filters.creator);
+    if (filters.sort) params.set("sort", filters.sort);
+    const queryString = params.toString();
+    const endpoint = `${API_CONFIG.endpoints.search}${queryString ? `?${queryString}` : ""}`;
     return api.get<ApiRaffleListResponse>(endpoint);
 }
 export async function fetchUserProfile(address: string): Promise<ApiUserProfile> {
