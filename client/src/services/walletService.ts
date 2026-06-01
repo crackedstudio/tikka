@@ -8,6 +8,113 @@ import {
 const SELECTED_WALLET_ID = "selectedWalletId";
 const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
 
+// ─── Wallet Capabilities ────────────────────────────────────────────────────────
+
+/**
+ * Represents the capabilities of a Stellar wallet.
+ * Different wallets support different features; the UI should check these
+ * before attempting operations.
+ */
+export interface WalletCapabilities {
+  /** Whether the wallet can sign transactions */
+  canSignTransaction: boolean;
+  /** Whether the wallet supports programmatic network switching */
+  canSwitchNetwork: boolean;
+  /** Whether the wallet supports account address lookup */
+  canGetAccount: boolean;
+  /** Whether the wallet supports mobile/deep-link URLs */
+  supportsMobileDeepLink: boolean;
+  /** Human-readable name of the wallet for error messages */
+  walletName: string;
+  /** Actionable copy to show when a capability is unsupported */
+  unsupportedActionCopy: string;
+}
+
+/**
+ * Capability profiles for known wallet types.
+ * These are based on common wallet implementations and may need updates.
+ */
+const WALLET_CAPABILITY_PROFILES: Record<string, WalletCapabilities> = {
+  freighter: {
+    canSignTransaction: true,
+    canSwitchNetwork: false, // Freighter requires manual network switching
+    canGetAccount: true,
+    supportsMobileDeepLink: false,
+    walletName: "Freighter",
+    unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension.",
+  },
+  lobstr: {
+    canSignTransaction: true,
+    canSwitchNetwork: false, // LOBSTR requires manual network switching
+    canGetAccount: true,
+    supportsMobileDeepLink: true, // LOBSTR has mobile app support
+    walletName: "LOBSTR",
+    unsupportedActionCopy: "This action is not supported by LOBSTR. Please use the mobile app or switch networks manually.",
+  },
+  xbull: {
+    canSignTransaction: true,
+    canSwitchNetwork: false,
+    canGetAccount: true,
+    supportsMobileDeepLink: false,
+    walletName: "xBull",
+    unsupportedActionCopy: "This action is not supported by xBull. Please switch networks manually in the extension.",
+  },
+  rabet: {
+    canSignTransaction: true,
+    canSwitchNetwork: false,
+    canGetAccount: true,
+    supportsMobileDeepLink: false,
+    walletName: "Rabet",
+    unsupportedActionCopy: "This action is not supported by Rabet. Please switch networks manually in the extension.",
+  },
+  default: {
+    canSignTransaction: false,
+    canSwitchNetwork: false,
+    canGetAccount: false,
+    supportsMobileDeepLink: false,
+    walletName: "Unknown Wallet",
+    unsupportedActionCopy: "This wallet may not support the required action. Please try a different wallet like Freighter or LOBSTR.",
+  },
+};
+
+/**
+ * Detects the wallet type from the installed wallet or selected wallet ID.
+ * Returns a normalized wallet key for capability lookup.
+ */
+function detectWalletType(): string {
+  if (IS_TEST_MODE) {
+    return "freighter"; // Default to Freighter-like in test mode
+  }
+
+  const selectedWalletId = getSelectedWalletId();
+  if (selectedWalletId) {
+    // Map wallet IDs to our capability profiles
+    if (selectedWalletId.toLowerCase().includes("freighter")) return "freighter";
+    if (selectedWalletId.toLowerCase().includes("lobstr")) return "lobstr";
+    if (selectedWalletId.toLowerCase().includes("xbull")) return "xbull";
+    if (selectedWalletId.toLowerCase().includes("rabet")) return "rabet";
+  }
+
+  // Fallback: detect from window object
+  if (typeof window !== "undefined") {
+    if ((window as any).freighter) return "freighter";
+    if ((window as any).lobstr) return "lobstr";
+    if ((window as any).xBull) return "xbull";
+    if ((window as any).rabet) return "rabet";
+  }
+
+  return "default";
+}
+
+/**
+ * Gets the capabilities of the currently selected or detected wallet.
+ * Returns a default profile if no wallet is detected.
+ */
+export function getWalletCapabilities(): WalletCapabilities {
+  const walletType = detectWalletType();
+  return WALLET_CAPABILITY_PROFILES[walletType] || WALLET_CAPABILITY_PROFILES.default;
+}
+
 /**
  * Helper to convert passphrase to a simple network name
  */
@@ -117,6 +224,16 @@ export async function getNetwork(): Promise<string | null> {
 }
 
 export async function signTransaction(transaction: any): Promise<WalletSignResult> {
+  const capabilities = getWalletCapabilities();
+  
+  // Check if wallet supports signing before attempting
+  if (!capabilities.canSignTransaction) {
+    return {
+      success: false,
+      error: `${capabilities.walletName} does not support transaction signing. ${capabilities.unsupportedActionCopy}`,
+    };
+  }
+
   if (IS_TEST_MODE) {
     return {
       success: true,
@@ -125,7 +242,13 @@ export async function signTransaction(transaction: any): Promise<WalletSignResul
   }
 
   if (!getSelectedWalletId()) throw new WalletUserRejectedError("No wallet connected");
-  return await getKit().signTransaction(transaction) as WalletSignResult;
+  
+  const result = await getKit().signTransaction(transaction);
+  // Map the kit's result to our WalletSignResult interface
+  return {
+    success: true,
+    signedTransaction: result,
+  };
 }
 
 export async function isWalletConnected(): Promise<boolean> {
