@@ -125,7 +125,7 @@ export async function signTransaction(transaction: any): Promise<WalletSignResul
   }
 
   if (!getSelectedWalletId()) throw new WalletUserRejectedError("No wallet connected");
-  
+
   try {
     const result = await getKit().signTransaction(transaction);
     return {
@@ -160,7 +160,7 @@ export async function isWalletInstalled(): Promise<boolean> {
 
   // Check if any wallet extension is available
   return typeof window !== "undefined" && (
-    !!(window as any).freighter || 
+    !!(window as any).freighter ||
     !!(window as any).xBull ||
     !!(window as any).rabet
   );
