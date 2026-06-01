@@ -75,7 +75,9 @@ describe('AuthService', () => {
       select: jest.fn().mockReturnThis(),
       insert: jest.fn().mockResolvedValue({ error: null }),
       update: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      lte: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     };
@@ -111,6 +113,13 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('message');
       expect(supabase.from).toHaveBeenCalledWith('siws_nonces');
       expect(supabase.insert).toHaveBeenCalled();
+    });
+
+    it('cleans up expired nonces before issuing a new nonce', async () => {
+      await service.getNonce(ADDRESS);
+
+      expect(supabase.delete).toHaveBeenCalled();
+      expect(supabase.lte).toHaveBeenCalledWith('expires_at', expect.any(String));
     });
 
     it('throws when DB insert fails', async () => {
@@ -150,6 +159,12 @@ describe('AuthService', () => {
     it('throws when nonce is not found', async () => {
       supabase.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
       await expect(service.verify(ADDRESS, signature, nonce, issuedAt))
+        .rejects.toThrow('Invalid or expired nonce');
+    });
+
+    it('throws when address does not match stored nonce', async () => {
+      supabase.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+      await expect(service.verify('GWRONG', signature, nonce, issuedAt))
         .rejects.toThrow('Invalid or expired nonce');
     });
 

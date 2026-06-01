@@ -82,6 +82,56 @@ export function initSentry(logger: Logger): void {
   logger.log(`Sentry initialized (env=${options.environment})`);
 }
 
+import * as crypto from 'crypto';
+
+// Fields that should always be redacted (case-insensitive)
+export const REDACTED_FIELDS = [
+  'authorization',
+  'token',
+  'signature',
+  'mnemonic',
+  'seed',
+  'password',
+];
+
+/**
+ * Redact sensitive fields from objects/arrays recursively.
+ * - Returns primitives untouched
+ * - Returns null/undefined unchanged
+ * - Does not mutate the original object
+ * - Replaces values for fields in REDACTED_FIELDS with '[REDACTED]'
+ * - At depth >= 10 returns the sentinel '[DEPTH_LIMIT]'
+ */
+export function redactSensitive<T>(input: T, depth = 0): T {
+  const MAX_DEPTH = 10;
+  if (input === null || input === undefined) return input;
+  if (typeof input !== 'object') return input;
+  if (depth >= MAX_DEPTH) return ('[DEPTH_LIMIT]' as unknown) as T;
+
+  if (Array.isArray(input)) {
+    return input.map((item) => redactSensitive(item as any, depth + 1)) as unknown as T;
+  }
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input as any)) {
+    if (REDACTED_FIELDS.includes(k.toLowerCase())) {
+      out[k] = '[REDACTED]';
+    } else {
+      out[k] = redactSensitive(v as any, depth + 1);
+    }
+  }
+  return out as T;
+}
+
+export function hashWallet(address?: string | null): string | null {
+  if (address === undefined || address === null) return null;
+  const trimmed = String(address).trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.toLowerCase();
+  const digest = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16);
+  return digest;
+}
+
 // ---------------------------------------------------------------------------
 // Per-request context
 // ---------------------------------------------------------------------------

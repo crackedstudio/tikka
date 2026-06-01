@@ -35,59 +35,64 @@ export class ImageOptimizerService {
     // Include mimeType to differentiate between source formats
     return `${hash}:${mimeType}`;
   }
+
+  constructor(private readonly metricsService: MetricsService) {}
+
+  public async processImage(input: ProcessImageInput): Promise<ProcessImageResult> {
     const { fileBuffer, mimeType } = input;
-+
-+    // Check cache first
-+    const cacheKey = this.generateCacheKey(fileBuffer, mimeType);
-+    const cached = this.cache.get(cacheKey);
-+    if (cached) {
-+      this.logger.debug(`ImageCache hit for key ${cacheKey}`);
-+      return cached;
-+    }
-+    this.logger.debug(`ImageCache miss for key ${cacheKey}`);
-+
-+    // WebP inputs are passed through without re-encoding
-+    if (mimeType === 'image/webp') {
-+      const metadata = await sharp(fileBuffer).metadata();
-+      const originalWidth = metadata.width ?? 0;
-+
-+      const variants = await this.generateVariants(fileBuffer, originalWidth);
-+
-+      const result = {
-+        primary: {
-+          buffer: fileBuffer,
-+          width: originalWidth,
-+          mimeType: 'image/webp',
-+        },
-+        variants,
-+      };
-+      // Store in cache
-+      this.cache.set(cacheKey, result);
-+      return result;
-+    }
-+
-+    // JPEG/PNG: convert to WebP at quality 80
-+    const image = sharp(fileBuffer);
-+    const metadata = await image.metadata();
-+    const originalWidth = metadata.width ?? 0;
-+
-+    const primaryBuffer = await sharp(fileBuffer)
-+      .webp({ quality: WEBP_QUALITY })
-+      .toBuffer();
-+
-+    const variants = await this.generateVariants(fileBuffer, originalWidth);
-+
-+    const result = {
-+      primary: {
-+        buffer: primaryBuffer,
-+        width: originalWidth,
-+        mimeType: 'image/webp',
-+      },
-+      variants,
-+    };
-+    // Store in cache
-+    this.cache.set(cacheKey, result);
-+    return result;  }
+
+    // Check cache first
+    const cacheKey = this.generateCacheKey(fileBuffer, mimeType);
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`ImageCache hit for key ${cacheKey}`);
+      return cached;
+    }
+    this.logger.debug(`ImageCache miss for key ${cacheKey}`);
+
+    // WebP inputs are passed through without re-encoding
+    if (mimeType === 'image/webp') {
+      const metadata = await sharp(fileBuffer).metadata();
+      const originalWidth = metadata.width ?? 0;
+
+      const variants = await this.generateVariants(fileBuffer, originalWidth);
+
+      const result = {
+        primary: {
+          buffer: fileBuffer,
+          width: originalWidth,
+          mimeType: 'image/webp' as const,
+        },
+        variants,
+      };
+      // Store in cache
+      this.cache.set(cacheKey, result);
+      return result;
+    }
+
+    // JPEG/PNG: convert to WebP at quality 80
+    const image = sharp(fileBuffer);
+    const metadata = await image.metadata();
+    const originalWidth = metadata.width ?? 0;
+
+    const primaryBuffer = await sharp(fileBuffer)
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer();
+
+    const variants = await this.generateVariants(fileBuffer, originalWidth);
+
+    const result = {
+      primary: {
+        buffer: primaryBuffer,
+        width: originalWidth,
+        mimeType: 'image/webp',
+      },
+      variants,
+    };
+    // Store in cache
+    this.cache.set(cacheKey, result);
+    return result;
+  }
 
   private async generateVariants(
     sourceBuffer: Buffer,
@@ -114,9 +119,9 @@ export class ImageOptimizerService {
         variants.push({
           buffer: variantBuffer,
           width: actualWidth,
-          mimeType: 'image/webp',
+          mimeType: 'image/webp' as const,
         });
-        this.metricsService.imageVariantsGenerated.inc();
+        this.metricsService.imageVariantGenerated.inc();
       } catch (err) {
         this.logger.warn(
           `Failed to generate ${targetWidth}w variant: ${(err as Error).message}`,
