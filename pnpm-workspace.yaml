@@ -1,0 +1,6 @@
+packages:
+  - backend
+  - client
+  - sdk
+  - indexer
+  - oracle
