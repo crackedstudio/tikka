@@ -37,6 +37,10 @@ export class WebhookEntity {
   @Column({ type: "timestamptz", nullable: true })
   lastFailureAt?: Date;
 
+  /** Secret key for HMAC-SHA256 payload signing */
+  @Column({ nullable: true })
+  signingSecret?: string;
+
   @CreateDateColumn()
   createdAt!: Date;
 
