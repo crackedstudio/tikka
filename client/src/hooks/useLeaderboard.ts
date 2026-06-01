@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { 
-  fetchLeaderboard, 
-  type LeaderboardResponse, 
-  type LeaderboardParams 
+import {
+  fetchLeaderboard,
+  type LeaderboardResponse,
+  type LeaderboardParams,
 } from "../services/leaderboardService";
 
 export const useLeaderboard = (params?: LeaderboardParams) => {
@@ -31,7 +31,7 @@ export const useLeaderboard = (params?: LeaderboardParams) => {
         setIsLoading(false);
       }
     }
-  }, [params?.by, params?.limit, params?.period]);
+  }, [params]);
 
   useEffect(() => {
     loadLeaderboard();

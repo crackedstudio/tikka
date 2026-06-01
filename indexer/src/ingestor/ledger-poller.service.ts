@@ -115,6 +115,18 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       );
       return;
     }
+
+    // Load cursor first so validateOnLoad() runs and mode is set before we start.
+    await this.cursorManager.getCursor();
+    const { mode } = this.cursorManager.getStatus();
+    if (mode === 'DEGRADED') {
+      this.logger.error(
+        'Cursor integrity violation detected on startup — ingestion will not start. ' +
+        'Inspect the violation via the status command and reset the cursor to recover.',
+      );
+      return;
+    }
+
     this.logger.log(
       `Starting Ledger Poller for contracts: ${this.contractIds.join(", ")} (batch size ${this.batchSize})`,
     );
@@ -287,6 +299,14 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Do not process new events while in DEGRADED mode.
+    if (this.cursorManager.getStatus().mode === 'DEGRADED') {
+      this.logger.error(
+        'Ingestion is DEGRADED — skipping batch. Operator action required.',
+      );
+      return;
+    }
+
     const lastRaw = batch[batch.length - 1].raw;
     const lastId = lastRaw.id as string | undefined;
 
@@ -318,7 +338,8 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      await this.cursorManager.saveCursor(ledger, ledgerHash, nextToken);
+      const currentCount = this.cursorManager.getStatus().lastCheckpoint?.processedEventCount ?? 0;
+      await this.cursorManager.saveCursor(ledger, ledgerHash, nextToken, currentCount + batch.length);
 
       for (const item of batch) {
         this.metrics.incrementEventsProcessed(item.parsed.type);

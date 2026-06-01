@@ -15,6 +15,7 @@ export const API_CONFIG = {
     auth: {
       nonce: '/auth/nonce',
       verify: '/auth/verify',
+      refresh: '/auth/refresh',
     },
     raffles: {
       list: '/raffles',

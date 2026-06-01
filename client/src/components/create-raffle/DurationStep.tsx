@@ -1,5 +1,6 @@
 import React from "react";
 import type { StepComponentProps } from "../../types/types";
+import { validateStep } from "./validation";
 
 const DurationStep: React.FC<StepComponentProps> = ({
     formData,
@@ -74,8 +75,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
         return `${formData.duration.days}d ${formData.duration.hours}h`;
     };
 
-    const canContinue =
-        formData.duration.days > 0 || formData.duration.hours > 0;
+    const canContinue = validateStep("duration", formData);
 
     return (
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
