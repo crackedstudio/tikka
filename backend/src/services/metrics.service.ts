@@ -24,7 +24,11 @@ export class MetricsService implements OnModuleInit {
     registers: [this.registry],
   });
 
-
+  readonly imageProcessingFailures: Counter<string> = new Counter({
+    name: 'image_processing_failures_total',
+    help: 'Total number of image processing failures',
+    registers: [this.registry],
+  });
 
   // Expose metrics endpoint data
   getMetrics(): Promise<string> {
