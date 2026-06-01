@@ -1,0 +1,163 @@
+
+> tikka-backend@0.1.0 build
+> nest build
+
+[96msrc/api/rest/leaderboard/leaderboard.service.ts[0m:[93m18[0m:[93m21[0m - [91merror[0m[90m TS2339: [0mProperty 'cursor' does not exist on type 'LeaderboardQueryDto'.
+
+[7m18[0m       cursor: query.cursor,
+[7m  [0m [91m                    ~~~~~~[0m
+[96msrc/api/rest/leaderboard/leaderboard.service.ts[0m:[93m19[0m:[93m21[0m - [91merror[0m[90m TS2339: [0mProperty 'offset' does not exist on type 'LeaderboardQueryDto'.
+
+[7m19[0m       offset: query.offset,
+[7m  [0m [91m                    ~~~~~~[0m
+[96msrc/api/rest/monitor/monitor.module.ts[0m:[93m17[0m:[93m8[0m - [91merror[0m[90m TS1005: [0m':' expected.
+
+[7m17[0m import { AuditLogInterceptor } from './audit-log.interceptor';
+[7m  [0m [91m       ~[0m
+[96msrc/api/rest/monitor/monitor.module.ts[0m:[93m17[0m:[93m32[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+[7m17[0m import { AuditLogInterceptor } from './audit-log.interceptor';
+[7m  [0m [91m                               ~~~~[0m
+[96msrc/api/rest/monitor/monitor.module.ts[0m:[93m17[0m:[93m37[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+[7m17[0m import { AuditLogInterceptor } from './audit-log.interceptor';
+[7m  [0m [91m                                    ~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[96msrc/api/rest/monitor/monitor.module.ts[0m:[93m17[0m:[93m62[0m - [91merror[0m[90m TS1005: [0m':' expected.
+
+[7m17[0m import { AuditLogInterceptor } from './audit-log.interceptor';
+[7m  [0m [91m                                                             ~[0m
+[96msrc/api/rest/monitor/monitor.module.ts[0m:[93m19[0m:[93m1[0m - [91merror[0m[90m TS1136: [0mProperty assignment expected.
+
+[7m19[0m @Module({
+[7m  [0m [91m~[0m
+[96msrc/api/rest/monitor/monitor.module.ts[0m:[93m24[0m:[93m30[0m - [91merror[0m[90m TS1146: [0mDeclaration expected.
+
+[7m24[0m export class MonitorModule {}
+[7m  [0m [91m                             [0m
+[96msrc/api/rest/monitor/monitor.module.ts[0m:[93m25[0m:[93m1[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+[7m25[0m 
+[7m  [0m [91m[0m
+[96msrc/api/rest/notifications/dto/device-token.dto.ts[0m:[93m8[0m:[93m70[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 2, '(def: ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]): ZodDefault<ZodOptional<ZodArray<ZodEnum<["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]>, "many">>>', gave the following error.
+    Argument of type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' is not assignable to parameter of type '("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+      The type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' is 'readonly' and cannot be assigned to the mutable type '("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+  Overload 2 of 2, '(def: () => ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]): ZodDefault<ZodOptional<ZodArray<ZodEnum<["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]>, "many">>>', gave the following error.
+    Argument of type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' is not assignable to parameter of type '() => ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+      Type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' provides no match for the signature '(): ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+
+[7m8[0m   events: z.array(z.enum(NotificationEventTypes)).optional().default(NotificationEventTypes),
+[7m [0m [91m                                                                     ~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[96msrc/api/rest/notifications/dto/subscribe.dto.ts[0m:[93m19[0m:[93m70[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 2, '(def: ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]): ZodDefault<ZodOptional<ZodArray<ZodEnum<["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]>, "many">>>', gave the following error.
+    Argument of type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' is not assignable to parameter of type '("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+      The type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' is 'readonly' and cannot be assigned to the mutable type '("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+  Overload 2 of 2, '(def: () => ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]): ZodDefault<ZodOptional<ZodArray<ZodEnum<["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]>, "many">>>', gave the following error.
+    Argument of type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' is not assignable to parameter of type '() => ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+      Type 'readonly ["raffle_started", "ticket_sold", "draw_completed", "you_won", "raffle_ending_soon"]' provides no match for the signature '(): ("raffle_started" | "ticket_sold" | "draw_completed" | "you_won" | "raffle_ending_soon")[]'.
+
+[7m19[0m   events: z.array(z.enum(NotificationEventTypes)).optional().default(NotificationEventTypes),
+[7m  [0m [91m                                                                     ~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[96msrc/api/rest/notifications/notifications.controller.ts[0m:[93m42[0m:[93m7[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'events' does not exist in type 'CreateSubscriptionPayload'.
+
+[7m42[0m       events: dto.events,
+[7m  [0m [91m      ~~~~~~[0m
+[96msrc/api/rest/notifications/notifications.controller.ts[0m:[93m88[0m:[93m7[0m - [91merror[0m[90m TS2554: [0mExpected 2-3 arguments, but got 4.
+
+[7m88[0m       dto.events,
+[7m  [0m [91m      ~~~~~~~~~~[0m
+[96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m111[0m:[93m64[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Res'.
+
+[7m111[0m   async redirectToIpfs(@Param("id", ParseIntPipe) id: number, @Res() res: any) {
+[7m   [0m [91m                                                               ~~~[0m
+[96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m125[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Throttle'.
+
+[7m125[0m   @Throttle({
+[7m   [0m [91m   ~~~~~~~~[0m
+[96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m153[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'ApiHeader'.
+
+[7m153[0m   @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+[7m   [0m [91m   ~~~~~~~~~[0m
+[96msrc/api/rest/raffles/raffles.module.ts[0m:[93m17[0m:[93m5[0m - [91merror[0m[90m TS2304: [0mCannot find name 'MetadataService'.
+
+[7m17[0m     MetadataService,
+[7m  [0m [91m    ~~~~~~~~~~~~~~~[0m
+[96msrc/api/rest/stats/stats.controller.ts[0m:[93m27[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Post'.
+
+[7m27[0m   @Post('verify')
+[7m  [0m [91m   ~~~~[0m
+[96msrc/api/rest/stats/stats.controller.ts[0m:[93m28[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'HttpCode'.
+
+[7m28[0m   @HttpCode(HttpStatus.OK)
+[7m  [0m [91m   ~~~~~~~~[0m
+[96msrc/api/rest/stats/stats.controller.ts[0m:[93m28[0m:[93m13[0m - [91merror[0m[90m TS2304: [0mCannot find name 'HttpStatus'.
+
+[7m28[0m   @HttpCode(HttpStatus.OK)
+[7m  [0m [91m            ~~~~~~~~~~[0m
+[96msrc/api/rest/stats/stats.controller.ts[0m:[93m30[0m:[93m6[0m - [91merror[0m[90m TS2693: [0m'Body' only refers to a type, but is being used as a value here.
+
+[7m30[0m     @Body('oracle_public_key') oraclePublicKey: string,
+[7m  [0m [91m     ~~~~[0m
+[96msrc/api/rest/stats/stats.controller.ts[0m:[93m31[0m:[93m6[0m - [91merror[0m[90m TS2693: [0m'Body' only refers to a type, but is being used as a value here.
+
+[7m31[0m     @Body('request_id') requestId: string,
+[7m  [0m [91m     ~~~~[0m
+[96msrc/api/rest/stats/stats.controller.ts[0m:[93m32[0m:[93m6[0m - [91merror[0m[90m TS2693: [0m'Body' only refers to a type, but is being used as a value here.
+
+[7m32[0m     @Body('proof') proof: string,
+[7m  [0m [91m     ~~~~[0m
+[96msrc/api/rest/stats/stats.controller.ts[0m:[93m33[0m:[93m6[0m - [91merror[0m[90m TS2693: [0m'Body' only refers to a type, but is being used as a value here.
+
+[7m33[0m     @Body('seed') seed: string,
+[7m  [0m [91m     ~~~~[0m
+[96msrc/app.module.ts[0m:[93m17[0m:[93m10[0m - [91merror[0m[90m TS2305: [0mModule '"./api/rest/monitor/monitor.module"' has no exported member 'MonitorModule'.
+
+[7m17[0m import { MonitorModule } from "./api/rest/monitor/monitor.module";
+[7m  [0m [91m         ~~~~~~~~~~~~~[0m
+[96msrc/auth/auth.service.ts[0m:[93m65[0m:[93m20[0m - [91merror[0m[90m TS2552: [0mCannot find name 'nonces'. Did you mean 'nonce'?
+
+[7m65[0m     const stored = nonces.get(address);
+[7m  [0m [91m                   ~~~~~~[0m
+
+  [96msrc/auth/auth.service.ts[0m:[93m62[0m:[93m5[0m
+    [7m62[0m     nonce: string,
+    [7m  [0m [96m    ~~~~~~~~~~~~~[0m
+    'nonce' is declared here.
+[96msrc/config/env.schema.ts[0m:[93m124[0m:[93m5[0m - [91merror[0m[90m TS2740: [0mType '{ string: (params?: ({ errorMap?: ZodErrorMap | undefined; invalid_type_error?: string | undefined; required_error?: string | undefined; message?: string | undefined; description?: string | undefined; } & { ...; }) | undefined) => ZodString; number: (params?: ({ ...; } & { ...; }) | undefined) => ZodNumber; boolean:...' is missing the following properties from type 'ZodType<any, any, any>': _type, _output, _input, _def, and 34 more.
+
+[7m124[0m     METADATA_CACHE_TTL_SECONDS: z.coerce
+[7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  [96mnode_modules/zod/v3/types.d.cts[0m:[93m14[0m:[93m5[0m
+    [7m14[0m     [k: string]: ZodTypeAny;
+    [7m  [0m [96m    ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    The expected type comes from this index signature.
+[96msrc/config/env.schema.ts[0m:[93m125[0m:[93m5[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+[7m125[0m     RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+[7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[96msrc/sentry/sentry.interceptor.ts[0m:[93m8[0m:[93m11[0m - [91merror[0m[90m TS2430: [0mInterface 'AuthenticatedRequest' incorrectly extends interface 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+  Types of property 'id' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+
+[7m8[0m interface AuthenticatedRequest extends FastifyRequest {
+[7m [0m [91m          ~~~~~~~~~~~~~~~~~~~~[0m
+[96msrc/sentry/sentry.ts[0m:[93m107[0m:[93m20[0m - [91merror[0m[90m TS2322: [0mType 'import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/profiling-node/node_modules/@sentry/core/build/types/types/integration").Integration' is not assignable to type 'import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/core/build/types/types-hoist/integration").Integration'.
+  Types of property 'setup' are incompatible.
+    Type '((client: import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/profiling-node/node_modules/@sentry/core/build/types/client").Client<import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/profiling-node/node_modules/@sentry/core/build/types/types/options").ClientOptions<import("/...' is not assignable to type '((client: import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/core/build/types/types-hoist/client").Client<import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/core/build/types/types-hoist/options").ClientOptions<import("/home/awointa/Documents/drips/tikka/backend/node_module...'.
+      Type '(client: import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/profiling-node/node_modules/@sentry/core/build/types/client").Client<import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/profiling-node/node_modules/@sentry/core/build/types/types/options").ClientOptions<import("/h...' is not assignable to type '(client: import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/core/build/types/types-hoist/client").Client<import("/home/awointa/Documents/drips/tikka/backend/node_modules/@sentry/core/build/types/types-hoist/options").ClientOptions<import("/home/awointa/Documents/drips/tikka/backend/node_modules...'.
+        Types of parameters 'client' and 'client' are incompatible.
+          Type 'Client<ClientOptions<BaseTransportOptions>>' is missing the following properties from type 'Client<ClientOptions<BaseTransportOptions>>': _options, _integrations, _numProcessing, _eventProcessors, and 18 more.
+
+[7m107[0m     integrations: [nodeProfilingIntegration()],
+[7m   [0m [91m                   ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[96msrc/services/replay.service.ts[0m:[93m138[0m:[93m35[0m - [91merror[0m[90m TS2554: [0mExpected 0 arguments, but got 1.
+
+[7m138[0m       throw new BackfillLockError('Could not acquire backfill lock');
+[7m   [0m [91m                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+Found 31 error(s).
+
