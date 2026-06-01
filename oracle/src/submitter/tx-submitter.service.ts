@@ -6,6 +6,8 @@ import { FeeEstimatorService, FeeUnsafeError } from './fee-estimator.service';
 import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 import { CostEstimatorService } from './cost-estimator.service';
+import { ContractBuilders } from '../contract/contract.builders';
+import { OracleLogFields } from '../logger/oracle-logger';
 
 /**
  * Explicit transaction lifecycle states for state machine tracking
@@ -223,7 +225,9 @@ export class TxSubmitterService {
           if (submitResult.outcome) {
             telemetry.durationMs = Date.now() - startTime;
             telemetry.finalOutcome = this.mapOutcomeToState(submitResult.outcome);
-            telemetry.txHash = submitResult.outcome.txHash;
+            if ('txHash' in submitResult.outcome) {
+              telemetry.txHash = submitResult.outcome.txHash;
+            }
             this.logTelemetry(telemetry, `Transaction completed: ${submitResult.outcome.status}`);
             return submitResult.outcome;
           }
@@ -744,11 +748,37 @@ export class TxSubmitterService {
       };
     }
 
+    const txHash = 'txHash' in outcome ? outcome.txHash ?? '' : '';
     return {
-      txHash: outcome.txHash || '',
+      txHash,
       ledger: 0,
       success: false,
     };
+  }
+
+  /**
+   * Poll-ready status check used when submission returns before ledger is known.
+   */
+  async getTransactionConfirmationStatus(
+    txHash: string,
+  ): Promise<{ confirmed: boolean; failed: boolean; ledger?: number }> {
+    try {
+      const res = await this.rpcServer.getTransaction(txHash);
+      const status = res?.status;
+
+      if (status === 'SUCCESS') {
+        const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
+        return { confirmed: true, failed: false, ledger };
+      }
+
+      if (status === 'FAILED') {
+        return { confirmed: false, failed: true };
+      }
+
+      return { confirmed: false, failed: false };
+    } catch {
+      return { confirmed: false, failed: false };
+    }
   }
 
   async submitCommitment(raffleId: number, commitment: string): Promise<SubmitResult> {

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { JobStateManager } from './job-state-manager';
 import { JobState } from './job-state.types';
 import { RandomnessRequest, RandomnessMethod, RandomnessResult } from './queue.types';
@@ -9,6 +9,8 @@ import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { ConfigService } from '@nestjs/config';
+import { RandomnessAuditService } from '../audit/randomness-audit.service';
+import { RandomnessProvider } from '../audit/randomness-audit.types';
 
 export interface ProcessingResult {
   success: boolean;
@@ -36,6 +38,7 @@ export class RandomnessProcessorService {
     private readonly healthService: HealthService,
     private readonly lagMonitor: LagMonitorService,
     private readonly configService: ConfigService,
+    @Optional() private readonly randomnessAudit?: RandomnessAuditService,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -46,7 +49,7 @@ export class RandomnessProcessorService {
    * Process a randomness request through the complete lifecycle.
    * Returns a result indicating success, retry eligibility, and error details.
    */
-  async function processRequest(request: RandomnessRequest): Promise<ProcessingResult> {
+  async processRequest(request: RandomnessRequest): Promise<ProcessingResult> {
     const { requestId, raffleId } = request;
 
     // Initialize job if not already tracked
@@ -69,47 +72,90 @@ export class RandomnessProcessorService {
       if (alreadySubmitted) {
         this.logger.warn(`Raffle ${raffleId} already finalized, marking as confirmed`);
         this.stateManager.transitionState(requestId, JobState.CONFIRMED, 'Already submitted');
+        await this.recordAuditAlreadySubmitted(request);
         return { success: true, shouldRetry: false };
       }
 
+      await this.recordAuditPending(request);
+
       // Phase 2: Generate randomness
-      const randomness = await this.generateRandomness(requestId, raffleId);
-      if (!randomness) {
+      const generated = await this.generateRandomness(requestId, raffleId);
+      if (!generated) {
+        await this.recordAuditFailed(requestId, 'Generation failed', undefined, undefined, false);
         return { success: false, shouldRetry: true, error: 'Generation failed' };
       }
+
+      const { randomness, provider } = generated;
 
       // Phase 3: Submit transaction
       const submitResult = await this.submitTransaction(requestId, raffleId, randomness);
       if (!submitResult.success) {
+        await this.recordAuditFailed(
+          requestId,
+          submitResult.error ?? 'Submission failed',
+          provider,
+          randomness,
+          submitResult.shouldRetry,
+        );
         return submitResult;
       }
 
-      // Phase 4: Confirm transaction
-      const confirmResult = await this.confirmTransaction(requestId, submitResult.txHash!);
-      if (!confirmResult.success) {
-        return confirmResult;
+      const submissionLedger = submitResult.ledger;
+      const submissionConfirmed =
+        submissionLedger !== undefined && submissionLedger > 0;
+
+      let confirmLedger = submissionLedger;
+
+      if (!submissionConfirmed) {
+        // Phase 4: Confirm when submitter did not return a ledger (legacy / pending)
+        const confirmResult = await this.confirmTransaction(requestId, submitResult.txHash!);
+        if (!confirmResult.success) {
+          await this.recordAuditFailed(
+            requestId,
+            confirmResult.error ?? 'Confirmation failed',
+            provider,
+            randomness,
+            confirmResult.shouldRetry,
+          );
+          return confirmResult;
+        }
+        confirmLedger = confirmResult.ledger;
       }
 
       // Success path
       this.stateManager.transitionState(
         requestId,
         JobState.CONFIRMED,
-        `Transaction confirmed at ledger ${confirmResult.ledger}`,
+        submissionConfirmed
+          ? `Transaction confirmed at ledger ${submissionLedger} (submitter)`
+          : `Transaction confirmed at ledger ${confirmLedger}`,
       );
-      this.stateManager.recordTransactionResult(requestId, submitResult.txHash!, confirmResult.ledger!);
+      this.stateManager.recordTransactionResult(
+        requestId,
+        submitResult.txHash!,
+        confirmLedger ?? 0,
+      );
 
       this.healthService.recordSuccess(requestId);
       this.lagMonitor.fulfillRequest(requestId);
 
       this.logger.log(
-        `Successfully processed randomness for raffle ${raffleId}: tx=${submitResult.txHash}, ledger=${confirmResult.ledger}`,
+        `Successfully processed randomness for raffle ${raffleId}: tx=${submitResult.txHash}, ledger=${confirmLedger}`,
+      );
+
+      await this.recordAuditSucceeded(
+        requestId,
+        provider,
+        randomness,
+        submitResult.txHash!,
+        confirmLedger,
       );
 
       return {
         success: true,
         shouldRetry: false,
         txHash: submitResult.txHash,
-        ledger: confirmResult.ledger,
+        ledger: confirmLedger,
       };
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
@@ -124,6 +170,14 @@ export class RandomnessProcessorService {
       this.stateManager.transitionState(requestId, targetState, errorMessage, errorMessage);
       this.healthService.recordFailure(requestId, raffleId, errorMessage);
 
+      await this.recordAuditFailed(
+        requestId,
+        errorMessage,
+        undefined,
+        undefined,
+        shouldRetry,
+      );
+
       return { success: false, shouldRetry, error: errorMessage };
     }
   }
@@ -134,7 +188,7 @@ export class RandomnessProcessorService {
   private async generateRandomness(
     requestId: string,
     raffleId: number,
-  ): Promise<RandomnessResult | null> {
+  ): Promise<{ randomness: RandomnessResult; provider: RandomnessProvider } | null> {
     this.stateManager.transitionState(requestId, JobState.GENERATING, 'Starting generation');
 
     try {
@@ -158,10 +212,12 @@ export class RandomnessProcessorService {
           ? this.vrfService.compute(requestId, raffleId)
           : this.prngService.compute(requestId, raffleId);
 
-      const randomness = await Promise.race([generationPromise, timeoutPromise]);
+      const randomness = (await Promise.race([generationPromise, timeoutPromise])) as RandomnessResult;
+      const provider: RandomnessProvider =
+        method === RandomnessMethod.VRF ? 'vrf' : 'prng';
 
       this.logger.log(`Successfully generated randomness for request ${requestId}`);
-      return randomness as RandomnessResult;
+      return { randomness, provider };
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
       this.logger.error(`Generation failed for request ${requestId}: ${errorMessage}`);
@@ -205,11 +261,14 @@ export class RandomnessProcessorService {
         return { success: false, shouldRetry: true, error };
       }
 
-      this.logger.log(`Transaction submitted for request ${requestId}: ${result.txHash}`);
+      this.logger.log(
+        `Transaction submitted for request ${requestId}: ${result.txHash}, ledger=${result.ledger}`,
+      );
       return {
         success: true,
         shouldRetry: false,
         txHash: result.txHash,
+        ledger: result.ledger,
       };
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
@@ -286,10 +345,7 @@ export class RandomnessProcessorService {
     txHash: string,
   ): Promise<{ confirmed: boolean; failed: boolean; ledger?: number }> {
     try {
-      // This would typically call the RPC server's getTransaction method
-      // For now, we'll delegate to the submitter service's internal logic
-      // In a real implementation, this should be extracted to a shared service
-      return { confirmed: false, failed: false };
+      return await this.txSubmitter.getTransactionConfirmationStatus(txHash);
     } catch (error) {
       this.logger.error(`Error checking transaction status for ${txHash}: ${error}`);
       return { confirmed: false, failed: false };
@@ -359,5 +415,109 @@ export class RandomnessProcessorService {
    */
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async recordAuditPending(request: RandomnessRequest): Promise<void> {
+    if (!this.randomnessAudit) {
+      return;
+    }
+
+    try {
+      await this.randomnessAudit.ensurePending({
+        requestInput: {
+          raffleId: request.raffleId,
+          requestId: request.requestId,
+          stableRequestId: request.stableRequestId,
+          prizeAmount: request.prizeAmount,
+          priority: request.priority,
+          replayOverride: request.replayOverride,
+        },
+        contractEventId: request.stableRequestId,
+        queueJobId: request.queueJobId,
+      });
+    } catch (error: any) {
+      this.logger.warn(
+        `Randomness audit pending write failed for ${request.requestId}: ${error?.message}`,
+      );
+    }
+  }
+
+  private async recordAuditSucceeded(
+    requestId: string,
+    provider: RandomnessProvider,
+    randomness: RandomnessResult,
+    submissionTxHash: string,
+    submissionLedger?: number,
+  ): Promise<void> {
+    if (!this.randomnessAudit) {
+      return;
+    }
+
+    try {
+      await this.randomnessAudit.markSucceeded({
+        requestId,
+        provider,
+        seed: randomness.seed,
+        proof: randomness.proof,
+        submissionTxHash,
+        submissionLedger,
+      });
+    } catch (error: any) {
+      this.logger.warn(
+        `Randomness audit success write failed for ${requestId}: ${error?.message}`,
+      );
+    }
+  }
+
+  private async recordAuditAlreadySubmitted(request: RandomnessRequest): Promise<void> {
+    if (!this.randomnessAudit) {
+      return;
+    }
+
+    try {
+      await this.randomnessAudit.ensurePending({
+        requestInput: {
+          raffleId: request.raffleId,
+          requestId: request.requestId,
+          stableRequestId: request.stableRequestId,
+          prizeAmount: request.prizeAmount,
+          priority: request.priority,
+          replayOverride: request.replayOverride,
+        },
+        contractEventId: request.stableRequestId,
+        queueJobId: request.queueJobId,
+      });
+      await this.randomnessAudit.markAlreadySubmitted(request.requestId);
+    } catch (error: any) {
+      this.logger.warn(
+        `Randomness audit already-submitted write failed for ${request.requestId}: ${error?.message}`,
+      );
+    }
+  }
+
+  private async recordAuditFailed(
+    requestId: string,
+    errorMessage: string,
+    provider?: RandomnessProvider,
+    randomness?: RandomnessResult,
+    shouldRetry = false,
+  ): Promise<void> {
+    if (!this.randomnessAudit || shouldRetry) {
+      return;
+    }
+
+    try {
+      await this.randomnessAudit.markFailed({
+        requestId,
+        errorMessage,
+        provider,
+        seed: randomness?.seed,
+        proof: randomness?.proof,
+      });
+    } catch (error: any) {
+      this.logger.warn(
+        `Randomness audit failure write failed for ${requestId}: ${error?.message}`,
+      );
+    }
   }
 }
