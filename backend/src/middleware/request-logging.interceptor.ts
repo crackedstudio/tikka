@@ -6,7 +6,6 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, finalize } from 'rxjs';
-import { env } from '../config/env.config';
 import * as Sentry from '@sentry/node';
 import { REQUEST_ID_HEADER } from './request-id.middleware';
 
