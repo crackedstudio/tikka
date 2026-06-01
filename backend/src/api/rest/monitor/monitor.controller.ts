@@ -12,6 +12,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nes
 import { SkipThrottle } from '../../../middleware/throttle.decorator';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { AdminGuard } from './admin.guard';
+import { AdminScope } from './admin-scopes';
+import { RequireAdminScopes } from './require-admin-scopes.decorator';
 import { MonitorService } from './monitor.service';
 import {
   JobsQuerySchema,
@@ -60,6 +62,7 @@ export class MonitorController {
   ) {}
 
   @Get('jobs')
+  @RequireAdminScopes(AdminScope.MonitorRead)
   @ApiOperation({ summary: 'Get background jobs status' })
   @ApiResponse({ status: 200, description: 'Jobs retrieved successfully' })
   @UsePipes(new (createZodPipe(JobsQuerySchema))())
@@ -68,6 +71,7 @@ export class MonitorController {
   }
 
   @Get('stats')
+  @RequireAdminScopes(AdminScope.MonitorRead)
   @ApiOperation({ summary: 'Get system monitoring stats' })
   @ApiResponse({ status: 200, description: 'System stats retrieved successfully' })
   async getStats() {
@@ -75,6 +79,7 @@ export class MonitorController {
   }
 
   @Get('latency')
+  @RequireAdminScopes(AdminScope.MonitorRead)
   @ApiOperation({ summary: 'Get system latency metrics' })
   @ApiResponse({ status: 200, description: 'Latency metrics retrieved successfully' })
   @UsePipes(new (createZodPipe(LatencyQuerySchema))())
@@ -83,6 +88,7 @@ export class MonitorController {
   }
 
   @Get('errors')
+  @RequireAdminScopes(AdminScope.MonitorRead)
   @ApiOperation({ summary: 'Get system error logs' })
   @ApiResponse({ status: 200, description: 'Errors retrieved successfully' })
   @UsePipes(new (createZodPipe(ErrorsQuerySchema))())
@@ -91,6 +97,7 @@ export class MonitorController {
   }
 
   @Get('audit')
+  @RequireAdminScopes(AdminScope.MonitorRead)
   @ApiOperation({ summary: 'Get system audit logs' })
   @ApiResponse({ status: 200, description: 'Audit logs retrieved successfully' })
   @UsePipes(new (createZodPipe(AuditQuerySchema))())
@@ -99,6 +106,7 @@ export class MonitorController {
   }
 
   @Get('maintenance')
+  @RequireAdminScopes(AdminScope.MonitorRead)
   @ApiOperation({ summary: 'Get maintenance mode status' })
   @ApiResponse({ status: 200, description: 'Maintenance mode status retrieved successfully' })
   @SkipMaintenance()
@@ -109,6 +117,7 @@ export class MonitorController {
   }
 
   @Put('maintenance')
+  @RequireAdminScopes(AdminScope.MonitorWrite)
   @ApiOperation({ summary: 'Set maintenance mode status' })
   @ApiResponse({ status: 200, description: 'Maintenance mode status updated successfully' })
   @ApiBody({ type: SetMaintenanceModeDto })

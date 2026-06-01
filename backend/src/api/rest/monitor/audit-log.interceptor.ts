@@ -3,17 +3,15 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
-} from "@nestjs/common";
-import { Observable, throwError } from "rxjs";
-import { catchError, tap } from "rxjs/operators";
-import { MonitorService } from "./monitor.service";
-
-type MonitorRequest = {
-  method?: string;
-  originalUrl?: string;
-  url?: string;
-  headers?: Record<string, string | string[] | undefined>;
-};
+} from '@nestjs/common';
+import { Observable, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
+import { MonitorService } from './monitor.service';
+import {
+  ADMIN_AUTH_REQUEST_KEY,
+  type AdminRequest,
+} from './admin-auth.types';
+import { buildAuditLogEntryFromRequest } from './admin-audit';
 
 type MonitorResponse = {
   statusCode?: number;
@@ -24,15 +22,15 @@ export class AuditLogInterceptor implements NestInterceptor {
   constructor(private readonly monitorService: MonitorService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context.switchToHttp().getRequest<MonitorRequest>();
+    const request = context.switchToHttp().getRequest<AdminRequest>();
     const response = context.switchToHttp().getResponse<MonitorResponse>();
-    const method = request.method ?? "UNKNOWN";
-    const route = request.originalUrl ?? request.url ?? "unknown";
+    const method = request.method ?? 'UNKNOWN';
+    const route = request.originalUrl ?? request.url ?? 'unknown';
     const adminId = this.resolveAdminId(request);
 
     return next.handle().pipe(
       tap(() => {
-        this.writeAuditLog({
+        this.writeAuditLog(request, {
           adminId,
           route,
           method,
@@ -41,14 +39,14 @@ export class AuditLogInterceptor implements NestInterceptor {
       }),
       catchError((error: unknown) => {
         const statusCode =
-          typeof error === "object" &&
+          typeof error === 'object' &&
           error !== null &&
-          "status" in error &&
-          typeof (error as { status?: unknown }).status === "number"
+          'status' in error &&
+          typeof (error as { status?: unknown }).status === 'number'
             ? ((error as { status: number }).status ?? 500)
             : 500;
 
-        this.writeAuditLog({
+        this.writeAuditLog(request, {
           adminId,
           route,
           method,
@@ -60,25 +58,29 @@ export class AuditLogInterceptor implements NestInterceptor {
     );
   }
 
-  private resolveAdminId(request: MonitorRequest): string {
-    const header = request.headers?.["x-admin-id"];
+  private resolveAdminId(request: AdminRequest): string {
+    const authAdminId = request[ADMIN_AUTH_REQUEST_KEY]?.adminId;
+    if (authAdminId) {
+      return authAdminId;
+    }
+
+    const header = request.headers?.['x-admin-id'];
     const adminId = Array.isArray(header) ? header[0] : header;
 
-    return adminId?.trim() || "unknown-admin";
+    return adminId?.trim() || 'unknown-admin';
   }
 
-  private writeAuditLog(entry: {
-    adminId: string;
-    route: string;
-    method: string;
-    statusCode: number;
-  }) {
-    void this.monitorService.logAudit({
-      adminId: entry.adminId,
-      route: entry.route,
-      method: entry.method,
-      statusCode: entry.statusCode,
-      timestamp: new Date().toISOString(),
-    });
+  private writeAuditLog(
+    request: AdminRequest,
+    entry: {
+      adminId: string;
+      route: string;
+      method: string;
+      statusCode: number;
+    },
+  ) {
+    void this.monitorService.logAudit(
+      buildAuditLogEntryFromRequest(request, entry),
+    );
   }
 }

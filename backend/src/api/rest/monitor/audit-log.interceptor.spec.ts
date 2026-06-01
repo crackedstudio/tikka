@@ -1,9 +1,9 @@
-import { CallHandler, ExecutionContext, HttpException } from "@nestjs/common";
-import { of, throwError } from "rxjs";
-import { AuditLogInterceptor } from "./audit-log.interceptor";
-import { MonitorService } from "./monitor.service";
+import { CallHandler, ExecutionContext, HttpException } from '@nestjs/common';
+import { of, throwError } from 'rxjs';
+import { AuditLogInterceptor } from './audit-log.interceptor';
+import { MonitorService } from './monitor.service';
 
-describe("AuditLogInterceptor", () => {
+describe('AuditLogInterceptor', () => {
   const monitorService = {
     logAudit: jest.fn(),
   } as unknown as MonitorService;
@@ -12,9 +12,12 @@ describe("AuditLogInterceptor", () => {
     return {
       switchToHttp: () => ({
         getRequest: () => ({
-          method: "GET",
-          originalUrl: "/monitor/stats",
-          headers: { "x-admin-id": "admin-1" },
+          method: 'GET',
+          originalUrl: '/monitor/stats',
+          headers: {
+            'x-admin-id': 'admin-1',
+            'x-request-id': 'req-abc',
+          },
         }),
         getResponse: () => ({
           statusCode,
@@ -28,7 +31,7 @@ describe("AuditLogInterceptor", () => {
     (monitorService.logAudit as jest.Mock).mockResolvedValue(undefined);
   });
 
-  it("records successful admin actions", (done) => {
+  it('records successful admin actions with actor, action, target, outcome, and request ID', (done) => {
     const interceptor = new AuditLogInterceptor(monitorService);
     const context = createContext(200);
     const handler: CallHandler = { handle: () => of({ ok: true }) };
@@ -37,9 +40,13 @@ describe("AuditLogInterceptor", () => {
       next: () => {
         expect(monitorService.logAudit).toHaveBeenCalledWith(
           expect.objectContaining({
-            adminId: "admin-1",
-            route: "/monitor/stats",
-            method: "GET",
+            adminId: 'admin-1',
+            action: 'GET /monitor/stats',
+            target: '/monitor/stats',
+            outcome: 'success',
+            requestId: 'req-abc',
+            route: '/monitor/stats',
+            method: 'GET',
             statusCode: 200,
           }),
         );
@@ -49,21 +56,23 @@ describe("AuditLogInterceptor", () => {
     });
   });
 
-  it("records failed admin actions with error status code", (done) => {
+  it('records failed admin actions with error status code', (done) => {
     const interceptor = new AuditLogInterceptor(monitorService);
     const context = createContext(200);
     const handler: CallHandler = {
-      handle: () => throwError(() => new HttpException("forbidden", 403)),
+      handle: () => throwError(() => new HttpException('forbidden', 403)),
     };
 
     interceptor.intercept(context, handler).subscribe({
-      next: () => done(new Error("Expected interceptor stream to error")),
+      next: () => done(new Error('Expected interceptor stream to error')),
       error: () => {
         expect(monitorService.logAudit).toHaveBeenCalledWith(
           expect.objectContaining({
-            adminId: "admin-1",
-            route: "/monitor/stats",
-            method: "GET",
+            adminId: 'admin-1',
+            action: 'GET /monitor/stats',
+            target: '/monitor/stats',
+            outcome: 'failure',
+            requestId: 'req-abc',
             statusCode: 403,
           }),
         );
