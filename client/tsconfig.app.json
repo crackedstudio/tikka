@@ -10,7 +10,6 @@
     ],
     "module": "ESNext",
     "skipLibCheck": true,
-
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -18,7 +17,6 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
@@ -26,16 +24,15 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-
     /* RELEVANT FIXES BELOW */
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "types": [
       "vite/client",
       "node",
-      "vitest/globals"
+      "vitest/globals",
+      "testing-library__jest-dom"
     ]
-    
   },
   "include": [
     "src",

@@ -8,13 +8,14 @@ import ImageCarousel from "../ImageCarousel";
 import { CountdownTimer } from "../ui/CountdownTimer";
 
 type RaffleDetailsCardProps = {
+    raffleId: number;
     image: string;
     images?: string[];
     title: string;
     body: string;
     prizeValue: string;
     prizeCurrency?: string; // default "ETH"
-    countdown: Countdown;
+    endTime: number;
     /** Ticket price amount */
     ticketPrice?: string;
     /** Asset symbol for ticket price, e.g. "XLM", "USDC" */
@@ -28,13 +29,14 @@ type RaffleDetailsCardProps = {
 };
 
 const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
+    raffleId,
     image,
     images,
     title,
     body,
     prizeValue,
     prizeCurrency = "ETH",
-    countdown,
+    endTime,
     ticketPrice,
     ticketAsset = "XLM",
     onEnter,
@@ -104,7 +106,7 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
                             <p className="text-xs text-gray-600 dark:text-[#9CA3AF] mb-2">
                                 Ends In
                             </p>
-                            <CountdownTimer 
+                            <CountdownTimer
                                 endTime={endTime}
                                 className="flex flex-wrap gap-2 text-sm md:text-[18px]"
                                 itemClassName="bg-[#242B46] rounded-[4px] font-semibold px-2 py-0.5 text-white"
@@ -119,7 +121,7 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
             <div className="w-full flex flex-col-reverse gap-6 md:flex-row md:items-start md:gap-12">
                 {/* Left: About (takes remaining space on md+) */}
                 <div className="w-full md:flex-1">
-                    <AboutRaffle 
+                    <AboutRaffle
                         description={body}
                         creator={creator}
                         participants={participants}
@@ -131,13 +133,13 @@ const RaffleDetailsCard: React.FC<RaffleDetailsCardProps> = ({
 
                 {/* Right: Enter card (fixed-ish width on md+, full width on mobile) */}
                 <div className="w-full md:w-[380px]">
-                    <EnterRaffle handleEnterRaffle={onEnter || (() => {})} />
+                    <EnterRaffle handleEnterRaffle={onEnter || (() => { })} />
                 </div>
             </div>
 
             <Line />
 
-            <RecentParticipants />
+            <RecentParticipants raffleId={raffleId} />
         </div>
     );
 };

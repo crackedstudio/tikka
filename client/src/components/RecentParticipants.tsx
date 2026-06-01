@@ -20,7 +20,6 @@ const ANIMATION_DURATION = 300; // ms
 
 const RecentParticipants = ({
   raffleId,
-  currentUserAddress,
   onOptimisticUpdate,
 }: RecentParticipantsProps) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -71,7 +70,7 @@ const RecentParticipants = ({
     const poll = async () => {
       try {
         const newParticipants = await fetchParticipants(lastFetchTimeRef.current);
-        
+
         if (newParticipants.length > 0) {
           setParticipants((prev) => {
             // Remove optimistic entries that are now confirmed
@@ -208,10 +207,10 @@ const ParticipantAvatar = ({
   const animationStyle = prefersReducedMotion
     ? {}
     : {
-        animation: `slideInDown ${ANIMATION_DURATION}ms ease-out`,
-        animationDelay: `${animationDelay}ms`,
-        animationFillMode: "both" as const,
-      };
+      animation: `slideInDown ${ANIMATION_DURATION}ms ease-out`,
+      animationDelay: `${animationDelay}ms`,
+      animationFillMode: "both" as const,
+    };
 
   return (
     <div

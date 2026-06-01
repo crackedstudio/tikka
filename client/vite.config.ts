@@ -12,13 +12,13 @@ export default defineConfig({
         react(),
         tailwindcss(),
         analyze &&
-            visualizer({
-                filename: "dist/stats.html",
-                gzipSize: true,
-                brotliSize: true,
-                template: "treemap",
-                open: false,
-            }),
+        visualizer({
+            filename: "dist/stats.html",
+            gzipSize: true,
+            brotliSize: true,
+            template: "treemap",
+            open: false,
+        }),
         VitePWA({
             registerType: "autoUpdate",
             includeAssets: ["vite.svg", "offline.html"],
@@ -47,7 +47,7 @@ export default defineConfig({
                 navigateFallback: "/offline.html",
                 runtimeCaching: [
                     {
-                        urlPattern: ({ url }) => url.pathname.includes('/raffles'),
+                        urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/raffles'),
                         handler: "NetworkFirst",
                         options: {
                             cacheName: "raffles-cache",

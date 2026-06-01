@@ -6,25 +6,28 @@
  * - Blur-up placeholder effect
  * - Async decoding
  * - Fixed aspect ratio to prevent layout shift
- * - Fallback for browsers without lazy loading support
+ * - Deterministic fallback for load failures
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { generateBlurPlaceholder } from '../utils/imageOptimization';
 
-interface LazyImageProps {
+type LoadHandler = (event: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+type ErrorHandler = (event: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+
+interface LazyImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'onLoad' | 'onError'> {
   src: string;
   alt: string;
   className?: string;
   containerClassName?: string;
   /** Aspect ratio as width/height (e.g., 16/9, 1/1) */
-  aspectRatio?: number;
+  aspectRatio?: number | string;
   /** Whether to use blur-up effect */
   blurUp?: boolean;
   /** Callback when image finishes loading */
-  onLoad?: () => void;
+  onLoad?: LoadHandler;
   /** Callback on load error */
-  onError?: () => void;
+  onError?: ErrorHandler;
   /** Intersection observer options for lazy loading */
   observerOptions?: IntersectionObserverInit;
 }
@@ -41,6 +44,7 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
       onLoad,
       onError,
       observerOptions = { rootMargin: '50px' },
+      ...rest
     },
     ref
   ) => {
@@ -48,27 +52,23 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
     const [isLoaded, setIsLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
 
-    // Merge refs
     useEffect(() => {
-      if (ref) {
-        if (typeof ref === 'function') {
-          ref(imgRef.current);
-        } else {
-          ref.current = imgRef.current;
-        }
+      if (!imgRef.current || !ref) return;
+
+      if (typeof ref === 'function') {
+        ref(imgRef.current);
+      } else {
+        (ref as React.MutableRefObject<HTMLImageElement | null>).current = imgRef.current;
       }
     }, [ref]);
 
-    // Set up intersection observer for lazy loading
     useEffect(() => {
+      if (hasError) return;
       const img = imgRef.current;
       if (!img) return;
 
-      // Check if browser supports IntersectionObserver
-      if (!('IntersectionObserver' in window)) {
-        // Fallback: load immediately
+      if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
         setImageSrc(src);
         return;
       }
@@ -87,42 +87,65 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
       return () => {
         observer.disconnect();
       };
-    }, [src, observerOptions]);
+    }, [src, observerOptions, hasError]);
 
-    const handleLoad = () => {
+    useEffect(() => {
+      if (blurUp) {
+        setImageSrc(generateBlurPlaceholder());
+      } else {
+        setImageSrc(src);
+      }
+      setIsLoaded(false);
+      setHasError(false);
+    }, [src, blurUp]);
+
+    const handleLoad = (event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+      const currentSrc = event.currentTarget.currentSrc || event.currentTarget.src;
+      if (currentSrc.startsWith('data:')) {
+        return;
+      }
+
       setIsLoaded(true);
-      onLoad?.();
+      onLoad?.(event);
     };
 
-    const handleError = () => {
+    const handleError = (event: React.SyntheticEvent<HTMLImageElement, Event>) => {
       setHasError(true);
-      onError?.();
+      onError?.(event);
     };
 
     const containerStyle: React.CSSProperties = {};
-    if (aspectRatio) {
-      containerStyle.aspectRatio = `${aspectRatio}`;
+    if (aspectRatio !== undefined) {
+      containerStyle.aspectRatio = aspectRatio;
     }
 
     return (
       <div
-        ref={containerRef}
+        data-testid="lazyimage-container"
         className={`overflow-hidden bg-gray-200 dark:bg-gray-700 ${containerClassName}`}
         style={containerStyle}
       >
-        <img
-          ref={imgRef}
-          src={imageSrc}
-          alt={alt}
-          className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-75'} transition-opacity duration-300`}
-          loading="lazy"
-          decoding="async"
-          onLoad={handleLoad}
-          onError={handleError}
-        />
-        {hasError && (
-          <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-sm">
-            Failed to load image
+        {!hasError ? (
+          <img
+            data-testid="lazyimage-img"
+            ref={imgRef}
+            src={imageSrc}
+            alt={alt}
+            className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-75'} transition-opacity duration-300`}
+            loading="lazy"
+            decoding="async"
+            onLoad={handleLoad}
+            onError={handleError}
+            {...rest}
+          />
+        ) : (
+          <div
+            data-testid="lazyimage-fallback"
+            className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-sm"
+            role="img"
+            aria-label={alt}
+          >
+            Image unavailable
           </div>
         )}
       </div>

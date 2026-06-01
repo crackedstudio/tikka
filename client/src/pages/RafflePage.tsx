@@ -103,7 +103,6 @@ const RafflePage = () => {
         ticketPriceFormatted,
         prizeValue,
         prizeCurrency,
-        countdown,
         progress,
         entries,
         maxTickets,
@@ -113,7 +112,7 @@ const RafflePage = () => {
         winner,
         metadata
     } = raffle;
-    
+
     const title = metadata?.title || description;
 
     const handleIncrement = () => setTicketCount(prev => Math.min(prev + 1, maxTickets - entries));
@@ -126,7 +125,7 @@ const RafflePage = () => {
             <Helmet>
                 <title>{title} | Tikka Raffles</title>
                 <meta name="description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
-                
+
                 {/* Open Graph */}
                 <meta property="og:title" content={`${title} | Tikka Raffles`} />
                 <meta property="og:description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
@@ -134,7 +133,7 @@ const RafflePage = () => {
                 <meta property="og:url" content={window.location.href} />
                 <meta property="og:type" content="website" />
                 <meta property="og:site_name" content="Tikka" />
-                
+
                 {/* Twitter Card */}
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content={`${title} | Tikka Raffles`} />
@@ -235,7 +234,7 @@ const RafflePage = () => {
 
                         {/* Additional Info Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                             <div className="space-y-1">
+                            <div className="space-y-1">
                                 <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">{t("raffle.prize")}</p>
                                 <p className="text-xl font-black text-yellow-600 dark:text-[#FFD700]">{prizeValue} {prizeCurrency}</p>
                             </div>
@@ -287,7 +286,7 @@ const RafflePage = () => {
                         </div>
 
                         <div className="p-4 bg-gray-200 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/5 space-y-4">
-                             <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">{t("raffle.endsIn")}</span>
                                 <CountdownTimer endTime={raffle.endTime} />
                             </div>
@@ -298,7 +297,7 @@ const RafflePage = () => {
                                 />
                             )}
                             <Line />
-                             <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">{t("raffle.totalParticipants")}</span>
                                 <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center space-x-1">
                                     <Users className="w-4 h-4 text-pink-600 dark:text-[#FE3796]" />
@@ -310,7 +309,7 @@ const RafflePage = () => {
                         {isActive ? (
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between bg-black/20 p-1.5 rounded-xl border border-gray-200 dark:border-white/5">
-                                    <button 
+                                    <button
                                         onClick={handleDecrement}
                                         className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 text-gray-900 dark:text-white transition-colors"
                                     >
@@ -325,9 +324,9 @@ const RafflePage = () => {
                                     </button>
                                 </div>
 
-                                <button 
+                                <button
                                     className="w-full py-4 rounded-xl font-black text-gray-900 dark:text-white tracking-wider shadow-lg shadow-[#FE3796]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                                     style={{
+                                    style={{
                                         background: "linear-gradient(100.92deg, #FE3796 13.57%, #3931F9 97.65%)"
                                     }}
                                     onClick={handleTicketPurchase}
@@ -339,19 +338,19 @@ const RafflePage = () => {
                         ) : (
                             <div className="space-y-4">
                                 {isFinalized && winner ? (
-                                     <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-center space-y-2">
+                                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-center space-y-2">
                                         <Trophy className="w-8 h-8 text-yellow-500 mx-auto" />
                                         <p className="text-xs text-yellow-500/80 font-bold uppercase">{t("raffle.winner")}</p>
                                         <p className="text-sm font-black text-gray-900 dark:text-white truncate px-2">{winner}</p>
                                         <button className="text-xs text-yellow-500 hover:underline">{t("raffle.viewProof")}</button>
                                     </div>
-                                 ) : (
+                                ) : (
                                     <div className="p-4 bg-gray-500/10 border border-gray-500/20 rounded-2xl text-center">
                                         <p className="text-sm font-bold text-gray-400">{t("raffle.ended")}</p>
                                         <p className="text-xs text-gray-500">{t("raffle.noWinnerYet")}</p>
                                     </div>
                                 )}
-                                 <button
+                                <button
                                     disabled
                                     className="w-full py-4 rounded-xl bg-gray-600/20 text-gray-500 font-bold border border-gray-200 dark:border-white/5 cursor-not-allowed uppercase tracking-widest text-sm"
                                 >
@@ -378,7 +377,7 @@ const RafflePage = () => {
                             <div className="bg-purple-500/20 p-2 rounded-lg">
                                 <Bell className="w-5 h-5 text-purple-400" />
                             </div>
-                             <div>
+                            <div>
                                 <p className="text-sm font-bold text-gray-900 dark:text-white">{t("raffle.stayUpdated")}</p>
                                 <p className="text-xs text-gray-500">{t("raffle.getNotified")}</p>
                             </div>

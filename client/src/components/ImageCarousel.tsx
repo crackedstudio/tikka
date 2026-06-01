@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import LazyImage from "./LazyImage";
-import { generateBlurPlaceholder } from "../utils/imageOptimization";
 
 interface ImageCarouselProps {
     images: string[];
@@ -16,7 +15,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
     if (images.length === 1) {
         return (
             <>
-                <div 
+                <div
                     className="w-full rounded-3xl overflow-hidden cursor-pointer"
                     onClick={() => {
                         setLightboxOpen(true);
@@ -25,7 +24,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                     <LazyImage
                         src={images[0]}
                         alt={alt}
-                        aspectRatio={16/9}
+                        aspectRatio={16 / 9}
                         containerClassName="w-full"
                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                         blurUp={true}
@@ -36,7 +35,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                         images={images}
                         currentIndex={0}
                         onClose={() => setLightboxOpen(false)}
-                        onIndexChange={() => {}}
+                        onIndexChange={() => { }}
                     />
                 )}
             </>
@@ -67,7 +66,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                         }}
                         onClick={() => setLightboxOpen(true)}
                     />
-                    
+
                     {/* Navigation Buttons */}
                     <button
                         onClick={handlePrev}
@@ -98,11 +97,10 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                                     e.stopPropagation();
                                     setCurrentIndex(index);
                                 }}
-                                className={`w-2 h-2 rounded-full transition-colors ${
-                                    index === currentIndex
+                                className={`w-2 h-2 rounded-full transition-colors ${index === currentIndex
                                         ? "bg-[#FF389C]"
                                         : "bg-white/50 hover:bg-white/75"
-                                }`}
+                                    }`}
                                 aria-label={`Go to image ${index + 1}`}
                             />
                         ))}
@@ -115,11 +113,10 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
                         <button
                             key={index}
                             onClick={() => setCurrentIndex(index)}
-                            className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${
-                                index === currentIndex
+                            className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${index === currentIndex
                                     ? "border-[#FF389C]"
                                     : "border-transparent hover:border-white/50"
-                            }`}
+                                }`}
                             aria-label={`Thumbnail ${index + 1}`}
                         >
                             <LazyImage
@@ -243,11 +240,10 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
                                 e.stopPropagation();
                                 onIndexChange(index);
                             }}
-                            className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-colors ${
-                                index === currentIndex
+                            className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-colors ${index === currentIndex
                                     ? "border-[#FF389C]"
                                     : "border-transparent hover:border-white/50"
-                            }`}
+                                }`}
                             aria-label={`Thumbnail ${index + 1}`}
                         >
                             <LazyImage
