@@ -1,6 +1,6 @@
 import { xdr } from "@stellar/stellar-sdk";
 import { DomainEvent } from "./event.types";
-import { RawSorobanEvent } from "./event-parser.service";
+import { RawSorobanEvent } from "./event-parser.interface";
 
 /**
  * Interface for event handlers

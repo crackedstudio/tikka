@@ -25,6 +25,7 @@ export const API_CONFIG = {
     users: {
       profile: (address: string) => `/users/${address}`,
       history: (address: string) => `/users/${address}/history`,
+      historyExport: (address: string) => `/users/${address}/history/export?format=csv`,
     },
     search: '/search',
     leaderboard: '/leaderboard',

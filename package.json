@@ -8,7 +8,8 @@
     "build:sdk": "npm run build --prefix sdk",
     "build:backend": "npm run build --prefix backend",
     "build:indexer": "npm run build --prefix indexer",
-    "build:oracle": "npm run build --prefix oracle"
+    "build:oracle": "npm run build --prefix oracle",
+    "check:dependencies": "node scripts/check-dependencies.js"
   },
   "devDependencies": {
     "@types/react": "^18.3.28",

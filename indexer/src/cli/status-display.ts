@@ -62,6 +62,18 @@ export function renderTable(result: StatusResult): string {
   lines.push(`${BOLD}Events${RESET}`);
   lines.push(`  ${pad('Total processed', 26)} ${result.events.total_processed.toLocaleString()}`);
   lines.push(`  ${pad('Last 24 h', 26)} ${result.events.last_24h.toLocaleString()}`);
+  lines.push(`  ${pad('Last processed at', 26)} ${result.events.last_processed_at ?? `${DIM}n/a${RESET}`}`);
+
+  lines.push('');
+
+  lines.push(`${BOLD}DLQ${RESET}`);
+  lines.push(`  ${pad('Total size', 26)} ${colorDlq(result.dlq.total)}`);
+
+  lines.push('');
+
+  lines.push(`${BOLD}Cache${RESET}`);
+  lines.push(`  ${pad('Status', 26)} ${colorCacheStatus(result.cache.status)}`);
+  lines.push(`  ${pad('Latency', 26)} ${result.cache.latency_ms != null ? `${result.cache.latency_ms} ms` : `${DIM}n/a${RESET}`}`);
 
   lines.push('');
 
@@ -72,6 +84,14 @@ export function renderTable(result: StatusResult): string {
     lines.push(`  ${pad('Pool (total / idle / wait)', 26)} ${total} / ${idle} / ${waiting}`);
   } else {
     lines.push(`  ${pad('Pool', 26)} ${DIM}n/a${RESET}`);
+  }
+
+  if (result.warnings && result.warnings.length > 0) {
+    lines.push('');
+    lines.push(`${BOLD}${RED}Warnings${RESET}`);
+    for (const warning of result.warnings) {
+      lines.push(`  ${YELLOW}⚠ ${warning}${RESET}`);
+    }
   }
 
   lines.push('─'.repeat(50));

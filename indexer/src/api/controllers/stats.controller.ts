@@ -6,6 +6,7 @@ import { PlatformStatEntity } from "../../database/entities/platform-stat.entity
 import { RaffleEntity, RaffleStatus } from "../../database/entities/raffle.entity";
 import { UserEntity } from "../../database/entities/user.entity";
 import { ApiKeyGuard } from "../api-key.guard";
+import { PlatformStatDto } from "./dto/stats.dto";
 
 @UseGuards(ApiKeyGuard)
 @Controller("stats")
@@ -26,7 +27,7 @@ export class StatsController {
    * Merges the latest daily roll-up row with live counts for active raffles.
    */
   @Get("platform")
-  async platform() {
+  async platform(): Promise<PlatformStatDto> {
     const cached = await this.cacheService.getPlatformStats();
     if (cached) return cached;
 
@@ -42,7 +43,7 @@ export class StatsController {
       this.userRepo.count(),
     ]);
 
-    const result = {
+    const result: PlatformStatDto = {
       date: latest?.date ?? null,
       total_raffles: latest?.totalRaffles ?? 0,
       total_tickets: latest?.totalTickets ?? 0,

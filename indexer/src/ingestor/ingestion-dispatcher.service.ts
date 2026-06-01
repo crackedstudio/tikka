@@ -6,6 +6,13 @@ import { AdminProcessor } from "../processors/admin.processor";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { DomainEvent } from "./event.types";
 import { DeadLetterQueueService } from "./dead-letter-queue.service";
+import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
+import { DlqReason } from "../database/entities/dead-letter-event.entity";
+import {
+  CURRENT_SCHEMA_VERSION,
+  isSupportedSchemaVersion,
+  UnsupportedSchemaVersionError,
+} from "./handlers/schema-version";
 
 export type HandlerOutcome = "succeeded" | "failed" | "skipped";
 
@@ -33,6 +40,7 @@ export class IngestionDispatcherService {
     private readonly ticketProcessor: TicketProcessor,
     private readonly adminProcessor: AdminProcessor,
     @Optional() private readonly deadLetterQueue?: DeadLetterQueueService,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
   async dispatch(
@@ -69,6 +77,34 @@ export class IngestionDispatcherService {
     const txHash = String(raw.id || raw.paging_token || "");
     const eventId = txHash || "unknown";
     const handlerName = this.getHandlerName(event);
+    const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
+
+    // Reject events whose schema version this build cannot decode, instead of
+    // letting a handler silently mis-parse them.
+    if (!isSupportedSchemaVersion(schemaVersion)) {
+      const error = new UnsupportedSchemaVersionError(schemaVersion, event.type);
+      const result = this.logResult({
+        handlerName,
+        eventId,
+        eventType: event.type,
+        outcome: "failed",
+        durationMs: Date.now() - startedAt,
+        error,
+      });
+      await this.deadLetter({
+        handlerName,
+        eventId,
+        event,
+        raw,
+        ledger,
+        txHash,
+        schemaVersion,
+        reason: DlqReason.SCHEMA_UNSUPPORTED,
+        error,
+        durationMs: result.durationMs,
+      });
+      return result;
+    }
 
     try {
       const runner = await this.applyEvent(event, raw);
@@ -94,22 +130,58 @@ export class IngestionDispatcherService {
         error: error instanceof Error ? error : new Error(String(error)),
       });
 
-      await this.deadLetterQueue?.enqueue({
+      await this.deadLetter({
         handlerName,
         eventId,
-        eventType: event.type,
-        ledger: Number.isFinite(ledger) ? ledger : null,
-        txHash: txHash || null,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-        durationMs: result.durationMs,
         event,
-        rawEvent: raw,
-        failedAt: new Date().toISOString(),
+        raw,
+        ledger,
+        txHash,
+        schemaVersion,
+        reason: DlqReason.HANDLER_ERROR,
+        error: error instanceof Error ? error : new Error(String(error)),
+        durationMs: result.durationMs,
       });
 
       return result;
     }
+  }
+
+  /**
+   * Records a failed event in the dead-letter queue with its schema version and
+   * failure reason, and advances the pipeline state machine accordingly.
+   */
+  private async deadLetter(params: {
+    handlerName: string;
+    eventId: string;
+    event: DomainEvent;
+    raw: Record<string, unknown>;
+    ledger: number;
+    txHash: string;
+    schemaVersion: number;
+    reason: DlqReason;
+    error: Error;
+    durationMs: number;
+  }): Promise<void> {
+    this.pipeline?.apply(PipelineTransition.HANDLER_FAILURE);
+
+    await this.deadLetterQueue?.enqueue({
+      handlerName: params.handlerName,
+      eventId: params.eventId,
+      eventType: params.event.type,
+      ledger: Number.isFinite(params.ledger) ? params.ledger : null,
+      txHash: params.txHash || null,
+      schemaVersion: params.schemaVersion,
+      reason: params.reason,
+      errorMessage: params.error.message,
+      errorStack: params.error.stack,
+      durationMs: params.durationMs,
+      event: params.event,
+      rawEvent: params.raw,
+      failedAt: new Date().toISOString(),
+    });
+
+    this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
   }
 
   private eventNeedsDatabase(event: DomainEvent): boolean {
@@ -129,6 +201,7 @@ export class IngestionDispatcherService {
   ): Promise<QueryRunner | null> {
     const ledger = Number(raw.ledger);
     const txHash = String(raw.id || raw.paging_token || "");
+    const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
 
     switch (event.type) {
       case "RaffleCreated":
@@ -138,6 +211,7 @@ export class IngestionDispatcherService {
           ledger,
           txHash,
           event.params,
+          schemaVersion,
         );
 
       case "RaffleFinalized":
@@ -148,6 +222,7 @@ export class IngestionDispatcherService {
           event.prize_amount,
           ledger,
           txHash,
+          schemaVersion,
         );
 
       case "RaffleCancelled":
@@ -156,6 +231,7 @@ export class IngestionDispatcherService {
           event.reason,
           ledger,
           txHash,
+          schemaVersion,
         );
 
       case "TicketPurchased": {
@@ -310,7 +386,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "ContractPaused",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
@@ -319,7 +395,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "ContractUnpaused",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
@@ -328,7 +404,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "AdminTransferProposed",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: {
@@ -340,7 +416,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "AdminTransferAccepted",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: {

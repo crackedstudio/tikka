@@ -3,26 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../../database/entities/user.entity';
 import { CacheService } from '../../cache/cache.service';
-
-type LeaderboardMode = 'wins' | 'volume' | 'tickets';
-
-type LeaderboardEntry = {
-  rank: number | null;
-  address: string;
-  totalTicketsBought: number;
-  totalRafflesWon: number;
-  totalPrizeXlm: string;
-  firstSeenLedger: number;
-};
-
-type LeaderboardResponse = {
-  by: LeaderboardMode;
-  limit: number;
-  offset: number | null;
-  ranking: string[];
-  entries: LeaderboardEntry[];
-  nextCursor: string | null;
-};
+import {
+  LeaderboardMode,
+  LeaderboardResponseDto,
+  LeaderboardEntryDto,
+} from './dto/leaderboard.dto';
 
 @Controller('leaderboard')
 export class LeaderboardController {
@@ -38,7 +23,7 @@ export class LeaderboardController {
     @Query('limit') limit: number = 50,
     @Query('cursor') cursor?: string,
     @Query('offset') offset?: number,
-  ): Promise<LeaderboardResponse> {
+  ): Promise<LeaderboardResponseDto> {
     const mode = this.normalizeMode(by);
     const safeLimit = this.clampNumber(limit, 1, 100, 50);
     const safeOffset =
@@ -109,7 +94,7 @@ export class LeaderboardController {
     limit: number,
     cursor?: string,
     offset?: number,
-  ): Promise<LeaderboardResponse> {
+  ): Promise<LeaderboardResponseDto> {
     const query = this.userRepo.createQueryBuilder('user');
     const primarySort = this.primarySortExpression(mode);
 
@@ -160,13 +145,12 @@ export class LeaderboardController {
       limit,
       offset: effectiveOffset,
       ranking: this.rankingSemantics(mode),
-      entries: entries.map((entry, index) => ({
+      entries: entries.map((entry, index): LeaderboardEntryDto => ({
         rank: effectiveOffset == null ? null : effectiveOffset + index + 1,
         address: entry.address,
         totalTicketsBought: entry.totalTicketsBought,
         totalRafflesWon: entry.totalRafflesWon,
         totalPrizeXlm: entry.totalPrizeXlm,
-        firstSeenLedger: entry.firstSeenLedger,
       })),
       nextCursor: hasMore && last ? this.encodeCursor(mode, last) : null,
     };

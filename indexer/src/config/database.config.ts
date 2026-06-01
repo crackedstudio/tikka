@@ -31,7 +31,7 @@ export default registerAs("database", (): DataSourceOptions => {
     migrations: [__dirname + "/../database/migrations/*{.ts,.js}"],
     migrationsRun: true,
     synchronize: false,
-    logging: ["warn", "error"] as const,
+    logging: ["warn", "error"] as any,
     maxQueryExecutionTime: slowQueryThresholdMs,
   };
 

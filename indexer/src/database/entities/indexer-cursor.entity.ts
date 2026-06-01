@@ -12,8 +12,9 @@ export class IndexerCursorEntity {
   lastPagingToken!: string;
 
   /**
-   * Ring buffer of recent { ledger, hash } pairs for reorg detection.
+   * DERIVED FIELD: Ring buffer of recent { ledger, hash } pairs for reorg detection.
    * Stored as JSONB array, capped at REORG_SAFETY_DEPTH * 2 entries.
+   * Updated by CursorManagerService after each ledger.
    */
   @Column({ type: 'jsonb', default: '[]', name: 'ledger_hashes' })
   ledgerHashes!: Array<{ ledger: number; hash: string }>;

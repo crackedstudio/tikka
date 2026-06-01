@@ -97,6 +97,7 @@ export class CursorManagerService {
   constructor(
     @InjectRepository(IndexerCursorEntity)
     private readonly cursorRepo: Repository<IndexerCursorEntity>,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
   // ── Public API ─────────────────────────────────────────────────────────────
