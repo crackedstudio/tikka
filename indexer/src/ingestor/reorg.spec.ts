@@ -14,6 +14,19 @@ function makeRepo(entity: Partial<IndexerCursorEntity> | null = null) {
   };
 }
 
+/** Minimal valid cursor row — includes all fields validateOnLoad() requires. */
+function cursorRow(overrides: Partial<IndexerCursorEntity> = {}): Partial<IndexerCursorEntity> {
+  return {
+    lastLedger: 1000,
+    lastPagingToken: 'tok',
+    ledgerHashes: [{ ledger: 1000, hash: 'abc' }],
+    processedEventCount: 0,
+    savedAt: new Date(),
+    checkpointVersion: 1,
+    ...overrides,
+  };
+}
+
 describe('CursorManagerService', () => {
   let service: CursorManagerService;
 
@@ -36,11 +49,11 @@ describe('CursorManagerService', () => {
     });
 
     it('returns cursor with ledgerHashes', async () => {
-      await build({
+      await build(cursorRow({
         lastLedger: 1000,
         lastPagingToken: 'tok',
         ledgerHashes: [{ ledger: 999, hash: 'abc' }],
-      });
+      }));
       const cursor = await service.getCursor();
       expect(cursor?.lastLedger).toBe(1000);
       expect(cursor?.ledgerHashes).toHaveLength(1);
@@ -49,35 +62,38 @@ describe('CursorManagerService', () => {
 
   describe('checkForReorg', () => {
     it('returns null when no stored hash for that ledger', async () => {
-      await build({ lastLedger: 1000, ledgerHashes: [] });
+      await build(cursorRow({ lastLedger: 1000, ledgerHashes: [] }));
       expect(await service.checkForReorg(1000, 'anyhash')).toBeNull();
     });
 
     it('returns null when hash matches', async () => {
-      await build({
+      await build(cursorRow({
         lastLedger: 1000,
         ledgerHashes: [{ ledger: 1000, hash: 'correct' }],
-      });
+      }));
       expect(await service.checkForReorg(1000, 'correct')).toBeNull();
     });
 
     it('returns divergence ledger when hash differs', async () => {
-      await build({
+      await build(cursorRow({
         lastLedger: 1000,
         ledgerHashes: [{ ledger: 1000, hash: 'original' }],
-      });
+      }));
       expect(await service.checkForReorg(1000, 'forked')).toBe(1000);
     });
   });
 
   describe('saveCursor', () => {
     it('appends new hash to the ring and upserts', async () => {
-      const repo = await build({
+      const repo = await build(cursorRow({
         lastLedger: 999,
         ledgerHashes: [{ ledger: 999, hash: 'prev' }],
-      });
+        processedEventCount: 10,
+      }));
 
-      await service.saveCursor(1000, 'newhash', 'token-1');
+      // Load cursor first so lastCheckpoint is populated (needed for monotonicity check)
+      await service.getCursor();
+      await service.saveCursor(1000, 'newhash', 'token-1', 11);
 
       expect(repo.manager.upsert).toHaveBeenCalledWith(
         IndexerCursorEntity,

@@ -4,17 +4,27 @@ import { Repository, EntityManager, QueryRunner } from 'typeorm';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
 import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
 
+/** Legacy shape returned by getCursor() — unchanged for backward compat. */
 export interface IndexerCursor {
   lastLedger: number;
   lastPagingToken?: string;
   ledgerHashes: Array<{ ledger: number; hash: string }>;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const HASH_RING_SIZE = 200;
+
+// ── Service ───────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class CursorManagerService {
   private readonly logger = new Logger(CursorManagerService.name);
+
+  private mode: IngestorMode = 'RUNNING';
+  private lastCheckpoint: CursorCheckpoint | null = null;
+  private lastViolation: IntegrityViolation | null = null;
+  private readonly startedAt = Date.now();
 
   constructor(
     @InjectRepository(IndexerCursorEntity)
@@ -22,49 +32,126 @@ export class CursorManagerService {
     @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
-  async getCursor(): Promise<IndexerCursor | null> {
-    this.logger.debug('Fetching cursor from storage...');
-    const cursor = await this.cursorRepo.findOne({ where: { id: 1 } });
+  // ── Public API ─────────────────────────────────────────────────────────────
 
-    if (cursor && cursor.lastLedger > 0) {
-      return {
-        lastLedger: cursor.lastLedger,
-        lastPagingToken: cursor.lastPagingToken,
-        ledgerHashes: cursor.ledgerHashes || [],
-      };
-    }
-    return null;
+  /**
+   * Returns a snapshot of the cursor manager's current state.
+   *
+   * - `mode`           — RUNNING (normal), DEGRADED (integrity violation, writes
+   *                      blocked), or STOPPED (clean shutdown).
+   * - `lastCheckpoint` — the last checkpoint successfully validated and written;
+   *                      use this to determine the safe resume point.
+   * - `lastViolation`  — the violation that triggered DEGRADED, if any; inspect
+   *                      `violation.code` and the accompanying fields to diagnose
+   *                      the root cause before attempting recovery.
+   * - `uptimeMs`       — milliseconds since this service instance was created;
+   *                      useful for correlating log timestamps.
+   */
+  getStatus(): CursorManagerStatus {
+    return {
+      mode: this.mode,
+      lastCheckpoint: this.lastCheckpoint,
+      lastViolation: this.lastViolation,
+      uptimeMs: Date.now() - this.startedAt,
+    };
   }
 
   /**
-   * Updates the cursor and stores the ledger hash for reorg detection.
-   * Maintains a ring buffer of the last HASH_RING_SIZE ledger hashes.
+   * Load the cursor from storage.
+   * Runs validateOnLoad(); on violation transitions to DEGRADED and returns null.
+   * Callers (LedgerPollerService) must check getStatus().mode before starting.
+   */
+  async getCursor(): Promise<IndexerCursor | null> {
+    this.logger.debug('Fetching cursor from storage...');
+    const row = await this.cursorRepo.findOne({ where: { id: 1 } });
+    if (!row || row.lastLedger === 0) return null;
+
+    // Build a CursorCheckpoint from the stored row for validation
+    const stored: CursorCheckpoint = {
+      sequence: row.lastLedger,
+      ledgerHash: row.ledgerHashes[row.ledgerHashes.length - 1]?.hash ?? '',
+      processedEventCount: Number(row.processedEventCount),
+      savedAt: row.savedAt instanceof Date ? row.savedAt.toISOString() : String(row.savedAt),
+      version: row.checkpointVersion,
+    };
+
+    const violation = validateOnLoad(stored);
+    if (violation) {
+      this.transitionDegraded(violation);
+      return null;
+    }
+
+    this.lastCheckpoint = stored;
+    return {
+      lastLedger: row.lastLedger,
+      lastPagingToken: row.lastPagingToken,
+      ledgerHashes: row.ledgerHashes,
+    };
+  }
+
+  /**
+   * Persist a new checkpoint.
+   * Runs validateBeforeSave(); on violation transitions to DEGRADED and throws
+   * CursorIntegrityError — the caller must not continue processing.
+   *
+   * @param ledger           Ledger sequence number being checkpointed.
+   * @param ledgerHash       Hash of this ledger from the chain.
+   * @param token            Horizon paging token (optional).
+   * @param processedCount   Cumulative event count up to this ledger.
+   * @param queryRunner      Optional QueryRunner for transactional saves.
    */
   async saveCursor(
     ledger: number,
     ledgerHash: string,
     token?: string,
+    processedCount?: number,
     queryRunner?: QueryRunner,
   ): Promise<void> {
-    this.logger.debug(`Saving cursor: ledger=${ledger}, hash=${ledgerHash}, token=${token}`);
+    if (this.mode === 'DEGRADED') {
+      this.logger.warn('saveCursor called while in DEGRADED mode — write suppressed');
+      return;
+    }
 
-    const manager: EntityManager = queryRunner ? queryRunner.manager : this.cursorRepo.manager;
+    const savedAt = new Date().toISOString();
+    const eventCount = processedCount ?? (this.lastCheckpoint?.processedEventCount ?? 0);
+
+    const candidate: CursorCheckpoint = {
+      sequence: ledger,
+      ledgerHash,
+      processedEventCount: eventCount,
+      savedAt,
+      version: CURSOR_CHECKPOINT_VERSION,
+    };
+
+    const violation = validateBeforeSave(candidate, this.lastCheckpoint);
+    if (violation) {
+      this.transitionDegraded(violation);
+      throw new CursorIntegrityError(violation, candidate);
+    }
+
+    this.logger.debug(
+      `Saving cursor: ledger=${ledger}, hash=${ledgerHash}, events=${eventCount}, token=${token}`,
+    );
+
+    const manager: EntityManager = queryRunner
+      ? queryRunner.manager
+      : this.cursorRepo.manager;
 
     const existing = await manager.findOne(IndexerCursorEntity, { where: { id: 1 } });
-    const hashes = existing?.ledgerHashes || [];
-
+    const hashes = existing?.ledgerHashes ?? [];
     hashes.push({ ledger, hash: ledgerHash });
-    if (hashes.length > HASH_RING_SIZE) {
-      hashes.shift();
-    }
+    if (hashes.length > HASH_RING_SIZE) hashes.shift();
 
     await manager.upsert(
       IndexerCursorEntity,
       {
         id: 1,
         lastLedger: ledger,
-        lastPagingToken: token || '',
+        lastPagingToken: token ?? '',
         ledgerHashes: hashes,
+        processedEventCount: eventCount,
+        savedAt: new Date(savedAt),
+        checkpointVersion: CURSOR_CHECKPOINT_VERSION,
       },
       ['id'],
     );
@@ -73,11 +160,14 @@ export class CursorManagerService {
   }
 
   /**
-   * Checks if the given ledger hash matches the stored hash for that ledger.
-   * Returns null if no reorg detected, or the divergence ledger if a reorg is found.
+   * Check whether the chain-reported hash for a ledger matches the stored hash.
+   * If the checkpoint for this sequence is the lastCheckpoint, also runs
+   * validateLedgerHash() and transitions to DEGRADED on mismatch.
+   *
+   * Returns the divergence ledger number on reorg/mismatch, null otherwise.
    */
   async checkForReorg(ledger: number, expectedHash: string): Promise<number | null> {
-    const cursor = await this.getCursor();
+    const cursor = await this.cursorRepo.findOne({ where: { id: 1 } });
     if (!cursor) return null;
 
     const stored = cursor.ledgerHashes.find((h) => h.ledger === ledger);
@@ -87,9 +177,28 @@ export class CursorManagerService {
       this.logger.warn(
         `Reorg detected at ledger ${ledger}: expected ${expectedHash}, got ${stored.hash}`,
       );
+
+      // If this is the current checkpoint, run the typed integrity check too
+      if (this.lastCheckpoint?.sequence === ledger) {
+        const violation = validateLedgerHash(this.lastCheckpoint, expectedHash);
+        if (violation) this.transitionDegraded(violation);
+      }
+
       return ledger;
     }
 
     return null;
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  private transitionDegraded(violation: IntegrityViolation): void {
+    this.mode = 'DEGRADED';
+    this.lastViolation = violation;
+    this.logger.error('cursor_integrity_violation', {
+      violation: violation.code,
+      detail: violation,
+      action: 'ingestion_paused_awaiting_operator',
+    });
   }
 }
