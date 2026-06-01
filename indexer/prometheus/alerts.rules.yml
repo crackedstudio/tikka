@@ -27,3 +27,83 @@ groups:
         annotations:
           summary: "Indexer encountering errors"
           description: "The indexer is encountering errors at a rate of {{ $value }} per second."
+
+      - alert: HighEventFailureRate
+        expr: sum(rate(tikka_indexer_events_failed_total[5m])) / sum(rate(tikka_indexer_events_processed_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High event processing failure rate"
+          description: "Event failure rate is {{ $value | humanizePercentage }}, exceeding 5% threshold."
+
+      - alert: DLQMessagesAccumulating
+        expr: rate(tikka_dlq_messages_total[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Messages accumulating in dead letter queue"
+          description: "DLQ is receiving {{ $value }} messages per second for queue {{ $labels.queue_name }}."
+
+      - alert: HighRetryRate
+        expr: sum by (queue_name) (rate(tikka_retries_total[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High retry rate detected"
+          description: "Queue {{ $labels.queue_name }} is retrying at {{ $value }} attempts per second."
+
+      - alert: DatabaseHighLatency
+        expr: histogram_quantile(0.95, rate(tikka_db_latency_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database latency detected"
+          description: "95th percentile database latency is {{ $value }}s for operation {{ $labels.operation_type }}."
+
+      - alert: SlowDatabaseQueries
+        expr: rate(tikka_db_slow_query_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Slow queries detected at {{ $value }} per second for operation {{ $labels.operation }}."
+
+      - alert: CacheHighMissRate
+        expr: sum by (cache_type) (rate(tikka_cache_misses_total[5m])) / (sum by (cache_type) (rate(tikka_cache_hits_total[5m])) + sum by (cache_type) (rate(tikka_cache_misses_total[5m]))) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High cache miss rate"
+          description: "Cache {{ $labels.cache_type }} has a miss rate of {{ $value | humanizePercentage }}."
+
+      - alert: CacheHighLatency
+        expr: histogram_quantile(0.95, rate(tikka_cache_latency_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High cache latency detected"
+          description: "95th percentile cache latency is {{ $value }}s for {{ $labels.cache_type }}."
+
+      - alert: QueueDepthHigh
+        expr: tikka_queue_depth > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Queue depth is high"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} pending messages."
+
+      - alert: ReorgDetected
+        expr: increase(tikka_indexer_reorg_detected_total[5m]) > 0
+        labels:
+          severity: info
+        annotations:
+          summary: "Ledger reorganization detected"
+          description: "{{ $value }} ledger reorgs detected in the last 5 minutes."
