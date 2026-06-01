@@ -3,6 +3,7 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule, seconds } from "@nestjs/throttler";
+import { BullModule } from "@nestjs/bull";
 import { LoggerModule } from "nestjs-pino";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
@@ -58,6 +59,17 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
           },
         };
       },
+    }),
+
+    /**
+     * Bull queue for notification retries
+     */
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: config.get<string>("REDIS_URL"),
+      }),
     }),
 
     /**

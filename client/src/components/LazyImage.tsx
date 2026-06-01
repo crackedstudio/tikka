@@ -9,8 +9,8 @@
  * - Fallback for browsers without lazy loading support
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { generateBlurPlaceholder } from '../utils/imageOptimization';
+import React, { useState, useRef, useEffect } from "react";
+import { generateBlurPlaceholder } from "../utils/imageOptimization";
 
 interface LazyImageProps {
   src: string;
@@ -27,6 +27,8 @@ interface LazyImageProps {
   onError?: () => void;
   /** Intersection observer options for lazy loading */
   observerOptions?: IntersectionObserverInit;
+  /** Click handler */
+  onClick?: () => void;
 }
 
 const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
@@ -34,17 +36,20 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
     {
       src,
       alt,
-      className = 'w-full h-full object-cover',
-      containerClassName = '',
+      className = "w-full h-full object-cover",
+      containerClassName = "",
       aspectRatio,
       blurUp = true,
       onLoad,
       onError,
-      observerOptions = { rootMargin: '50px' },
+      onClick,
+      observerOptions = { rootMargin: "50px" },
     },
-    ref
+    ref,
   ) => {
-    const [imageSrc, setImageSrc] = useState<string>(blurUp ? generateBlurPlaceholder() : src);
+    const [imageSrc, setImageSrc] = useState<string>(
+      blurUp ? generateBlurPlaceholder() : src,
+    );
     const [isLoaded, setIsLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
@@ -53,7 +58,7 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
     // Merge refs
     useEffect(() => {
       if (ref) {
-        if (typeof ref === 'function') {
+        if (typeof ref === "function") {
           ref(imgRef.current);
         } else {
           ref.current = imgRef.current;
@@ -67,7 +72,7 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
       if (!img) return;
 
       // Check if browser supports IntersectionObserver
-      if (!('IntersectionObserver' in window)) {
+      if (!("IntersectionObserver" in window)) {
         // Fallback: load immediately
         setImageSrc(src);
         return;
@@ -109,12 +114,13 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
         ref={containerRef}
         className={`overflow-hidden bg-gray-200 dark:bg-gray-700 ${containerClassName}`}
         style={containerStyle}
+        onClick={onClick}
       >
         <img
           ref={imgRef}
           src={imageSrc}
           alt={alt}
-          className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-75'} transition-opacity duration-300`}
+          className={`${className} ${isLoaded ? "opacity-100" : "opacity-75"} transition-opacity duration-300`}
           loading="lazy"
           decoding="async"
           onLoad={handleLoad}
@@ -127,9 +133,9 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
         )}
       </div>
     );
-  }
+  },
 );
 
-LazyImage.displayName = 'LazyImage';
+LazyImage.displayName = "LazyImage";
 
 export default LazyImage;

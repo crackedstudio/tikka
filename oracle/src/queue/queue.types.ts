@@ -5,6 +5,8 @@ export interface RandomnessRequest {
   replayOverride?: boolean;
   prizeAmount?: number;
   priority?: number;
+  /** Bull queue job id for audit linkage */
+  queueJobId?: string;
 }
 
 export interface RandomnessResult {

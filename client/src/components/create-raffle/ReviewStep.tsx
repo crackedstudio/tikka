@@ -2,6 +2,7 @@ import React from "react";
 import type { StepComponentProps } from "../../types/types";
 import CreateRaffleButton from "../CreateRaffleButton";
 import { useNavigate } from "react-router-dom";
+import { validateStep } from "./validation";
 
 const ReviewStep: React.FC<StepComponentProps> = ({
   formData,
@@ -9,6 +10,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
   onBack,
 }: StepComponentProps) => {
   const navigate = useNavigate();
+  const canPublish = validateStep("review", formData);
   const formatDuration = (days: number, hours: number) => {
     return `${days}d ${hours}h`;
   };
@@ -106,6 +108,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
         >
           Back
         </button>
+        {canPublish ? (
         <CreateRaffleButton
           title={formData.title}
           description={formData.description}
@@ -142,6 +145,15 @@ const ReviewStep: React.FC<StepComponentProps> = ({
         >
           Publish Raffle
         </CreateRaffleButton>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="px-6 py-3 rounded-lg font-medium bg-gray-600 text-gray-400 cursor-not-allowed"
+          >
+            Publish Raffle
+          </button>
+        )}
       </div>
     </div>
   );
