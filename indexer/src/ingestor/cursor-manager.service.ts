@@ -1,76 +1,8 @@
-/**
- * cursor-manager.service.ts
- *
- * Manages the singleton cursor row (id=1) in the indexer_cursor table.
- *
- * Changes in issue #560:
- *  - Added IngestorMode ("RUNNING" | "DEGRADED" | "STOPPED")
- *  - validateOnLoad() called in getCursor(); violation → DEGRADED, no loop start
- *  - validateBeforeSave() called in saveCursor(); violation → DEGRADED + throws
- *  - validateLedgerHash() exposed via checkForReorg() (existing callers unchanged)
- *  - getStatus() exposes mode, lastCheckpoint, lastViolation, uptimeMs
- *  - CursorIntegrityError typed error class for callers to catch
- *
- * Storage: TypeORM upsert on IndexerCursorEntity (PostgreSQL, singleton row id=1).
- * The existing IndexerCursor interface and saveCursor/getCursor signatures are
- * preserved for backward compatibility with LedgerPollerService.
- */
-
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, QueryRunner } from 'typeorm';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
-import {
-  CursorCheckpoint,
-  CURSOR_CHECKPOINT_VERSION,
-  IntegrityViolation,
-  validateBeforeSave,
-  validateLedgerHash,
-  validateOnLoad,
-} from './cursor-integrity';
-
-// ── Public types ──────────────────────────────────────────────────────────────
-
-/**
- * Operational mode of the ingestion pipeline.
- *
- * RUNNING  — normal operation.
- * DEGRADED — integrity violation detected; ingestion paused, no writes.
- *            Operator action required to clear or reset.
- * STOPPED  — clean shutdown.
- */
-export type IngestorMode = 'RUNNING' | 'DEGRADED' | 'STOPPED';
-
-export interface CursorManagerStatus {
-  /** Current operational mode of the ingestion pipeline. */
-  mode: IngestorMode;
-  /**
-   * The last checkpoint that was successfully validated and persisted.
-   * null if no checkpoint has been written or loaded in this process lifetime.
-   */
-  lastCheckpoint: CursorCheckpoint | null;
-  /**
-   * The most recent integrity violation that caused a DEGRADED transition.
-   * null while mode is RUNNING or STOPPED.
-   */
-  lastViolation: IntegrityViolation | null;
-  /** Milliseconds since this CursorManagerService instance was constructed. */
-  uptimeMs: number;
-}
-
-/**
- * Thrown when a cursor integrity check fails.
- * The ingestor must catch this and transition to DEGRADED mode.
- */
-export class CursorIntegrityError extends Error {
-  constructor(
-    public readonly violation: IntegrityViolation,
-    public readonly checkpoint: Partial<CursorCheckpoint>,
-  ) {
-    super(`Cursor integrity violation: ${violation.code}`);
-    this.name = 'CursorIntegrityError';
-  }
-}
+import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
 
 /** Legacy shape returned by getCursor() — unchanged for backward compat. */
 export interface IndexerCursor {
@@ -97,6 +29,7 @@ export class CursorManagerService {
   constructor(
     @InjectRepository(IndexerCursorEntity)
     private readonly cursorRepo: Repository<IndexerCursorEntity>,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -223,7 +156,7 @@ export class CursorManagerService {
       ['id'],
     );
 
-    this.lastCheckpoint = candidate;
+    this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
   }
 
   /**

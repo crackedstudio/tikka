@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { Logger } from '@nestjs/common';
+import { env } from '../config/env.config';
 
 export interface IngestionErrorContext {
   /** Stellar ledger sequence number. Omitted from tags if undefined. */
@@ -19,25 +20,47 @@ export interface IngestionErrorContext {
  * Build the Sentry init options from environment variables.
  * Exported as a pure function so it can be unit-tested without side effects.
  */
-export function buildSentryOptions(env: {
+export function buildSentryOptions(envInput: {
   SENTRY_DSN?: string;
   NODE_ENV?: string;
   SENTRY_TRACES_SAMPLE_RATE?: string | number;
 }): Sentry.NodeOptions | null {
-  const dsn = env.SENTRY_DSN?.trim();
+  const dsn = envInput.SENTRY_DSN?.trim();
   if (!dsn) return null;
 
   const tracesSampleRate =
-    env.SENTRY_TRACES_SAMPLE_RATE !== undefined
-      ? Number(env.SENTRY_TRACES_SAMPLE_RATE)
+    envInput.SENTRY_TRACES_SAMPLE_RATE !== undefined
+      ? Number(envInput.SENTRY_TRACES_SAMPLE_RATE)
       : 0.1;
 
   return {
     dsn,
-    environment: env.NODE_ENV ?? 'development',
+    environment: envInput.NODE_ENV ?? 'development',
     tracesSampleRate,
-    integrations: [nodeProfilingIntegration()],
+    sendDefaultPii: false,
+    integrations: [nodeProfilingIntegration() as any],
     profilesSampleRate: 1.0,
+    /**
+     * Strip sensitive data from every event before it leaves the process.
+     * This is a defence-in-depth measure on top of per-scope redaction.
+     */
+    beforeSend(event) {
+      // Redact request headers
+      if (event.request?.headers) {
+        event.request.headers = redactSensitive(event.request.headers) as Record<string, string>;
+      }
+      // Drop request body entirely — may contain signatures, tokens, or PII
+      if (event.request) {
+        delete event.request.data;
+      }
+      // Redact query string params
+      if (event.request?.query_string) {
+        event.request.query_string = redactSensitive(event.request.query_string) as
+          | string
+          | Record<string, string>;
+      }
+      return event;
+    },
   };
 }
 
@@ -46,7 +69,11 @@ export function buildSentryOptions(env: {
  * Safe to call when DSN is absent — logs a warning and returns.
  */
 export function initSentry(logger: Logger): void {
-  const options = buildSentryOptions(process.env as Record<string, string>);
+  const options = buildSentryOptions({
+    SENTRY_DSN: env.sentry.dsn,
+    NODE_ENV: env.server.nodeEnv,
+    SENTRY_TRACES_SAMPLE_RATE: env.sentry.tracesSampleRate,
+  });
   if (!options) {
     logger.warn('SENTRY_DSN not set — Sentry is disabled');
     return;
@@ -54,6 +81,49 @@ export function initSentry(logger: Logger): void {
   Sentry.init(options);
   logger.log(`Sentry initialized (env=${options.environment})`);
 }
+
+// ---------------------------------------------------------------------------
+// Per-request context
+// ---------------------------------------------------------------------------
+
+export interface RequestSentryContext {
+  /** Unique request identifier (e.g. from x-request-id header or generated). */
+  requestId?: string | null;
+  /** Matched route pattern, e.g. /raffles/:id */
+  route?: string | null;
+  /** HTTP status code of the response. */
+  statusCode?: number | null;
+  /** Raw wallet address — will be hashed before attaching. */
+  walletAddress?: string | null;
+}
+
+/**
+ * Attach safe request metadata to the current Sentry scope.
+ * Call this inside an interceptor or filter that has access to the request/response.
+ *
+ * - requestId, route, and statusCode are attached as tags for easy filtering.
+ * - walletAddress is one-way hashed (SHA-256, first 16 hex chars) before attaching.
+ *   The raw address is never sent to Sentry.
+ */
+export function setSentryRequestContext(scope: Sentry.Scope, ctx: RequestSentryContext): void {
+  if (ctx.requestId) {
+    scope.setTag('request_id', ctx.requestId);
+  }
+  if (ctx.route) {
+    scope.setTag('route', ctx.route);
+  }
+  if (ctx.statusCode != null) {
+    scope.setTag('http.status_code', String(ctx.statusCode));
+  }
+  const walletHash = hashWallet(ctx.walletAddress);
+  if (walletHash) {
+    scope.setTag('wallet_hash', walletHash);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ingestion error capture
+// ---------------------------------------------------------------------------
 
 /**
  * Capture an ingestion error with structured tags and context.

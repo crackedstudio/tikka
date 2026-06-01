@@ -107,6 +107,49 @@ npm start
 
 ---
 
+## CLI Commands
+
+### Status Command
+
+You can view the real-time status of the indexer, including lag, DLQ size, cache state, and last processed event using the CLI status command.
+
+```bash
+# View status as a human-readable table
+pnpm run status
+
+# View status as JSON (useful for scripts)
+pnpm run status -- --json
+```
+
+**Output example:**
+```
+Tikka Indexer Status  2023-10-27T10:00:00.000Z
+──────────────────────────────────────────────────
+Ledger
+  Current (indexed)          1000
+  Horizon (latest)           1005
+  Lag                        5 ledgers
+
+Events
+  Total processed            500
+  Last 24 h                  10
+  Last processed at          2023-10-27T09:55:00.000Z
+
+DLQ
+  Total size                 0
+
+Cache
+  Status                     ok
+  Latency                    2 ms
+
+Database
+  Status                     ok
+  Pool (total / idle / wait) 10 / 10 / 0
+──────────────────────────────────────────────────
+```
+
+---
+
 ## Migrations
 
 ### Run pending migrations manually
@@ -142,6 +185,21 @@ npm run migration:generate -- src/database/migrations/YourMigrationName
 | `indexer_cursor` | Singleton row tracking the last processed ledger |
 
 Full schema specification: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) § Data Model.
+
+### Entity Ownership & Field Documentation
+
+Each entity includes raw chain state (source-of-truth from Stellar ledger) and derived query state (computed aggregates). Contributors need to understand which fields are safe to recalculate and which are immutable.
+
+**📖 [Entity Ownership Documentation](./src/database/entities/ENTITY_OWNERSHIP.md)**
+
+This document describes:
+- Field ownership (raw chain state vs derived)
+- Updater handlers for each entity
+- Which fields are safe to recalculate
+- Idempotency keys and replay protection
+- Migration ownership rules
+
+All entity files include inline comments marking derived fields and their updater handlers.
 
 ---
 
@@ -317,6 +375,12 @@ src/
 │   ├── processors.module.ts
 │   ├── raffle.processor.ts
 │   └── user.processor.ts
+├── maintenance/
+│   ├── archive-raffle-events.ts        # Resumable archiving utility
+│   ├── archive-raffle-events.spec.ts   # Archiving tests
+│   ├── ARCHIVE_RAFFLE_EVENTS_GUIDE.md  # Comprehensive guide
+│   ├── ARCHIVE_QUICK_REF.md            # Quick reference
+│   └── ARCHIVE_IMPLEMENTATION_SUMMARY.md # Technical summary
 └── database/
     ├── database.module.ts       # TypeOrmModule wiring
     ├── entities/
@@ -325,15 +389,70 @@ src/
     │   ├── user.entity.ts
     │   ├── raffle-event.entity.ts
     │   ├── platform-stat.entity.ts
-    │   └── indexer-cursor.entity.ts
+    │   ├── indexer-cursor.entity.ts
+    │   └── archive-checkpoint.entity.ts  # Archiving checkpoint tracking
     └── migrations/
         ├── 1700000000000-CreateRaffles.ts
         ├── 1700000000001-CreateTickets.ts
         ├── 1700000000002-CreateUsers.ts
         ├── 1700000000003-CreateRaffleEvents.ts
         ├── 1700000000004-CreatePlatformStats.ts
-        └── 1700000000005-CreateIndexerCursor.ts
+        ├── 1700000000005-CreateIndexerCursor.ts
+        └── 1748589373000-CreateArchiveCheckpoints.ts
 ```
+
+---
+
+## Maintenance: Archiving Old Events
+
+The indexer includes a robust archiving utility for managing `raffle_events` table growth. The archiver exports old events to CSV and safely removes them from the database with built-in resumption support.
+
+### Quick Start
+
+```bash
+# Test archiving (dry-run, no changes)
+npm run archive:raffle-events
+
+# Production archiving (actually deletes records)
+DRY_RUN=false npm run archive:raffle-events
+
+# Archive events older than 90 days
+RAFFLE_EVENTS_RETENTION_DAYS=90 DRY_RUN=false npm run archive:raffle-events
+```
+
+### Key Features
+
+✅ **Resumable Checkpointing** - Automatically resumes after interruptions  
+✅ **Dry-Run Mode** - Test without modifying database  
+✅ **Batch Limits** - Control processing with `MAX_BATCH` parameter  
+✅ **Transactional Safety** - Atomic checkpoint updates with deletions  
+✅ **Structured Logging** - JSON-formatted progress tracking  
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RAFFLE_EVENTS_RETENTION_DAYS` | `30` | Archive events older than N days |
+| `BATCH_SIZE` | `500` | Records per batch |
+| `MAX_BATCH` | unlimited | Maximum batches per run |
+| `DRY_RUN` | `true` | Simulate without changes |
+| `RESUME` | `true` | Resume from checkpoint |
+
+### Output
+
+Archives are written to `./archives/` directory:
+```
+raffle_events_2026-05-30_batch0001.csv
+raffle_events_2026-05-30_batch0002.csv
+```
+
+### Documentation
+
+- 📖 [Comprehensive Guide](./src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md) - Full documentation
+- 📋 [Quick Reference](./src/maintenance/ARCHIVE_QUICK_REF.md) - Common commands
+- 🔧 [Implementation Summary](./src/maintenance/ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
+
+---
 
 ## Resource Guidelines
 

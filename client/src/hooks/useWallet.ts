@@ -15,6 +15,8 @@ import {
     isWalletInstalled,
     setNetwork,
     signTransaction,
+    getWalletCapabilities,
+    type WalletCapabilities,
 } from "../services/walletService";
 
 const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
@@ -28,6 +30,7 @@ export interface WalletState {
     isWalletAvailable: boolean;
     network: string | null; // e.g., "testnet" or "public"
     isWrongNetwork: boolean;
+    capabilities: WalletCapabilities;
 }
 
 export interface UseWalletReturn extends WalletState {
@@ -48,6 +51,7 @@ export function useWallet(): UseWalletReturn {
         isWalletAvailable: IS_TEST_MODE,
         network: IS_TEST_MODE ? 'testnet' : null,
         isWrongNetwork: false,
+        capabilities: getWalletCapabilities(),
     });
 
     // The network the app expects from .env (e.g., "testnet")
@@ -62,6 +66,7 @@ export function useWallet(): UseWalletReturn {
             const connected = await isWalletConnected();
             const address = connected ? await getAccountAddress() : null;
             const network = connected ? await getNetwork() : null;
+            const capabilities = getWalletCapabilities();
 
             // Check if user is on the wrong network
             // Note: We compare simplified names like "testnet" vs "testnet"
@@ -77,6 +82,7 @@ export function useWallet(): UseWalletReturn {
                 address,
                 network,
                 isWrongNetwork,
+                capabilities,
                 error: null,
             }));
         } catch (error) {
@@ -118,6 +124,7 @@ export function useWallet(): UseWalletReturn {
                 isDisconnecting: false,
                 network: null,
                 isWrongNetwork: false,
+                capabilities: getWalletCapabilities(),
             }));
         } catch (error) {
             setState((prev) => ({ ...prev, isDisconnecting: false }));
@@ -129,7 +136,7 @@ export function useWallet(): UseWalletReturn {
             // In most Stellar wallets, this just triggers a warning or prompt
             await setNetwork(APP_REQUIRED_NETWORK);
             await refresh();
-        } catch (error) {
+        } catch (_error) {
             setState((prev) => ({
                 ...prev,
                 error: "Please switch network manually in your wallet extension."
@@ -141,8 +148,13 @@ export function useWallet(): UseWalletReturn {
         if (!state.isConnected) throw new Error("Wallet not connected");
         if (state.isWrongNetwork) throw new Error(`Please switch to ${APP_REQUIRED_NETWORK}`);
         
+        // Check wallet capabilities before attempting to sign
+        if (!state.capabilities.canSignTransaction) {
+            throw new Error(state.capabilities.unsupportedActionCopy);
+        }
+        
         return await signTransaction(transaction);
-    }, [state.isConnected, state.isWrongNetwork, APP_REQUIRED_NETWORK]);
+    }, [state.isConnected, state.isWrongNetwork, APP_REQUIRED_NETWORK, state.capabilities]);
 
     useEffect(() => {
         refresh();

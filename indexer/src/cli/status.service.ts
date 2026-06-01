@@ -2,6 +2,9 @@ import 'reflect-metadata';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
 import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
+import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
+import Redis from 'ioredis';
+import { LAG_THRESHOLD_DEFAULT } from '../health/health.service';
 
 export interface DbPoolStats {
   total: number;
@@ -31,11 +34,20 @@ export interface StatusResult {
   events: {
     total_processed: number;
     last_24h: number;
+    last_processed_at: string | null;
+  };
+  dlq: {
+    total: number;
+  };
+  cache: {
+    status: 'ok' | 'error';
+    latency_ms: number | null;
   };
   db: {
     status: 'ok' | 'error';
     pool: DbPoolStats | null;
   };
+  warnings: string[];
 }
 
 function buildDataSource(): DataSource {
@@ -51,7 +63,7 @@ function buildDataSource(): DataSource {
     password: process.env.DB_PASSWORD ?? 'postgres',
     database: process.env.DB_DATABASE ?? 'tikka_indexer',
     ssl,
-    entities: [IndexerCursorEntity, RaffleEventEntity],
+    entities: [IndexerCursorEntity, RaffleEventEntity, DeadLetterEventEntity],
     synchronize: false,
     logging: false,
   };
@@ -84,8 +96,9 @@ export async function fetchStatus(): Promise<StatusResult> {
   let currentLedger = 0;
   let totalEvents = 0;
   let last24hEvents = 0;
+  let lastProcessedAt: string | null = null;
   let pool: DbPoolStats | null = null;
-  let checkpoint: CheckpointInfo | null = null;
+  let dlqTotal = 0;
 
   try {
     await ds.initialize();
@@ -122,6 +135,14 @@ export async function fetchStatus(): Promise<StatusResult> {
       .where('e.indexedAt >= :since', { since })
       .getCount();
 
+    const lastEvent = await eventRepo.findOne({
+      order: { indexedAt: 'DESC' },
+    });
+    lastProcessedAt = lastEvent ? lastEvent.indexedAt.toISOString() : null;
+
+    // DLQ counts
+    dlqTotal = await ds.getRepository(DeadLetterEventEntity).count();
+
     // DB pool stats via pg driver internals (best-effort)
     const driver = ds.driver as any;
     const pgPool = driver?.master ?? driver?.pool;
@@ -138,11 +159,47 @@ export async function fetchStatus(): Promise<StatusResult> {
     if (ds.isInitialized) await ds.destroy();
   }
 
+  // Cache stats
+  let cacheStatus: 'ok' | 'error' = 'error';
+  let cacheLatency: number | null = null;
+  const redisHost = process.env.REDIS_HOST ?? 'localhost';
+  const redisPort = parseInt(process.env.REDIS_PORT ?? '6379', 10);
+  try {
+    const redis = new Redis({
+      host: redisHost,
+      port: redisPort,
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+    });
+    const start = Date.now();
+    await redis.connect();
+    await redis.ping();
+    cacheLatency = Date.now() - start;
+    cacheStatus = 'ok';
+    redis.disconnect();
+  } catch {
+    // cacheStatus stays 'error'
+  }
+
   const horizonLedger = await fetchHorizonLedger(horizonUrl);
   const lagLedgers =
     horizonLedger != null && currentLedger > 0
       ? Math.max(0, horizonLedger - currentLedger)
       : null;
+
+  const warnings: string[] = [];
+  if (dbStatus === 'error') {
+    warnings.push('Database is unreachable. Check connection string and DB service.');
+  }
+  if (cacheStatus === 'error') {
+    warnings.push('Redis cache is unreachable. Check REDIS_HOST and REDIS_PORT.');
+  }
+  if (lagLedgers !== null && lagLedgers > LAG_THRESHOLD_DEFAULT) {
+    warnings.push(`Indexer lag is high (> ${LAG_THRESHOLD_DEFAULT} ledgers).`);
+  }
+  if (dlqTotal > 0) {
+    warnings.push(`Dead-letter queue contains ${dlqTotal} events. Run 'pnpm run dlq:replay' to retry.`);
+  }
 
   return {
     timestamp: new Date().toISOString(),
@@ -158,10 +215,19 @@ export async function fetchStatus(): Promise<StatusResult> {
     events: {
       total_processed: totalEvents,
       last_24h: last24hEvents,
+      last_processed_at: lastProcessedAt,
+    },
+    dlq: {
+      total: dlqTotal,
+    },
+    cache: {
+      status: cacheStatus,
+      latency_ms: cacheLatency,
     },
     db: {
       status: dbStatus,
       pool,
     },
+    warnings,
   };
 }

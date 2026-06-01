@@ -1,7 +1,7 @@
 import { TicketService } from './ticket.service';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
-import { BuyTicketParams, RefundTicketParams, BuyBatchParams } from './ticket.types';
+import { BuyTicketParams, RefundTicketParams, BuyBatchParams, TICKET_CONSTRAINTS } from './ticket.types';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
 describe('TicketService', () => {
@@ -24,17 +24,18 @@ describe('TicketService', () => {
   });
 
   describe('buy', () => {
-    it('should invoke BUY_TICKET and return TicketIds', async () => {
+    it('should invoke BUY_TICKET and return typed BuyTicketResult', async () => {
       const params: BuyTicketParams = {
         raffleId: 1,
         quantity: 5,
       };
 
       const mockResult = {
-        success: true,
+        status: 'SUCCESS' as const,
         value: [101, 102, 103, 104, 105],
-        transactionHash: 'tx-hash',
+        txHash: 'tx-hash',
         ledger: 1000,
+        feePaid: '10000',
       };
 
       contractService.invoke.mockResolvedValue(mockResult);
@@ -47,7 +48,12 @@ describe('TicketService', () => {
         [params.raffleId, 'G...ADDRESS', params.quantity],
         { memo: undefined },
       );
-      expect(result).toEqual(mockResult);
+      expect(result.value).toEqual({
+        ticketIds: [101, 102, 103, 104, 105],
+        transactionHash: 'tx-hash',
+        ledger: 1000,
+        feePaid: '10000',
+      });
     });
 
     it('should throw if raffleId is invalid', async () => {
@@ -55,24 +61,93 @@ describe('TicketService', () => {
       await expect(service.buy(params)).rejects.toThrow('raffleId must be a positive integer');
     });
 
-    it('should throw if quantity is invalid', async () => {
-      const params: BuyTicketParams = { raffleId: 1, quantity: -1 };
-      await expect(service.buy(params)).rejects.toThrow('quantity must be a positive integer');
+    it('should throw if quantity is not an integer', async () => {
+      const params: BuyTicketParams = { raffleId: 1, quantity: 1.5 };
+      await expect(service.buy(params)).rejects.toThrow('quantity must be an integer');
+    });
+
+    it('should throw if quantity is zero', async () => {
+      const params: BuyTicketParams = { raffleId: 1, quantity: 0 };
+      await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+    });
+
+    it('should throw if quantity is negative', async () => {
+      const params: BuyTicketParams = { raffleId: 1, quantity: -5 };
+      await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+    });
+
+    it('should throw if quantity exceeds maximum', async () => {
+      const params: BuyTicketParams = { raffleId: 1, quantity: TICKET_CONSTRAINTS.MAX_QUANTITY + 1 };
+      await expect(service.buy(params)).rejects.toThrow(`quantity must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`);
+    });
+
+    it('should detect duplicate submissions', async () => {
+      const params: BuyTicketParams = { raffleId: 1, quantity: 5 };
+
+      contractService.invoke.mockResolvedValue({
+        success: true,
+        value: [101, 102, 103, 104, 105],
+        transactionHash: 'tx-hash-1',
+        ledger: 1000,
+        feePaid: '10000',
+      });
+
+      // First submission should succeed
+      await service.buy(params);
+
+      // Second submission should be detected as duplicate
+      await expect(service.buy(params)).rejects.toThrow('Duplicate submission detected');
+    });
+
+    it('should allow retry after duplicate detection timeout', async () => {
+      const params: BuyTicketParams = { raffleId: 1, quantity: 5 };
+
+      contractService.invoke.mockResolvedValue({
+        success: true,
+        value: [101, 102, 103, 104, 105],
+        transactionHash: 'tx-hash-1',
+        ledger: 1000,
+        feePaid: '10000',
+      });
+
+      // First submission
+      await service.buy(params);
+
+      // Verify duplicate detected
+      await expect(service.buy(params)).rejects.toThrow('Duplicate submission detected');
+
+      // Wait for timeout and try again (simulated with fast-forward)
+      // In real scenario would wait 30 seconds
+      jest.advanceTimersByTime(31000);
+
+      // This should succeed after timeout
+      const newService = new TicketService(contractService);
+      contractService.invoke.mockResolvedValue({
+        success: true,
+        value: [106, 107, 108, 109, 110],
+        transactionHash: 'tx-hash-2',
+        ledger: 1001,
+        feePaid: '10000',
+      });
+
+      const result = await newService.buy(params);
+      expect(result.success).toBe(true);
     });
   });
 
   describe('refund', () => {
-    it('should invoke REFUND_TICKET', async () => {
+    it('should invoke REFUND_TICKET and return typed RefundTicketResult', async () => {
       const params: RefundTicketParams = {
         raffleId: 1,
         ticketId: 101,
       };
 
       const mockInvokeResult = {
-        success: true,
+        status: 'SUCCESS' as const,
         value: undefined,
-        transactionHash: 'refund-hash',
+        txHash: 'refund-hash',
         ledger: 1001,
+        feePaid: '10000',
       };
 
       contractService.invoke.mockResolvedValue(mockInvokeResult);
@@ -84,7 +159,16 @@ describe('TicketService', () => {
         [params.raffleId, params.ticketId],
         { memo: undefined },
       );
-      expect(result).toEqual(mockInvokeResult);
+      expect(result.value).toEqual({
+        transactionHash: 'refund-hash',
+        ledger: 1001,
+        feePaid: '10000',
+      });
+    });
+
+    it('should throw if raffleId is invalid', async () => {
+      const params: RefundTicketParams = { raffleId: -1, ticketId: 101 };
+      await expect(service.refund(params)).rejects.toThrow('raffleId must be a positive integer');
     });
 
     it('should throw if ticketId is invalid', async () => {
@@ -101,7 +185,7 @@ describe('TicketService', () => {
       };
 
       const mockTicketIds = [101, 105, 110];
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: mockTicketIds });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: mockTicketIds });
 
       const result = await service.getUserTickets(params);
 
@@ -128,20 +212,20 @@ describe('TicketService', () => {
       };
 
       // Mock simulation success for both
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [101, 102, 103] });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [101, 102, 103] });
 
       // Mock invoke results
       contractService.invoke
         .mockResolvedValueOnce({
-          success: true,
+          status: 'SUCCESS' as const,
           value: [101, 102, 103],
-          transactionHash: 'tx-hash-1',
+          txHash: 'tx-hash-1',
           ledger: 1000,
         })
         .mockResolvedValueOnce({
-          success: true,
+          status: 'SUCCESS' as const,
           value: [201, 202, 203, 204, 205],
-          transactionHash: 'tx-hash-2',
+          txHash: 'tx-hash-2',
           ledger: 1001,
         });
 
@@ -155,14 +239,14 @@ describe('TicketService', () => {
       expect(result.value![0]).toEqual({
         raffleId: 1,
         ticketIds: [101, 102, 103],
-        success: true,
+        status: 'SUCCESS' as const,
       });
       expect(result.value![1]).toEqual({
         raffleId: 2,
         ticketIds: [201, 202, 203, 204, 205],
-        success: true,
+        status: 'SUCCESS' as const,
       });
-      expect(result.transactionHash).toBe('tx-hash-2');
+      expect(result.txHash).toBe('tx-hash-2');
       expect(result.ledger).toBe(1001);
     });
 
@@ -176,22 +260,22 @@ describe('TicketService', () => {
 
       // First simulation succeeds, second fails
       contractService.simulateReadOnly
-        .mockResolvedValueOnce({ success: true, value: [101, 102, 103] })
+        .mockResolvedValueOnce({ status: 'SUCCESS' as const, value: [101, 102, 103] })
         .mockRejectedValueOnce(new Error('Raffle not found'));
 
       // Only first invoke should happen
       contractService.invoke.mockResolvedValueOnce({
-        success: true,
+        status: 'SUCCESS' as const,
         value: [101, 102, 103],
-        transactionHash: 'tx-hash-1',
+        txHash: 'tx-hash-1',
         ledger: 1000,
       });
 
       const result = await service.buyBatch(params);
 
       expect(result.value).toHaveLength(2);
-      expect(result.value![0].success).toBe(true);
-      expect(result.value![1].success).toBe(false);
+      expect(result.value![0].status).toBe('SUCCESS');
+      expect(result.value![1].status).toBe('ERROR');
       expect(result.value![1].error).toContain('Raffle not found');
     });
 
@@ -239,11 +323,11 @@ describe('TicketService', () => {
         memo: { type: 'text', value: 'Batch purchase' },
       };
 
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [101, 102, 103] });
+      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [101, 102, 103] });
       contractService.invoke.mockResolvedValue({
-        success: true,
+        status: 'SUCCESS' as const,
         value: [101, 102, 103],
-        transactionHash: 'tx-hash',
+        txHash: 'tx-hash',
         ledger: 1000,
       });
 
