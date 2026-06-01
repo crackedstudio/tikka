@@ -14,32 +14,38 @@ export interface LeaderboardResponse {
 }
 
 export type LeaderboardSortBy = "wins" | "volume" | "tickets";
+export type LeaderboardPeriod = "all" | "monthly" | "weekly";
 
 export interface LeaderboardParams {
   by?: LeaderboardSortBy;
   limit?: number;
+  offset?: number;
 }
 
 /**
  * Fetch leaderboard data from the backend
- * @param params - Optional query parameters (by, limit)
+ * @param params - Optional query parameters (by, limit, period)
  * @returns Leaderboard response with entries
  */
 export async function fetchLeaderboard(
-  params: LeaderboardParams = {}
+  params: LeaderboardParams = {},
 ): Promise<LeaderboardResponse> {
   const queryParams = new URLSearchParams();
-  
+
   if (params.by) {
     queryParams.set("by", params.by);
   }
-  
+
   if (params.limit !== undefined) {
     queryParams.set("limit", String(params.limit));
   }
 
+  if (params.offset !== undefined) {
+    queryParams.set("offset", String(params.offset));
+  }
+
   const queryString = queryParams.toString();
-  const endpoint = queryString 
+  const endpoint = queryString
     ? `${API_CONFIG.endpoints.leaderboard}?${queryString}`
     : API_CONFIG.endpoints.leaderboard;
 

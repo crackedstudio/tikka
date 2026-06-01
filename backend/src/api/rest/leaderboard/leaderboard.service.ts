@@ -17,6 +17,7 @@ export class LeaderboardService {
       limit: query.limit,
       cursor: query.cursor,
       offset: query.offset,
+      period: query.period,
     };
     return this.indexerService.getLeaderboard(filters);
   }

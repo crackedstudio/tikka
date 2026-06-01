@@ -2,14 +2,115 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
-import { FeeEstimatorService } from './fee-estimator.service';
+import { FeeEstimatorService, FeeUnsafeError } from './fee-estimator.service';
+import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
+import { CostEstimatorService } from './cost-estimator.service';
+import { ContractBuilders } from '../contract/contract.builders';
+import { OracleLogFields } from '../logger/oracle-logger';
 
+/**
+ * Explicit transaction lifecycle states for state machine tracking
+ */
+export enum TransactionState {
+  BUILDING = 'BUILDING',
+  SIGNING = 'SIGNING',
+  SUBMITTING = 'SUBMITTING',
+  POLLING = 'POLLING',
+  SUCCESS = 'SUCCESS',
+  DUPLICATE_SUCCESS = 'DUPLICATE_SUCCESS',
+  TIMEOUT = 'TIMEOUT',
+  INSUFFICIENT_FEE = 'INSUFFICIENT_FEE',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  FAILED = 'FAILED',
+  INVALID_TRANSACTION = 'INVALID_TRANSACTION',
+}
+
+/**
+ * Strictly typed transaction outcome union for deterministic result handling
+ */
+export type TransactionOutcome =
+  | {
+      status: 'SUCCESS';
+      txHash: string;
+      ledger: number;
+      feePaid: number;
+      retriable: false;
+    }
+  | {
+      status: 'DUPLICATE_SUCCESS';
+      txHash: string;
+      ledger: number;
+      message: string;
+      retriable: false;
+    }
+  | {
+      status: 'TIMEOUT';
+      txHash?: string;
+      error: string;
+      retriable: true;
+      pollAttempts: number;
+    }
+  | {
+      status: 'INSUFFICIENT_FEE';
+      error: string;
+      retriable: true;
+      currentFee: number;
+      suggestedFee?: number;
+    }
+  | {
+      status: 'NETWORK_ERROR';
+      error: string;
+      retriable: true;
+      rpcUrl?: string;
+      errorCode?: string;
+    }
+  | {
+      status: 'FAILED';
+      txHash?: string;
+      error: string;
+      retriable: false;
+      failureReason?: string;
+    }
+  | {
+      status: 'INVALID_TRANSACTION';
+      error: string;
+      retriable: false;
+      validationError?: string;
+    };
+
+/**
+ * Structured telemetry context for comprehensive logging
+ */
+export interface TelemetryContext {
+  txHash?: string;
+  raffleId: number;
+  requestId: string;
+  finalOutcome?: TransactionState;
+  attempt: number;
+  timestamp: string;
+  durationMs?: number;
+  currentState?: TransactionState;
+  feePaid?: number;
+}
+
+/**
+ * Legacy interface for backward compatibility
+ * @deprecated Use TransactionOutcome instead
+ */
 export interface SubmitResult {
   txHash: string;
   ledger: number;
   success: boolean;
   feePaid?: number;
+}
+
+export interface RandomnessSubmissionPreview {
+  networkPassphrase: string;
+  sourceAddress: string;
+  feeEstimate: FeeEstimate;
+  contractId: string;
+  rpcUrl: string;
 }
 
 @Injectable()
@@ -32,6 +133,7 @@ export class TxSubmitterService {
     private readonly configService: ConfigService,
     private readonly feeEstimator: FeeEstimatorService,
     private readonly keyService: KeyService,
+    private readonly costEstimator: CostEstimatorService,
   ) {
     const primary =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
@@ -62,6 +164,129 @@ export class TxSubmitterService {
     this.alertWebhookUrl = this.configService.get<string>('TX_SUBMIT_ALERT_WEBHOOK_URL');
   }
 
+  /**
+   * Submit randomness transaction with strict typed outcomes and explicit state machine.
+   * This is the primary method that should be used by queue workers.
+   *
+   * @param raffleId - Raffle identifier
+   * @param requestId - Request identifier for telemetry
+   * @param randomness - VRF/PRNG randomness result
+   * @returns Strictly typed transaction outcome
+   */
+  async submitRandomnessTyped(
+    raffleId: number,
+    requestId: string,
+    randomness: RandomnessResult,
+  ): Promise<TransactionOutcome> {
+    const startTime = Date.now();
+    const telemetry: TelemetryContext = {
+      raffleId,
+      requestId,
+      attempt: 0,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (!this.contractId) {
+      return this.createInvalidTransactionOutcome(
+        'Missing RAFFLE_CONTRACT_ID configuration',
+        telemetry,
+      );
+    }
+
+    try {
+      const publicKey = await this.keyService.getPublicKey();
+      let feeBump = 1;
+
+      // Get initial fee estimate
+      const feeEstimate = await this.feeEstimator.estimateFee(0);
+      const baseFee = feeEstimate.cappedFee;
+
+      this.logTelemetry({
+        ...telemetry,
+        currentState: TransactionState.BUILDING,
+      }, `Starting randomness submission with fee ${baseFee} stroops`);
+
+      for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
+        telemetry.attempt = attempt;
+
+        try {
+          // State: BUILDING
+          telemetry.currentState = TransactionState.BUILDING;
+          const prepared = await this.buildPreparedTx(publicKey, raffleId, randomness, feeBump);
+
+          // State: SIGNING
+          telemetry.currentState = TransactionState.SIGNING;
+          await this.keyService.signTransaction(prepared);
+
+          // State: SUBMITTING
+          telemetry.currentState = TransactionState.SUBMITTING;
+          const submitResult = await this.submitTransactionWithRetry(prepared, telemetry);
+
+          if (submitResult.outcome) {
+            telemetry.durationMs = Date.now() - startTime;
+            telemetry.finalOutcome = this.mapOutcomeToState(submitResult.outcome);
+            if ('txHash' in submitResult.outcome) {
+              telemetry.txHash = submitResult.outcome.txHash;
+            }
+            this.logTelemetry(telemetry, `Transaction completed: ${submitResult.outcome.status}`);
+            return submitResult.outcome;
+          }
+
+          // Handle retriable errors with backoff
+          if (submitResult.shouldRetry) {
+            if (submitResult.bumpFee) {
+              feeBump = Math.max(feeBump * 2, feeBump + 1);
+              this.logTelemetry(telemetry, `Bumping fee multiplier to ${feeBump}x`);
+            }
+
+            if (attempt < this.maxAttempts) {
+              const backoffMs = this.backoff(attempt);
+              this.logTelemetry(
+                telemetry,
+                `Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${this.maxAttempts})`,
+              );
+              await this.delay(backoffMs);
+            }
+          } else {
+            // Non-retriable error
+            break;
+          }
+        } catch (error: any) {
+          const errorMessage = this.errorToString(error);
+          this.logTelemetry(
+            { ...telemetry, currentState: TransactionState.NETWORK_ERROR },
+            `Attempt ${attempt} failed: ${errorMessage}`,
+          );
+
+          if (this.isRpcError(errorMessage)) {
+            this.failoverRpc();
+          }
+
+          if (attempt === this.maxAttempts || !this.isRetriableError(error, errorMessage)) {
+            telemetry.durationMs = Date.now() - startTime;
+            return this.classifyError(error, errorMessage, telemetry);
+          }
+
+          const backoffMs = this.backoff(attempt);
+          await this.delay(backoffMs);
+        }
+      }
+
+      // Exhausted all attempts
+      telemetry.durationMs = Date.now() - startTime;
+      telemetry.finalOutcome = TransactionState.FAILED;
+      return {
+        status: 'FAILED',
+        error: `Exhausted ${this.maxAttempts} attempts without success`,
+        retriable: false,
+        failureReason: 'MAX_ATTEMPTS_EXCEEDED',
+      };
+    } catch (error: any) {
+      telemetry.durationMs = Date.now() - startTime;
+      return this.classifyError(error, this.errorToString(error), telemetry);
+    }
+  }
+
   /** Returns status of all configured RPC endpoints. */
   async getRpcStatus(): Promise<{ url: string; healthy: boolean }[]> {
     return Promise.all(
@@ -77,15 +302,508 @@ export class TxSubmitterService {
     );
   }
 
+  /**
+   * Submit transaction with explicit retry logic and duplicate detection.
+   * Returns outcome or retry signal.
+   */
+  private async submitTransactionWithRetry(
+    preparedTx: any,
+    telemetry: TelemetryContext,
+  ): Promise<{
+    outcome?: TransactionOutcome;
+    shouldRetry: boolean;
+    bumpFee: boolean;
+  }> {
+    try {
+      const sendRes = await this.rpcServer.sendTransaction(preparedTx);
+      const txHash = sendRes.hash || sendRes?.transactionHash || '';
+
+      // Check for duplicate submission
+      if (this.isDuplicateError(sendRes)) {
+        telemetry.txHash = txHash || 'unknown';
+        this.logTelemetry(
+          { ...telemetry, currentState: TransactionState.DUPLICATE_SUCCESS },
+          'Transaction already submitted, querying existing result',
+        );
+
+        // Query the existing transaction
+        const existingResult = await this.queryExistingTransaction(txHash, telemetry);
+        return { outcome: existingResult, shouldRetry: false, bumpFee: false };
+      }
+
+      if (!txHash) {
+        const responseStr = JSON.stringify(sendRes);
+        
+        // Check for insufficient fee
+        if (this.isInsufficientFeeError(responseStr)) {
+          return { shouldRetry: true, bumpFee: true };
+        }
+
+        // Check for timeout - try polling anyway
+        if (this.isTimeoutError(responseStr)) {
+          this.logTelemetry(telemetry, 'Submission timeout, attempting hash recovery');
+          // In some cases, the transaction may have been submitted despite timeout
+          // We'll retry with backoff
+          return { shouldRetry: true, bumpFee: false };
+        }
+
+        return { shouldRetry: true, bumpFee: false };
+      }
+
+      telemetry.txHash = txHash;
+
+      // State: POLLING
+      telemetry.currentState = TransactionState.POLLING;
+      this.logTelemetry(telemetry, `Polling for confirmation: ${txHash}`);
+
+      const outcome = await this.pollForConfirmationTyped(txHash, telemetry);
+      return { outcome, shouldRetry: outcome.retriable, bumpFee: false };
+    } catch (error: any) {
+      const errorMessage = this.errorToString(error);
+
+      // Check for duplicate in exception
+      if (this.isDuplicateError(error) || errorMessage.toLowerCase().includes('duplicate')) {
+        const txHash = this.extractTxHashFromError(error);
+        if (txHash) {
+          telemetry.txHash = txHash;
+          const existingResult = await this.queryExistingTransaction(txHash, telemetry);
+          return { outcome: existingResult, shouldRetry: false, bumpFee: false };
+        }
+      }
+
+      // Check for insufficient fee
+      if (this.isInsufficientFeeError(errorMessage)) {
+        return { shouldRetry: true, bumpFee: true };
+      }
+
+      // Check for network errors
+      if (this.isRpcError(errorMessage)) {
+        return { shouldRetry: true, bumpFee: false };
+      }
+
+      // Check if retriable
+      if (this.isRetriableError(error, errorMessage)) {
+        return { shouldRetry: true, bumpFee: false };
+      }
+
+      // Non-retriable error
+      const outcome = this.classifyError(error, errorMessage, telemetry);
+      return { outcome, shouldRetry: false, bumpFee: false };
+    }
+  }
+
+  /**
+   * Poll for transaction confirmation with explicit state tracking.
+   * Implements timeout fallback and duplicate detection.
+   */
+  private async pollForConfirmationTyped(
+    txHash: string,
+    telemetry: TelemetryContext,
+  ): Promise<TransactionOutcome> {
+    const started = Date.now();
+    let pollAttempts = 0;
+
+    while (Date.now() - started < this.POLL_TIMEOUT_MS) {
+      pollAttempts++;
+
+      try {
+        const res = await this.rpcServer.getTransaction(txHash);
+        const status = res?.status;
+
+        if (status === 'SUCCESS') {
+          const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
+          this.logTelemetry(
+            { ...telemetry, finalOutcome: TransactionState.SUCCESS },
+            `Transaction confirmed at ledger ${ledger}`,
+          );
+
+          return {
+            status: 'SUCCESS',
+            txHash,
+            ledger,
+            feePaid: 0, // TODO: Extract from transaction result
+            retriable: false,
+          };
+        }
+
+        if (status === 'FAILED') {
+          const failureReason = this.extractFailureReason(res);
+          this.logTelemetry(
+            { ...telemetry, finalOutcome: TransactionState.FAILED },
+            `Transaction failed: ${failureReason}`,
+          );
+
+          return {
+            status: 'FAILED',
+            txHash,
+            error: `Transaction failed on-chain: ${failureReason}`,
+            retriable: false,
+            failureReason,
+          };
+        }
+
+        if (status === 'NOT_FOUND') {
+          // Transaction not yet in ledger, continue polling
+          await this.delay(this.POLL_INTERVAL_MS);
+          continue;
+        }
+
+        // Unknown status, continue polling
+        await this.delay(this.POLL_INTERVAL_MS);
+      } catch (error: any) {
+        const errorMessage = this.errorToString(error);
+
+        // If we get a network error while polling, continue trying
+        if (this.isRpcError(errorMessage)) {
+          this.logTelemetry(telemetry, `Polling error (attempt ${pollAttempts}): ${errorMessage}`);
+          await this.delay(this.POLL_INTERVAL_MS);
+          continue;
+        }
+
+        // Other errors during polling
+        this.logTelemetry(telemetry, `Polling exception: ${errorMessage}`);
+        await this.delay(this.POLL_INTERVAL_MS);
+      }
+    }
+
+    // Timeout reached
+    this.logTelemetry(
+      { ...telemetry, finalOutcome: TransactionState.TIMEOUT },
+      `Polling timeout after ${pollAttempts} attempts`,
+    );
+
+    return {
+      status: 'TIMEOUT',
+      txHash,
+      error: `Transaction confirmation timeout after ${this.POLL_TIMEOUT_MS}ms`,
+      retriable: true,
+      pollAttempts,
+    };
+  }
+
+  /**
+   * Query an existing transaction that was already submitted (duplicate detection).
+   */
+  private async queryExistingTransaction(
+    txHash: string,
+    telemetry: TelemetryContext,
+  ): Promise<TransactionOutcome> {
+    try {
+      if (!txHash || txHash === 'unknown') {
+        return {
+          status: 'DUPLICATE_SUCCESS',
+          txHash: 'unknown',
+          ledger: 0,
+          message: 'Transaction was duplicate but hash unavailable',
+          retriable: false,
+        };
+      }
+
+      const res = await this.rpcServer.getTransaction(txHash);
+      const status = res?.status;
+
+      if (status === 'SUCCESS') {
+        const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
+        this.logTelemetry(
+          { ...telemetry, finalOutcome: TransactionState.DUPLICATE_SUCCESS },
+          `Duplicate transaction confirmed at ledger ${ledger}`,
+        );
+
+        return {
+          status: 'DUPLICATE_SUCCESS',
+          txHash,
+          ledger,
+          message: 'Transaction was already submitted and confirmed',
+          retriable: false,
+        };
+      }
+
+      // If not yet confirmed, treat as regular success since it's in the network
+      return {
+        status: 'DUPLICATE_SUCCESS',
+        txHash,
+        ledger: 0,
+        message: 'Transaction was already submitted, pending confirmation',
+        retriable: false,
+      };
+    } catch (error: any) {
+      // If we can't query it, still treat as duplicate success
+      return {
+        status: 'DUPLICATE_SUCCESS',
+        txHash,
+        ledger: 0,
+        message: 'Transaction was duplicate, query failed but assuming success',
+        retriable: false,
+      };
+    }
+  }
+
+  /**
+   * Classify error into strictly typed outcome.
+   */
+  private classifyError(
+    error: any,
+    errorMessage: string,
+    telemetry: TelemetryContext,
+  ): TransactionOutcome {
+    const normalized = errorMessage.toLowerCase();
+
+    // Insufficient fee
+    if (this.isInsufficientFeeError(normalized)) {
+      return {
+        status: 'INSUFFICIENT_FEE',
+        error: errorMessage,
+        retriable: true,
+        currentFee: 0, // TODO: Extract from context
+      };
+    }
+
+    // Network errors
+    if (this.isRpcError(normalized)) {
+      return {
+        status: 'NETWORK_ERROR',
+        error: errorMessage,
+        retriable: true,
+        rpcUrl: this.rpcUrls[this.currentRpcIndex],
+      };
+    }
+
+    // Timeout
+    if (this.isTimeoutError(normalized)) {
+      return {
+        status: 'TIMEOUT',
+        error: errorMessage,
+        retriable: true,
+        pollAttempts: 0,
+      };
+    }
+
+    // Invalid transaction
+    if (this.isInvalidTransactionError(normalized)) {
+      return {
+        status: 'INVALID_TRANSACTION',
+        error: errorMessage,
+        retriable: false,
+        validationError: errorMessage,
+      };
+    }
+
+    // Generic failure
+    return {
+      status: 'FAILED',
+      error: errorMessage,
+      retriable: false,
+      failureReason: 'UNKNOWN_ERROR',
+    };
+  }
+
+  /**
+   * Create invalid transaction outcome with telemetry.
+   */
+  private createInvalidTransactionOutcome(
+    error: string,
+    telemetry: TelemetryContext,
+  ): TransactionOutcome {
+    this.logTelemetry(
+      { ...telemetry, finalOutcome: TransactionState.INVALID_TRANSACTION },
+      error,
+    );
+
+    return {
+      status: 'INVALID_TRANSACTION',
+      error,
+      retriable: false,
+      validationError: error,
+    };
+  }
+
+  /**
+   * Map outcome status to transaction state for telemetry.
+   */
+  private mapOutcomeToState(outcome: TransactionOutcome): TransactionState {
+    switch (outcome.status) {
+      case 'SUCCESS':
+        return TransactionState.SUCCESS;
+      case 'DUPLICATE_SUCCESS':
+        return TransactionState.DUPLICATE_SUCCESS;
+      case 'TIMEOUT':
+        return TransactionState.TIMEOUT;
+      case 'INSUFFICIENT_FEE':
+        return TransactionState.INSUFFICIENT_FEE;
+      case 'NETWORK_ERROR':
+        return TransactionState.NETWORK_ERROR;
+      case 'FAILED':
+        return TransactionState.FAILED;
+      case 'INVALID_TRANSACTION':
+        return TransactionState.INVALID_TRANSACTION;
+    }
+  }
+
+  /**
+   * Log structured telemetry with all required context.
+   */
+  private logTelemetry(telemetry: TelemetryContext, message: string): void {
+    const logEntry = {
+      message,
+      txHash: telemetry.txHash,
+      raffleId: telemetry.raffleId,
+      requestId: telemetry.requestId,
+      finalOutcome: telemetry.finalOutcome,
+      currentState: telemetry.currentState,
+      attempt: telemetry.attempt,
+      timestamp: telemetry.timestamp,
+      durationMs: telemetry.durationMs,
+      feePaid: telemetry.feePaid,
+    };
+
+    if (telemetry.finalOutcome === TransactionState.FAILED ||
+        telemetry.finalOutcome === TransactionState.INVALID_TRANSACTION) {
+      this.logger.error(JSON.stringify(logEntry));
+    } else if (telemetry.finalOutcome === TransactionState.TIMEOUT ||
+               telemetry.finalOutcome === TransactionState.NETWORK_ERROR) {
+      this.logger.warn(JSON.stringify(logEntry));
+    } else {
+      this.logger.log(JSON.stringify(logEntry));
+    }
+  }
+
+  /**
+   * Check if error indicates duplicate transaction.
+   */
+  private isDuplicateError(errorOrResponse: any): boolean {
+    const str = JSON.stringify(errorOrResponse).toLowerCase();
+    return (
+      str.includes('duplicate') ||
+      str.includes('tx_duplicate') ||
+      str.includes('already exists') ||
+      str.includes('already submitted')
+    );
+  }
+
+  /**
+   * Check if error indicates timeout.
+   */
+  private isTimeoutError(message: string): boolean {
+    const m = message.toLowerCase();
+    return m.includes('timeout') || m.includes('504') || m.includes('timed out');
+  }
+
+  /**
+   * Check if error indicates invalid transaction.
+   */
+  private isInvalidTransactionError(message: string): boolean {
+    const m = message.toLowerCase();
+    return (
+      m.includes('invalid') ||
+      m.includes('malformed') ||
+      m.includes('unauthorized') ||
+      m.includes('forbidden')
+    );
+  }
+
+  /**
+   * Extract transaction hash from error message or object.
+   */
+  private extractTxHashFromError(error: any): string | null {
+    try {
+      const str = JSON.stringify(error);
+      const hashMatch = str.match(/[0-9a-f]{64}/i);
+      return hashMatch ? hashMatch[0] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Extract failure reason from transaction result.
+   */
+  private extractFailureReason(result: any): string {
+    try {
+      if (result.resultXdr) {
+        return `XDR: ${result.resultXdr}`;
+      }
+      if (result.error) {
+        return result.error;
+      }
+      return 'Unknown failure reason';
+    } catch {
+      return 'Failed to extract failure reason';
+    }
+  }
+
+  /**
+   * Legacy method for backward compatibility.
+   * @deprecated Use submitRandomnessTyped for strict typed outcomes
+   */
+  async submitRandomness(raffleId: number, randomness: RandomnessResult): Promise<SubmitResult> {
+    const outcome = await this.submitRandomnessTyped(raffleId, `raffle-${raffleId}`, randomness);
+
+    // Convert typed outcome to legacy format
+    if (outcome.status === 'SUCCESS' || outcome.status === 'DUPLICATE_SUCCESS') {
+      return {
+        txHash: outcome.txHash,
+        ledger: outcome.ledger,
+        success: true,
+        feePaid: outcome.status === 'SUCCESS' ? outcome.feePaid : undefined,
+      };
+    }
+
+    const txHash = 'txHash' in outcome ? outcome.txHash ?? '' : '';
+    return {
+      txHash,
+      ledger: 0,
+      success: false,
+    };
+  }
+
+  /**
+   * Poll-ready status check used when submission returns before ledger is known.
+   */
+  async getTransactionConfirmationStatus(
+    txHash: string,
+  ): Promise<{ confirmed: boolean; failed: boolean; ledger?: number }> {
+    try {
+      const res = await this.rpcServer.getTransaction(txHash);
+      const status = res?.status;
+
+      if (status === 'SUCCESS') {
+        const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
+        return { confirmed: true, failed: false, ledger };
+      }
+
+      if (status === 'FAILED') {
+        return { confirmed: false, failed: true };
+      }
+
+      return { confirmed: false, failed: false };
+    } catch {
+      return { confirmed: false, failed: false };
+    }
+  }
+
   async submitCommitment(raffleId: number, commitment: string): Promise<SubmitResult> {
     if (!this.contractId) {
       this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    return this.submitContractCall('commit_randomness', [
-      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(commitment, 32)),
-    ]);
+    const inv = ContractBuilders.buildCommitRandomness(raffleId, commitment);
+    return this.submitContractCall(inv.method, inv.args);
+  }
+
+  async estimateRandomnessSubmission(
+    raffleId: number,
+    randomness: RandomnessResult,
+  ): Promise<RandomnessSubmissionPreview> {
+    const sourceAddress = await this.keyService.getPublicKey();
+    const feeEstimate = await this.feeEstimator.estimateFee(0);
+
+    return {
+      networkPassphrase: this.networkPassphrase,
+      sourceAddress,
+      feeEstimate,
+      contractId: this.contractId,
+      rpcUrl: this.rpcUrls[this.currentRpcIndex],
+    };
   }
 
   async submitReveal(raffleId: number, secret: string, nonce: string): Promise<SubmitResult> {
@@ -93,11 +811,8 @@ export class TxSubmitterService {
       this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    return this.submitContractCall('reveal_randomness', [
-      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(secret, 32)),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(nonce, 16)),
-    ]);
+    const inv = ContractBuilders.buildRevealRandomness(raffleId, secret, nonce);
+    return this.submitContractCall(inv.method, inv.args);
   }
 
   private async submitContractCall(method: string, args: any[]): Promise<SubmitResult> {
@@ -136,25 +851,34 @@ export class TxSubmitterService {
 
         const confirm = await this.pollForConfirmation(txHash);
         if (confirm?.status === 'SUCCESS') {
-          return { txHash, ledger: (confirm.ledger as number) || 0, success: true };
+          const feePaid = Number(confirm.feeCharged) || Number(fee);
+          const raffleIdArg = args.find(arg => arg.switch?.name === 'scvU32')?.u32 || 0;
+          this.costEstimator.recordRevealCost(raffleIdArg, 'PRNG', feePaid);
+          return { txHash, ledger: (confirm.ledger as number) || 0, success: true, feePaid };
         }
         const confirmMessage = JSON.stringify(confirm);
         if (this.isInsufficientFeeError(confirmMessage)) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(0, 'PRNG');
         }
         const failure = new Error(`${method} failed (status=${confirm?.status || 'UNKNOWN'})`);
         lastError = failure;
         if (!this.isRetriableError(failure, confirmMessage)) {
+          this.costEstimator.recordSubmissionFailure(0, 'PRNG', confirmMessage);
           break;
         }
         await this.logRetryAndBackoff(method, attempt, lastError);
       } catch (e: any) {
         const msg = e?.message || String(e);
         if (this.isRpcError(msg)) this.failoverRpc();
-        else if (this.isInsufficientFeeError(msg)) feeBump = Math.max(feeBump * 2, feeBump + 1);
+        else if (this.isInsufficientFeeError(msg)) {
+          feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(0, 'PRNG');
+        }
         this.logger.error(`Error calling ${method} (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
         lastError = e;
         if (!this.isRetriableError(e, msg)) {
+          this.costEstimator.recordSubmissionFailure(0, 'PRNG', msg);
           break;
         }
         await this.logRetryAndBackoff(method, attempt, lastError);
@@ -182,11 +906,24 @@ export class TxSubmitterService {
     let lastError: unknown = null;
     let feeBump = 1;
 
-    // Get initial fee estimate from network stats
-    const feeEstimate = await this.feeEstimator.estimateFee(0);
+    // Get initial fee estimate from network stats; refuse if unsafe
+    let feeEstimate: Awaited<ReturnType<FeeEstimatorService['estimateFee']>>;
+    try {
+      feeEstimate = await this.feeEstimator.estimateFee(0);
+    } catch (e) {
+      if (e instanceof FeeUnsafeError) {
+        this.logger.error(
+          `Refusing to submit randomness for raffle ${raffleId}: ${e.message}`,
+        );
+        return { txHash: '', ledger: 0, success: false };
+      }
+      throw e;
+    }
     this.logger.log(
       `Submitting randomness for raffle ${raffleId} with fee ${feeEstimate.cappedFee} stroops ` +
+      `(source: ${feeEstimate.source}, confidence: ${feeEstimate.confidence}, capped: ${feeEstimate.isCapped})`,
       `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
+      JSON.stringify({ raffle_id: raffleId } as OracleLogFields),
     );
 
     while (attempt < this.maxAttempts) {
@@ -202,6 +939,7 @@ export class TxSubmitterService {
           const msg = JSON.stringify(sendRes);
           if (this.isInsufficientFeeError(msg)) {
             feeBump = Math.max(feeBump * 2, feeBump + 1);
+            this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
             await this.logRetryAndBackoff('receive_randomness', attempt, msg);
             continue;
           }
@@ -213,11 +951,14 @@ export class TxSubmitterService {
         const confirm = await this.pollForConfirmation(txHash);
         if (confirm?.status === 'SUCCESS') {
           const ledger = (confirm.ledger as number) || (confirm.latestLedger as number) || 0;
-          return { txHash, ledger, success: true };
+          const feePaid = Number(confirm.feeCharged) || (Number((StellarSdk as any).BASE_FEE || 100) * feeBump);
+          this.costEstimator.recordRevealCost(raffleId, 'VRF', feePaid);
+          return { txHash, ledger, success: true, feePaid };
         }
 
         if (confirm && this.isInsufficientFeeError(JSON.stringify(confirm))) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
           await this.logRetryAndBackoff('receive_randomness', attempt, JSON.stringify(confirm));
           continue;
         }
@@ -226,6 +967,7 @@ export class TxSubmitterService {
           `Transaction failed or not confirmed (status=${confirm?.status || 'UNKNOWN'})`,
         );
         if (!this.isRetriableError(lastError, JSON.stringify(confirm))) {
+          this.costEstimator.recordSubmissionFailure(raffleId, 'VRF', JSON.stringify(confirm));
           break;
         }
         await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
@@ -235,10 +977,15 @@ export class TxSubmitterService {
           this.failoverRpc();
         } else if (this.isInsufficientFeeError(msg)) {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
         }
-        this.logger.error(`Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
+        this.logger.error(
+          `Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`,
+          JSON.stringify({ raffle_id: raffleId, attempt, outcome: 'failure' } as OracleLogFields),
+        );
         lastError = e;
         if (!this.isRetriableError(e, msg)) {
+          this.costEstimator.recordSubmissionFailure(raffleId, 'VRF', msg);
           break;
         }
         await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
@@ -250,6 +997,7 @@ export class TxSubmitterService {
       attempt,
       lastError,
       `Persistent failure submitting randomness for raffle ${raffleId} after ${attempt} attempts.`,
+      { raffle_id: raffleId },
     );
     return { txHash: '', ledger: 0, success: false };
   }
@@ -290,19 +1038,14 @@ export class TxSubmitterService {
     const account = await this.rpcServer.getAccount(sourceAddress);
     const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeStroops).toString();
 
-    const seedBytes = this.parseToBytes(randomness.seed, 32);
-    const proofBytes = this.parseToBytes(randomness.proof, 64);
-
     const contract = new (StellarSdk as any).Contract(this.contractId);
-    const u32 = (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0);
-    const seedVal = (StellarSdk as any).xdr.ScVal.scvBytes(seedBytes);
-    const proofVal = (StellarSdk as any).xdr.ScVal.scvBytes(proofBytes);
+    const inv = ContractBuilders.buildReceiveRandomness(raffleId, randomness);
 
     const tx = new (StellarSdk as any).TransactionBuilder(account, {
       fee,
       networkPassphrase: this.networkPassphrase,
     })
-      .addOperation(contract.call('receive_randomness', u32, seedVal, proofVal))
+      .addOperation(contract.call(inv.method, ...inv.args))
       .setTimeout(30)
       .build();
 
@@ -385,8 +1128,12 @@ export class TxSubmitterService {
     attempts: number,
     error: unknown,
     logMessage: string,
+    fields?: OracleLogFields,
   ): Promise<void> {
-    this.logger.error(`${logMessage} Last error: ${this.errorToString(error)}`);
+    this.logger.error(
+      `${logMessage} Last error: ${this.errorToString(error)}`,
+      fields ? JSON.stringify({ ...fields, outcome: 'failure' } as OracleLogFields) : undefined,
+    );
     await this.sendFailureAlert(operation, attempts, error);
   }
 
@@ -428,20 +1175,5 @@ export class TxSubmitterService {
 
   private delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  private parseToBytes(input: string, expectedLen?: number): Buffer {
-    if (!input) return Buffer.alloc(expectedLen ?? 0);
-    const hexLike = /^[0-9a-fA-F]+$/.test(input) && input.length % 2 === 0;
-    let buf = hexLike ? Buffer.from(input, 'hex') : Buffer.from(input, 'utf8');
-    if (expectedLen !== undefined) {
-      if (buf.length > expectedLen) buf = buf.subarray(0, expectedLen);
-      else if (buf.length < expectedLen) {
-        const padded = Buffer.alloc(expectedLen);
-        buf.copy(padded);
-        buf = padded;
-      }
-    }
-    return buf;
   }
 }

@@ -26,6 +26,7 @@
         "i18next-browser-languagedetector": "^8.2.1",
         "i18next-http-backend": "^3.0.6",
         "lucide-react": "^0.544.0",
+        "qrcode.react": "^4.2.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "react-helmet-async": "^3.0.0",
@@ -45,6 +46,7 @@
         "@types/node": "^25.0.9",
         "@types/react": "^19.1.10",
         "@types/react-dom": "^19.1.7",
+        "@types/testing-library__jest-dom": "^6.0.0",
         "@vitejs/plugin-react": "^5.0.0",
         "eslint": "^9.33.0",
         "eslint-plugin-react-hooks": "^5.2.0",
@@ -57,6 +59,7 @@
         "typescript": "~5.8.3",
         "typescript-eslint": "^8.39.1",
         "vite": "^7.1.2",
+        "vite-plugin-pwa": "^0.17.0",
         "vitest": "^1.4.1"
     }
 }

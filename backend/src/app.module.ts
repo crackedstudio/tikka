@@ -1,8 +1,9 @@
 
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule, seconds } from "@nestjs/throttler";
+import { BullModule } from "@nestjs/bull";
 import { LoggerModule } from "nestjs-pino";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
@@ -18,6 +19,9 @@ import { MonitorModule } from "./api/rest/monitor/monitor.module";
 import { SupabaseModule } from "./services/supabase.module";
 import { GeoModule } from "./services/geo.module";
 import { GeoMiddleware } from "./middleware/geo.middleware";
+import { RequestIdMiddleware } from "./middleware/request-id.middleware";
+import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
+import { ErrorResponseInterceptor } from "./middleware/error-response.interceptor";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
 import { IndexerBackfillModule } from "./services/indexer-backfill.module";
@@ -55,6 +59,17 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
           },
         };
       },
+    }),
+
+    /**
+     * Bull queue for notification retries
+     */
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: config.get<string>("REDIS_URL"),
+      }),
     }),
 
     /**
@@ -122,10 +137,15 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // 3. Throttler guard third — rate limits by IP across all named tiers
     { provide: APP_GUARD, useClass: TikkaThrottlerGuard },
+    // Request logging interceptor with correlation ID
+    { provide: APP_INTERCEPTOR, useClass: RequestLoggingInterceptor },
+    // Error response interceptor to add request ID to error envelopes
+    { provide: APP_INTERCEPTOR, useClass: ErrorResponseInterceptor },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
     consumer.apply(GeoMiddleware).forRoutes('*');
   }
 }

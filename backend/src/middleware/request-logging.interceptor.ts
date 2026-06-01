@@ -6,6 +6,9 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, finalize } from 'rxjs';
+import { env } from '../config/env.config';
+import * as Sentry from '@sentry/node';
+import { REQUEST_ID_HEADER } from './request-id.middleware';
 
 const DEFAULT_REDACT_FIELDS = [
   'authorization',
@@ -17,9 +20,9 @@ const DEFAULT_REDACT_FIELDS = [
 ];
 
 function getRedactFields(): string[] {
-  const env = process.env.LOG_REDACT_FIELDS;
-  if (env) {
-    return env.split(',').map((f) => f.trim().toLowerCase());
+  const redactEnv = env.logging.redactFields;
+  if (redactEnv) {
+    return redactEnv.split(',').map((f) => f.trim().toLowerCase());
   }
   return DEFAULT_REDACT_FIELDS;
 }
@@ -66,6 +69,14 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<HttpRequestLike>();
     const response = context.switchToHttp().getResponse<HttpResponseLike>();
     const startedAt = Date.now();
+    
+    const requestId = request.headers?.[REQUEST_ID_HEADER] as string;
+
+    // Set Sentry context with request ID
+    if (requestId) {
+      Sentry.setTag('requestId', requestId);
+      Sentry.setContext('request', { id: requestId });
+    }
 
     return next.handle().pipe(
       finalize(() => {
@@ -79,6 +90,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
         const safeBody = redact(request.body, redactFields);
 
         this.logger.log(`${method} ${url} ${statusCode} ${durationMs}ms`, {
+          requestId,
           headers: safeHeaders,
           body: safeBody,
         });

@@ -1,8 +1,12 @@
 export interface RandomnessRequest {
   raffleId: number;
   requestId: string;
+  stableRequestId?: string;
+  replayOverride?: boolean;
   prizeAmount?: number;
   priority?: number;
+  /** Bull queue job id for audit linkage */
+  queueJobId?: string;
 }
 
 export interface RandomnessResult {
