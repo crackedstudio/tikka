@@ -5,10 +5,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import {
-  SKIP_MAINTENANCE_KEY,
-} from './skip-maintenance.decorator';
-import { MaintenanceModeService } from './maintenance-mode.service';
+import { SKIP_MAINTENANCE_KEY } from './skip-maintenance.decorator';
+import { MaintenanceModeService, MaintenanceScope } from './maintenance-mode.service';
 
 @Injectable()
 export class MaintenanceModeGuard implements CanActivate {
@@ -31,8 +29,25 @@ export class MaintenanceModeGuard implements CanActivate {
       return true;
     }
 
-    throw new ServiceUnavailableException(
-      'Service temporarily unavailable due to maintenance mode',
-    );
+    const request = context.switchToHttp().getRequest();
+    const method = request.method;
+
+    // Determine scope
+    let scope: MaintenanceScope = 'all';
+
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      scope = 'writes';
+    }
+
+    // Check if blocked
+    if (this.maintenanceMode.isScopeActive(scope)) {
+      throw new ServiceUnavailableException({
+        message: 'Service temporarily unavailable due to maintenance mode',
+        scope,
+        retryAfter: 60, // seconds
+      });
+    }
+
+    return true;
   }
 }

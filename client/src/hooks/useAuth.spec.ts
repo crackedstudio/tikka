@@ -223,3 +223,186 @@ describe('P10: Logout resets state', () => {
     );
   });
 });
+
+// ── P15: SessionStatus state transitions ──────────────────────────────────────
+
+describe('P15: SessionStatus state transitions', () => {
+  // Feature: siws-auth, Property 15: The `status` field must reflect each phase
+  // of the auth lifecycle as a discriminated string union, and the backward-compat
+  // computed fields must remain consistent with it at every transition.
+
+  it('initialises as anonymous when no token is stored', () => {
+    sessionStorage.clear();
+    const { result } = renderHook(() => useAuth());
+    expect(result.current.status).toBe('anonymous');
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.isAuthenticating).toBe(false);
+  });
+
+  it('initialises as authenticated when a token exists in sessionStorage', () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 1 }), (token) => {
+        sessionStorage.setItem('tikka_auth_token', token);
+        const { result } = renderHook(() => useAuth());
+        expect(result.current.status).toBe('authenticated');
+        expect(result.current.isAuthenticated).toBe(true);
+        expect(result.current.isAuthenticating).toBe(false);
+        sessionStorage.clear();
+      }),
+      { numRuns: 50 },
+    );
+  });
+
+  it('transitions through connecting → authenticated on successful login', async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.string({ minLength: 1 }), async (address) => {
+        vi.stubEnv('VITE_TEST_MODE', 'true');
+        const accessToken = 'jwt-' + address;
+        mockGetNonce.mockResolvedValue({ nonce: 'n', issuedAt: 'i', expiresAt: 'e', message: 'm' });
+        mockVerify.mockResolvedValue({ accessToken });
+
+        const { result } = renderHook(() => useAuth());
+
+        await act(async () => {
+          await result.current.login(address);
+        });
+
+        expect(result.current.status).toBe('authenticated');
+        expect(result.current.isAuthenticated).toBe(true);
+        expect(result.current.isAuthenticating).toBe(false);
+
+        sessionStorage.clear();
+        vi.clearAllMocks();
+      }),
+      { numRuns: 50 },
+    );
+  });
+
+  it('transitions to failed on login error and keeps isAuthenticated=false', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.string({ minLength: 1 }),
+        fc.string({ minLength: 1 }),
+        async (address, errMsg) => {
+          vi.stubEnv('VITE_TEST_MODE', 'true');
+          mockGetNonce.mockRejectedValue(new Error(errMsg));
+
+          const { result } = renderHook(() => useAuth());
+
+          await act(async () => {
+            try { await result.current.login(address); } catch { /* expected */ }
+          });
+
+          expect(result.current.status).toBe('failed');
+          expect(result.current.isAuthenticated).toBe(false);
+          expect(result.current.isAuthenticating).toBe(false);
+          expect(result.current.error).toBe(errMsg);
+
+          sessionStorage.clear();
+          vi.clearAllMocks();
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
+  it('transitions to anonymous on logout from authenticated', async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.string({ minLength: 1 }), async (token) => {
+        vi.stubEnv('VITE_TEST_MODE', 'true');
+        sessionStorage.setItem('tikka_auth_token', token);
+
+        const { result } = renderHook(() => useAuth());
+        expect(result.current.status).toBe('authenticated');
+
+        act(() => {
+          result.current.logout();
+        });
+
+        expect(result.current.status).toBe('anonymous');
+        expect(result.current.isAuthenticated).toBe(false);
+
+        sessionStorage.clear();
+      }),
+      { numRuns: 50 },
+    );
+  });
+});
+
+// ── P16: Sign-out aborts pending requests ─────────────────────────────────────
+
+describe('P16: Sign-out aborts pending requests', () => {
+  // Feature: siws-auth, Property 16: Calling logout() must abort the internal
+  // AbortController so any in-flight fetch holding the old bearer token is
+  // cancelled, preventing stale responses from updating state after sign-out.
+  it('aborts the AbortController when logout() is called', async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.string({ minLength: 1 }), async (token) => {
+        sessionStorage.setItem('tikka_auth_token', token);
+
+        const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
+
+        const { result } = renderHook(() => useAuth());
+
+        act(() => {
+          result.current.logout();
+        });
+
+        expect(abortSpy).toHaveBeenCalledTimes(1);
+
+        abortSpy.mockRestore();
+        sessionStorage.clear();
+      }),
+      { numRuns: 50 },
+    );
+  });
+});
+
+// ── P17: markExpired transitions to expired ───────────────────────────────────
+
+describe('P17: markExpired transitions session to expired', () => {
+  // Feature: siws-auth, Property 17: For any authenticated session, calling
+  // markExpired() must set status='expired', isAuthenticated=false, token=null,
+  // and populate the error field. It must also abort the AbortController so
+  // any pending requests carrying the expired token are cancelled.
+  it('sets status=expired and isAuthenticated=false when called from authenticated', async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.string({ minLength: 1 }), async (token) => {
+        sessionStorage.setItem('tikka_auth_token', token);
+
+        const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
+        const { result } = renderHook(() => useAuth());
+
+        expect(result.current.status).toBe('authenticated');
+
+        act(() => {
+          result.current.markExpired();
+        });
+
+        expect(result.current.status).toBe('expired');
+        expect(result.current.isAuthenticated).toBe(false);
+        expect(result.current.isAuthenticating).toBe(false);
+        expect(result.current.token).toBeNull();
+        expect(result.current.error).toBeTruthy();
+        expect(abortSpy).toHaveBeenCalledTimes(1);
+
+        abortSpy.mockRestore();
+        sessionStorage.clear();
+      }),
+      { numRuns: 50 },
+    );
+  });
+
+  it('can transition from anonymous to expired (late 401 on page load)', () => {
+    sessionStorage.clear();
+    const { result } = renderHook(() => useAuth());
+    expect(result.current.status).toBe('anonymous');
+
+    act(() => {
+      result.current.markExpired();
+    });
+
+    expect(result.current.status).toBe('expired');
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+});

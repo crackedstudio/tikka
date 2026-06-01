@@ -3,6 +3,9 @@
  *
  * Service layer for interacting with the Soroban raffle smart contract.
  * Handles all contract read/write operations with proper error handling.
+ *
+ * Write operations (createRaffle, buyTickets) delegate to runPipeline so that
+ * fee estimation, signing, submission, polling, and error handling are shared.
  */
 
 import {
@@ -11,13 +14,15 @@ import {
   TransactionBuilder,
   Account,
   BASE_FEE,
-  xdr,
   nativeToScVal,
   scValToNative,
 } from "@stellar/stellar-sdk";
+import type { Transaction } from "@stellar/stellar-sdk";
 import { sorobanRpcServer } from "./rpcService";
 import { CONTRACT_CONFIG } from "../config/contract";
-import { getAccountAddress, signTransaction } from "./walletService";
+import { getAccountAddress } from "./walletService";
+import { runPipeline } from "./transactionPipeline";
+import type { PipelineOptions, PipelineResult } from "./transactionPipeline";
 import type {
   ContractRaffleData,
   ContractUserParticipation,
@@ -134,82 +139,79 @@ export class ContractService {
   }
 
   /**
-   * Build and submit a contract transaction
-   * TODO: Used by write functions when implemented in future issues
+   * Build an unsigned `create_raffle` transaction.
+   *
+   * Fetches the caller's account sequence from the RPC server and constructs a
+   * `TransactionBuilder` operation for the `create_raffle` contract function.
+   * The returned transaction is unsigned — it must be passed through the pipeline
+   * (ESTIMATE → SIGN → SUBMIT) before it can be broadcast.
+   *
+   * @param params.metadataId       Supabase record ID containing off-chain raffle metadata
+   * @param params.ticketPrice      Price per ticket in stroops (as a decimal string)
+   * @param params.totalTickets     Maximum number of tickets available
+   * @param params.durationInSeconds Raffle duration from now, in seconds
+   * @returns Unsigned `Transaction` ready for simulation
+   * @throws If the wallet is not connected or the RPC account fetch fails
    */
-  private static async submitTransaction(
-    operation: xdr.Operation,
-    operationName: string,
-  ): Promise<ContractResponse<string>> {
-    try {
-      const userAddress = await getAccountAddress();
-      if (!userAddress) {
-        return {
-          success: false,
-          error: "Wallet not connected",
-        };
-      }
+  static async buildCreateRaffleTx(params: CreateRaffleParams): Promise<Transaction> {
+    const userAddress = await getAccountAddress();
+    if (!userAddress) throw new Error("Wallet not connected");
 
-      // Get account details
-      const account = await sorobanRpcServer.getAccount(userAddress);
+    const contract = ContractService.getContract();
+    const operation = contract.call(
+      CONTRACT_CONFIG.functions.createRaffle,
+      nativeToScVal({
+        metadata_id: params.metadataId,
+        ticket_price: BigInt(params.ticketPrice),
+        max_tickets: params.totalTickets,
+        end_time: Math.floor(Date.now() / 1000) + params.durationInSeconds,
+      }),
+    );
 
-      // Build transaction
-      const transaction = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: CONTRACT_CONFIG.networkPassphrase,
-      })
-        .addOperation(operation)
-        .setTimeout(30)
-        .build();
+    const account = await sorobanRpcServer.getAccount(userAddress);
+    return new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: CONTRACT_CONFIG.networkPassphrase,
+    })
+      .addOperation(operation)
+      .setTimeout(30)
+      .build();
+  }
 
-      // Simulate transaction first
-      const simulateResponse =
-        await sorobanRpcServer.simulateTransaction(transaction);
+  /**
+   * Build an unsigned `buy_ticket` transaction.
+   *
+   * Fetches the caller's account sequence from the RPC server and constructs a
+   * `TransactionBuilder` operation for the `buy_ticket` contract function.
+   * The returned transaction is unsigned — it must be passed through the pipeline
+   * (ESTIMATE → SIGN → SUBMIT) before it can be broadcast.
+   *
+   * @param params.raffleId           On-chain raffle ID to purchase tickets for
+   * @param params.ticketCount        Number of tickets to buy in this transaction
+   * @param params.maxPricePerTicket  Slippage guard: maximum acceptable price per ticket in stroops
+   * @returns Unsigned `Transaction` ready for simulation
+   * @throws If the wallet is not connected or the RPC account fetch fails
+   */
+  static async buildBuyTicketsTx(params: BuyTicketParams): Promise<Transaction> {
+    const userAddress = await getAccountAddress();
+    if (!userAddress) throw new Error("Wallet not connected");
 
-      if (rpc.Api.isSimulationError(simulateResponse)) {
-        throw new Error(`Simulation failed: ${simulateResponse.error}`);
-      }
+    const contract = ContractService.getContract();
+    const operation = contract.call(
+      CONTRACT_CONFIG.functions.buyTicket,
+      nativeToScVal(params.raffleId, { type: "u32" }),
+      nativeToScVal(params.ticketCount, { type: "u32" }),
+      nativeToScVal(BigInt(params.maxPricePerTicket)),
+    );
 
-      // Prepare transaction for signing
-      const preparedTransaction = rpc
-        .assembleTransaction(transaction, simulateResponse)
-        .build();
-
-      // Sign transaction with wallet
-      const signResult = await signTransaction(preparedTransaction);
-      if (!signResult.success || !signResult.signedTransaction) {
-        throw new Error(signResult.error || "Failed to sign transaction");
-      }
-
-      // Submit transaction
-      const submitResponse = await sorobanRpcServer.sendTransaction(
-        signResult.signedTransaction,
-      );
-
-      if (submitResponse.status === "ERROR") {
-        throw new Error(`Transaction failed: ${submitResponse.errorResult}`);
-      }
-
-      console.log(
-        `✅ ContractService.${operationName}: Transaction submitted`,
-        {
-          hash: submitResponse.hash,
-          status: submitResponse.status,
-        },
-      );
-
-      return {
-        success: true,
-        data: submitResponse.hash,
-        transactionHash: submitResponse.hash,
-      };
-    } catch (error) {
-      const contractError = this.handleError(error, operationName);
-      return {
-        success: false,
-        error: contractError.message,
-      };
-    }
+    const account = await sorobanRpcServer.getAccount(userAddress);
+    return new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: CONTRACT_CONFIG.networkPassphrase,
+    })
+      .addOperation(operation)
+      .setTimeout(30)
+      .build();
   }
 
   // ============================================
@@ -485,68 +487,53 @@ export class ContractService {
   // ============================================
 
   /**
-   * Create a new raffle
+   * Create a new raffle.
+   * Delegates the full build → estimate → sign → submit → poll pipeline to runPipeline.
    */
   static async createRaffle(
     params: CreateRaffleParams,
-  ): Promise<ContractResponse<string>> {
+    options?: PipelineOptions,
+  ): Promise<PipelineResult> {
     if (import.meta.env.VITE_TEST_MODE === "true") {
       console.log("✍️ ContractService.createRaffle (test mode): Mocked success", params);
-      return {
-        success: true,
-        data: "123",
-        transactionHash: "TEST123",
-      };
+      options?.onProgress?.({ stage: "BUILD",    status: "done" });
+      options?.onProgress?.({ stage: "ESTIMATE", status: "done", estimatedFee: "100" });
+      options?.onProgress?.({ stage: "SIGN",     status: "done" });
+      options?.onProgress?.({ stage: "SUBMIT",   status: "done", txHash: "TEST123" });
+      options?.onProgress?.({ stage: "POLL",     status: "done", confirmations: 1 });
+      options?.onProgress?.({ stage: "DONE",     status: "done", txHash: "TEST123" });
+      return { ok: true, data: { txHash: "TEST123" } };
     }
 
-    try {
-      console.log(
-        "✍️ ContractService.createRaffle: Creating raffle with params",
-        params,
-      );
-
-      const contract = this.getContract();
-
-      // Build the arguments for create_raffle
-      // The contract expects RaffleParams which we map from CreateRaffleParams
-      const operation = contract.call(
-        CONTRACT_CONFIG.functions.createRaffle,
-        nativeToScVal({
-          metadata_id: params.metadataId,
-          ticket_price: BigInt(params.ticketPrice), // Price in stroops
-          max_tickets: params.totalTickets,
-          end_time: Math.floor(Date.now() / 1000) + params.durationInSeconds,
-        }),
-      );
-
-      return await this.submitTransaction(operation, "createRaffle");
-    } catch (error) {
-      const contractError = this.handleError(error, "createRaffle");
-      return {
-        success: false,
-        error: contractError.message,
-      };
-    }
+    return runPipeline(
+      (p) => ContractService.buildCreateRaffleTx(p),
+      { params, options },
+    );
   }
 
   /**
-   * Buy tickets for a raffle
-   * TODO: Implement in future issue - full transaction building, simulation, and submission
+   * Buy tickets for a raffle.
+   * Delegates the full build → estimate → sign → submit → poll pipeline to runPipeline.
    */
-  static async buyTicket(
+  static async buyTickets(
     params: BuyTicketParams,
-  ): Promise<ContractResponse<string>> {
-    // Stub implementation for future issue
-    console.log(
-      "✍️ ContractService.buyTicket: Stub called with params",
-      params,
+    options?: PipelineOptions,
+  ): Promise<PipelineResult> {
+    return runPipeline(
+      (p) => ContractService.buildBuyTicketsTx(p),
+      { params, options },
     );
+  }
 
-    return {
-      success: false,
-      error:
-        "Buy ticket functionality not yet implemented - will be completed in future issue",
-    };
+  /**
+   * @deprecated Use buyTickets() instead.
+   */
+  static async buyTicket(params: BuyTicketParams): Promise<ContractResponse<string>> {
+    const result = await ContractService.buyTickets(params);
+    if (result.ok) {
+      return { success: true, data: result.data.txHash, transactionHash: result.data.txHash };
+    }
+    return { success: false, error: result.error.message };
   }
 
   // ============================================
@@ -584,7 +571,10 @@ export const {
   getAllRaffleIds,
   getUserParticipation,
   createRaffle,
+  buyTickets,
   buyTicket,
+  buildCreateRaffleTx,
+  buildBuyTicketsTx,
   isConfigured,
   getConfig,
 } = ContractService;

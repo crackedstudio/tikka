@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tikka-oracle-config
+  namespace: tikka
+  labels:
+    app: tikka-oracle
+data:
+  NODE_ENV: "production"
+  PORT: "3003"
+  SOROBAN_RPC_URL: "https://soroban-testnet.stellar.org"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"

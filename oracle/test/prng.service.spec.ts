@@ -8,8 +8,6 @@ describe('PrngService', () => {
     service = new PrngService();
   });
 
-  // ── Output format ──────────────────────────────────────────────────────────
-
   describe('output format', () => {
     it('should return a 64-char hex seed (BytesN<32>)', () => {
       const { seed } = service.compute('req-abc');
@@ -27,8 +25,6 @@ describe('PrngService', () => {
       expect(proof).not.toMatch(/[A-F]/);
     });
   });
-
-  // ── Determinism ───────────────────────────────────────────────────────────
 
   describe('determinism', () => {
     it('should produce identical seed for the same requestId', () => {
@@ -53,14 +49,13 @@ describe('PrngService', () => {
     it('should be deterministic across multiple calls', () => {
       const results = Array.from({ length: 10 }, () => service.compute('req-stable'));
       const firstResult = results[0];
+
       results.forEach((result) => {
         expect(result.seed).toBe(firstResult.seed);
         expect(result.proof).toBe(firstResult.proof);
       });
     });
   });
-
-  // ── Uniqueness ────────────────────────────────────────────────────────────
 
   describe('uniqueness', () => {
     it('should produce different seeds for different requestIds', () => {
@@ -91,11 +86,9 @@ describe('PrngService', () => {
       const requestId = 'req-raffle-test';
       const seeds = Array.from({ length: 5 }, (_, i) => service.compute(requestId, i).seed);
       const uniqueSeeds = new Set(seeds);
-      expect(uniqueSeeds.size).toBe(5); // All different
+      expect(uniqueSeeds.size).toBe(5);
     });
   });
-
-  // ── Proof independence ────────────────────────────────────────────────────
 
   describe('proof independence from raffleId', () => {
     it('should produce the same proof regardless of raffleId', () => {
@@ -108,22 +101,20 @@ describe('PrngService', () => {
       const requestId = 'req-proof-independence';
       const proofs = Array.from({ length: 5 }, (_, i) => service.compute(requestId, i).proof);
       const uniqueProofs = new Set(proofs);
-      expect(uniqueProofs.size).toBe(1); // All identical
+      expect(uniqueProofs.size).toBe(1);
     });
   });
-
-  // ── No ambient randomness ──────────────────────────────────────────────────
 
   describe('no ambient randomness', () => {
     it('should not be affected by time', () => {
       const results = Array.from({ length: 10 }, () => service.compute('req-time-invariant'));
       const seeds = results.map((r) => r.seed);
-      expect(new Set(seeds).size).toBe(1); // all identical
+      expect(new Set(seeds).size).toBe(1);
     });
 
     it('should produce same output regardless of call order', () => {
       const r1 = service.compute('req-a');
-      const r2 = service.compute('req-b');
+      service.compute('req-b');
       const r1Again = service.compute('req-a');
 
       expect(r1.seed).toBe(r1Again.seed);
@@ -131,14 +122,11 @@ describe('PrngService', () => {
     });
   });
 
-  // ── Seed derivation ────────────────────────────────────────────────────────
-
   describe('seed derivation', () => {
     it('should derive seed from requestId only when raffleId is omitted', () => {
       const requestId = 'req-seed-derivation';
       const { seed } = service.compute(requestId);
 
-      // Manually compute expected seed
       const reqBuf = Buffer.from(requestId, 'utf8');
       const expectedSeed = crypto.createHash('sha256').update(reqBuf).digest().toString('hex');
 
@@ -150,10 +138,10 @@ describe('PrngService', () => {
       const raffleId = 42;
       const { seed } = service.compute(requestId, raffleId);
 
-      // Manually compute expected seed with raffleId
       const reqBuf = Buffer.from(requestId, 'utf8');
       const raffleBuf = Buffer.allocUnsafe(4);
       raffleBuf.writeUInt32BE(raffleId >>> 0, 0);
+
       const expectedSeed = crypto
         .createHash('sha256')
         .update(reqBuf)
@@ -166,33 +154,28 @@ describe('PrngService', () => {
 
     it('should handle raffleId as uint32', () => {
       const requestId = 'req-uint32-test';
-      const raffleId = 0xffffffff; // Max uint32
+      const raffleId = 0xffffffff;
 
       const { seed } = service.compute(requestId, raffleId);
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
     });
   });
 
-  // ── Proof structure ────────────────────────────────────────────────────────
-
   describe('proof structure', () => {
     it('should generate proof as two SHA-256 halves', () => {
       const requestId = 'req-proof-structure';
       const { proof } = service.compute(requestId);
 
-      // Proof should be 128 hex chars = 64 bytes = 2 x 32-byte SHA-256 hashes
       expect(proof.length).toBe(128);
 
-      // Manually compute expected proof
       const reqBuf = Buffer.from(requestId, 'utf8');
       const prefix1 = Buffer.from('PRNG:v1:1:', 'ascii');
       const prefix2 = Buffer.from('PRNG:v1:2:', 'ascii');
 
       const half1 = crypto.createHash('sha256').update(prefix1).update(reqBuf).digest().toString('hex');
       const half2 = crypto.createHash('sha256').update(prefix2).update(reqBuf).digest().toString('hex');
-      const expectedProof = half1 + half2;
 
-      expect(proof).toBe(expectedProof);
+      expect(proof).toBe(half1 + half2);
     });
 
     it('should use distinct domain prefixes for proof halves', () => {
@@ -202,24 +185,20 @@ describe('PrngService', () => {
       const half1 = proof.substring(0, 64);
       const half2 = proof.substring(64, 128);
 
-      // The two halves should be different (due to different prefixes)
       expect(half1).not.toBe(half2);
     });
   });
-
-  // ── Statistical properties ────────────────────────────────────────────────
 
   describe('statistical properties', () => {
     it('should produce unbiased output across large sample', () => {
       const samples = Array.from({ length: 100 }, (_, i) => service.compute(`req-${i}`).seed);
 
-      // Check that we get diverse outputs (not all the same)
       const uniqueSeeds = new Set(samples);
-      expect(uniqueSeeds.size).toBe(100); // All different
+      expect(uniqueSeeds.size).toBe(100);
 
-      // Check bit distribution (basic sanity check)
       let zeroCount = 0;
       let oneCount = 0;
+
       samples.forEach((seed) => {
         for (const char of seed) {
           const val = parseInt(char, 16);
@@ -230,9 +209,9 @@ describe('PrngService', () => {
         }
       });
 
-      // Bits should be roughly evenly distributed (within 40-60% range)
       const total = zeroCount + oneCount;
       const zeroRatio = zeroCount / total;
+
       expect(zeroRatio).toBeGreaterThan(0.4);
       expect(zeroRatio).toBeLessThan(0.6);
     });
@@ -242,7 +221,6 @@ describe('PrngService', () => {
       const seeds = results.map((r) => r.seed);
       const uniqueSeeds = new Set(seeds);
 
-      // All should be unique
       expect(uniqueSeeds.size).toBe(50);
     });
 
@@ -250,36 +228,34 @@ describe('PrngService', () => {
       const r1 = service.compute('req-avalanche-1');
       const r2 = service.compute('req-avalanche-2');
 
-      // Count differing hex characters
       let diffCount = 0;
+
       for (let i = 0; i < r1.seed.length; i++) {
         if (r1.seed[i] !== r2.seed[i]) diffCount++;
       }
 
-      // Should have significant difference (at least 20% of characters different)
       expect(diffCount).toBeGreaterThan(r1.seed.length * 0.2);
     });
   });
 
-  // ── Contract compatibility ────────────────────────────────────────────────
-
   describe('contract compatibility', () => {
     it('should produce seed matching BytesN<32> contract requirement', () => {
       const { seed } = service.compute('req-contract-test');
-      // 64 hex chars = 32 bytes
+
       expect(seed.length).toBe(64);
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
     });
 
     it('should produce proof matching BytesN<64> contract requirement', () => {
       const { proof } = service.compute('req-contract-test');
-      // 128 hex chars = 64 bytes
+
       expect(proof.length).toBe(128);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
 
     it('should be compatible with RandomnessResult interface', () => {
       const result = service.compute('req-interface-test');
+
       expect(result).toHaveProperty('seed');
       expect(result).toHaveProperty('proof');
       expect(typeof result.seed).toBe('string');
@@ -287,11 +263,10 @@ describe('PrngService', () => {
     });
   });
 
-  // ── Edge cases ────────────────────────────────────────────────────────────
-
   describe('edge cases', () => {
     it('should handle empty requestId', () => {
       const { seed, proof } = service.compute('');
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
@@ -299,6 +274,7 @@ describe('PrngService', () => {
     it('should handle very long requestId', () => {
       const longRequestId = 'x'.repeat(10000);
       const { seed, proof } = service.compute(longRequestId);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
@@ -306,6 +282,7 @@ describe('PrngService', () => {
     it('should handle special characters in requestId', () => {
       const specialRequestId = 'req-!@#$%^&*()_+-=[]{}|;:,.<>?';
       const { seed, proof } = service.compute(specialRequestId);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
@@ -313,6 +290,7 @@ describe('PrngService', () => {
     it('should handle unicode characters in requestId', () => {
       const unicodeRequestId = 'req-🎲-🎯-🎪';
       const { seed, proof } = service.compute(unicodeRequestId);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
@@ -320,49 +298,53 @@ describe('PrngService', () => {
     it('should handle raffleId as 0', () => {
       const { seed: s1 } = service.compute('req-zero-raffle', 0);
       const { seed: s2 } = service.compute('req-zero-raffle');
-      expect(s1).not.toBe(s2); // Should be different
+
+      expect(s1).not.toBe(s2);
     });
 
-    it('should handle raffleId as negative number (coerced to uint32)', () => {
+    it('should handle raffleId as negative number coerced to uint32', () => {
       const { seed, proof } = service.compute('req-negative-raffle', -1);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
 
-    it('should handle raffleId as float (coerced to uint32)', () => {
+    it('should handle raffleId as float coerced to uint32', () => {
       const { seed, proof } = service.compute('req-float-raffle', 42.7);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
   });
 
-  // ── Performance ────────────────────────────────────────────────────────────
-
   describe('performance', () => {
     it('should compute PRNG output quickly', () => {
       const startTime = Date.now();
+
       service.compute('req-perf-test');
+
       const endTime = Date.now();
 
-      expect(endTime - startTime).toBeLessThan(10); // Should be < 10ms
+      expect(endTime - startTime).toBeLessThan(10);
     });
 
     it('should handle batch requests efficiently', () => {
       const startTime = Date.now();
+
       for (let i = 0; i < 1000; i++) {
         service.compute(`req-batch-${i}`);
       }
+
       const endTime = Date.now();
 
-      expect(endTime - startTime).toBeLessThan(1000); // 1000 computations in < 1 second
+      expect(endTime - startTime).toBeLessThan(1000);
     });
 
     it('should not allocate excessively for repeated calls', () => {
       const requestId = 'req-memory-test';
       const results = Array.from({ length: 100 }, () => service.compute(requestId));
-
-      // All results should be identical (no new allocations)
       const firstResult = results[0];
+
       results.forEach((result) => {
         expect(result.seed).toBe(firstResult.seed);
         expect(result.proof).toBe(firstResult.proof);
@@ -370,11 +352,10 @@ describe('PrngService', () => {
     });
   });
 
-  // ── Various request_ids and nonces ────────────────────────────────────────
-
   describe('various request_ids and nonces', () => {
     it('should handle numeric requestIds', () => {
       const { seed, proof } = service.compute('12345');
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
@@ -382,6 +363,7 @@ describe('PrngService', () => {
     it('should handle UUID-like requestIds', () => {
       const uuid = '550e8400-e29b-41d4-a716-446655440000';
       const { seed, proof } = service.compute(uuid);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
@@ -389,6 +371,7 @@ describe('PrngService', () => {
     it('should handle hex-encoded requestIds', () => {
       const hexRequestId = 'deadbeefcafebabe';
       const { seed, proof } = service.compute(hexRequestId);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
@@ -396,20 +379,114 @@ describe('PrngService', () => {
     it('should handle base64-like requestIds', () => {
       const base64RequestId = 'SGVsbG8gV29ybGQhIFRoaXMgaXMgYSB0ZXN0Lg==';
       const { seed, proof } = service.compute(base64RequestId);
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
 
     it('should handle whitespace in requestIds', () => {
       const { seed, proof } = service.compute('req with spaces');
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
     });
 
     it('should handle newlines in requestIds', () => {
       const { seed, proof } = service.compute('req\nwith\nnewlines');
+
       expect(seed).toMatch(/^[0-9a-f]{64}$/);
       expect(proof).toMatch(/^[0-9a-f]{128}$/);
+    });
+  });
+
+  describe('winner seed distribution property tests', () => {
+    const ticketCount = 10;
+    const sampleSize = 1000;
+
+    const winnerIndexFromSeed = (seed: string, tickets: number): number => {
+      const firstUint32 = Buffer.from(seed, 'hex').readUInt32BE(0);
+      return firstUint32 % tickets;
+    };
+
+    it('should deterministically replay seed-to-ticket winner mapping', () => {
+      const fixtures = [
+        { requestId: 'winner-fixture-001', raffleId: 1 },
+        { requestId: 'winner-fixture-002', raffleId: 2 },
+        { requestId: 'winner-fixture-003', raffleId: 3 },
+        { requestId: 'winner-fixture-004', raffleId: 4 },
+        { requestId: 'winner-fixture-005', raffleId: 5 },
+      ];
+
+      for (const fixture of fixtures) {
+        const first = service.compute(fixture.requestId, fixture.raffleId);
+        const second = service.compute(fixture.requestId, fixture.raffleId);
+
+        const firstWinner = winnerIndexFromSeed(first.seed, ticketCount);
+        const secondWinner = winnerIndexFromSeed(second.seed, ticketCount);
+
+        expect(first.seed).toBe(second.seed);
+        expect(firstWinner).toBe(secondWinner);
+        expect(firstWinner).toBeGreaterThanOrEqual(0);
+        expect(firstWinner).toBeLessThan(ticketCount);
+      }
+    });
+
+    it('should spread winner indexes across tickets with broad distribution sanity', () => {
+      const buckets = Array.from({ length: ticketCount }, () => 0);
+
+      for (let i = 0; i < sampleSize; i++) {
+        const requestId = `winner-distribution-fixture-${i}`;
+        const { seed } = service.compute(requestId, i);
+        const winnerIndex = winnerIndexFromSeed(seed, ticketCount);
+
+        buckets[winnerIndex]++;
+      }
+
+      const expectedPerBucket = sampleSize / ticketCount;
+
+      for (const count of buckets) {
+        expect(count).toBeGreaterThan(expectedPerBucket * 0.5);
+        expect(count).toBeLessThan(expectedPerBucket * 1.5);
+      }
+    });
+
+    it('should print deterministic fixture details when distribution sanity fails', () => {
+      const buckets = Array.from({ length: ticketCount }, () => 0);
+      const fixtures: Array<{
+        requestId: string;
+        raffleId: number;
+        seed: string;
+        winnerIndex: number;
+      }> = [];
+
+      for (let i = 0; i < sampleSize; i++) {
+        const requestId = `winner-replay-fixture-${i}`;
+        const raffleId = i;
+        const { seed } = service.compute(requestId, raffleId);
+        const winnerIndex = winnerIndexFromSeed(seed, ticketCount);
+
+        buckets[winnerIndex]++;
+        fixtures.push({ requestId, raffleId, seed, winnerIndex });
+      }
+
+      const expectedPerBucket = sampleSize / ticketCount;
+      const failedBucket = buckets.findIndex(
+        (count) => count <= expectedPerBucket * 0.5 || count >= expectedPerBucket * 1.5,
+      );
+
+      if (failedBucket !== -1) {
+        throw new Error(
+          [
+            `Winner distribution sanity failed for bucket ${failedBucket}`,
+            `ticketCount=${ticketCount}`,
+            `sampleSize=${sampleSize}`,
+            `buckets=${JSON.stringify(buckets)}`,
+            `replayFixtures=${JSON.stringify(fixtures.slice(0, 20), null, 2)}`,
+          ].join('\n'),
+        );
+      }
+
+      expect(failedBucket).toBe(-1);
     });
   });
 });
