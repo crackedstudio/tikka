@@ -59,6 +59,15 @@ describe('redactSensitive', () => {
     redactSensitive(original);
     expect(original.authorization).toBe('secret');
   });
+
+  it('returns [DEPTH_LIMIT] at depth 10', () => {
+    // Build a 10-level deep object: { a: { a: { ... } } }
+    let nested: Record<string, unknown> = { leaf: 'value' };
+    for (let i = 0; i < 10; i++) nested = { a: nested };
+    const result = redactSensitive(nested) as any;
+    // At depth 10 the value should be replaced
+    expect(result.a.a.a.a.a.a.a.a.a.a).toBe('[DEPTH_LIMIT]');
+  });
 });
 
 describe('hashWallet', () => {

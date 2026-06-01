@@ -29,15 +29,20 @@ export const REDACTED_FIELDS = [
   'seed',
 ] as const;
 
+const MAX_REDACT_DEPTH = 10;
+
 /**
  * Recursively redact sensitive keys from an object before it is sent to Sentry.
  * Arrays are walked element-by-element. Primitives are returned as-is.
+ * Depth is capped at MAX_REDACT_DEPTH to prevent stack overflows on deeply
+ * nested or circular-adjacent structures from third-party libraries.
  */
-export function redactSensitive(value: unknown): unknown {
+export function redactSensitive(value: unknown, depth = 0): unknown {
+  if (depth >= MAX_REDACT_DEPTH) return '[DEPTH_LIMIT]';
   if (value === null || value === undefined) return value;
 
   if (Array.isArray(value)) {
-    return value.map(redactSensitive);
+    return value.map((v) => redactSensitive(v, depth + 1));
   }
 
   if (typeof value === 'object') {
@@ -45,7 +50,7 @@ export function redactSensitive(value: unknown): unknown {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       result[k] = REDACTED_FIELDS.includes(k.toLowerCase() as any)
         ? '[REDACTED]'
-        : redactSensitive(v);
+        : redactSensitive(v, depth + 1);
     }
     return result;
   }
@@ -104,6 +109,7 @@ export function buildSentryOptions(env: {
     dsn,
     environment: env.NODE_ENV ?? 'development',
     tracesSampleRate,
+    sendDefaultPii: false,
     integrations: [nodeProfilingIntegration() as any],
     profilesSampleRate: 1.0,
     /**
