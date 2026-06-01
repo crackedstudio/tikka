@@ -1,5 +1,6 @@
 import React from "react";
 import type { StepComponentProps } from "../../types/types";
+import { validateStep } from "./validation";
 
 const DetailsStep: React.FC<StepComponentProps> = ({
     formData,
@@ -17,8 +18,7 @@ const DetailsStep: React.FC<StepComponentProps> = ({
         updateFormData({ description: e.target.value });
     };
 
-    const canContinue =
-        formData.title.trim() !== "" && formData.description.trim() !== "";
+    const canContinue = validateStep("details", formData);
 
     return (
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">

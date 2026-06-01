@@ -7,6 +7,7 @@ import PricingStep from "../components/create-raffle/PricingStep";
 import DurationStep from "../components/create-raffle/DurationStep";
 import ReviewStep from "../components/create-raffle/ReviewStep";
 import LivePreview from "../components/create-raffle/LivePreview";
+import { useCreateRaffleWizard } from "../components/create-raffle/useCreateRaffleWizard";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const CreateRaffle: React.FC = () => {
