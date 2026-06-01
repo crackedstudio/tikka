@@ -1,7 +1,38 @@
+import { z } from "zod";
 import { supabase, RAFFLE_METADATA_TABLE } from "../config/supabase";
 import { api } from "./apiClient";
 import { API_CONFIG } from "../config/api";
 import type { RaffleMetadata, SupabaseRaffleRecord } from "../types/types";
+
+export const RaffleMetadataSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  image: z.string(),
+  images: z.array(z.string()).optional(),
+  prizeName: z.string(),
+  prizeValue: z.string(),
+  prizeCurrency: z.string(),
+  category: z.string(),
+  tags: z.array(z.string()),
+  createdBy: z.string(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
+export const SafeRaffleMetadataSchema = z.object({
+  title: z.string().catch("Unknown Raffle"),
+  description: z.string().catch("Metadata could not be loaded"),
+  image: z.string().catch(""),
+  images: z.array(z.string()).optional().catch(undefined),
+  prizeName: z.string().catch("Unknown Prize"),
+  prizeValue: z.string().catch("0"),
+  prizeCurrency: z.string().catch("XLM"),
+  category: z.string().catch("Other"),
+  tags: z.array(z.string()).catch([]),
+  createdBy: z.string().catch(""),
+  createdAt: z.number().catch(0),
+  updatedAt: z.number().catch(0),
+});
 
 export class MetadataService {
   /**
@@ -9,12 +40,13 @@ export class MetadataService {
    */
   static async uploadRaffleMetadata(metadata: RaffleMetadata): Promise<string> {
     try {
-      console.log("📤 MetadataService: Uploading metadata:", metadata);
+      const validatedMetadata = RaffleMetadataSchema.parse(metadata);
+      console.log("📤 MetadataService: Uploading metadata:", validatedMetadata);
       const { data, error } = await supabase
         .from(RAFFLE_METADATA_TABLE)
         .insert([
           {
-            metadata,
+            metadata: validatedMetadata,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -53,7 +85,7 @@ export class MetadataService {
         return null;
       }
 
-      return data.metadata;
+      return SafeRaffleMetadataSchema.parse(data.metadata) as RaffleMetadata;
     } catch (error) {
       console.error("Error fetching raffle metadata:", error);
       return null;
@@ -78,7 +110,7 @@ export class MetadataService {
         return null;
       }
 
-      return data.metadata;
+      return SafeRaffleMetadataSchema.parse(data.metadata) as RaffleMetadata;
     } catch (error) {
       console.error("Error fetching raffle metadata by contract ID:", error);
       return null;
@@ -93,11 +125,14 @@ export class MetadataService {
     metadata: Partial<RaffleMetadata>,
   ): Promise<boolean> {
     try {
+      const partialSchema = RaffleMetadataSchema.partial();
+      const validatedMetadata = partialSchema.parse(metadata);
+
       const { error } = await supabase
         .from(RAFFLE_METADATA_TABLE)
         .update({
           metadata: {
-            ...metadata,
+            ...validatedMetadata,
             updatedAt: Date.now(),
           },
           updated_at: new Date().toISOString(),
@@ -159,7 +194,10 @@ export class MetadataService {
         throw new Error(`Failed to fetch raffles by creator: ${error.message}`);
       }
 
-      return data || [];
+      return (data || []).map((record) => ({
+        ...record,
+        metadata: SafeRaffleMetadataSchema.parse(record.metadata) as RaffleMetadata,
+      }));
     } catch (error) {
       console.error("Error fetching raffles by creator:", error);
       return [];
