@@ -8,6 +8,7 @@ export const LeaderboardQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
   // Deprecated: offset pagination is kept for backward compatibility.
   offset: z.coerce.number().int().min(0).optional(),
+  period: z.enum(['all', 'monthly', 'weekly']).default('all').optional(),
 });
 
 export class LeaderboardQueryDto {
@@ -22,4 +23,7 @@ export class LeaderboardQueryDto {
 
   @ApiPropertyOptional({ minimum: 0, description: 'Offset for offset-based pagination (deprecated)' })
   offset?: number;
+
+  @ApiPropertyOptional({ enum: ['all', 'monthly', 'weekly'], default: 'all', description: 'Time period filter' })
+  period?: 'all' | 'monthly' | 'weekly';
 }

@@ -14,6 +14,7 @@ export interface LeaderboardResponse {
 }
 
 export type LeaderboardSortBy = "wins" | "volume" | "tickets";
+export type LeaderboardPeriod = "all" | "monthly" | "weekly";
 
 export interface LeaderboardParams {
   by?: LeaderboardSortBy;
@@ -23,7 +24,7 @@ export interface LeaderboardParams {
 
 /**
  * Fetch leaderboard data from the backend
- * @param params - Optional query parameters (by, limit)
+ * @param params - Optional query parameters (by, limit, period)
  * @returns Leaderboard response with entries
  */
 export async function fetchLeaderboard(
