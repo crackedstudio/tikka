@@ -62,8 +62,16 @@ export class AuthService {
     nonce: string,
     issuedAt?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const stored = nonces.get(address);
-    if (!stored || stored.nonce !== nonce) {
+    const { data: stored, error } = await this.client
+      .from('siws_nonces')
+      .select('*')
+      .eq('address', address)
+      .eq('nonce', nonce)
+      .eq('consumed', false)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !stored) {
       throw new Error('Invalid or expired nonce');
     }
 

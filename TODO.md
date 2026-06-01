@@ -1,13 +1,11 @@
-# Infinite Scroll Pagination for Home Page
+# Task TODO: Settings refactor (client)
 
 ## Steps
-1. [x] Create `client/src/hooks/useIntersectionObserver.ts` — reusable IntersectionObserver hook
-2. [x] Modify `client/src/pages/Home.tsx` — infinite scroll, sentinel, spinner, scroll position preservation
-3. [x] Run `npm run build` in client to verify zero TypeScript errors (our files compile cleanly; 13 pre-existing errors in other files)
-
-## Acceptance Criteria
-- [x] Next page loads automatically when sentinel is visible
-- [x] Scroll position is preserved on back navigation via sessionStorage
-- [x] "No more raffles" indicator shown at end of list
-- [x] No duplicate cards between pages (deduplicated via Map by id)
+- [ ] Explore and document current Settings/notification service behavior
+- [ ] Refactor `client/src/pages/Settings.tsx` into sectionized components under `client/src/components/settings/`
+- [ ] Add typed hooks for settings/notifications mutations + loading/error states
+- [ ] Wire notification event preference “Save” to a real API endpoint (or add the missing endpoint)
+- [ ] Add confirmation UI for destructive account actions if present
+- [ ] Add unit tests: section rendering + failed preference saves
+- [ ] Run `cd client && npm run lint && npm run test && npm run build`
 

@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { useLeaderboard } from "../hooks/useLeaderboard";
-import type { LeaderboardSortBy } from "../services/leaderboardService";
+import type { LeaderboardSortBy, LeaderboardPeriod } from "../services/leaderboardService";
 import ErrorMessage from "../components/ui/ErrorMessage";
 
 const Leaderboard: React.FC = () => {
   const [sortBy, setSortBy] = useState<LeaderboardSortBy>("wins");
+  const [period, setPeriod] = useState<LeaderboardPeriod>("all");
   const [limit] = useState(100);
 
-  const { data, isLoading, error, refetch } = useLeaderboard({ by: sortBy, limit });
+  const { data, isLoading, error, refetch } = useLeaderboard({ by: sortBy, limit, period });
 
   const entries = data?.entries || [];
 
@@ -30,37 +31,72 @@ const Leaderboard: React.FC = () => {
         </h1>
 
         {/* Sort Options */}
-        <div className="flex space-x-2 mb-6">
-          <button
-            onClick={() => setSortBy("wins")}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
-              sortBy === "wins"
-                ? "bg-purple-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
-          >
-            By Wins
-          </button>
-          <button
-            onClick={() => setSortBy("volume")}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
-              sortBy === "volume"
-                ? "bg-purple-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
-          >
-            By Volume
-          </button>
-          <button
-            onClick={() => setSortBy("tickets")}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
-              sortBy === "tickets"
-                ? "bg-purple-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
-          >
-            By Tickets
-          </button>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setSortBy("wins")}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                sortBy === "wins"
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              By Wins
+            </button>
+            <button
+              onClick={() => setSortBy("volume")}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                sortBy === "volume"
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              By Volume
+            </button>
+            <button
+              onClick={() => setSortBy("tickets")}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                sortBy === "tickets"
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              By Tickets
+            </button>
+          </div>
+
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setPeriod("all")}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                period === "all"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              All Time
+            </button>
+            <button
+              onClick={() => setPeriod("monthly")}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                period === "monthly"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              This Month
+            </button>
+            <button
+              onClick={() => setPeriod("weekly")}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                period === "weekly"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              This Week
+            </button>
+          </div>
         </div>
 
         {/* Content */}

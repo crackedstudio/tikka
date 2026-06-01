@@ -1,5 +1,10 @@
 import { Keypair, Networks, Transaction } from '@stellar/stellar-sdk';
-import { buildChallenge, createInMemoryNonceStore, verifyResponse } from './sep10';
+import {
+  buildChallenge,
+  createInMemoryNonceStore,
+  Sep10VerificationErrorCode,
+  verifyResponse,
+} from './sep10';
 
 describe('SEP-10 auth helper', () => {
   const server = Keypair.random();
@@ -132,6 +137,58 @@ describe('SEP-10 auth helper', () => {
         nonceValidator: async () => true,
       }),
     ).rejects.toThrow(/Client signature is missing|invalid signature/);
+  });
+
+  it('wrong domain is rejected', async () => {
+    const challengeXdr = buildChallenge({
+      serverSecret: server.secret(),
+      clientAccount: client.publicKey(),
+      anchorDomain,
+      timeout: 300,
+      networkPassphrase: Networks.TESTNET,
+    });
+
+    const responseTx = new Transaction(challengeXdr, Networks.TESTNET);
+    responseTx.sign(client);
+
+    await expect(
+      verifyResponse({
+        signedChallenge: responseTx.toXDR(),
+        serverAccount: server.publicKey(),
+        clientAccount: client.publicKey(),
+        anchorDomain: 'wrong.example.com',
+        networkPassphrase: Networks.TESTNET,
+        nonceValidator: async () => true,
+      }),
+    ).rejects.toMatchObject({
+      code: Sep10VerificationErrorCode.UnexpectedManageDataKey,
+    });
+  });
+
+  it('wrong network is rejected', async () => {
+    const challengeXdr = buildChallenge({
+      serverSecret: server.secret(),
+      clientAccount: client.publicKey(),
+      anchorDomain,
+      timeout: 300,
+      networkPassphrase: Networks.PUBLIC,
+    });
+
+    const responseTx = new Transaction(challengeXdr, Networks.PUBLIC);
+    responseTx.sign(client);
+
+    await expect(
+      verifyResponse({
+        signedChallenge: responseTx.toXDR(),
+        serverAccount: server.publicKey(),
+        clientAccount: client.publicKey(),
+        anchorDomain,
+        networkPassphrase: Networks.TESTNET,
+        nonceValidator: async () => true,
+      }),
+    ).rejects.toMatchObject({
+      code: Sep10VerificationErrorCode.InvalidSignature,
+    });
   });
 
   it('nonceValidator rejects replayed challenge', async () => {

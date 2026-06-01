@@ -1,21 +1,27 @@
 {
   "name": "tikka",
   "private": true,
+  "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle",
-    "build": "npm run build --prefix client && npm run build --prefix sdk && npm run build --prefix backend && npm run build --prefix indexer && npm run build --prefix oracle",
-    "build:client": "npm run build --prefix client",
-    "build:sdk": "npm run build --prefix sdk",
-    "build:backend": "npm run build --prefix backend",
-    "build:indexer": "npm run build --prefix indexer",
-    "build:oracle": "npm run build --prefix oracle"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.28",
-    "@types/react-dom": "^18.3.7",
-    "@types/react-router-dom": "^5.3.3"
-  },
-  "dependencies": {
-    "react-router-dom": "^7.13.2"
+    "install": "pnpm install",
+    "build": "pnpm -r build",
+    "build:client": "pnpm --filter tikka build",
+    "build:sdk": "pnpm --filter @tikka/sdk build",
+    "build:backend": "pnpm --filter tikka-backend build",
+    "build:indexer": "pnpm --filter tikka-indexer build",
+    "build:oracle": "pnpm --filter tikka-oracle build",
+    "lint": "pnpm -r lint",
+    "lint:client": "pnpm --filter tikka lint",
+    "lint:backend": "pnpm --filter tikka-backend lint",
+    "lint:indexer": "pnpm --filter tikka-indexer lint",
+    "lint:oracle": "pnpm --filter tikka-oracle lint",
+    "lint:sdk": "pnpm --filter @tikka/sdk lint",
+    "test": "pnpm -r test",
+    "test:client": "pnpm --filter tikka test",
+    "test:backend": "pnpm --filter tikka-backend test",
+    "test:indexer": "pnpm --filter tikka-indexer test",
+    "test:oracle": "pnpm --filter tikka-oracle test",
+    "test:sdk": "pnpm --filter @tikka/sdk test",
+    "check:dependencies": "node scripts/check-dependencies.js"
   }
 }

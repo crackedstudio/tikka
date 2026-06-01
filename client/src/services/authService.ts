@@ -1,13 +1,13 @@
 /**
  * Auth Service
- * 
+ *
  * Handles Sign In With Stellar (SIWS) authentication flow:
  * 1. Get nonce from backend
  * 2. Sign message with wallet
  * 3. Verify signature and receive JWT
  */
 
-import { API_CONFIG } from '../config/api';
+import { API_CONFIG } from "../config/api";
 
 export interface NonceResponse {
   nonce: string;
@@ -25,6 +25,31 @@ export interface VerifyRequest {
 
 export interface VerifyResponse {
   accessToken: string;
+  refreshToken: string;
+}
+
+/**
+ * Exchange a refresh token for a new set of tokens
+ */
+export async function refresh(refreshToken: string): Promise<VerifyResponse> {
+  const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.auth.refresh}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Refresh failed" }));
+    throw new Error(error.message || "Refresh failed");
+  }
+
+  return response.json();
 }
 
 /**
@@ -32,17 +57,19 @@ export interface VerifyResponse {
  */
 export async function getNonce(address: string): Promise<NonceResponse> {
   const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.auth.nonce}?address=${encodeURIComponent(address)}`;
-  
+
   const response = await fetch(url, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to get nonce' }));
-    throw new Error(error.message || 'Failed to get nonce');
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Failed to get nonce" }));
+    throw new Error(error.message || "Failed to get nonce");
   }
 
   return response.json();
@@ -53,18 +80,20 @@ export async function getNonce(address: string): Promise<NonceResponse> {
  */
 export async function verify(request: VerifyRequest): Promise<VerifyResponse> {
   const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.auth.verify}`;
-  
+
   const response = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(request),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Verification failed' }));
-    throw new Error(error.message || 'Verification failed');
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Verification failed" }));
+    throw new Error(error.message || "Verification failed");
   }
 
   return response.json();

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
+import { ContractBuilders } from './contract.builders';
 
 export interface RaffleData {
   raffleId: number;
@@ -44,11 +45,12 @@ export class ContractService {
       const sourceAccount = new StellarSdk.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
       const contract = new StellarSdk.Contract(this.contractId);
 
+      const invocation = ContractBuilders.buildGetRaffleData(raffleId);
       const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
         fee: '100',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call('get_raffle_data', StellarSdk.xdr.ScVal.scvU32(raffleId >>> 0)))
+        .addOperation(contract.call(invocation.method, ...invocation.args))
         .setTimeout(30)
         .build();
 

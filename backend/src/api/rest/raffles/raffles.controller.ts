@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -10,15 +11,18 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
+import { env } from "../../../config/env.config";
 import { UpsertMetadataPayload } from "../../../services/metadata.service";
 import {
   ListRafflesQuerySchema,
@@ -46,10 +50,8 @@ interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
 
-const RAFFLE_CREATE_RATE_LIMIT = Number(process.env.RAFFLE_CREATE_RATE_LIMIT ?? 5);
-const RAFFLE_CREATE_RATE_WINDOW_SECONDS = Number(
-  process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? 600,
-);
+const RAFFLE_CREATE_RATE_LIMIT = env.rateLimits.raffleCreateLimit;
+const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSeconds;
 
 @ApiTags("Raffles")
 @Controller("raffles")
@@ -100,6 +102,23 @@ export class RafflesController {
   }
 
   /**
+   * GET /raffles/:id/participants?since= — Get recent participants for a raffle.
+   * Optional query param 'since' (unix timestamp in ms) to get participants since that time.
+   */
+  @Public()
+  @Get(":id/participants")
+  @ApiOperation({ summary: "Get recent participants for a raffle" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
+  @ApiResponse({ status: 200, description: "Recent participants retrieved successfully" })
+  async getParticipants(
+    @Param("id", ParseIntPipe) id: number,
+    @Query("since") since?: string,
+  ) {
+    const sinceTimestamp = since ? parseInt(since, 10) : 0;
+    return this.rafflesService.getRecentParticipants(id, sinceTimestamp);
+  }
+
+  /**
    * GET /raffles/:id/ipfs — Redirect to IPFS metadata for the raffle.
    */
   @Public()
@@ -113,7 +132,7 @@ export class RafflesController {
     if (!detail.metadata_cid) {
       throw new NotFoundException(`IPFS metadata not found for raffle ${id}`);
     }
-    const gateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs/';
+    const gateway = env.storage.ipfsGatewayUrl;
     res.redirect(`${gateway}${detail.metadata_cid}`);
   }
 
@@ -142,6 +161,25 @@ export class RafflesController {
   }
 
   /**
+   * DELETE /raffles/:raffleId/metadata — Soft-delete raffle metadata.
+   * Creator can delete their own raffle's metadata; admin can delete any.
+   * Requires JWT (SIWS).
+   */
+  @ApiBearerAuth()
+  @Delete(":raffleId/metadata")
+  @ApiOperation({ summary: "Soft-delete raffle metadata (creator or admin)" })
+  @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiResponse({ status: 200, description: "Metadata soft-deleted successfully" })
+  @ApiResponse({ status: 403, description: "Forbidden — not the creator" })
+  @ApiResponse({ status: 404, description: "Raffle or metadata not found" })
+  async deleteMetadata(
+    @Param("raffleId", ParseIntPipe) raffleId: number,
+    @CurrentUser("address") address: string,
+  ) {
+    return this.rafflesService.deleteMetadata(raffleId, address);
+  }
+
+  /**
    * POST /raffles/:raffleId/purchase — Purchase tickets for a raffle.
    * Idempotent: supply Idempotency-Key header to safely retry on network failure.
    * Requires JWT (SIWS).
@@ -151,6 +189,9 @@ export class RafflesController {
   @ApiOperation({ summary: "Purchase tickets for a raffle" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
   @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+  @ApiResponse({ status: 201, description: "Tickets purchased successfully" })
+  @ApiResponse({ status: 400, description: "Invalid purchase request" })
+  @ApiResponse({ status: 404, description: "Raffle not found" })
   @UseInterceptors(IdempotencyInterceptor)
   async purchaseTickets(
     @Param("raffleId", ParseIntPipe) raffleId: number,

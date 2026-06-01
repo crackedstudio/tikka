@@ -16,17 +16,61 @@ export function getToken(): string | null {
 }
 
 /**
- * Store the JWT token
+ * Get the stored refresh token
  */
-export function setToken(token: string): void {
-  sessionStorage.setItem("tikka_auth_token", token);
+export function getRefreshToken(): string | null {
+  return sessionStorage.getItem("tikka_refresh_token");
 }
 
 /**
- * Clear the JWT token
+ * Get the stored auth address
  */
-export function clearToken(): void {
+export function getAuthAddress(): string | null {
+  return sessionStorage.getItem("tikka_auth_address");
+}
+
+/**
+ * Store the JWT, refresh tokens, and address
+ */
+export function setTokens(
+  accessToken: string,
+  refreshToken: string,
+  address: string,
+): void {
+  sessionStorage.setItem("tikka_auth_token", accessToken);
+  sessionStorage.setItem("tikka_refresh_token", refreshToken);
+  sessionStorage.setItem("tikka_auth_address", address);
+}
+
+/**
+ * Clear the auth tokens and address
+ */
+export function clearTokens(): void {
   sessionStorage.removeItem("tikka_auth_token");
+  sessionStorage.removeItem("tikka_refresh_token");
+  sessionStorage.removeItem("tikka_auth_address");
+}
+
+// ── Session-expiry pub/sub bridge ─────────────────────────────────────────────
+// Allows AuthProvider to be notified when a 401 is received without importing
+// React hooks into the service layer.
+
+let _onExpiredCallback: (() => void) | null = null;
+
+/**
+ * Register a callback to be invoked when any API request returns HTTP 401.
+ * AuthProvider registers auth.markExpired here on mount.
+ */
+export function registerExpiredHandler(fn: () => void): void {
+  _onExpiredCallback = fn;
+}
+
+/**
+ * Remove the previously registered 401 callback.
+ * AuthProvider calls this on unmount.
+ */
+export function unregisterExpiredHandler(): void {
+  _onExpiredCallback = null;
 }
 
 export interface RequestOptions extends RequestInit {
@@ -62,7 +106,8 @@ export async function apiRequest<T = any>(
     throw new Error("Authentication required");
   }
 
-  const timeoutMs = typeof API_CONFIG.timeout === 'number' ? API_CONFIG.timeout : 8000;
+  const timeoutMs =
+    typeof API_CONFIG.timeout === "number" ? API_CONFIG.timeout : 8000;
 
   let response: Response;
   try {
@@ -72,7 +117,8 @@ export async function apiRequest<T = any>(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Network error occurred";
+    const errorMessage =
+      error instanceof Error ? error.message : "Network error occurred";
 
     // Global Error Toast Notification for Network Failures
     toast.error("API Connection Failed", {
@@ -86,7 +132,7 @@ export async function apiRequest<T = any>(
         label: "Copy Error",
         onClick: () => {
           navigator.clipboard.writeText(
-            JSON.stringify({ endpoint: url, error: errorMessage }, null, 2)
+            JSON.stringify({ endpoint: url, error: errorMessage }, null, 2),
           );
           toast.success("Error copied to clipboard", { duration: 2000 });
         },
@@ -96,10 +142,11 @@ export async function apiRequest<T = any>(
   }
 
   if (!response.ok) {
-    // Handle 401 Unauthorized - clear token and throw
+    // Handle 401 Unauthorized - clear tokens, notify auth layer, and throw
     if (response.status === 401) {
-      clearToken();
-      toast.error("Unauthorized", {
+      clearTokens();
+      _onExpiredCallback?.();
+      toast.error("Session expired", {
         description: "Please sign in again to continue.",
         action: { label: "Sign In", onClick: () => window.location.reload() },
       });
@@ -128,8 +175,8 @@ export async function apiRequest<T = any>(
             JSON.stringify(
               { endpoint: url, status: response.status, error: errorData },
               null,
-              2
-            )
+              2,
+            ),
           );
           toast.success("Error copied to clipboard", { duration: 2000 });
         },

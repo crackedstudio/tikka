@@ -16,7 +16,7 @@ export type NotificationEventType = (typeof NotificationEventTypes)[number];
 export const SubscribeSchema = z.object({
   raffleId: z.number().int().positive(),
   channel: z.enum(['email', 'push']).optional().default('email'),
-  events: z.array(z.enum(NotificationEventTypes)).optional().default(NotificationEventTypes),
+  events: z.array(z.enum(NotificationEventTypes)).optional().default([...NotificationEventTypes]),
 });
 
 export class SubscribeDto {
