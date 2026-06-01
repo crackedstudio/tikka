@@ -9,6 +9,7 @@ import { env } from '../config/env.config';
 @Injectable()
 export class AuthService {
   private readonly NONCE_TTL_MS = env.siws.nonceTtlSeconds * 1000;
+  private readonly nonces = new Map<string, { nonce: string; expires_at: string; issued_at: string; id: number }>();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -62,7 +63,7 @@ export class AuthService {
     nonce: string,
     issuedAt?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const stored = nonces.get(address);
+    const stored = this.nonces.get(address);
     if (!stored || stored.nonce !== nonce) {
       throw new Error('Invalid or expired nonce');
     }

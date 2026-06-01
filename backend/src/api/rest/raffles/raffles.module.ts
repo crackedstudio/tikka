@@ -3,6 +3,7 @@ import { RafflesController } from './raffles.controller';
 import { OgRenderController } from './og-render.controller';
 import { RafflesService } from './raffles.service';
 import { MetadataModule } from '../../../services/metadata.module';
+import { MetadataService } from '../../../services/metadata.service';
 import { IndexerModule } from '../../../services/indexer.module';
 import { StorageService } from '../../../services/storage.service';
 import { ImageOptimizerService } from '../../../services/image-optimizer.service';

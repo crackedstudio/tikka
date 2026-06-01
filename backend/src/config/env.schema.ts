@@ -119,9 +119,7 @@ const envSchemaInner = z
 
     // Pinata - optional for IPFS metadata pinning
     PINATA_JWT: z.string().optional(),
-    // Metadata cache (Redis) — optional; empty REDIS_URL disables cache-aside
-    REDIS_URL: z.string().default(''),
-    METADATA_CACHE_TTL_SECONDS: z.coerce
+    METADATA_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
     RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
     RAFFLE_CREATE_RATE_WINDOW_SECONDS: z.coerce
       .number()

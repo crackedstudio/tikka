@@ -10,10 +10,11 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
@@ -39,6 +40,7 @@ import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
+import { Throttle } from "@nestjs/throttler";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
 import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
 
