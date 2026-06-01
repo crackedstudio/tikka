@@ -23,6 +23,29 @@ async function verifySchema() {
     console.log('✅ Table "vrf_audit_log" exists.');
   }
 
+  console.log('Checking for randomness_audit_log table...');
+  const { error: randomnessError } = await supabase
+    .from('randomness_audit_log')
+    .select('id')
+    .limit(1);
+
+  if (
+    randomnessError &&
+    (randomnessError.code === '42P01' ||
+      randomnessError.message.includes('relation "randomness_audit_log" does not exist'))
+  ) {
+    console.error(
+      '❌ Schema verification failed: Table "randomness_audit_log" does not exist!',
+    );
+    process.exit(1);
+  } else if (randomnessError && randomnessError.code !== 'PGRST116') {
+    console.warn(
+      `⚠️ Could query "randomness_audit_log", but received an error: ${randomnessError.message}`,
+    );
+  } else {
+    console.log('✅ Table "randomness_audit_log" exists.');
+  }
+
   console.log('Schema verification passed.');
   process.exit(0);
 }
