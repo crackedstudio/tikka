@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
+import { FeeEstimatorService, FeeUnsafeError } from './fee-estimator.service';
 import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 import { CostEstimatorService } from './cost-estimator.service';
@@ -889,6 +890,114 @@ export class TxSubmitterService {
       attempt,
       lastError,
       `Persistent failure calling ${method} after ${attempt} attempts.`,
+    );
+    return { txHash: '', ledger: 0, success: false };
+  }
+
+  async submitRandomness(raffleId: number, randomness: RandomnessResult): Promise<SubmitResult> {
+    if (!this.contractId) {
+      this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
+      return { txHash: '', ledger: 0, success: false };
+    }
+
+    const publicKey = await this.keyService.getPublicKey();
+
+    let attempt = 0;
+    let lastError: unknown = null;
+    let feeBump = 1;
+
+    // Get initial fee estimate from network stats; refuse if unsafe
+    let feeEstimate: Awaited<ReturnType<FeeEstimatorService['estimateFee']>>;
+    try {
+      feeEstimate = await this.feeEstimator.estimateFee(0);
+    } catch (e) {
+      if (e instanceof FeeUnsafeError) {
+        this.logger.error(
+          `Refusing to submit randomness for raffle ${raffleId}: ${e.message}`,
+        );
+        return { txHash: '', ledger: 0, success: false };
+      }
+      throw e;
+    }
+    this.logger.log(
+      `Submitting randomness for raffle ${raffleId} with fee ${feeEstimate.cappedFee} stroops ` +
+      `(source: ${feeEstimate.source}, confidence: ${feeEstimate.confidence}, capped: ${feeEstimate.isCapped})`,
+      `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
+      JSON.stringify({ raffle_id: raffleId } as OracleLogFields),
+    );
+
+    while (attempt < this.maxAttempts) {
+      attempt++;
+      try {
+        const prepared = await this.buildPreparedTx(publicKey, raffleId, randomness, feeBump);
+        await this.keyService.signTransaction(prepared);
+
+        const sendRes = await this.rpcServer.sendTransaction(prepared);
+        const txHash = sendRes.hash || sendRes?.transactionHash || '';
+
+        if (!txHash) {
+          const msg = JSON.stringify(sendRes);
+          if (this.isInsufficientFeeError(msg)) {
+            feeBump = Math.max(feeBump * 2, feeBump + 1);
+            this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
+            await this.logRetryAndBackoff('receive_randomness', attempt, msg);
+            continue;
+          }
+          lastError = new Error('sendTransaction returned no hash');
+          await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
+          continue;
+        }
+
+        const confirm = await this.pollForConfirmation(txHash);
+        if (confirm?.status === 'SUCCESS') {
+          const ledger = (confirm.ledger as number) || (confirm.latestLedger as number) || 0;
+          const feePaid = Number(confirm.feeCharged) || (Number((StellarSdk as any).BASE_FEE || 100) * feeBump);
+          this.costEstimator.recordRevealCost(raffleId, 'VRF', feePaid);
+          return { txHash, ledger, success: true, feePaid };
+        }
+
+        if (confirm && this.isInsufficientFeeError(JSON.stringify(confirm))) {
+          feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
+          await this.logRetryAndBackoff('receive_randomness', attempt, JSON.stringify(confirm));
+          continue;
+        }
+
+        lastError = new Error(
+          `Transaction failed or not confirmed (status=${confirm?.status || 'UNKNOWN'})`,
+        );
+        if (!this.isRetriableError(lastError, JSON.stringify(confirm))) {
+          this.costEstimator.recordSubmissionFailure(raffleId, 'VRF', JSON.stringify(confirm));
+          break;
+        }
+        await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
+      } catch (e: any) {
+        const msg = e?.message || String(e);
+        if (this.isRpcError(msg)) {
+          this.failoverRpc();
+        } else if (this.isInsufficientFeeError(msg)) {
+          feeBump = Math.max(feeBump * 2, feeBump + 1);
+          this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
+        }
+        this.logger.error(
+          `Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`,
+          JSON.stringify({ raffle_id: raffleId, attempt, outcome: 'failure' } as OracleLogFields),
+        );
+        lastError = e;
+        if (!this.isRetriableError(e, msg)) {
+          this.costEstimator.recordSubmissionFailure(raffleId, 'VRF', msg);
+          break;
+        }
+        await this.logRetryAndBackoff('receive_randomness', attempt, lastError);
+      }
+    }
+
+    await this.handleFinalFailure(
+      'receive_randomness',
+      attempt,
+      lastError,
+      `Persistent failure submitting randomness for raffle ${raffleId} after ${attempt} attempts.`,
+      { raffle_id: raffleId },
     );
     return { txHash: '', ledger: 0, success: false };
   }

@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { api } from "../services/apiClient";
 import { API_CONFIG } from "../config/api";
 
@@ -6,6 +13,10 @@ interface Participant {
   address: string;
   timestamp: number;
   isOptimistic?: boolean;
+}
+
+export interface RecentParticipantsHandle {
+  addOptimisticParticipant: (address: string) => void;
 }
 
 interface RecentParticipantsProps {
@@ -18,11 +29,10 @@ const POLL_INTERVAL = 15000; // 15 seconds
 const MAX_DISPLAYED = 20;
 const ANIMATION_DURATION = 300; // ms
 
-const RecentParticipants = ({
-  raffleId,
-  currentUserAddress,
-  onOptimisticUpdate,
-}: RecentParticipantsProps) => {
+const RecentParticipants = forwardRef<
+  RecentParticipantsHandle,
+  RecentParticipantsProps
+>(({ raffleId, onOptimisticUpdate }, ref) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -30,22 +40,20 @@ const RecentParticipants = ({
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const optimisticAddressesRef = useRef<Set<string>>(new Set());
   const prefersReducedMotionRef = useRef(
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
 
   // Fetch participants since a given timestamp
-  const fetchParticipants = useCallback(async (since?: number) => {
-    try {
+  const fetchParticipants = useCallback(
+    async (since?: number) => {
       const params = new URLSearchParams();
       if (since) params.set("since", String(since));
       const endpoint = `${API_CONFIG.endpoints.raffles.detail(String(raffleId))}/participants?${params.toString()}`;
       const data = await api.get<Participant[]>(endpoint);
       return data || [];
-    } catch (err) {
-      console.error("Failed to fetch participants:", err);
-      return [];
-    }
-  }, [raffleId]);
+    },
+    [raffleId],
+  );
 
   // Initial load
   useEffect(() => {
@@ -57,7 +65,9 @@ const RecentParticipants = ({
         setParticipants(data.slice(0, MAX_DISPLAYED));
         lastFetchTimeRef.current = Date.now();
       } catch (err) {
-        setError(err instanceof Error ? err : new Error("Failed to load participants"));
+        setError(
+          err instanceof Error ? err : new Error("Failed to load participants"),
+        );
       } finally {
         setIsLoading(false);
       }
@@ -70,13 +80,15 @@ const RecentParticipants = ({
   useEffect(() => {
     const poll = async () => {
       try {
-        const newParticipants = await fetchParticipants(lastFetchTimeRef.current);
-        
+        const newParticipants = await fetchParticipants(
+          lastFetchTimeRef.current,
+        );
+
         if (newParticipants.length > 0) {
           setParticipants((prev) => {
             // Remove optimistic entries that are now confirmed
             const confirmed = newParticipants.filter(
-              (p) => !optimisticAddressesRef.current.has(p.address)
+              (p) => !optimisticAddressesRef.current.has(p.address),
             );
             optimisticAddressesRef.current.clear();
 
@@ -98,18 +110,28 @@ const RecentParticipants = ({
   }, [fetchParticipants]);
 
   // Optimistic update when user purchases
-  const addOptimisticParticipant = useCallback((address: string) => {
-    optimisticAddressesRef.current.add(address);
-    const optimisticParticipant: Participant = {
-      address,
-      timestamp: Date.now(),
-      isOptimistic: true,
-    };
-    setParticipants((prev) => [optimisticParticipant, ...prev].slice(0, MAX_DISPLAYED));
-    onOptimisticUpdate?.(address);
-  }, [onOptimisticUpdate]);
+  const addOptimisticParticipant = useCallback(
+    (address: string) => {
+      optimisticAddressesRef.current.add(address);
+      const optimisticParticipant: Participant = {
+        address,
+        timestamp: Date.now(),
+        isOptimistic: true,
+      };
+      setParticipants((prev) =>
+        [optimisticParticipant, ...prev].slice(0, MAX_DISPLAYED),
+      );
+      onOptimisticUpdate?.(address);
+    },
+    [onOptimisticUpdate],
+  );
 
-  // Expose optimistic update to parent
+  // Expose handle to parent via ref
+  useImperativeHandle(ref, () => ({
+    addOptimisticParticipant,
+  }));
+
+  // Expose optimistic update to parent (legacy global for tests/debugging)
   useEffect(() => {
     (window as any).__addOptimisticParticipant = addOptimisticParticipant;
     return () => {
@@ -153,7 +175,8 @@ const RecentParticipants = ({
       <div className="flex justify-between">
         <p className="text-[#858584] text-[22px]">Recent Participants</p>
         <p className="text-teal-600 dark:text-[#00E6CC] text-sm">
-          {participants.length} {participants.length === 1 ? "participant" : "participants"}
+          {participants.length}{" "}
+          {participants.length === 1 ? "participant" : "participants"}
         </p>
       </div>
       <div className="mt-8 flex flex-wrap gap-3">
@@ -169,7 +192,9 @@ const RecentParticipants = ({
       </div>
     </div>
   );
-};
+});
+
+RecentParticipants.displayName = "RecentParticipants";
 
 interface ParticipantAvatarProps {
   address: string;
@@ -187,7 +212,7 @@ const ParticipantAvatar = ({
   // Generate consistent avatar color from address
   const getAvatarColor = (addr: string) => {
     const hash = addr.split("").reduce((acc, char) => {
-      return ((acc << 5) - acc) + char.charCodeAt(0);
+      return (acc << 5) - acc + char.charCodeAt(0);
     }, 0);
     const colors = [
       "bg-red-500",

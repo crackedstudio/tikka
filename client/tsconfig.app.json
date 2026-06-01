@@ -30,11 +30,7 @@
     /* RELEVANT FIXES BELOW */
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "types": [
-      "vite/client",
-      "node",
-      "vitest/globals"
-    ]
+    "types": []
     
   },
   "include": [
