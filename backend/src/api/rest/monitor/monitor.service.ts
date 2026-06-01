@@ -19,12 +19,7 @@ import { ErrorsQueryDto } from './dto/errors-query.dto';
 import { AuditQueryDto } from './dto/audit-query.dto';
 
 export interface AuditLogEntry {
-  /** Actor performing the admin action. */
   adminId: string;
-  action: string;
-  target: string;
-  outcome: 'success' | 'failure';
-  requestId: string;
   route: string;
   method: string;
   statusCode: number;
@@ -190,10 +185,6 @@ export class MonitorService {
     const { error } = await this.supabase.from('audit_logs').insert([
       {
         admin_id: entry.adminId,
-        action: entry.action,
-        target: entry.target,
-        outcome: entry.outcome,
-        request_id: entry.requestId,
         route: entry.route,
         method: entry.method,
         status_code: entry.statusCode,
@@ -212,9 +203,7 @@ export class MonitorService {
     try {
       let dbQuery = this.supabase
         .from('audit_logs')
-        .select(
-          'admin_id, action, target, outcome, request_id, route, method, status_code, timestamp',
-        )
+        .select('admin_id, route, method, status_code, timestamp')
         .order('timestamp', { ascending: false })
         .limit(limit);
 
@@ -230,12 +219,6 @@ export class MonitorService {
 
       return (data ?? []).map((row) => ({
         adminId: row.admin_id ?? 'unknown-admin',
-        action: row.action ?? `${row.method} ${row.route}`,
-        target: row.target ?? row.route,
-        outcome:
-          row.outcome ??
-          (row.status_code >= 400 ? 'failure' : 'success'),
-        requestId: row.request_id ?? 'unknown-request',
         route: row.route,
         method: row.method,
         statusCode: row.status_code,

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchRaffles, mapListItemToCardProps } from "../../services/raffleService";
-import type { ApiRaffleListItem } from "../../types/types";
+import { ApiRaffleListItem } from "../../types/types";
 import RaffleCard from "../cards/RaffleCard";
 import { Spinner } from "../ui/Spinner";
 

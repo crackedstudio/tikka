@@ -59,10 +59,7 @@ export class RandomnessWorker {
     );
     
     // Use the new processor with state management
-    const result = await this.processor.processRequest({
-      ...job.data,
-      queueJobId: String(job.id),
-    });
+    const result = await this.processor.processRequest(job.data);
 
     if (!result.success && result.shouldRetry) {
       // Increment attempt and check if we should dead-letter
@@ -114,7 +111,7 @@ export class RandomnessWorker {
   }
 
   async processRequest(request: RandomnessRequest): Promise<void> {
-    const { requestId } = request;
+    const { raffleId, requestId, prizeAmount } = request;
 
     if (this.processedRequestIds.has(requestId)) {
       return;
@@ -128,13 +125,8 @@ export class RandomnessWorker {
     if (isMultiOracle) {
       await this.processMultiOracleRequest(request, localOracleId);
     } else {
-      const result = await this.processor.processRequest(request);
-      if (!result.success) {
-        throw new Error(result.error ?? `Randomness processing failed for ${requestId}`);
-      }
+      await this.processSingleOracleRequest(request);
     }
-
-    this.processedRequestIds.add(requestId);
   }
 
   private async processSingleOracleRequest(request: RandomnessRequest): Promise<void> {

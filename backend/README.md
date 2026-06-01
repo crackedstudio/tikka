@@ -73,21 +73,6 @@ curl -X POST http://localhost:3001/raffles/1/metadata \
 npm run test:e2e
 ```
 
-## OpenAPI
-
-The generated REST contract is written to `openapi.json` and must stay in sync
-with controller and DTO changes.
-
-```bash
-npm run generate:openapi
-npm run validate:openapi
-```
-
-`generate:openapi` seeds non-secret local defaults for startup-only env vars, so
-it does not require Supabase, Redis, JWT, or admin secrets. `validate:openapi`
-checks the generated document in memory, compares `openapi.json` when it exists,
-and fails when route responses are missing Swagger response descriptions.
-
 ## Rate Limiting
 
 All endpoints are protected against abuse. Limits are **per IP address**, enforced by `@nestjs/throttler`.  

@@ -321,16 +321,6 @@ export interface RaffleListFilters {
     offset?: number;
 }
 
-/** URL-driven search filters — mirrors query params on the search page */
-export interface SearchFilters {
-    q?: string;
-    status?: string;
-    min_price?: string;
-    max_price?: string;
-    creator?: string;
-    sort?: string;
-}
-
 /** Formatted raffle object used by UI components */
 export interface FormattedRaffle {
     id: number;

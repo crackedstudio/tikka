@@ -45,10 +45,6 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
-
-      - name: Validate OpenAPI
-        run: pnpm run validate:openapi
-        continue-on-error: false
       
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

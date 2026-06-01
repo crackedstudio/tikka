@@ -19,8 +19,6 @@ export class StatsController {
 
   /** GET /stats/transparency — Platform stats + oracle key + recent audit log. */
   @Get('transparency')
-  @ApiOperation({ summary: 'Get transparency stats and audit data' })
-  @ApiResponse({ status: 200, description: 'Transparency stats retrieved successfully' })
   async getTransparencyStats() {
     return this.statsService.getTransparencyStats();
   }
@@ -28,8 +26,6 @@ export class StatsController {
   /** POST /stats/verify — Verify a VRF draw result. */
   @Post('verify')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify a VRF draw result' })
-  @ApiResponse({ status: 200, description: 'Draw verification completed' })
   async verifyDraw(
     @Body('oracle_public_key') oraclePublicKey: string,
     @Body('request_id') requestId: string,

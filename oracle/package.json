@@ -15,8 +15,7 @@
     "test:e2e:mocked": "jest --config jest.config.js --testMatch='**/test/e2e-oracle-flow.spec.ts'",
     "test:e2e:standalone": "jest --config jest.config.js --testMatch='**/test/e2e-standalone-node.spec.ts' --runInBand",
     "test:e2e:full": "bash scripts/run-e2e-tests.sh",
-    "oracle:rescue": "ts-node src/rescue/rescue.cli.ts",
-    "config:verify": "ts-node src/config/verify-config.ts"
+    "oracle:rescue": "ts-node src/rescue/rescue.cli.ts"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.4",
@@ -31,14 +30,12 @@
     "@stellar/stellar-sdk": "^14.5.0",
     "@supabase/supabase-js": "^2.49.4",
     "bull": "^4.16.5",
-    "dotenv": "^16.4.5",
     "nest-winston": "^1.10.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "stellar-sdk": "^13.3.0",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0",
-    "zod": "^3.23.8"
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",

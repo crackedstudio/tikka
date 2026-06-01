@@ -7,8 +7,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
+import { HelmetProvider } from 'react-helmet-async'
 import './i18n'
-
 
 // Initialize theme before rendering to prevent FOUC
 const savedTheme = localStorage.getItem("tikka-theme");
@@ -23,6 +24,11 @@ if (
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <HelmetProvider>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </HelmetProvider>
   </StrictMode>,
 )
+

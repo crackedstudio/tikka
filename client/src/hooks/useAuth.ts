@@ -10,14 +10,8 @@
  */
 
 import { useState, useCallback, useRef } from "react";
-import { getNonce, verify, refresh } from "../services/authService";
-import {
-  getToken,
-  getRefreshToken,
-  getAuthAddress,
-  setTokens,
-  clearTokens,
-} from "../services/apiClient";
+import { getNonce, verify } from "../services/authService";
+import { getToken, setToken, clearToken } from "../services/apiClient";
 import { getKit } from "../services/walletService";
 
 // ── Session status ───────────────────────────────────────────────────────────
@@ -63,7 +57,6 @@ export interface AuthState {
 export interface UseAuthReturn extends AuthState {
   login: (walletAddress: string) => Promise<void>;
   logout: () => void;
-  refresh: () => Promise<void>;
   /** Called by AuthProvider when apiClient receives HTTP 401. */
   markExpired: () => void;
   /** Sync status with sessionStorage (e.g. after an external change). */
@@ -79,7 +72,7 @@ function deriveComputed(
   return {
     ...fields,
     status,
-    isAuthenticated: status === "authenticated" || status === "refreshing",
+    isAuthenticated: status === "authenticated",
     isAuthenticating: status === "connecting",
   };
 }
@@ -97,11 +90,10 @@ export function useAuth(): UseAuthReturn {
   const [state, setState] = useState<AuthState>(() => {
     // Initialise from stored token
     const token = getToken();
-    const address = getAuthAddress();
     const status: SessionStatus = token ? "authenticated" : "anonymous";
     return deriveComputed(status, {
       status,
-      address,
+      address: null,
       token,
       error: null,
     });
@@ -127,10 +119,9 @@ export function useAuth(): UseAuthReturn {
    */
   const checkAuth = useCallback(() => {
     const token = getToken();
-    const address = getAuthAddress();
     const status: SessionStatus = token ? "authenticated" : "anonymous";
-    setState((prev: AuthState) =>
-      deriveComputed(status, { ...prev, status, token, address }),
+    setState((prev) =>
+      deriveComputed(status, { ...prev, status, token }),
     );
   }, []);
 
@@ -139,12 +130,8 @@ export function useAuth(): UseAuthReturn {
    * Full SIWS flow: get nonce → sign message → verify signature.
    */
   const login = useCallback(async (walletAddress: string) => {
-    setState((prev: AuthState) =>
-      deriveComputed("connecting", {
-        ...prev,
-        status: "connecting",
-        error: null,
-      }),
+    setState((prev) =>
+      deriveComputed("connecting", { ...prev, status: "connecting", error: null }),
     );
 
     try {
@@ -175,15 +162,15 @@ export function useAuth(): UseAuthReturn {
       }
 
       // Step 3: Verify signature with backend and get JWT
-      const { accessToken, refreshToken } = await verify({
+      const { accessToken } = await verify({
         address: walletAddress,
         signature: signatureBase64,
         nonce: nonceData.nonce,
         issuedAt: nonceData.issuedAt,
       });
 
-      // Store tokens
-      setTokens(accessToken, refreshToken, walletAddress);
+      // Store token
+      setToken(accessToken);
 
       setState(
         deriveComputed("authenticated", {
@@ -195,63 +182,13 @@ export function useAuth(): UseAuthReturn {
       );
     } catch (error) {
       console.error("Authentication error:", error);
-      setState((prev: AuthState) =>
+      setState((prev) =>
         deriveComputed("failed", {
           ...prev,
           status: "failed",
-          error:
-            error instanceof Error ? error.message : "Authentication failed",
+          error: error instanceof Error ? error.message : "Authentication failed",
         }),
       );
-      throw error;
-    }
-  }, []);
-
-  /**
-   * Refresh the access token using the refresh token.
-   */
-  const handleRefresh = useCallback(async () => {
-    const currentRefreshToken = getRefreshToken();
-    const currentAddress = getAuthAddress();
-
-    if (!currentRefreshToken || !currentAddress) {
-      logout();
-      return;
-    }
-
-    setState((prev: AuthState) =>
-      deriveComputed("refreshing", {
-        ...prev,
-        status: "refreshing",
-        error: null,
-      }),
-    );
-
-    try {
-      const { accessToken, refreshToken: newRefreshToken } =
-        await refresh(currentRefreshToken);
-
-      setTokens(accessToken, newRefreshToken, currentAddress);
-
-      setState(
-        deriveComputed("authenticated", {
-          status: "authenticated",
-          address: currentAddress,
-          token: accessToken,
-          error: null,
-        }),
-      );
-    } catch (error) {
-      console.error("Token refresh error:", error);
-      setState((prev: AuthState) =>
-        deriveComputed("failed", {
-          ...prev,
-          status: "failed",
-          error: error instanceof Error ? error.message : "Refresh failed",
-        }),
-      );
-      // On refresh failure, we typically want to log out
-      logout();
       throw error;
     }
   }, []);
@@ -260,7 +197,7 @@ export function useAuth(): UseAuthReturn {
    * Sign out: clear token, abort any pending authenticated requests, reset state.
    */
   const logout = useCallback(() => {
-    clearTokens();
+    clearToken();
     abortPendingRequests();
     setState(
       deriveComputed("anonymous", {
@@ -273,62 +210,13 @@ export function useAuth(): UseAuthReturn {
   }, [abortPendingRequests]);
 
   /**
-   * Refresh the access token using the refresh token.
-   */
-  const handleRefresh = useCallback(async () => {
-    const currentRefreshToken = getRefreshToken();
-    const currentAddress = getAuthAddress();
-
-    if (!currentRefreshToken || !currentAddress) {
-      logout();
-      return;
-    }
-
-    setState((prev: AuthState) =>
-      deriveComputed("refreshing", {
-        ...prev,
-        status: "refreshing",
-        error: null,
-      }),
-    );
-
-    try {
-      const { accessToken, refreshToken: newRefreshToken } =
-        await refresh(currentRefreshToken);
-
-      setTokens(accessToken, newRefreshToken, currentAddress);
-
-      setState(
-        deriveComputed("authenticated", {
-          status: "authenticated",
-          address: currentAddress,
-          token: accessToken,
-          error: null,
-        }),
-      );
-    } catch (error) {
-      console.error("Token refresh error:", error);
-      setState((prev: AuthState) =>
-        deriveComputed("failed", {
-          ...prev,
-          status: "failed",
-          error: error instanceof Error ? error.message : "Refresh failed",
-        }),
-      );
-      // On refresh failure, we typically want to log out
-      logout();
-      throw error;
-    }
-  }, [logout]);
-
-  /**
    * Transition to `expired` when apiClient receives HTTP 401.
    * The token has already been cleared by apiClient before this is called.
    * Aborts any pending requests that still hold the old bearer token.
    */
   const markExpired = useCallback(() => {
     abortPendingRequests();
-    setState((prev: AuthState) =>
+    setState((prev) =>
       deriveComputed("expired", {
         ...prev,
         status: "expired",
@@ -342,7 +230,6 @@ export function useAuth(): UseAuthReturn {
     ...state,
     login,
     logout,
-    refresh: handleRefresh,
     markExpired,
     checkAuth,
   };

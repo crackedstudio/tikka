@@ -8,7 +8,7 @@ import {
   Put,
   UsePipes,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { WebhookService } from '../../../services/webhook.service';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
@@ -27,8 +27,6 @@ export class WebhooksController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new webhook subscription' })
-  @ApiResponse({ status: 201, description: 'Webhook subscription created successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid webhook subscription payload' })
   @UsePipes(new (createZodPipe(CreateWebhookSchema))())
   async createWebhook(
     @CurrentUser('address') address: string,
@@ -43,7 +41,6 @@ export class WebhooksController {
 
   @Get()
   @ApiOperation({ summary: 'List webhooks for the current user' })
-  @ApiResponse({ status: 200, description: 'Webhook subscriptions retrieved successfully' })
   async getWebhooks(@CurrentUser('address') address: string) {
     return this.webhookService.getWebhooksByOwner(address);
   }
@@ -51,8 +48,6 @@ export class WebhooksController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific webhook by ID' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  @ApiResponse({ status: 200, description: 'Webhook subscription retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Webhook subscription not found' })
   async getWebhook(
     @CurrentUser('address') address: string,
     @Param('id') id: string,
@@ -63,9 +58,6 @@ export class WebhooksController {
   @Put(':id')
   @ApiOperation({ summary: 'Update a webhook' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  @ApiResponse({ status: 200, description: 'Webhook subscription updated successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid webhook subscription payload' })
-  @ApiResponse({ status: 404, description: 'Webhook subscription not found' })
   @UsePipes(new (createZodPipe(UpdateWebhookSchema))())
   async updateWebhook(
     @CurrentUser('address') address: string,
@@ -78,8 +70,6 @@ export class WebhooksController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a webhook' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  @ApiResponse({ status: 200, description: 'Webhook subscription deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Webhook subscription not found' })
   async deleteWebhook(
     @CurrentUser('address') address: string,
     @Param('id') id: string,
@@ -91,8 +81,6 @@ export class WebhooksController {
   @Get(':id/deliveries')
   @ApiOperation({ summary: 'Get recent delivery logs for a webhook' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  @ApiResponse({ status: 200, description: 'Webhook delivery logs retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Webhook subscription not found' })
   async getDeliveries(
     @CurrentUser('address') address: string,
     @Param('id') id: string,

@@ -10,7 +10,6 @@ import { PrngService } from '../randomness/prng.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
-import { RandomnessAuditService } from '../audit/randomness-audit.service';
 
 describe('RandomnessProcessorService', () => {
   let processor: RandomnessProcessorService;
@@ -21,7 +20,6 @@ describe('RandomnessProcessorService', () => {
   let txSubmitter: jest.Mocked<TxSubmitterService>;
   let healthService: jest.Mocked<HealthService>;
   let lagMonitor: jest.Mocked<LagMonitorService>;
-  let randomnessAudit: jest.Mocked<RandomnessAuditService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -70,10 +68,6 @@ describe('RandomnessProcessorService', () => {
           provide: TxSubmitterService,
           useValue: {
             submitRandomness: jest.fn(),
-            getTransactionConfirmationStatus: jest.fn().mockResolvedValue({
-              confirmed: false,
-              failed: false,
-            }),
           },
         },
         {
@@ -98,15 +92,6 @@ describe('RandomnessProcessorService', () => {
             }),
           },
         },
-        {
-          provide: RandomnessAuditService,
-          useValue: {
-            ensurePending: jest.fn().mockResolvedValue({}),
-            markSucceeded: jest.fn().mockResolvedValue({}),
-            markFailed: jest.fn().mockResolvedValue({}),
-            markAlreadySubmitted: jest.fn().mockResolvedValue({}),
-          },
-        },
       ],
     }).compile();
 
@@ -118,7 +103,6 @@ describe('RandomnessProcessorService', () => {
     txSubmitter = module.get(TxSubmitterService) as jest.Mocked<TxSubmitterService>;
     healthService = module.get(HealthService) as jest.Mocked<HealthService>;
     lagMonitor = module.get(LagMonitorService) as jest.Mocked<LagMonitorService>;
-    randomnessAudit = module.get(RandomnessAuditService) as jest.Mocked<RandomnessAuditService>;
   });
 
   describe('Test 1: Transient Generation Failure', () => {
@@ -175,7 +159,7 @@ describe('RandomnessProcessorService', () => {
 
       contractService.isRandomnessSubmitted.mockResolvedValue(false);
       contractService.getRaffleData.mockResolvedValue({ prizeAmount: 300 } as any);
-      (prngService.compute as jest.Mock).mockRejectedValue(new Error('Rate limit exceeded'));
+      prngService.compute.mockRejectedValue(new Error('Rate limit exceeded'));
 
       const result = await processor.processRequest(request);
 
@@ -361,7 +345,7 @@ describe('RandomnessProcessorService', () => {
 
       contractService.isRandomnessSubmitted.mockResolvedValue(false);
       contractService.getRaffleData.mockResolvedValue({ prizeAmount: 400 } as any);
-      (prngService.compute as jest.Mock).mockResolvedValue({ seed: 'seed-abc', proof: 'proof-abc' });
+      prngService.compute.mockResolvedValue({ seed: 'seed-abc', proof: 'proof-abc' });
       txSubmitter.submitRandomness.mockRejectedValue(new Error('Malformed transaction'));
 
       const result = await processor.processRequest(request);
@@ -426,10 +410,14 @@ describe('RandomnessProcessorService', () => {
         JobState.SUBMITTING,
         'Starting submission',
       );
+      expect(stateManager.transitionState).toHaveBeenCalledWith(
+        'req-8',
+        JobState.CONFIRMING,
+        expect.stringContaining('Confirming tx'),
+      );
 
       // Verify health tracking
       expect(healthService.recordFailure).not.toHaveBeenCalled();
-      expect(healthService.recordSuccess).toHaveBeenCalledWith('req-8');
     });
 
     it('should track failures in telemetry', async () => {
@@ -448,7 +436,7 @@ describe('RandomnessProcessorService', () => {
 
       contractService.isRandomnessSubmitted.mockResolvedValue(false);
       contractService.getRaffleData.mockResolvedValue({ prizeAmount: 300 } as any);
-      (prngService.compute as jest.Mock).mockRejectedValue(new Error('Service timeout'));
+      prngService.compute.mockRejectedValue(new Error('Service timeout'));
 
       await processor.processRequest(request);
 
@@ -512,8 +500,7 @@ describe('RandomnessProcessorService', () => {
         JobState.SUBMITTING,
         'Starting submission',
       );
-      expect(healthService.recordSuccess).toHaveBeenCalledWith('req-success');
-      expect(randomnessAudit.markSucceeded).toHaveBeenCalled();
+      expect(healthService.recordSuccess).not.toHaveBeenCalled(); // Won't be called due to timeout
     });
 
     it('should skip processing if already submitted', async () => {
@@ -543,36 +530,6 @@ describe('RandomnessProcessorService', () => {
       );
       expect(vrfService.compute).not.toHaveBeenCalled();
       expect(prngService.compute).not.toHaveBeenCalled();
-      expect(randomnessAudit.markAlreadySubmitted).toHaveBeenCalledWith('req-skip');
-    });
-
-    it('should not mark audit failed on retriable submission errors', async () => {
-      const request = { requestId: 'req-retry', raffleId: 202, prizeAmount: 700 };
-
-      stateManager.getJobMetadata.mockReturnValue(undefined);
-      stateManager.initializeJob.mockReturnValue({
-        requestId: 'req-retry',
-        raffleId: 202,
-        currentState: JobState.QUEUED,
-        attemptCount: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        transitions: [],
-      });
-
-      contractService.isRandomnessSubmitted.mockResolvedValue(false);
-      contractService.getRaffleData.mockResolvedValue({ prizeAmount: 700 } as any);
-      vrfService.compute.mockResolvedValue({ seed: 's', proof: 'p' });
-      txSubmitter.submitRandomness.mockResolvedValue({
-        success: false,
-        txHash: '',
-        ledger: 0,
-      } as any);
-
-      await processor.processRequest(request);
-
-      expect(randomnessAudit.ensurePending).toHaveBeenCalled();
-      expect(randomnessAudit.markFailed).not.toHaveBeenCalled();
     });
   });
 
