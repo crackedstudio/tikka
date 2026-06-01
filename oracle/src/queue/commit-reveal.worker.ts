@@ -4,6 +4,7 @@ import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { ContractService } from '../contract/contract.service';
 import { AuditLogService } from '../audit/audit-log.service';
 import { KeyService } from '../keys/key.service';
+import { OracleLogFields } from '../logger/oracle-logger';
 
 export interface CommitRequest {
   raffleId: number;
@@ -34,11 +35,12 @@ export class CommitRevealWorker {
   async processCommit(request: CommitRequest): Promise<void> {
     const { raffleId } = request;
     
-    this.logger.log(`Processing commit for raffle ${raffleId}`);
+    this.logger.log(`Processing commit for raffle ${raffleId}`, JSON.stringify({ raffle_id: raffleId } as OracleLogFields));
 
     try {
       const commitment = this.commitmentService.commit(raffleId);
-      this.logger.log(`Commitment for raffle ${raffleId}: ${commitment}`);
+      // Log only the hash, never the raw secret
+      this.logger.log(`Commitment hash generated for raffle ${raffleId}`, JSON.stringify({ raffle_id: raffleId } as OracleLogFields));
       await this.txSubmitter.submitCommitment(raffleId, commitment);
 
       try {
@@ -55,7 +57,7 @@ export class CommitRevealWorker {
     } catch (error) {
       this.logger.error(
         `Failed to process commit for raffle ${raffleId}: ${error.message}`,
-        error.stack,
+        JSON.stringify({ raffle_id: raffleId, outcome: 'failure' } as OracleLogFields),
       );
       throw error;
     }
@@ -68,7 +70,7 @@ export class CommitRevealWorker {
   async processReveal(request: RevealRequest): Promise<void> {
     const { raffleId, requestId } = request;
     
-    this.logger.log(`Processing reveal for raffle ${raffleId}`);
+    this.logger.log(`Processing reveal for raffle ${raffleId}`, JSON.stringify({ raffle_id: raffleId, request_id: requestId } as OracleLogFields));
 
     try {
       // Retrieve commitment data
@@ -79,7 +81,8 @@ export class CommitRevealWorker {
       }
       
       const { secret, nonce } = reveal;
-      this.logger.log(`Revealing for raffle ${raffleId}`);
+      // Do not log raw secret or nonce
+      this.logger.log(`Submitting reveal for raffle ${raffleId}`, JSON.stringify({ raffle_id: raffleId, request_id: requestId } as OracleLogFields));
       const result = await this.txSubmitter.submitReveal(raffleId, secret, nonce);
 
       try {
@@ -99,11 +102,14 @@ export class CommitRevealWorker {
 
       // Clear commitment after successful reveal
       this.commitmentService.clearCommitment(raffleId);
-      
+      this.logger.log(
+        `Reveal submitted for raffle ${raffleId}: ledger=${result.ledger}`,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, ledger: result.ledger, tx_hash: result.txHash, outcome: 'success' } as OracleLogFields),
+      );
     } catch (error) {
       this.logger.error(
         `Failed to process reveal for raffle ${raffleId}: ${error.message}`,
-        error.stack,
+        JSON.stringify({ raffle_id: raffleId, request_id: requestId, outcome: 'failure' } as OracleLogFields),
       );
       throw error;
     }

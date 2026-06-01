@@ -19,6 +19,23 @@ export enum RaffleStatus {
 /**
  * Represents a single raffle as tracked by the indexer.
  * Columns map 1-to-1 with the `raffles` table in ARCHITECTURE.md.
+ *
+ * ## Field Ownership
+ * - **Raw chain state**: id, creator, status, ticketPrice, asset, maxTickets, endTime,
+ *   winner, winningTicketId, prizeAmount, createdLedger, finalizedLedger, metadataCid
+ * - **Derived**: ticketsSold (incremented by TicketProcessor), createdAt (indexer timestamp)
+ *
+ * ## Updater Handlers
+ * - `RaffleProcessor.handleRaffleCreated()`: Inserts raffle with immutable fields
+ * - `RaffleProcessor.handleRaffleFinalized()`: Updates winner, prize, status
+ * - `RaffleProcessor.handleRaffleCancelled()`: Updates status to CANCELLED
+ * - `TicketProcessor.handleTicketPurchased()`: Increments ticketsSold
+ *
+ * ## Recalculation Safety
+ * - ✅ Safe: ticketsSold = COUNT(tickets WHERE raffle_id = X)
+ * - ❌ Unsafe: All other fields are source-of-truth from chain events
+ *
+ * See: `ENTITY_OWNERSHIP.md` for full documentation
  */
 @Entity("raffles")
 @Index("idx_raffles_status", ["status"])
@@ -56,6 +73,10 @@ export class RaffleEntity {
   @Column({ type: "integer", name: "max_tickets" })
   maxTickets!: number;
 
+  /**
+   * DERIVED FIELD: Incremented by TicketProcessor.handleTicketPurchased().
+   * Safe to recalculate: COUNT(tickets WHERE raffle_id = X)
+   */
   @Column({ type: "integer", default: 0, name: "tickets_sold" })
   ticketsSold!: number;
 

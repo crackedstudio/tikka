@@ -2,14 +2,22 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { CostEstimatorService } from './cost-estimator.service';
 import { FeeEstimatorService } from './fee-estimator.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 describe('CostEstimatorService', () => {
   let service: CostEstimatorService;
   let feeEstimator: jest.Mocked<FeeEstimatorService>;
+  let metricsService: jest.Mocked<MetricsService>;
 
   beforeEach(async () => {
     const mockFeeEstimator = {
       estimateFee: jest.fn(),
+    };
+
+    const mockMetricsService = {
+      recordEstimatedFee: jest.fn(),
+      recordActualFee: jest.fn(),
+      recordSubmissionOutcome: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -20,6 +28,7 @@ describe('CostEstimatorService', () => {
           useValue: {
             get: jest.fn((key: string) => {
               if (key === 'LOW_STAKES_THRESHOLD_XLM') return '500';
+              if (key === 'NETWORK_PASSPHRASE') return 'testnet';
               return undefined;
             }),
           },
@@ -28,11 +37,16 @@ describe('CostEstimatorService', () => {
           provide: FeeEstimatorService,
           useValue: mockFeeEstimator,
         },
+        {
+          provide: MetricsService,
+          useValue: mockMetricsService,
+        },
       ],
     }).compile();
 
     service = module.get<CostEstimatorService>(CostEstimatorService);
     feeEstimator = module.get(FeeEstimatorService) as jest.Mocked<FeeEstimatorService>;
+    metricsService = module.get(MetricsService) as jest.Mocked<MetricsService>;
   });
 
   afterEach(() => {
@@ -160,10 +174,28 @@ describe('CostEstimatorService', () => {
       const expectedAvg = Math.floor(estimate.totalMonthlyCostStroops / 100);
       expect(estimate.avgCostPerReveal).toBe(expectedAvg);
     });
+
+    it('should record estimated fee metric', async () => {
+      feeEstimator.estimateFee.mockResolvedValue({
+        baseFee: 100,
+        priorityFee: 200,
+        totalFee: 200,
+        cappedFee: 200,
+        isCapped: false,
+      });
+
+      const estimate = await service.estimateMonthlyCost(100, 50);
+
+      expect(metricsService.recordEstimatedFee).toHaveBeenCalledWith(
+        estimate.avgCostPerReveal,
+        'testnet',
+        'average',
+      );
+    });
   });
 
   describe('recordRevealCost', () => {
-    it('should record PRNG reveal cost', () => {
+    it('should record PRNG reveal cost and metrics', () => {
       service.recordRevealCost(1, 'PRNG', 200);
 
       const metrics = service.getActualCosts(
@@ -174,9 +206,21 @@ describe('CostEstimatorService', () => {
       expect(metrics.totalReveals).toBe(1);
       expect(metrics.byMethod.prng.count).toBe(1);
       expect(metrics.byMethod.vrf.count).toBe(0);
+
+      expect(metricsService.recordActualFee).toHaveBeenCalledWith(
+        200, // totalCost for PRNG with 0 computational cost
+        'testnet',
+        'PRNG',
+        1,
+      );
+      expect(metricsService.recordSubmissionOutcome).toHaveBeenCalledWith(
+        'success',
+        'testnet',
+        'PRNG',
+      );
     });
 
-    it('should record VRF reveal cost with computational overhead', () => {
+    it('should record VRF reveal cost with computational overhead and metrics', () => {
       service.recordRevealCost(1, 'VRF', 300);
 
       const metrics = service.getActualCosts(
@@ -187,7 +231,15 @@ describe('CostEstimatorService', () => {
       expect(metrics.totalReveals).toBe(1);
       expect(metrics.byMethod.vrf.count).toBe(1);
       // VRF should include computational cost
-      expect(metrics.byMethod.vrf.totalCost).toBeGreaterThan(300);
+      const totalCost = 300 + 50000; // VRF_COMPUTATIONAL_COST is 50,000
+      expect(metrics.byMethod.vrf.totalCost).toBe(totalCost);
+
+      expect(metricsService.recordActualFee).toHaveBeenCalledWith(
+        totalCost,
+        'testnet',
+        'VRF',
+        1,
+      );
     });
 
     it('should record multiple reveals', () => {
@@ -203,6 +255,26 @@ describe('CostEstimatorService', () => {
       expect(metrics.totalReveals).toBe(3);
       expect(metrics.byMethod.prng.count).toBe(2);
       expect(metrics.byMethod.vrf.count).toBe(1);
+    });
+
+    it('should record submission failure metrics', () => {
+      service.recordSubmissionFailure(1, 'VRF', 'tx_failed');
+
+      expect(metricsService.recordSubmissionOutcome).toHaveBeenCalledWith(
+        'failure',
+        'testnet',
+        'VRF',
+      );
+    });
+
+    it('should record submission retry metrics', () => {
+      service.recordSubmissionRetry(1, 'PRNG');
+
+      expect(metricsService.recordSubmissionOutcome).toHaveBeenCalledWith(
+        'retry',
+        'testnet',
+        'PRNG',
+      );
     });
   });
 

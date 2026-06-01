@@ -1,79 +1,7 @@
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { Logger } from '@nestjs/common';
-import { createHash } from 'crypto';
-
-// ---------------------------------------------------------------------------
-// Sensitive field redaction
-// ---------------------------------------------------------------------------
-
-/**
- * Header and body field names that must never appear in Sentry events.
- * Matched case-insensitively against object keys.
- */
-export const REDACTED_FIELDS = [
-  'authorization',
-  'x-admin-token',
-  'x-api-key',
-  'token',
-  'accesstoken',
-  'refreshtoken',
-  'access_token',
-  'refresh_token',
-  'signature',
-  'privatekey',
-  'private_key',
-  'secret',
-  'password',
-  'mnemonic',
-  'seed',
-] as const;
-
-const MAX_REDACT_DEPTH = 10;
-
-/**
- * Recursively redact sensitive keys from an object before it is sent to Sentry.
- * Arrays are walked element-by-element. Primitives are returned as-is.
- * Depth is capped at MAX_REDACT_DEPTH to prevent stack overflows on deeply
- * nested or circular-adjacent structures from third-party libraries.
- */
-export function redactSensitive(value: unknown, depth = 0): unknown {
-  if (depth >= MAX_REDACT_DEPTH) return '[DEPTH_LIMIT]';
-  if (value === null || value === undefined) return value;
-
-  if (Array.isArray(value)) {
-    return value.map((v) => redactSensitive(v, depth + 1));
-  }
-
-  if (typeof value === 'object') {
-    const result: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      result[k] = REDACTED_FIELDS.includes(k.toLowerCase() as any)
-        ? '[REDACTED]'
-        : redactSensitive(v, depth + 1);
-    }
-    return result;
-  }
-
-  return value;
-}
-
-// ---------------------------------------------------------------------------
-// Wallet hashing
-// ---------------------------------------------------------------------------
-
-/**
- * One-way hash of a wallet address for safe attachment to Sentry events.
- * Returns null when the address is absent or blank.
- */
-export function hashWallet(address: string | undefined | null): string | null {
-  if (!address?.trim()) return null;
-  return createHash('sha256').update(address.trim().toLowerCase()).digest('hex').slice(0, 16);
-}
-
-// ---------------------------------------------------------------------------
-// Sentry init
-// ---------------------------------------------------------------------------
+import { env } from '../config/env.config';
 
 export interface IngestionErrorContext {
   /** Stellar ledger sequence number. Omitted from tags if undefined. */
@@ -92,22 +20,22 @@ export interface IngestionErrorContext {
  * Build the Sentry init options from environment variables.
  * Exported as a pure function so it can be unit-tested without side effects.
  */
-export function buildSentryOptions(env: {
+export function buildSentryOptions(envInput: {
   SENTRY_DSN?: string;
   NODE_ENV?: string;
   SENTRY_TRACES_SAMPLE_RATE?: string | number;
 }): Sentry.NodeOptions | null {
-  const dsn = env.SENTRY_DSN?.trim();
+  const dsn = envInput.SENTRY_DSN?.trim();
   if (!dsn) return null;
 
   const tracesSampleRate =
-    env.SENTRY_TRACES_SAMPLE_RATE !== undefined
-      ? Number(env.SENTRY_TRACES_SAMPLE_RATE)
+    envInput.SENTRY_TRACES_SAMPLE_RATE !== undefined
+      ? Number(envInput.SENTRY_TRACES_SAMPLE_RATE)
       : 0.1;
 
   return {
     dsn,
-    environment: env.NODE_ENV ?? 'development',
+    environment: envInput.NODE_ENV ?? 'development',
     tracesSampleRate,
     sendDefaultPii: false,
     integrations: [nodeProfilingIntegration() as any],
@@ -141,7 +69,11 @@ export function buildSentryOptions(env: {
  * Safe to call when DSN is absent — logs a warning and returns.
  */
 export function initSentry(logger: Logger): void {
-  const options = buildSentryOptions(process.env as Record<string, string>);
+  const options = buildSentryOptions({
+    SENTRY_DSN: env.sentry.dsn,
+    NODE_ENV: env.server.nodeEnv,
+    SENTRY_TRACES_SAMPLE_RATE: env.sentry.tracesSampleRate,
+  });
   if (!options) {
     logger.warn('SENTRY_DSN not set — Sentry is disabled');
     return;

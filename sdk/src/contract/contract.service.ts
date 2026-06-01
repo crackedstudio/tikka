@@ -14,13 +14,14 @@ import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig } from '../network/network.config';
 import { WalletAdapter } from '../wallet/wallet.interface';
 import { getRaffleContractId } from './constants';
-import { ContractFnName } from './bindings';
+import { ContractFn, ContractFnName } from './bindings';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { TransactionLifecycle } from './lifecycle';
-import type { TxMemo, PollConfig } from './lifecycle';
+import type { TxMemo, PollConfig, SimulateResult, SubmitResult, InvokeLifecycleOptions } from './lifecycle';
 export type { TxMemo } from './lifecycle';
+export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
 
-import { ContractResponse } from './response';
+import { TxResponse } from './response';
 
 export interface InvokeOptions {
   sourcePublicKey?: string;
@@ -45,7 +46,7 @@ export interface UnsignedTxResult<T = any> {
   /** Base64-encoded unsigned (but fee-bumped & auth-populated) transaction XDR */
   unsignedXdr: string;
   /** Simulated return value — lets the caller review the outcome before signing */
-  simulatedResult: ContractResponse<T>;
+  simulatedResult: TxResponse<T>;
   /** Estimated fee in stroops */
   fee: string;
   /** Network passphrase — must be passed to the signer so it signs the right network */
@@ -59,6 +60,13 @@ export interface UnsignedTxResult<T = any> {
  */
 function isExternalSimulationError(errorMsg: string): boolean {
   return /external|token|sep-?41/i.test(errorMsg);
+}
+
+/** @deprecated Use SubmitResult from lifecycle instead. Kept for batchBuyTickets compatibility. */
+export interface InvokeResult<T = any> {
+  result: T;
+  txHash: string;
+  ledger: number;
 }
 
 @Injectable()
@@ -86,9 +94,48 @@ export class ContractService {
     this.lifecycle.setWallet(adapter);
   }
 
+  /* ---------------- STAGE METHODS (fine-grained pipeline) ---------------- */
+
+  /**
+   * Phase 1 — Build and simulate a transaction.
+   * Returns the assembled XDR, decoded return value, fee, and network passphrase.
+   * Safe to call without a wallet (uses anonymous fallback key).
+   */
+  async simulate<T = unknown>(
+    method: ContractFnName | string,
+    params: any[],
+    options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
+  ): Promise<SimulateResult<T>> {
+    return this.lifecycle.simulate<T>(method, params, options);
+  }
+
+  /**
+   * Phase 2 — Sign an assembled transaction XDR via the connected wallet.
+   * Returns the signed XDR string.
+   */
+  async sign(assembledXdr: string, networkPassphrase?: string): Promise<string> {
+    return this.lifecycle.sign(assembledXdr, networkPassphrase);
+  }
+
+  /**
+   * Phase 3 — Submit a signed transaction XDR to the network.
+   * Returns the transaction hash.
+   */
+  async submit(signedXdr: string): Promise<string> {
+    return this.lifecycle.submit(signedXdr);
+  }
+
+  /**
+   * Phase 4 — Poll for transaction confirmation.
+   * Returns the on-chain return value, tx hash, and ledger.
+   */
+  async poll<T = unknown>(txHash: string, config?: PollConfig): Promise<SubmitResult<T>> {
+    return this.lifecycle.poll<T>(txHash, config);
+  }
+
   /* ---------------- READ ONLY ---------------- */
 
-  async simulateReadOnly<T>(method: ContractFnName | string, params: any[]): Promise<ContractResponse<T>> {
+  async simulateReadOnly<T>(method: ContractFnName | string, params: any[]): Promise<TxResponse<T>> {
     const sourceKey = this.wallet
       ? await this.wallet.getPublicKey()
       : 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
@@ -130,7 +177,7 @@ export class ContractService {
     }
 
     return {
-      success: true,
+      status: 'SUCCESS',
       value: scValToNative(result) as T,
     };
   }
@@ -141,7 +188,7 @@ export class ContractService {
     method: ContractFnName | string,
     params: any[],
     options: InvokeOptions = {},
-  ): Promise<ContractResponse<T>> {
+  ): Promise<TxResponse<T>> {
     try {
       if (!this.wallet && !options.simulateOnly) {
         throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required');
@@ -154,7 +201,7 @@ export class ContractService {
       });
 
       if (options.simulateOnly) {
-        return { success: true, value: sim.returnValue as T, transactionHash: '', ledger: 0 };
+        return { status: 'SUCCESS', value: sim.returnValue as T, txHash: '', ledger: 0 };
       }
 
       const signedXdr = await this.lifecycle.sign(sim.assembledXdr, sim.networkPassphrase);
@@ -162,14 +209,14 @@ export class ContractService {
       const polled = await this.lifecycle.poll<T>(txHash, options.poll);
 
       return {
-        success: true,
+        status: 'SUCCESS',
         value: polled.returnValue as T,
-        transactionHash: polled.txHash,
+        txHash: polled.txHash,
         ledger: polled.ledger,
       };
     } catch (error: any) {
       return {
-        success: false,
+        status: 'ERROR',
         error: error.message || String(error),
       };
     }
@@ -199,7 +246,7 @@ export class ContractService {
     });
     return {
       unsignedXdr:      sim.assembledXdr,
-      simulatedResult:  { success: true, value: sim.returnValue as T },
+      simulatedResult:  { status: 'SUCCESS', value: sim.returnValue as T },
       fee:              sim.minResourceFee,
       networkPassphrase: sim.networkPassphrase,
     };
@@ -208,7 +255,7 @@ export class ContractService {
   /**
    * Submits a signed transaction XDR that was previously built with buildUnsigned().
    */
-  async submitSigned<T = any>(signedXdr: string): Promise<ContractResponse<T>> {
+  async submitSigned<T = any>(signedXdr: string): Promise<TxResponse<T>> {
     if (!signedXdr) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
@@ -218,16 +265,16 @@ export class ContractService {
 
     const txHash = await this.lifecycle.submit(signedXdr);
     const polled = await this.lifecycle.poll<T>(txHash);
-    return { success: true, value: polled.returnValue as T, transactionHash: polled.txHash, ledger: polled.ledger };
+    return { status: 'SUCCESS', value: polled.returnValue as T, txHash: polled.txHash, ledger: polled.ledger };
   }
 
   /* ---------------- BATCH INVOKE ---------------- */
 
-  async batchBuyTickets<T = any>(
+  async batchBuyTickets(
     raffleId: number,
     count: number,
     options: InvokeOptions = {},
-  ): Promise<InvokeResult<T[]>> {
+  ): Promise<ContractResponse<T[]>> {
     if (!this.wallet && !options.simulateOnly) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
@@ -274,12 +321,12 @@ export class ContractService {
     const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
-    const simResult = successSim.results
-      ? successSim.results.map(r => r.retval ? scValToNative(r.retval) : undefined)
+    const simResult: any[] = successSim.result?.retval
+      ? [scValToNative(successSim.result.retval)]
       : [];
 
     if (options.simulateOnly) {
-      return { result: simResult as any, txHash: '', ledger: 0 };
+      return { success: true, value: simResult as any, transactionHash: '', ledger: 0 };
     }
 
     const { signedXdr } = await this.wallet!.signTransaction(
@@ -313,8 +360,9 @@ export class ContractService {
     const successTx = txResp as rpc.Api.GetSuccessfulTransactionResponse;
 
     return {
-      result: (successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult) as any,
-      txHash: sendResp.hash,
+      success: true,
+      value: (successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult) as any,
+      transactionHash: sendResp.hash,
       ledger: successTx.ledger,
     };
   }

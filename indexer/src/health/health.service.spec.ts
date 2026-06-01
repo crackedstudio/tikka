@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { HealthService, LAG_THRESHOLD_DEFAULT } from './health.service';
+import { HealthService, LAG_THRESHOLD_DEFAULT, DLQ_PRESSURE_THRESHOLD_DEFAULT } from './health.service';
 import { CacheService } from '../cache/cache.service';
 import { CursorManagerService } from '../ingestor/cursor-manager.service';
+import { DlqService } from '../ingestor/dlq.service';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,6 +17,8 @@ function makeMocks(overrides: {
   cursorLastLedger?: number | null;
   horizonLatestLedger?: number | null;
   lagThreshold?: number;
+  dlqSize?: number;
+  dlqPressureThreshold?: number;
 } = {}) {
   const {
     dbQueryOk = true,
@@ -24,6 +27,8 @@ function makeMocks(overrides: {
     cursorLastLedger = 1000,
     horizonLatestLedger = 1012,
     lagThreshold = LAG_THRESHOLD_DEFAULT,
+    dlqSize = 0,
+    dlqPressureThreshold = DLQ_PRESSURE_THRESHOLD_DEFAULT,
   } = overrides;
 
   const mockDataSource: Partial<DataSource> = {
@@ -43,10 +48,15 @@ function makeMocks(overrides: {
     ),
   };
 
+  const mockDlqService = {
+    count: jest.fn().mockResolvedValue(dlqSize),
+  };
+
   const mockConfigService = {
     get: jest.fn((key: string, defaultValue?: unknown) => {
       if (key === 'HORIZON_URL') return 'https://horizon.stellar.org';
       if (key === 'LAG_THRESHOLD') return lagThreshold;
+      if (key === 'DLQ_PRESSURE_THRESHOLD') return dlqPressureThreshold;
       return defaultValue;
     }),
   };
@@ -69,7 +79,14 @@ function makeMocks(overrides: {
       } as Response);
     });
 
-  return { mockDataSource, mockCacheService, mockCursorManager, mockConfigService, fetchSpy };
+  return { 
+    mockDataSource, 
+    mockCacheService, 
+    mockCursorManager, 
+    mockDlqService,
+    mockConfigService, 
+    fetchSpy 
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -80,8 +97,13 @@ describe('HealthService', () => {
   let service: HealthService;
 
   async function build(overrides: Parameters<typeof makeMocks>[0] = {}) {
-    const { mockDataSource, mockCacheService, mockCursorManager, mockConfigService } =
-      makeMocks(overrides);
+    const { 
+      mockDataSource, 
+      mockCacheService, 
+      mockCursorManager, 
+      mockDlqService,
+      mockConfigService 
+    } = makeMocks(overrides);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -89,6 +111,7 @@ describe('HealthService', () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: CacheService, useValue: mockCacheService },
         { provide: CursorManagerService, useValue: mockCursorManager },
+        { provide: DlqService, useValue: mockDlqService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
@@ -182,6 +205,87 @@ describe('HealthService', () => {
     expect(result.status).toBe('ok');
   });
 
+  // ── Cursor sanity checks ──────────────────────────────────────────────────
+
+  it('should return degraded when cursor is not initialized (null)', async () => {
+    await build({ cursorLastLedger: null, horizonLatestLedger: 1012 });
+    const result = await service.getHealth();
+
+    expect(result.status).toBe('degraded');
+    expect(result.cursor).toBe('error');
+    expect(result.lag_ledgers).toBeNull();
+  });
+
+  it('should return degraded when cursor lastLedger is 0', async () => {
+    await build({ cursorLastLedger: 0, horizonLatestLedger: 1012 });
+    const result = await service.getHealth();
+
+    expect(result.status).toBe('degraded');
+    expect(result.cursor).toBe('error');
+  });
+
+  it('should return degraded when cursor lastLedger is negative', async () => {
+    await build({ cursorLastLedger: -5, horizonLatestLedger: 1012 });
+    const result = await service.getHealth();
+
+    expect(result.status).toBe('degraded');
+    expect(result.cursor).toBe('error');
+  });
+
+  it('should return degraded when cursor lastLedger is impossibly large', async () => {
+    await build({ cursorLastLedger: 1_000_000_001, horizonLatestLedger: 1012 });
+    const result = await service.getHealth();
+
+    expect(result.status).toBe('degraded');
+    expect(result.cursor).toBe('error');
+  });
+
+  it('should return ok when cursor is valid', async () => {
+    await build({ cursorLastLedger: 1000, horizonLatestLedger: 1012 });
+    const result = await service.getHealth();
+
+    expect(result.cursor).toBe('ok');
+    expect(result.status).toBe('ok');
+  });
+
+  // ── DLQ pressure checks ───────────────────────────────────────────────────
+
+  it('should return dlqPressure ok when DLQ size is below threshold', async () => {
+    await build({ dlqSize: 50, dlqPressureThreshold: 100 });
+    const result = await service.getHealth();
+
+    expect(result.dlq_size).toBe(50);
+    expect(result.dlqPressure).toBe('ok');
+    expect(result.status).toBe('ok');
+  });
+
+  it('should return dlqPressure high when DLQ size exceeds threshold', async () => {
+    await build({ dlqSize: 150, dlqPressureThreshold: 100 });
+    const result = await service.getHealth();
+
+    expect(result.dlq_size).toBe(150);
+    expect(result.dlqPressure).toBe('high');
+    expect(result.status).toBe('degraded');
+  });
+
+  it('should return dlqPressure ok when DLQ size equals threshold exactly', async () => {
+    await build({ dlqSize: 100, dlqPressureThreshold: 100 });
+    const result = await service.getHealth();
+
+    expect(result.dlq_size).toBe(100);
+    expect(result.dlqPressure).toBe('ok');
+    expect(result.status).toBe('ok');
+  });
+
+  it('should return dlqPressure high when DLQ size is 1 over threshold', async () => {
+    await build({ dlqSize: 101, dlqPressureThreshold: 100 });
+    const result = await service.getHealth();
+
+    expect(result.dlq_size).toBe(101);
+    expect(result.dlqPressure).toBe('high');
+    expect(result.status).toBe('degraded');
+  });
+
   // ── Combined failures ────────────────────────────────────────────────────
 
   it('should return degraded when both DB and Redis fail', async () => {
@@ -193,7 +297,31 @@ describe('HealthService', () => {
     expect(result.redis).toBe('error');
   });
 
-  // ── getLagThreshold ───────────────────────────────────────────────────────
+  it('should return degraded when cursor fails and DLQ pressure is high', async () => {
+    await build({ cursorLastLedger: 0, dlqSize: 200, dlqPressureThreshold: 100 });
+    const result = await service.getHealth();
+
+    expect(result.status).toBe('degraded');
+    expect(result.cursor).toBe('error');
+    expect(result.dlqPressure).toBe('high');
+  });
+
+  it('should return degraded when lag is high AND DLQ pressure is high', async () => {
+    await build({ 
+      horizonLatestLedger: 1500, 
+      cursorLastLedger: 1000, 
+      lagThreshold: 100,
+      dlqSize: 150, 
+      dlqPressureThreshold: 100 
+    });
+    const result = await service.getHealth();
+
+    expect(result.status).toBe('degraded');
+    expect(result.lag_ledgers).toBe(500);
+    expect(result.dlqPressure).toBe('high');
+  });
+
+  // ── getLagThreshold and DLQ threshold getters ───────────────────────────
 
   it('should expose the configured lag threshold', async () => {
     await build({ lagThreshold: 50 });
@@ -203,5 +331,15 @@ describe('HealthService', () => {
   it('should use the default lag threshold when not configured', async () => {
     await build(); // uses LAG_THRESHOLD_DEFAULT = 100
     expect(service.getLagThreshold()).toBe(LAG_THRESHOLD_DEFAULT);
+  });
+
+  it('should expose the configured DLQ pressure threshold', async () => {
+    await build({ dlqPressureThreshold: 250 });
+    expect(service.getDlqPressureThreshold()).toBe(250);
+  });
+
+  it('should use the default DLQ pressure threshold when not configured', async () => {
+    await build(); // uses DLQ_PRESSURE_THRESHOLD_DEFAULT = 100
+    expect(service.getDlqPressureThreshold()).toBe(DLQ_PRESSURE_THRESHOLD_DEFAULT);
   });
 });

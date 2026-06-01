@@ -8,6 +8,8 @@ import * as fc from 'fast-check';
 import { HealthService } from '../src/health/health.service';
 import { LagMonitorService } from '../src/health/lag-monitor.service';
 import { CommitRevealWorker } from '../src/queue/commit-reveal.worker';
+import { DrawRequestLedgerService } from '../src/listener/draw-request-ledger.service';
+import { CircuitBreakerService } from '../src/listener/circuit-breaker.service';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const RAFFLE_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
@@ -90,12 +92,16 @@ function buildMockEvent(
     eventName: string,
     scvMap: StellarSdk.xdr.ScVal,
     ledger = 1000,
+    txHash = 'tx-hash-1',
+    eventIndex = 1,
 ): object {
     return {
-        id: `${ledger}-1`,
-        paging_token: `${ledger}-1`,
+        id: `${ledger}-${eventIndex}`,
+        paging_token: `${ledger}-${eventIndex}`,
         type: 'contractEvent',
         ledger,
+        txHash,
+        eventIndex,
         contractId,
         topic: [xdr.ScVal.scvSymbol(eventName).toXDR('base64')],
         value: scvMap.toXDR('base64'),
@@ -110,6 +116,8 @@ describe('EventListenerService', () => {
     let mockCommitRevealWorker: jest.Mocked<Pick<CommitRevealWorker, 'processCommit' | 'processReveal'>>;
     let mockLagMonitor: jest.Mocked<Pick<LagMonitorService, 'trackRequest' | 'updateCurrentLedger' | 'fulfillRequest'>>;
     let mockHealthService: jest.Mocked<Pick<HealthService, 'updateQueueDepth' | 'recordSuccess' | 'recordFailure'>>;
+    let mockDrawRequestLedger: jest.Mocked<Pick<DrawRequestLedgerService, 'claim'>>;
+    let mockCircuitBreaker: jest.Mocked<Pick<CircuitBreakerService, 'canAttempt' | 'recordSuccess' | 'recordFailure' | 'getRemainingCooldownMs'>>;
 
     // ─── Task 2.2: TestingModule setup ───────────────────────────────────────
     beforeEach(async () => {
@@ -149,6 +157,17 @@ describe('EventListenerService', () => {
             recordFailure: jest.fn(),
         };
 
+        mockDrawRequestLedger = {
+            claim: jest.fn().mockResolvedValue('claimed'),
+        };
+
+        mockCircuitBreaker = {
+            canAttempt: jest.fn().mockReturnValue(true),
+            recordSuccess: jest.fn(),
+            recordFailure: jest.fn(),
+            getRemainingCooldownMs: jest.fn().mockReturnValue(0),
+        };
+
         const mockConfigService = {
             get: jest.fn((key: string, defaultVal?: any) => {
                 if (key === 'RAFFLE_CONTRACT_ID') return RAFFLE_CONTRACT_ID;
@@ -167,6 +186,8 @@ describe('EventListenerService', () => {
                 { provide: CommitRevealWorker, useValue: mockCommitRevealWorker },
                 { provide: HealthService, useValue: mockHealthService },
                 { provide: LagMonitorService, useValue: mockLagMonitor },
+                { provide: DrawRequestLedgerService, useValue: mockDrawRequestLedger },
+                { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
             ],
         }).compile();
 
@@ -209,10 +230,11 @@ describe('EventListenerService', () => {
             mockFromXDR(scvMap);
             capturedOnMessage!(buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap));
             await new Promise(process.nextTick);
-            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith({
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith(expect.objectContaining({
                 raffleId,
                 requestId: requestIdBigInt.toString(),
-            });
+                stableRequestId: 'ledger:1000:tx:tx-hash-1:event:1:raffle:1',
+            }));
         });
 
         it('should parse request_id as scvString into a UTF-8 string', async () => {
@@ -222,7 +244,7 @@ describe('EventListenerService', () => {
             mockFromXDR(scvMap);
             capturedOnMessage!(buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap));
             await new Promise(process.nextTick);
-            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith({ raffleId, requestId });
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith(expect.objectContaining({ raffleId, requestId }));
         });
 
         it('should parse request_id as scvBytes into a hex string', async () => {
@@ -232,10 +254,10 @@ describe('EventListenerService', () => {
             mockFromXDR(scvMap);
             capturedOnMessage!(buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap));
             await new Promise(process.nextTick);
-            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith({
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith(expect.objectContaining({
                 raffleId,
                 requestId: 'deadbeef',
-            });
+            }));
         });
 
         // Property 1: valid event dispatches exactly one job
@@ -258,11 +280,76 @@ describe('EventListenerService', () => {
                         capturedOnMessage!(buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap));
                         await new Promise(process.nextTick);
                         expect(mockRandomnessWorker.processRequest).toHaveBeenCalledTimes(1);
-                        expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith({ raffleId, requestId });
+                        expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith(expect.objectContaining({ raffleId, requestId }));
                     },
                 ),
                 { numRuns: 100 },
             );
+        });
+
+        it('should skip a duplicate draw request before dispatching work', async () => {
+            const scvMap = buildScvMap(7, 'duplicate-request', 'scvString');
+            mockFromXDR(scvMap);
+            mockDrawRequestLedger.claim
+                .mockResolvedValueOnce('claimed')
+                .mockResolvedValueOnce('duplicate');
+
+            const event = buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap, 123, 'same-tx', 4);
+            capturedOnMessage!(event);
+            await new Promise(process.nextTick);
+            capturedOnMessage!(event);
+            await new Promise(process.nextTick);
+
+            expect(mockDrawRequestLedger.claim).toHaveBeenCalledTimes(2);
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledTimes(1);
+        });
+
+        it('should dispatch duplicate identity when replay override is enabled', async () => {
+            const scvMap = buildScvMap(8, 'replay-request', 'scvString');
+            mockFromXDR(scvMap);
+            mockDrawRequestLedger.claim.mockResolvedValue('replayed');
+
+            const event = {
+                ...buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap, 124, 'replay-tx', 2),
+                replayOverride: true,
+            };
+            capturedOnMessage!(event);
+            await new Promise(process.nextTick);
+
+            expect(mockDrawRequestLedger.claim).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    stableRequestId: 'ledger:124:tx:replay-tx:event:2:raffle:8',
+                }),
+                true,
+            );
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith(expect.objectContaining({
+                raffleId: 8,
+                requestId: 'replay-request',
+                stableRequestId: 'ledger:124:tx:replay-tx:event:2:raffle:8',
+                replayOverride: true,
+            }));
+        });
+
+        it('should treat a reorg replacement with a new tx hash as a distinct request identity', async () => {
+            const scvMap = buildScvMap(9, 'reorg-request', 'scvString');
+            mockFromXDR(scvMap);
+
+            capturedOnMessage!(buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap, 125, 'old-tx', 3));
+            await new Promise(process.nextTick);
+            capturedOnMessage!(buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', scvMap, 125, 'new-tx', 3));
+            await new Promise(process.nextTick);
+
+            expect(mockDrawRequestLedger.claim).toHaveBeenNthCalledWith(
+                1,
+                expect.objectContaining({ stableRequestId: 'ledger:125:tx:old-tx:event:3:raffle:9' }),
+                false,
+            );
+            expect(mockDrawRequestLedger.claim).toHaveBeenNthCalledWith(
+                2,
+                expect.objectContaining({ stableRequestId: 'ledger:125:tx:new-tx:event:3:raffle:9' }),
+                false,
+            );
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledTimes(2);
         });
     });
 

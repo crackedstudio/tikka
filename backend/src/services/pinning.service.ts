@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { env } from '../config/env.config';
 
 @Injectable()
 export class PinningService {
@@ -10,15 +11,15 @@ export class PinningService {
    * Skips if ENABLE_IPFS_PINNING is not 'true'.
    */
   async pin(payload: any): Promise<string | null> {
-    const isEnabled = process.env.ENABLE_IPFS_PINNING === 'true';
+    const isEnabled = env.storage.enableIpfsPinning;
     if (!isEnabled) {
       this.logger.debug('IPFS pinning is disabled');
       return null;
     }
 
-    const pinataJwt = process.env.PINATA_JWT;
-    const pinataApiKey = process.env.PINATA_API_KEY;
-    const pinataSecret = process.env.PINATA_API_SECRET;
+    const pinataJwt = env.storage.pinataJwt;
+    const pinataApiKey = env.storage.pinataApiKey;
+    const pinataSecret = env.storage.pinataApiSecret;
 
     if (!pinataJwt && (!pinataApiKey || !pinataSecret)) {
       this.logger.warn('IPFS pinning enabled but Pinata credentials are missing');
