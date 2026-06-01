@@ -3,23 +3,25 @@
  * Feature: siws-auth
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import * as fc from 'fast-check';
-import { useAuth } from './useAuth';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import * as fc from "fast-check";
+import { useAuth } from "./useAuth";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
 const mockGetNonce = vi.fn();
 const mockVerify = vi.fn();
+const mockRefresh = vi.fn();
 const mockGetKit = vi.fn();
 
-vi.mock('../services/authService', () => ({
+vi.mock("../services/authService", () => ({
   getNonce: (...args: unknown[]) => mockGetNonce(...args),
   verify: (...args: unknown[]) => mockVerify(...args),
+  refresh: (...args: unknown[]) => mockRefresh(...args),
 }));
 
-vi.mock('../services/walletService', () => ({
+vi.mock("../services/walletService", () => ({
   getKit: () => mockGetKit(),
 }));
 
@@ -29,7 +31,7 @@ beforeEach(() => {
   sessionStorage.clear();
   vi.clearAllMocks();
   // Default: VITE_TEST_MODE not set
-  vi.stubEnv('VITE_TEST_MODE', '');
+  vi.stubEnv("VITE_TEST_MODE", "");
 });
 
 afterEach(() => {
@@ -40,14 +42,14 @@ afterEach(() => {
 
 // ── P14: useAuth initialises from stored token ────────────────────────────────
 
-describe('P14: useAuth initialises from stored token', () => {
+describe("P14: useAuth initialises from stored token", () => {
   // Feature: siws-auth, Property 14: For any pre-existing token in
   // sessionStorage["tikka_auth_token"], initialising useAuth must set
   // isAuthenticated=true and token to that value.
-  it('sets isAuthenticated=true and token from sessionStorage on init', () => {
+  it("sets isAuthenticated=true and token from sessionStorage on init", () => {
     fc.assert(
       fc.property(fc.string({ minLength: 1 }), (token) => {
-        sessionStorage.setItem('tikka_auth_token', token);
+        sessionStorage.setItem("tikka_auth_token", token);
         const { result } = renderHook(() => useAuth());
         expect(result.current.isAuthenticated).toBe(true);
         expect(result.current.token).toBe(token);
@@ -57,7 +59,7 @@ describe('P14: useAuth initialises from stored token', () => {
     );
   });
 
-  it('sets isAuthenticated=false when no token in sessionStorage', () => {
+  it("sets isAuthenticated=false when no token in sessionStorage", () => {
     sessionStorage.clear();
     const { result } = renderHook(() => useAuth());
     expect(result.current.isAuthenticated).toBe(false);
@@ -67,40 +69,45 @@ describe('P14: useAuth initialises from stored token', () => {
 
 // ── P4: Signature type handling ───────────────────────────────────────────────
 
-describe('P4: Signature type handling', () => {
+describe("P4: Signature type handling", () => {
   // Feature: siws-auth, Property 4: For any value returned as signedMessage by
   // Wallet_Kit.signMessage, if it is a string it must be used as-is; if it is not
   // a string it must be converted via btoa before being passed to authService.verify.
-  it('uses string signedMessage as-is and Uint8Array via btoa', async () => {
+  it("uses string signedMessage as-is and Uint8Array via btoa", async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.oneof(fc.string(), fc.uint8Array({ maxLength: 64 })),
         async (signedMessage) => {
-          vi.stubEnv('VITE_TEST_MODE', '');
+          vi.stubEnv("VITE_TEST_MODE", "");
 
           const nonceData = {
-            nonce: 'nonce123',
-            issuedAt: '2024-01-01T00:00:00Z',
-            expiresAt: '2099-01-01T00:00:00Z',
-            message: 'Sign this',
+            nonce: "nonce123",
+            issuedAt: "2024-01-01T00:00:00Z",
+            expiresAt: "2099-01-01T00:00:00Z",
+            message: "Sign this",
           };
           mockGetNonce.mockResolvedValue(nonceData);
-          mockVerify.mockResolvedValue({ accessToken: 'token-abc' });
+          mockVerify.mockResolvedValue({ accessToken: "token-abc" });
 
-          const kitMock = { signMessage: vi.fn().mockResolvedValue({ signedMessage }) };
+          const kitMock = {
+            signMessage: vi.fn().mockResolvedValue({ signedMessage }),
+          };
           mockGetKit.mockReturnValue(kitMock);
 
           const { result } = renderHook(() => useAuth());
           await act(async () => {
-            await result.current.login('GTEST123');
+            await result.current.login("GTEST123");
           });
 
           const verifyCall = mockVerify.mock.calls[0][0];
-          if (typeof signedMessage === 'string') {
+          if (typeof signedMessage === "string") {
             expect(verifyCall.signature).toBe(signedMessage);
           } else {
             const expected = btoa(
-              String.fromCharCode.apply(null, Array.from(new Uint8Array(signedMessage))),
+              String.fromCharCode.apply(
+                null,
+                Array.from(new Uint8Array(signedMessage)),
+              ),
             );
             expect(verifyCall.signature).toBe(expected);
           }
@@ -116,23 +123,23 @@ describe('P4: Signature type handling', () => {
 
 // ── P9: Login state transitions ───────────────────────────────────────────────
 
-describe('P9: Login state transitions', () => {
+describe("P9: Login state transitions", () => {
   // Feature: siws-auth, Property 9: For any wallet address, calling login(address) must:
   // (a) set isAuthenticating=true, error=null before any async work;
   // (b) on success set isAuthenticated=true, address=walletAddress, isAuthenticating=false, error=null
   //     and call setToken(accessToken);
   // (c) on failure set isAuthenticating=false, error=<message> and re-throw.
-  it('sets isAuthenticated=true and stores token on successful login', async () => {
+  it("sets isAuthenticated=true and stores token on successful login", async () => {
     await fc.assert(
       fc.asyncProperty(fc.string({ minLength: 1 }), async (address) => {
-        vi.stubEnv('VITE_TEST_MODE', 'true');
+        vi.stubEnv("VITE_TEST_MODE", "true");
 
-        const accessToken = 'jwt-' + address;
+        const accessToken = "jwt-" + address;
         mockGetNonce.mockResolvedValue({
-          nonce: 'n',
-          issuedAt: 'i',
-          expiresAt: 'e',
-          message: 'm',
+          nonce: "n",
+          issuedAt: "i",
+          expiresAt: "e",
+          message: "m",
         });
         mockVerify.mockResolvedValue({ accessToken });
 
@@ -145,7 +152,7 @@ describe('P9: Login state transitions', () => {
         expect(result.current.address).toBe(address);
         expect(result.current.isAuthenticating).toBe(false);
         expect(result.current.error).toBeNull();
-        expect(sessionStorage.getItem('tikka_auth_token')).toBe(accessToken);
+        expect(sessionStorage.getItem("tikka_auth_token")).toBe(accessToken);
 
         sessionStorage.clear();
         vi.clearAllMocks();
@@ -154,13 +161,13 @@ describe('P9: Login state transitions', () => {
     );
   });
 
-  it('sets isAuthenticating=false and error on failed login, and re-throws', async () => {
+  it("sets isAuthenticating=false and error on failed login, and re-throws", async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.string({ minLength: 1 }),
         fc.string({ minLength: 1 }),
         async (address, errorMsg) => {
-          vi.stubEnv('VITE_TEST_MODE', 'true');
+          vi.stubEnv("VITE_TEST_MODE", "true");
 
           mockGetNonce.mockRejectedValue(new Error(errorMsg));
 
@@ -191,17 +198,19 @@ describe('P9: Login state transitions', () => {
 
 // ── P10: Logout resets state ──────────────────────────────────────────────────
 
-describe('P10: Logout resets state', () => {
+describe("P10: Logout resets state", () => {
   // Feature: siws-auth, Property 10: For any authenticated state, calling logout() must
   // call clearToken() and reset all auth state fields to their initial values
   // (isAuthenticated=false, address=null, token=null, isAuthenticating=false, error=null).
-  it('resets all state fields and clears token on logout', async () => {
+  it("resets all state fields and clears tokens on logout", async () => {
     await fc.assert(
       fc.asyncProperty(fc.string({ minLength: 1 }), async (token) => {
-        vi.stubEnv('VITE_TEST_MODE', 'true');
+        vi.stubEnv("VITE_TEST_MODE", "true");
 
-        // Pre-populate token so hook initialises as authenticated
-        sessionStorage.setItem('tikka_auth_token', token);
+        // Pre-populate tokens so hook initialises as authenticated
+        sessionStorage.setItem("tikka_auth_token", token);
+        sessionStorage.setItem("tikka_refresh_token", "refresh-" + token);
+        sessionStorage.setItem("tikka_auth_address", "G123");
 
         const { result } = renderHook(() => useAuth());
         expect(result.current.isAuthenticated).toBe(true);
@@ -215,7 +224,9 @@ describe('P10: Logout resets state', () => {
         expect(result.current.token).toBeNull();
         expect(result.current.isAuthenticating).toBe(false);
         expect(result.current.error).toBeNull();
-        expect(sessionStorage.getItem('tikka_auth_token')).toBeNull();
+        expect(sessionStorage.getItem("tikka_auth_token")).toBeNull();
+        expect(sessionStorage.getItem("tikka_refresh_token")).toBeNull();
+        expect(sessionStorage.getItem("tikka_auth_address")).toBeNull();
 
         sessionStorage.clear();
       }),
@@ -226,25 +237,25 @@ describe('P10: Logout resets state', () => {
 
 // ── P15: SessionStatus state transitions ──────────────────────────────────────
 
-describe('P15: SessionStatus state transitions', () => {
+describe("P15: SessionStatus state transitions", () => {
   // Feature: siws-auth, Property 15: The `status` field must reflect each phase
   // of the auth lifecycle as a discriminated string union, and the backward-compat
   // computed fields must remain consistent with it at every transition.
 
-  it('initialises as anonymous when no token is stored', () => {
+  it("initialises as anonymous when no token is stored", () => {
     sessionStorage.clear();
     const { result } = renderHook(() => useAuth());
-    expect(result.current.status).toBe('anonymous');
+    expect(result.current.status).toBe("anonymous");
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.isAuthenticating).toBe(false);
   });
 
-  it('initialises as authenticated when a token exists in sessionStorage', () => {
+  it("initialises as authenticated when a token exists in sessionStorage", () => {
     fc.assert(
       fc.property(fc.string({ minLength: 1 }), (token) => {
-        sessionStorage.setItem('tikka_auth_token', token);
+        sessionStorage.setItem("tikka_auth_token", token);
         const { result } = renderHook(() => useAuth());
-        expect(result.current.status).toBe('authenticated');
+        expect(result.current.status).toBe("authenticated");
         expect(result.current.isAuthenticated).toBe(true);
         expect(result.current.isAuthenticating).toBe(false);
         sessionStorage.clear();
@@ -253,12 +264,17 @@ describe('P15: SessionStatus state transitions', () => {
     );
   });
 
-  it('transitions through connecting → authenticated on successful login', async () => {
+  it("transitions through connecting → authenticated on successful login", async () => {
     await fc.assert(
       fc.asyncProperty(fc.string({ minLength: 1 }), async (address) => {
-        vi.stubEnv('VITE_TEST_MODE', 'true');
-        const accessToken = 'jwt-' + address;
-        mockGetNonce.mockResolvedValue({ nonce: 'n', issuedAt: 'i', expiresAt: 'e', message: 'm' });
+        vi.stubEnv("VITE_TEST_MODE", "true");
+        const accessToken = "jwt-" + address;
+        mockGetNonce.mockResolvedValue({
+          nonce: "n",
+          issuedAt: "i",
+          expiresAt: "e",
+          message: "m",
+        });
         mockVerify.mockResolvedValue({ accessToken });
 
         const { result } = renderHook(() => useAuth());
@@ -267,7 +283,7 @@ describe('P15: SessionStatus state transitions', () => {
           await result.current.login(address);
         });
 
-        expect(result.current.status).toBe('authenticated');
+        expect(result.current.status).toBe("authenticated");
         expect(result.current.isAuthenticated).toBe(true);
         expect(result.current.isAuthenticating).toBe(false);
 
@@ -278,22 +294,26 @@ describe('P15: SessionStatus state transitions', () => {
     );
   });
 
-  it('transitions to failed on login error and keeps isAuthenticated=false', async () => {
+  it("transitions to failed on login error and keeps isAuthenticated=false", async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.string({ minLength: 1 }),
         fc.string({ minLength: 1 }),
         async (address, errMsg) => {
-          vi.stubEnv('VITE_TEST_MODE', 'true');
+          vi.stubEnv("VITE_TEST_MODE", "true");
           mockGetNonce.mockRejectedValue(new Error(errMsg));
 
           const { result } = renderHook(() => useAuth());
 
           await act(async () => {
-            try { await result.current.login(address); } catch { /* expected */ }
+            try {
+              await result.current.login(address);
+            } catch {
+              /* expected */
+            }
           });
 
-          expect(result.current.status).toBe('failed');
+          expect(result.current.status).toBe("failed");
           expect(result.current.isAuthenticated).toBe(false);
           expect(result.current.isAuthenticating).toBe(false);
           expect(result.current.error).toBe(errMsg);
@@ -306,20 +326,20 @@ describe('P15: SessionStatus state transitions', () => {
     );
   });
 
-  it('transitions to anonymous on logout from authenticated', async () => {
+  it("transitions to anonymous on logout from authenticated", async () => {
     await fc.assert(
       fc.asyncProperty(fc.string({ minLength: 1 }), async (token) => {
-        vi.stubEnv('VITE_TEST_MODE', 'true');
-        sessionStorage.setItem('tikka_auth_token', token);
+        vi.stubEnv("VITE_TEST_MODE", "true");
+        sessionStorage.setItem("tikka_auth_token", token);
 
         const { result } = renderHook(() => useAuth());
-        expect(result.current.status).toBe('authenticated');
+        expect(result.current.status).toBe("authenticated");
 
         act(() => {
           result.current.logout();
         });
 
-        expect(result.current.status).toBe('anonymous');
+        expect(result.current.status).toBe("anonymous");
         expect(result.current.isAuthenticated).toBe(false);
 
         sessionStorage.clear();
@@ -329,18 +349,96 @@ describe('P15: SessionStatus state transitions', () => {
   });
 });
 
+// ── P18: Refresh state transitions ────────────────────────────────────────────
+
+describe("P18: Refresh state transitions", () => {
+  // Feature: siws-auth, Property 18: Calling refresh() must:
+  // (a) set status='refreshing', isAuthenticated=true before any async work;
+  // (b) on success set status='authenticated', token=<new>, error=null;
+  // (c) on failure set status='failed', error=<msg>, and call logout().
+
+  it("stays isAuthenticated=true and updates tokens on successful refresh", async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.string({ minLength: 1 }), async (address) => {
+        vi.stubEnv("VITE_TEST_MODE", "true");
+        const oldToken = "old-jwt";
+        const oldRefresh = "old-refresh";
+        const newToken = "new-jwt";
+        const newRefresh = "new-refresh";
+
+        sessionStorage.setItem("tikka_auth_token", oldToken);
+        sessionStorage.setItem("tikka_refresh_token", oldRefresh);
+        sessionStorage.setItem("tikka_auth_address", address);
+
+        mockRefresh.mockResolvedValue({
+          accessToken: newToken,
+          refreshToken: newRefresh,
+        });
+
+        const { result } = renderHook(() => useAuth());
+        expect(result.current.status).toBe("authenticated");
+        expect(result.current.isAuthenticated).toBe(true);
+
+        await act(async () => {
+          await result.current.refresh();
+        });
+
+        expect(result.current.status).toBe("authenticated");
+        expect(result.current.token).toBe(newToken);
+        expect(sessionStorage.getItem("tikka_auth_token")).toBe(newToken);
+        expect(sessionStorage.getItem("tikka_refresh_token")).toBe(newRefresh);
+
+        sessionStorage.clear();
+        vi.clearAllMocks();
+      }),
+      { numRuns: 50 },
+    );
+  });
+
+  it("transitions to failed and logs out on refresh error", async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.string({ minLength: 1 }), async (address) => {
+        vi.stubEnv("VITE_TEST_MODE", "true");
+        sessionStorage.setItem("tikka_auth_token", "old-jwt");
+        sessionStorage.setItem("tikka_refresh_token", "old-refresh");
+        sessionStorage.setItem("tikka_auth_address", address);
+
+        mockRefresh.mockRejectedValue(new Error("Refresh failed"));
+
+        const { result } = renderHook(() => useAuth());
+
+        await act(async () => {
+          try {
+            await result.current.refresh();
+          } catch {
+            /* expected */
+          }
+        });
+
+        expect(result.current.status).toBe("anonymous"); // because logout was called
+        expect(result.current.isAuthenticated).toBe(false);
+        expect(sessionStorage.getItem("tikka_auth_token")).toBeNull();
+
+        sessionStorage.clear();
+        vi.clearAllMocks();
+      }),
+      { numRuns: 50 },
+    );
+  });
+});
+
 // ── P16: Sign-out aborts pending requests ─────────────────────────────────────
 
-describe('P16: Sign-out aborts pending requests', () => {
+describe("P16: Sign-out aborts pending requests", () => {
   // Feature: siws-auth, Property 16: Calling logout() must abort the internal
   // AbortController so any in-flight fetch holding the old bearer token is
   // cancelled, preventing stale responses from updating state after sign-out.
-  it('aborts the AbortController when logout() is called', async () => {
+  it("aborts the AbortController when logout() is called", async () => {
     await fc.assert(
       fc.asyncProperty(fc.string({ minLength: 1 }), async (token) => {
-        sessionStorage.setItem('tikka_auth_token', token);
+        sessionStorage.setItem("tikka_auth_token", token);
 
-        const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
+        const abortSpy = vi.spyOn(AbortController.prototype, "abort");
 
         const { result } = renderHook(() => useAuth());
 
@@ -360,26 +458,26 @@ describe('P16: Sign-out aborts pending requests', () => {
 
 // ── P17: markExpired transitions to expired ───────────────────────────────────
 
-describe('P17: markExpired transitions session to expired', () => {
+describe("P17: markExpired transitions session to expired", () => {
   // Feature: siws-auth, Property 17: For any authenticated session, calling
   // markExpired() must set status='expired', isAuthenticated=false, token=null,
   // and populate the error field. It must also abort the AbortController so
   // any pending requests carrying the expired token are cancelled.
-  it('sets status=expired and isAuthenticated=false when called from authenticated', async () => {
+  it("sets status=expired and isAuthenticated=false when called from authenticated", async () => {
     await fc.assert(
       fc.asyncProperty(fc.string({ minLength: 1 }), async (token) => {
-        sessionStorage.setItem('tikka_auth_token', token);
+        sessionStorage.setItem("tikka_auth_token", token);
 
-        const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
+        const abortSpy = vi.spyOn(AbortController.prototype, "abort");
         const { result } = renderHook(() => useAuth());
 
-        expect(result.current.status).toBe('authenticated');
+        expect(result.current.status).toBe("authenticated");
 
         act(() => {
           result.current.markExpired();
         });
 
-        expect(result.current.status).toBe('expired');
+        expect(result.current.status).toBe("expired");
         expect(result.current.isAuthenticated).toBe(false);
         expect(result.current.isAuthenticating).toBe(false);
         expect(result.current.token).toBeNull();
@@ -393,16 +491,16 @@ describe('P17: markExpired transitions session to expired', () => {
     );
   });
 
-  it('can transition from anonymous to expired (late 401 on page load)', () => {
+  it("can transition from anonymous to expired (late 401 on page load)", () => {
     sessionStorage.clear();
     const { result } = renderHook(() => useAuth());
-    expect(result.current.status).toBe('anonymous');
+    expect(result.current.status).toBe("anonymous");
 
     act(() => {
       result.current.markExpired();
     });
 
-    expect(result.current.status).toBe('expired');
+    expect(result.current.status).toBe("expired");
     expect(result.current.isAuthenticated).toBe(false);
   });
 });

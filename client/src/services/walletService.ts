@@ -125,7 +125,19 @@ export async function signTransaction(transaction: any): Promise<WalletSignResul
   }
 
   if (!getSelectedWalletId()) throw new WalletUserRejectedError("No wallet connected");
-  return await getKit().signTransaction(transaction) as WalletSignResult;
+  
+  try {
+    const result = await getKit().signTransaction(transaction);
+    return {
+      success: true,
+      signedTransaction: result.signedTxXdr || (result as any).signedTransaction
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
 
 export async function isWalletConnected(): Promise<boolean> {

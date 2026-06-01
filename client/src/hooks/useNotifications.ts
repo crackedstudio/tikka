@@ -114,7 +114,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
     } else {
       setIsSubscribed(false);
     }
-  }, [raffleId, isAuthenticated]); // intentionally omit checkSubscription — it's stable
+  }, [raffleId, isAuthenticated, checkSubscription]);
 
   return { isSubscribed, isLoading, error, subscribe, unsubscribe, checkSubscription, clearError };
 }

@@ -99,3 +99,10 @@ export class NotificationsService {
     return this.pushNotificationService.sendToUser(userAddress, payload);
   }
 }
+
+  /**
+   * Get delivery statistics for push notifications
+   */
+  async getDeliveryStats(hoursBack = 24) {
+    return this.pushNotificationService.getDeliveryStats(hoursBack);
+  }

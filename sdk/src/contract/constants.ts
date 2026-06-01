@@ -1,11 +1,14 @@
 import { TikkaNetwork } from '../network/network.config';
+import { CONTRACT_VERSION_METADATA } from './contract-version';
+
+/** Default raffle contract IDs (see contract-version.ts). */
+export const DEFAULT_CONTRACT_IDS = CONTRACT_VERSION_METADATA.contractIds;
 
 /**
  * Raffle contract addresses per network.
  *
- * Update these after each deployment. The factory address is used when
- * deploying new raffle instances; the main raffle address is the current
- * canonical raffle contract.
+ * Defaults come from {@link CONTRACT_VERSION_METADATA}. Override per environment
+ * with `TIKKA_CONTRACT_<NETWORK>` (for example `TIKKA_CONTRACT_TESTNET`).
  */
 export const CONTRACT_ADDRESSES: Record<
   TikkaNetwork,
@@ -13,20 +16,18 @@ export const CONTRACT_ADDRESSES: Record<
 > = {
   testnet: {
     raffle:
-      process.env.TIKKA_CONTRACT_TESTNET ??
-      'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC', // placeholder
+      process.env.TIKKA_CONTRACT_TESTNET ?? DEFAULT_CONTRACT_IDS.testnet,
     factory: process.env.TIKKA_FACTORY_TESTNET,
   },
   mainnet: {
     raffle:
-      process.env.TIKKA_CONTRACT_MAINNET ??
-      '', // set after mainnet deployment
+      process.env.TIKKA_CONTRACT_MAINNET ?? DEFAULT_CONTRACT_IDS.mainnet,
     factory: process.env.TIKKA_FACTORY_MAINNET,
   },
   standalone: {
     raffle:
       process.env.TIKKA_CONTRACT_STANDALONE ??
-      '', // local dev
+      DEFAULT_CONTRACT_IDS.standalone,
     factory: process.env.TIKKA_FACTORY_STANDALONE,
   },
 };
