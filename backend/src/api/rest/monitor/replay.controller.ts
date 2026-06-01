@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
   BadRequestException,
@@ -13,10 +14,14 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 import { ReplayService, type ReplayJobConfig, type ReplayJobStatus } from '../../../services/replay.service';
 import { AdminGuard } from './admin.guard';
+import { AdminScope } from './admin-scopes';
+import { RequireAdminScopes } from './require-admin-scopes.decorator';
+import { AuditLogInterceptor } from './audit-log.interceptor';
 
 @ApiTags('Admin - Replay')
 @ApiSecurity('admin-token')
 @UseGuards(AdminGuard)
+@UseInterceptors(AuditLogInterceptor)
 @Controller('admin/replay')
 export class ReplayController {
   constructor(private readonly replayService: ReplayService) {}
@@ -26,6 +31,7 @@ export class ReplayController {
    * Requires admin token in X-Admin-Token header
    */
   @Post()
+  @RequireAdminScopes(AdminScope.ReplayWrite)
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
     summary: 'Start a ledger replay job',
@@ -69,6 +75,7 @@ export class ReplayController {
    * Requires admin token in X-Admin-Token header
    */
   @Get(':jobId')
+  @RequireAdminScopes(AdminScope.ReplayRead)
   @ApiOperation({
     summary: 'Get replay job status',
     description: 'Poll the status and progress of a replay job.',
