@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, createHmac } from 'crypto';
 import { SiwsService } from './siws.service';
@@ -8,6 +8,7 @@ import { env } from '../config/env.config';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly NONCE_TTL_MS = env.siws.nonceTtlSeconds * 1000;
 
   constructor(
@@ -15,6 +16,10 @@ export class AuthService {
     private readonly siwsService: SiwsService,
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
   ) {}
+
+  // ---------------------------------------------------------------------------
+  // Nonce
+  // ---------------------------------------------------------------------------
 
   /**
    * Generate nonce for SIWS.
@@ -45,13 +50,12 @@ export class AuthService {
       throw new Error('Failed to store nonce');
     }
 
-    return {
-      nonce,
-      expiresAt,
-      issuedAt,
-      message,
-    };
+    return { nonce, expiresAt, issuedAt, message };
   }
+
+  // ---------------------------------------------------------------------------
+  // Verify (SIWS sign-in)
+  // ---------------------------------------------------------------------------
 
   /**
    * Verify SIWS signature against the SIWS message and issue JWT.
@@ -88,11 +92,7 @@ export class AuthService {
       throw new Error('Nonce expired');
     }
 
-    const message = this.siwsService.buildMessage(
-      address,
-      nonce,
-      messageIssuedAt,
-    );
+    const message = this.siwsService.buildMessage(address, nonce, messageIssuedAt);
 
     if (!signature || !this.siwsService.verify(address, message, signature)) {
       throw new Error('Invalid signature');
@@ -107,83 +107,55 @@ export class AuthService {
       throw new Error('Failed to invalidate nonce');
     }
 
-    // issue both access + refresh tokens and persist refresh token hash
-    return await this.issueTokens(address);
+    return this.issueTokens(address);
   }
 
-  private signAccessToken(address: string) {
-    const payload = { address };
-    return this.jwtService.sign(payload, { expiresIn: env.jwt.expiresIn });
-  }
+  // ---------------------------------------------------------------------------
+  // Token issuance
+  // ---------------------------------------------------------------------------
 
-  private signRefreshToken(address: string) {
-    const payload = { address, type: 'refresh' };
-    return this.jwtService.sign(payload, {
-      expiresIn: env.jwt.refreshExpiresIn,
-    });
-  }
-
-  private hashToken(token: string) {
-    return createHmac('sha256', env.jwt.secret).update(token).digest('hex');
-  }
-
-  private async storeRefreshHash(
-    userAddress: string,
-    tokenHash: string,
-    expiresAtIso: string,
-  ) {
-    // Upsert a refresh token row: allow multiple active tokens per user if desired.
-    const { error } = await this.client.from('refresh_tokens').insert(
-      [
-        {
-          user_address: userAddress,
-          token_hash: tokenHash,
-          created_at: new Date().toISOString(),
-          last_used_at: new Date().toISOString(),
-          expires_at: expiresAtIso,
-          revoked: false,
-        },
-      ]
-    );
-
-    if (error) {
-      throw new Error('Failed to persist refresh token');
-    }
-  }
-
-  async issueTokens(address: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async issueTokens(
+    address: string,
+    familyId?: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessToken = this.signAccessToken(address);
     const refreshToken = this.signRefreshToken(address);
 
-    // compute expiry for refresh token record
     const now = new Date();
-    // Parse refreshExpiresIn like '30d' or '7d' or seconds; for simplicity support days only
-    const match = String(env.jwt.refreshExpiresIn).match(/(\d+)d$/);
-    let expiresAt = new Date(now.getTime());
+    const match = String(env.jwt.refreshExpiresIn).match(/^(\d+)d$/);
+    const expiresAt = new Date(now);
     if (match) {
       expiresAt.setDate(expiresAt.getDate() + parseInt(match[1], 10));
     } else {
-      // fallback: 30 days
       expiresAt.setDate(expiresAt.getDate() + 30);
     }
 
     const tokenHash = this.hashToken(refreshToken);
-    await this.storeRefreshHash(address, tokenHash, expiresAt.toISOString());
+    // Use provided familyId (rotation) or generate a new one (fresh login).
+    const resolvedFamilyId = familyId ?? randomBytes(16).toString('hex');
+    await this.storeRefreshToken(address, tokenHash, expiresAt.toISOString(), resolvedFamilyId);
 
     return { accessToken, refreshToken };
   }
 
+  // ---------------------------------------------------------------------------
+  // Refresh (rotation with reuse detection)
+  // ---------------------------------------------------------------------------
+
   /**
    * Refresh flow: validate provided refresh token, rotate and issue new tokens.
+   *
+   * Reuse detection: if a superseded (already-rotated) token is presented,
+   * the entire token family is revoked to protect against session hijacking.
    */
   async refresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-    if (!refreshToken) throw new Error('refresh token required');
+    if (!refreshToken) throw new Error('Refresh token required');
 
-    // verify token signature and expiry
-    let payload: any;
+    let payload: { address?: string; type?: string };
     try {
-      payload = this.jwtService.verify(refreshToken);
-    } catch (err) {
+      payload = this.jwtService.verify(refreshToken) as typeof payload;
+    } catch {
+      // Never log the token value itself.
       throw new Error('Invalid refresh token');
     }
 
@@ -192,41 +164,139 @@ export class AuthService {
     }
 
     const tokenHash = this.hashToken(refreshToken);
+    const address = payload.address;
 
-    // lookup token hash in DB
-    const { data, error } = await this.client
+    // Look up the token regardless of revocation status so we can detect reuse.
+    const { data: tokenRow, error } = await this.client
       .from('refresh_tokens')
-      .select('*')
+      .select('id, revoked, expires_at, family_id')
       .eq('token_hash', tokenHash)
-      .eq('revoked', false)
       .limit(1)
       .maybeSingle();
 
-    if (error || !data) {
-      throw new Error('Refresh token not found or revoked');
+    if (error || !tokenRow) {
+      // Token hash not in DB at all — unknown / tampered token.
+      throw new Error('Refresh token not found');
     }
 
-    // optional: check expires_at
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    if (tokenRow.revoked) {
+      // This token was already superseded. Revoke the entire family to
+      // invalidate any tokens the attacker may have obtained.
+      this.logger.warn(
+        `Refresh token reuse detected for address [REDACTED], family ${tokenRow.family_id}. Revoking family.`,
+      );
+      await this.revokeFamilyById(tokenRow.family_id);
+      throw new Error('Refresh token reuse detected — session revoked');
+    }
+
+    if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
       throw new Error('Refresh token expired');
     }
 
-    // rotate: create new refresh token and replace stored hash
-    const address = payload.address as string;
-    const newAccess = this.signAccessToken(address);
-    const newRefresh = this.signRefreshToken(address);
-    const newHash = this.hashToken(newRefresh);
-
+    // Mark the current token as revoked (superseded) before issuing the next one.
     const nowIso = new Date().toISOString();
-    const { error: updateErr } = await this.client
+    const { error: revokeErr } = await this.client
       .from('refresh_tokens')
-      .update({ token_hash: newHash, last_used_at: nowIso, updated_at: nowIso })
-      .eq('token_hash', tokenHash);
+      .update({ revoked: true, updated_at: nowIso })
+      .eq('id', tokenRow.id);
 
-    if (updateErr) {
+    if (revokeErr) {
       throw new Error('Failed to rotate refresh token');
     }
 
-    return { accessToken: newAccess, refreshToken: newRefresh };
+    // Issue new tokens in the same family.
+    return this.issueTokens(address, tokenRow.family_id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sign-out
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Revoke all active refresh tokens for the given token's family.
+   * Accepts the raw refresh token so the caller doesn't need to track family IDs.
+   */
+  async signOut(refreshToken: string): Promise<void> {
+    if (!refreshToken) throw new Error('Refresh token required');
+
+    let payload: { address?: string; type?: string };
+    try {
+      payload = this.jwtService.verify(refreshToken) as typeof payload;
+    } catch {
+      // Expired or invalid — still attempt revocation by hash lookup.
+      payload = {};
+    }
+
+    const tokenHash = this.hashToken(refreshToken);
+
+    const { data: tokenRow } = await this.client
+      .from('refresh_tokens')
+      .select('family_id')
+      .eq('token_hash', tokenHash)
+      .limit(1)
+      .maybeSingle();
+
+    if (tokenRow?.family_id) {
+      await this.revokeFamilyById(tokenRow.family_id);
+    }
+    // If the token isn't found we treat sign-out as a no-op (idempotent).
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  private signAccessToken(address: string): string {
+    return this.jwtService.sign({ address }, { expiresIn: env.jwt.expiresIn });
+  }
+
+  private signRefreshToken(address: string): string {
+    return this.jwtService.sign(
+      { address, type: 'refresh' },
+      { expiresIn: env.jwt.refreshExpiresIn },
+    );
+  }
+
+  /** HMAC-SHA256 hash of the raw token. Never log the input. */
+  private hashToken(token: string): string {
+    return createHmac('sha256', env.jwt.secret).update(token).digest('hex');
+  }
+
+  private async storeRefreshToken(
+    userAddress: string,
+    tokenHash: string,
+    expiresAtIso: string,
+    familyId: string,
+  ): Promise<void> {
+    const now = new Date().toISOString();
+    const { error } = await this.client.from('refresh_tokens').insert([
+      {
+        user_address: userAddress,
+        token_hash: tokenHash,
+        created_at: now,
+        last_used_at: now,
+        expires_at: expiresAtIso,
+        revoked: false,
+        family_id: familyId,
+      },
+    ]);
+
+    if (error) {
+      throw new Error('Failed to persist refresh token');
+    }
+  }
+
+  /** Revoke every non-revoked token in a family. */
+  private async revokeFamilyById(familyId: string): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const { error } = await this.client
+      .from('refresh_tokens')
+      .update({ revoked: true, updated_at: nowIso })
+      .eq('family_id', familyId)
+      .eq('revoked', false);
+
+    if (error) {
+      this.logger.error(`Failed to revoke token family ${familyId}: ${error.message}`);
+    }
   }
 }
