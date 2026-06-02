@@ -12,7 +12,8 @@
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "generate:openapi": "ts-node scripts/generate-openapi.ts",
-    "validate:openapi": "pnpm run generate:openapi && npx swagger-cli validate openapi.json"
+    "validate:openapi": "pnpm run generate:openapi && npx swagger-cli validate openapi.json",
+    "migrations:check": "ts-node scripts/check-migrations.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.2",
