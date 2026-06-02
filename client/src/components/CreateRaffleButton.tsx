@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import Modal from "./modals/Modal";
 import ProcessingRaffleCreation from "./modals/ProcessingRaffleCreation";
 import RaffleCreatedSuccess from "./modals/RaffleCreatedSuccess";
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { MetadataService } from "../services/metadataService";
 import { createRaffle } from "../services/contractService";
-import { useAuthContext } from "../providers/AuthProvider";
+import { useAuthContext } from "../providers";
 import type { PipelineProgressEvent } from "../services/transactionPipeline";
 
 interface CreateRaffleButtonProps {
