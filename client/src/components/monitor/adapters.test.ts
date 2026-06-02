@@ -19,7 +19,7 @@ describe('Monitor Data Adapters', () => {
       latency: { averageMs: 45, p99Ms: 600 },
       jobs: { active: 5, failed: 2, queueDepth: 12 },
       errors: [
-        { timestamp: '2026-06-02T06:00:00.000Z', message: 'Database pool exhaustion', level: 'error' }
+        { timestamp: '', message: 'Database pool exhaustion', level: 'error' }
       ]
     };
 
@@ -31,5 +31,6 @@ describe('Monitor Data Adapters', () => {
     expect(model.performance.isSlow).toBe(true);
     expect(model.queue.hasFailures).toBe(true);
     expect(model.alerts[0].badgeColor).toBe('red');
+    expect(model.alerts[0].time).toBe('Unknown');
   });
 });
