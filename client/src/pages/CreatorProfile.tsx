@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useUserProfile, useRaffles } from "../hooks/useRaffles";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import RaffleCard from "../components/cards/RaffleCard";
-import { mapListItemToCardProps } from "../services/raffleService";
+import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Spinner } from "../components/ui/Spinner";
 
@@ -138,7 +138,7 @@ const CreatorProfile: React.FC = () => {
                                 {raffles.map((raffle) => (
                                     <RaffleCard
                                         key={raffle.id}
-                                        {...mapListItemToCardProps(raffle)}
+                                        viewModel={toRaffleCardViewModel(raffle)}
                                     />
                                 ))}
                             </div>

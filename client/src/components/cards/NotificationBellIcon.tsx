@@ -7,7 +7,7 @@
 
 import { Bell} from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
-import { useAuthContext } from '../../providers/AuthProvider';
+import { useAuthContext } from '../../providers';
 
 interface NotificationBellIconProps {
   raffleId: number;

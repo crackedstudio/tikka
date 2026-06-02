@@ -1,6 +1,5 @@
 import React from "react";
 import type { StepComponentProps } from "../../types/types";
-import { validateStep } from "./validation";
 
 const PricingStep: React.FC<StepComponentProps> = ({
     formData,
@@ -30,7 +29,8 @@ const PricingStep: React.FC<StepComponentProps> = ({
 
     const potentialRevenue = formData.pricePerTicket * formData.totalTickets;
 
-    const canContinue = validateStep("pricing", formData);
+    const canContinue =
+        formData.pricePerTicket > 0 && formData.totalTickets > 0;
 
     return (
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">

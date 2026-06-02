@@ -10,9 +10,6 @@ node_modules/
 /dist
 /build
 
-# Soroban CLI bindings (regenerate locally; see src/contract/README.md)
-/src/contract/generated/
-
 # Misc
 .DS_Store
 *.pem

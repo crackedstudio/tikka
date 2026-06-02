@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { fetchRaffles, mapListItemToCardProps } from "../../services/raffleService";
-import type { ApiRaffleListItem } from "../../types/types";
+import { fetchRaffles } from "../../services/raffleService";
+import { toRaffleCardViewModel } from "../cards/raffleCardViewModel";
+import { ApiRaffleListItem } from "../../types/types";
 import RaffleCard from "../cards/RaffleCard";
 import { Spinner } from "../ui/Spinner";
 
@@ -58,9 +59,9 @@ const FollowedRafflesList: React.FC<{ addresses: string[] }> = ({ addresses }) =
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {allRaffles.map(raffle => (
-                    <RaffleCard 
+                    <RaffleCard
                         key={raffle.id}
-                        {...mapListItemToCardProps(raffle)}
+                        viewModel={toRaffleCardViewModel(raffle)}
                     />
                 ))}
             </div>

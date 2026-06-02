@@ -16,13 +16,6 @@ import { DomainEvent } from "./event.types";
 import { MetricsService } from "../metrics/metrics.service";
 import { ReorgRollbackService } from "./reorg-rollback.service";
 import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
-import {
-  PollingConfig,
-  DEFAULT_POLLING_CONFIG,
-  calculateNextInterval,
-  isRateLimitError,
-  isTransientError,
-} from "./polling-config";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -38,9 +31,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     [];
   private chain: Promise<void> = Promise.resolve();
 
-  private readonly pollingConfig: PollingConfig;
-  private backoffLevel = 0;
-  private currentLagLedgers = 0;
+  private retryAttempt = 0;
+  private readonly MAX_RETRY_DELAY = 30000;
+  private readonly BASE_RETRY_DELAY = 2000;
   private readonly safetyDepth: number;
 
   constructor(
@@ -66,46 +59,6 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
 
     this.batchSize = this.configService.get<number>("INGESTION_BATCH_SIZE", 25);
     this.safetyDepth = this.configService.get<number>("REORG_SAFETY_DEPTH", 5);
-
-    // Load polling configuration from environment or use defaults
-    this.pollingConfig = {
-      minIntervalMs: this.configService.get<number>(
-        "POLLING_MIN_INTERVAL_MS",
-        DEFAULT_POLLING_CONFIG.minIntervalMs,
-      ),
-      maxIntervalMs: this.configService.get<number>(
-        "POLLING_MAX_INTERVAL_MS",
-        DEFAULT_POLLING_CONFIG.maxIntervalMs,
-      ),
-      maxBatchSize: this.configService.get<number>(
-        "POLLING_MAX_BATCH_SIZE",
-        DEFAULT_POLLING_CONFIG.maxBatchSize,
-      ),
-      lagThresholdLedgers: this.configService.get<number>(
-        "POLLING_LAG_THRESHOLD_LEDGERS",
-        DEFAULT_POLLING_CONFIG.lagThresholdLedgers,
-      ),
-      rateLimitBackoffMultiplier: this.configService.get<number>(
-        "POLLING_RATE_LIMIT_BACKOFF_MULTIPLIER",
-        DEFAULT_POLLING_CONFIG.rateLimitBackoffMultiplier,
-      ),
-      transientErrorBackoffMultiplier: this.configService.get<number>(
-        "POLLING_TRANSIENT_ERROR_BACKOFF_MULTIPLIER",
-        DEFAULT_POLLING_CONFIG.transientErrorBackoffMultiplier,
-      ),
-      maxBackoffMs: this.configService.get<number>(
-        "POLLING_MAX_BACKOFF_MS",
-        DEFAULT_POLLING_CONFIG.maxBackoffMs,
-      ),
-      initialBackoffMs: this.configService.get<number>(
-        "POLLING_INITIAL_BACKOFF_MS",
-        DEFAULT_POLLING_CONFIG.initialBackoffMs,
-      ),
-    };
-
-    this.logger.log(
-      `Polling config: min=${this.pollingConfig.minIntervalMs}ms, max=${this.pollingConfig.maxIntervalMs}ms, lagThreshold=${this.pollingConfig.lagThresholdLedgers} ledgers`,
-    );
   }
 
   async onModuleInit() {
@@ -334,6 +287,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         for (const item of batch) {
           this.metrics.incrementEventsProcessed(item.parsed.type);
         }
+        this.metrics.incrementEventsProcessed(batch.length);
         this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
         return;
       }
@@ -363,8 +317,6 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     if (!this.isRunning) return;
     this.stopIngestion();
     this.logger.warn(`Switching to polling fallback loop...`);
-    // Reset backoff level when switching to polling fallback
-    this.backoffLevel = 0;
     void this.pollOnce();
   }
 
@@ -385,7 +337,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       })
         .events()
         .cursor(lastToken)
-        .limit(this.pollingConfig.maxBatchSize)
+        .limit(100)
         .call();
 
       const records = response.records ?? [];
@@ -399,13 +351,12 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         await this.flushRemainder();
       }
 
-      // Fetch latest ledger to calculate lag
       try {
         const latestLedgers = await this.horizonServer.ledgers().order("desc").limit(1).call();
         const latestLedger = latestLedgers.records[0]?.sequence;
         if (latestLedger && cursor?.lastLedger) {
-          this.currentLagLedgers = Math.max(0, latestLedger - cursor.lastLedger);
-          this.metrics.setLagLedgers(this.currentLagLedgers);
+          const lag = Math.max(0, latestLedger - cursor.lastLedger);
+          this.metrics.setLagLedgers(lag);
         }
       } catch (error) {
         this.logger.warn(
@@ -413,42 +364,15 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      // Reset backoff on successful poll
-      this.backoffLevel = 0;
+      this.retryAttempt = 0;
 
-      // Calculate next interval based on lag and backoff
-      const nextDelay = calculateNextInterval(
-        this.pollingConfig,
-        this.currentLagLedgers,
-        this.backoffLevel,
-      );
-
-      this.logger.debug(
-        `Next poll in ${nextDelay}ms (lag: ${this.currentLagLedgers} ledgers, backoff level: ${this.backoffLevel})`,
-      );
-
+      const nextDelay = records.length === 100 ? 500 : 5000;
       this.pollingTimeout = setTimeout(() => void this.pollOnce(), nextDelay);
     } catch (error) {
       this.logger.error(
         `Polling error: ${error instanceof Error ? error.message : String(error)}`,
       );
       this.metrics.incrementErrors(1);
-
-      // Determine error type and apply appropriate backoff
-      if (isRateLimitError(error)) {
-        this.logger.warn(`Rate limit detected, increasing backoff`);
-        this.backoffLevel = Math.min(
-          this.backoffLevel + 1,
-          Math.ceil(Math.log2(this.pollingConfig.maxBackoffMs / this.pollingConfig.initialBackoffMs)) + 1,
-        );
-      } else if (isTransientError(error)) {
-        this.logger.warn(`Transient error detected, increasing backoff`);
-        this.backoffLevel = Math.min(
-          this.backoffLevel + 1,
-          Math.ceil(Math.log2(this.pollingConfig.maxBackoffMs / this.pollingConfig.initialBackoffMs)) + 1,
-        );
-      }
-
       this.scheduleReconnection();
     } finally {
       const durationSeconds = (Date.now() - startTime) / 1000;
@@ -460,16 +384,15 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     if (!this.isRunning) return;
     this.stopIngestion();
 
-    // Use adaptive polling interval for reconnection
-    const delay = calculateNextInterval(
-      this.pollingConfig,
-      this.currentLagLedgers,
-      this.backoffLevel,
+    const delay = Math.min(
+      this.BASE_RETRY_DELAY * Math.pow(2, this.retryAttempt),
+      this.MAX_RETRY_DELAY,
     );
 
     this.logger.log(
-      `Reconnecting in ${delay}ms (backoff level: ${this.backoffLevel})...`,
+      `Reconnecting in ${delay}ms (attempt ${this.retryAttempt + 1})...`,
     );
+    this.retryAttempt++;
 
     this.pollingTimeout = setTimeout(() => void this.startIngestion(), delay);
   }

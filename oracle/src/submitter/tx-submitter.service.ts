@@ -2,12 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
-import { FeeEstimatorService, FeeUnsafeError } from './fee-estimator.service';
 import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 import { CostEstimatorService } from './cost-estimator.service';
-import { ContractBuilders } from '../contract/contract.builders';
-import { OracleLogFields } from '../logger/oracle-logger';
 
 /**
  * Explicit transaction lifecycle states for state machine tracking
@@ -225,9 +222,7 @@ export class TxSubmitterService {
           if (submitResult.outcome) {
             telemetry.durationMs = Date.now() - startTime;
             telemetry.finalOutcome = this.mapOutcomeToState(submitResult.outcome);
-            if ('txHash' in submitResult.outcome) {
-              telemetry.txHash = submitResult.outcome.txHash;
-            }
+            telemetry.txHash = submitResult.outcome.txHash;
             this.logTelemetry(telemetry, `Transaction completed: ${submitResult.outcome.status}`);
             return submitResult.outcome;
           }
@@ -748,37 +743,11 @@ export class TxSubmitterService {
       };
     }
 
-    const txHash = 'txHash' in outcome ? outcome.txHash ?? '' : '';
     return {
-      txHash,
+      txHash: outcome.txHash || '',
       ledger: 0,
       success: false,
     };
-  }
-
-  /**
-   * Poll-ready status check used when submission returns before ledger is known.
-   */
-  async getTransactionConfirmationStatus(
-    txHash: string,
-  ): Promise<{ confirmed: boolean; failed: boolean; ledger?: number }> {
-    try {
-      const res = await this.rpcServer.getTransaction(txHash);
-      const status = res?.status;
-
-      if (status === 'SUCCESS') {
-        const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
-        return { confirmed: true, failed: false, ledger };
-      }
-
-      if (status === 'FAILED') {
-        return { confirmed: false, failed: true };
-      }
-
-      return { confirmed: false, failed: false };
-    } catch {
-      return { confirmed: false, failed: false };
-    }
   }
 
   async submitCommitment(raffleId: number, commitment: string): Promise<SubmitResult> {
@@ -906,22 +875,10 @@ export class TxSubmitterService {
     let lastError: unknown = null;
     let feeBump = 1;
 
-    // Get initial fee estimate from network stats; refuse if unsafe
-    let feeEstimate: Awaited<ReturnType<FeeEstimatorService['estimateFee']>>;
-    try {
-      feeEstimate = await this.feeEstimator.estimateFee(0);
-    } catch (e) {
-      if (e instanceof FeeUnsafeError) {
-        this.logger.error(
-          `Refusing to submit randomness for raffle ${raffleId}: ${e.message}`,
-        );
-        return { txHash: '', ledger: 0, success: false };
-      }
-      throw e;
-    }
+    // Get initial fee estimate from network stats
+    const feeEstimate = await this.feeEstimator.estimateFee(0);
     this.logger.log(
       `Submitting randomness for raffle ${raffleId} with fee ${feeEstimate.cappedFee} stroops ` +
-      `(source: ${feeEstimate.source}, confidence: ${feeEstimate.confidence}, capped: ${feeEstimate.isCapped})`,
       `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
       JSON.stringify({ raffle_id: raffleId } as OracleLogFields),
     );

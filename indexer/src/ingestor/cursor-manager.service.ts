@@ -41,37 +41,6 @@ import {
  */
 export type IngestorMode = 'RUNNING' | 'DEGRADED' | 'STOPPED';
 
-export interface CursorManagerStatus {
-  /** Current operational mode of the ingestion pipeline. */
-  mode: IngestorMode;
-  /**
-   * The last checkpoint that was successfully validated and persisted.
-   * null if no checkpoint has been written or loaded in this process lifetime.
-   */
-  lastCheckpoint: CursorCheckpoint | null;
-  /**
-   * The most recent integrity violation that caused a DEGRADED transition.
-   * null while mode is RUNNING or STOPPED.
-   */
-  lastViolation: IntegrityViolation | null;
-  /** Milliseconds since this CursorManagerService instance was constructed. */
-  uptimeMs: number;
-}
-
-/**
- * Thrown when a cursor integrity check fails.
- * The ingestor must catch this and transition to DEGRADED mode.
- */
-export class CursorIntegrityError extends Error {
-  constructor(
-    public readonly violation: IntegrityViolation,
-    public readonly checkpoint: Partial<CursorCheckpoint>,
-  ) {
-    super(`Cursor integrity violation: ${violation.code}`);
-    this.name = 'CursorIntegrityError';
-  }
-}
-
 /** Legacy shape returned by getCursor() — unchanged for backward compat. */
 export interface IndexerCursor {
   lastLedger: number;
@@ -196,6 +165,19 @@ export class CursorManagerService {
       this.transitionDegraded(violation);
       throw new CursorIntegrityError(violation, candidate);
     }
+
+    this.logger.debug(
+      `Saving cursor: ledger=${ledger}, hash=${ledgerHash}, events=${eventCount}, token=${token}`,
+    );
+
+    const manager: EntityManager = queryRunner
+      ? queryRunner.manager
+      : this.cursorRepo.manager;
+
+    const existing = await manager.findOne(IndexerCursorEntity, { where: { id: 1 } });
+    const hashes = existing?.ledgerHashes ?? [];
+    hashes.push({ ledger, hash: ledgerHash });
+    if (hashes.length > HASH_RING_SIZE) hashes.shift();
 
     this.logger.debug(
       `Saving cursor: ledger=${ledger}, hash=${ledgerHash}, events=${eventCount}, token=${token}`,

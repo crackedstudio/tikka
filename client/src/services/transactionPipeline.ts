@@ -28,16 +28,11 @@ import { rpc } from "@stellar/stellar-sdk";
 import type { Transaction } from "@stellar/stellar-sdk";
 import { sorobanRpcServer } from "./rpcService";
 import { signTransaction } from "./walletService";
+import type { WalletSignResult } from "./walletService";
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
-export type PipelineStage =
-  | "BUILD"
-  | "ESTIMATE"
-  | "SIGN"
-  | "SUBMIT"
-  | "POLL"
-  | "DONE";
+export type PipelineStage = "BUILD" | "ESTIMATE" | "SIGN" | "SUBMIT" | "POLL" | "DONE";
 
 /**
  * Progress event emitted by `runPipeline` before and after each stage.
@@ -53,20 +48,12 @@ export type PipelineStage =
  * An `error` status is the last event emitted for that stage; no further stages fire.
  */
 export type PipelineProgressEvent =
-  | { stage: "BUILD"; status: "pending" | "done" | "error" }
-  | {
-      stage: "ESTIMATE";
-      status: "pending" | "done" | "error";
-      estimatedFee?: string;
-    }
-  | { stage: "SIGN"; status: "pending" | "done" | "error" }
-  | { stage: "SUBMIT"; status: "pending" | "done" | "error"; txHash?: string }
-  | {
-      stage: "POLL";
-      status: "pending" | "done" | "error";
-      confirmations?: number;
-    }
-  | { stage: "DONE"; status: "done"; txHash: string };
+  | { stage: "BUILD";    status: "pending" | "done" | "error" }
+  | { stage: "ESTIMATE"; status: "pending" | "done" | "error"; estimatedFee?: string }
+  | { stage: "SIGN";     status: "pending" | "done" | "error" }
+  | { stage: "SUBMIT";   status: "pending" | "done" | "error"; txHash?: string }
+  | { stage: "POLL";     status: "pending" | "done" | "error"; confirmations?: number }
+  | { stage: "DONE";     status: "done"; txHash: string };
 
 /**
  * Typed error returned (never thrown) by `runPipeline`.
@@ -81,17 +68,17 @@ export type PipelineProgressEvent =
  * - `FINALITY_FAILED`   — ledger returned `FAILED` status for the transaction; `txHash` identifies it
  */
 export type PipelineError =
-  | { code: "BUILD_FAILED"; message: string; cause?: unknown }
-  | { code: "SIMULATION_FAILED"; message: string; cause?: unknown }
-  | { code: "INSUFFICIENT_FEES"; message: string; estimatedFee: string }
-  | { code: "USER_REJECTED"; message: string }
-  | { code: "SIGNING_FAILED"; message: string; cause?: unknown }
-  | { code: "SUBMISSION_FAILED"; message: string; cause?: unknown }
-  | { code: "TIMEOUT"; message: string; txHash?: string }
-  | { code: "FINALITY_FAILED"; message: string; txHash: string };
+  | { code: "BUILD_FAILED";       message: string; cause?: unknown }
+  | { code: "SIMULATION_FAILED";  message: string; cause?: unknown }
+  | { code: "INSUFFICIENT_FEES";  message: string; estimatedFee: string }
+  | { code: "USER_REJECTED";      message: string }
+  | { code: "SIGNING_FAILED";     message: string; cause?: unknown }
+  | { code: "SUBMISSION_FAILED";  message: string; cause?: unknown }
+  | { code: "TIMEOUT";            message: string; txHash?: string }
+  | { code: "FINALITY_FAILED";    message: string; txHash: string };
 
 export type PipelineResult =
-  | { ok: true; data: PipelineSuccess }
+  | { ok: true;  data: PipelineSuccess }
   | { ok: false; error: PipelineError };
 
 export interface PipelineSuccess {
@@ -152,10 +139,7 @@ function classifySignError(err: unknown): PipelineError {
     return { code: "USER_REJECTED", message: err.message };
   }
   // Keyword fallback for wallet adapters that throw plain Errors
-  const msg =
-    err instanceof Error
-      ? err.message.toLowerCase()
-      : String(err).toLowerCase();
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
   if (
     msg.includes("reject") ||
     msg.includes("cancel") ||
@@ -163,16 +147,9 @@ function classifySignError(err: unknown): PipelineError {
     msg.includes("declined") ||
     msg.includes("user closed")
   ) {
-    return {
-      code: "USER_REJECTED",
-      message: "Transaction was rejected by the user.",
-    };
+    return { code: "USER_REJECTED", message: "Transaction was rejected by the user." };
   }
-  return {
-    code: "SIGNING_FAILED",
-    message: "Failed to sign transaction.",
-    cause: err,
-  };
+  return { code: "SIGNING_FAILED", message: "Failed to sign transaction.", cause: err };
 }
 
 /** Poll sorobanRpcServer until SUCCESS/FAILED or timeout. */
@@ -189,7 +166,7 @@ async function pollFinality(
     let response: rpc.Api.GetTransactionResponse;
     try {
       response = await sorobanRpcServer.getTransaction(txHash);
-    } catch {
+    } catch (_err) {
       // transient network error — keep polling until deadline
       continue;
     }
@@ -201,11 +178,7 @@ async function pollFinality(
     if (response.status === rpc.Api.GetTransactionStatus.FAILED) {
       return {
         ok: false,
-        error: {
-          code: "FINALITY_FAILED",
-          message: "Transaction failed on-chain.",
-          txHash,
-        },
+        error: { code: "FINALITY_FAILED", message: "Transaction failed on-chain.", txHash },
       };
     }
     // NOT_FOUND / other → keep polling
@@ -213,11 +186,7 @@ async function pollFinality(
 
   return {
     ok: false,
-    error: {
-      code: "TIMEOUT",
-      message: "Timed out waiting for transaction finality.",
-      txHash,
-    },
+    error: { code: "TIMEOUT", message: "Timed out waiting for transaction finality.", txHash },
   };
 }
 
@@ -257,14 +226,7 @@ export async function runPipeline<TParams>(
     return await _runPipeline(buildTx, input);
   } catch (err) {
     // Safety net: runPipeline must never throw under any circumstances.
-    return {
-      ok: false,
-      error: {
-        code: "BUILD_FAILED",
-        message: "Unexpected pipeline error.",
-        cause: err,
-      },
-    };
+    return { ok: false, error: { code: "BUILD_FAILED", message: "Unexpected pipeline error.", cause: err } };
   }
 }
 
@@ -286,14 +248,7 @@ async function _runPipeline<TParams>(
     unsignedTx = await buildTx(params);
   } catch (err) {
     emit(onProgress, { stage: "BUILD", status: "error" });
-    return {
-      ok: false,
-      error: {
-        code: "BUILD_FAILED",
-        message: "Failed to build transaction.",
-        cause: err,
-      },
-    };
+    return { ok: false, error: { code: "BUILD_FAILED", message: "Failed to build transaction.", cause: err } };
   }
   emit(onProgress, { stage: "BUILD", status: "done" });
 
@@ -308,23 +263,13 @@ async function _runPipeline<TParams>(
       const msg = simResult.error ?? "Simulation failed";
       emit(onProgress, { stage: "ESTIMATE", status: "error" });
       // Detect insufficient-fee codes from Soroban simulation
-      if (
-        msg.toLowerCase().includes("insufficient") ||
-        msg.toLowerCase().includes("fee")
-      ) {
+      if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("fee")) {
         return {
           ok: false,
-          error: {
-            code: "INSUFFICIENT_FEES",
-            message: msg,
-            estimatedFee: "unknown",
-          },
+          error: { code: "INSUFFICIENT_FEES", message: msg, estimatedFee: "unknown" },
         };
       }
-      return {
-        ok: false,
-        error: { code: "SIMULATION_FAILED", message: msg, cause: simResult },
-      };
+      return { ok: false, error: { code: "SIMULATION_FAILED", message: msg, cause: simResult } };
     }
 
     preparedTx = rpc.assembleTransaction(unsignedTx, simResult).build();
@@ -332,14 +277,7 @@ async function _runPipeline<TParams>(
     estimatedFee = options.feeOverride ?? preparedTx.fee;
   } catch (err) {
     emit(onProgress, { stage: "ESTIMATE", status: "error" });
-    return {
-      ok: false,
-      error: {
-        code: "SIMULATION_FAILED",
-        message: "Simulation threw unexpectedly.",
-        cause: err,
-      },
-    };
+    return { ok: false, error: { code: "SIMULATION_FAILED", message: "Simulation threw unexpectedly.", cause: err } };
   }
   emit(onProgress, { stage: "ESTIMATE", status: "done", estimatedFee });
 
@@ -349,9 +287,7 @@ async function _runPipeline<TParams>(
   try {
     const signResult = await signTransaction(preparedTx);
     if (!signResult.success || !signResult.signedTransaction) {
-      const pipelineErr = classifySignError(
-        new Error(signResult.error ?? "sign returned no transaction"),
-      );
+      const pipelineErr = classifySignError(new Error(signResult.error ?? "sign returned no transaction"));
       emit(onProgress, { stage: "SIGN", status: "error" });
       return { ok: false, error: pipelineErr };
     }
@@ -367,9 +303,7 @@ async function _runPipeline<TParams>(
   emit(onProgress, { stage: "SUBMIT", status: "pending" });
   let txHash: string;
   try {
-    const submitResult = await sorobanRpcServer.sendTransaction(
-      signedTx as Transaction,
-    );
+    const submitResult = await sorobanRpcServer.sendTransaction(signedTx as Transaction);
     if (submitResult.status === "ERROR") {
       emit(onProgress, { stage: "SUBMIT", status: "error" });
       return {
@@ -384,14 +318,7 @@ async function _runPipeline<TParams>(
     txHash = submitResult.hash;
   } catch (err) {
     emit(onProgress, { stage: "SUBMIT", status: "error" });
-    return {
-      ok: false,
-      error: {
-        code: "SUBMISSION_FAILED",
-        message: "Failed to submit transaction.",
-        cause: err,
-      },
-    };
+    return { ok: false, error: { code: "SUBMISSION_FAILED", message: "Failed to submit transaction.", cause: err } };
   }
   emit(onProgress, { stage: "SUBMIT", status: "done", txHash });
 

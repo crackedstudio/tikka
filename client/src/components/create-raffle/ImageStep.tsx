@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import type { StepComponentProps } from "../../types/types";
 import { X } from "lucide-react";
-import { validateStep } from "./validation";
 
 const ImageStep: React.FC<StepComponentProps> = ({
     formData,
@@ -79,7 +78,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
         updateFormData({ image: formData.images[index] });
     };
 
-    const canContinue = validateStep("image", formData);
+    const canContinue = formData.images.length > 0;
 
     return (
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
