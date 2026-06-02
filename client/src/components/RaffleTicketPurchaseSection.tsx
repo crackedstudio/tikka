@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 import EnterRaffleButton from "./EnterRaffleButton";
 
 interface RaffleTicketPurchaseSectionProps {

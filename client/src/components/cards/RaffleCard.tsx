@@ -3,64 +3,62 @@ import { Link } from "react-router-dom";
 import { ProgressBar } from "../ui/ProgressBar";
 import Line from "../../assets/svg/Line";
 import EnterRaffleButton from "../EnterRaffleButton";
-import type { RaffleCardViewModel, RaffleStatus } from "./raffleCardViewModel";
+import LazyImage from "../LazyImage";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
-const STATUS_PILL_CLASS: Record<RaffleStatus, string> = {
-    live: "bg-green-500/20 text-green-400 border border-green-500/30",
-    "ending-soon": "bg-orange-500/20 text-orange-400 border border-orange-500/30",
-    finalized: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
-    cancelled: "bg-gray-500/20 text-gray-400 border border-gray-500/30",
+type RaffleCardProps = {
+    image: string;
+    title: string;
+    prizeValue: string;
+    prizeCurrency?: string; // default "ETH"
+    countdown: Countdown;
+    ticketPrice: string;
+    /** Asset symbol displayed next to ticket price, e.g. "XLM", "USDC" */
+    ticketAsset?: string;
+    entries: number;
+    progress: number; // 0–100
+    buttonText?: string;
+    onEnter?: () => void; // optional click handler
+    raffleId?: number; // Contract raffle ID
+    /** Optional telemetry callback for image errors */
+    onImageError?: (src: string) => void;
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
-interface RaffleCardProps {
-    viewModel: RaffleCardViewModel;
-    onEnter?: () => void;
-}
-
-const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
-    const {
-        raffleId,
-        title,
-        imageUrl,
-        status,
-        statusLabel,
-        prizeValue,
-        prizeCurrency,
-        countdown,
-        ticketPrice,
-        entries,
-        progress,
-        buttonText,
-        winner,
-    } = viewModel;
-
-    const isActive = status === "live" || status === "ending-soon";
-
+const RaffleCard: React.FC<RaffleCardProps> = ({
+    image,
+    title,
+    prizeValue,
+    prizeCurrency = "ETH",
+    countdown,
+    ticketPrice,
+    ticketAsset = "XLM",
+    entries,
+    progress,
+    buttonText = "Enter Raffle",
+    onEnter,
+    raffleId,
+    onImageError,
+}) => {
     return (
         <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
-            {/* Clickable content area — links to the raffle detail page */}
-            <Link
-                to={`/raffles/${raffleId}`}
-                className="flex flex-col space-y-4 cursor-pointer hover:opacity-90 transition-opacity"
-            >
-                {/* Image + status badge */}
-                <div className="relative w-full">
-                    <img
-                        src={imageUrl}
-                        alt="Raffle"
-                        className="w-full object-cover rounded-3xl"
-                    />
-                    <span
-                        className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_PILL_CLASS[status]}`}
-                        data-testid="status-badge"
-                    >
-                        {statusLabel}
-                    </span>
-                </div>
+            {/* Clickable content area - links to details page */}
+            {raffleId ? (
+                <Link
+                    to={`/raffles/${raffleId}`}
+                    className="flex flex-col space-y-4 cursor-pointer hover:opacity-90 transition-opacity"
+                >
+                    {/* Image */}
+                    <div className="w-full">
+                        <LazyImage
+                            src={image}
+                            alt={title}
+                            aspectRatio={16/9}
+                            containerClassName="w-full rounded-3xl"
+                            className="w-full h-full object-cover"
+                            onError={onImageError}
+                        />
+                    </div>
 
                 {/* Title & Prize */}
                 <div>
@@ -113,8 +111,25 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
                             <p className="text-center text-xs text-gray-500">
                                 Awaiting result
                             </p>
-                        )}
-                        <Line />
+                            <p data-testid="entries-count">{entries}</p>
+                        </div>
+                    </div>
+
+                    {/* Progress */}
+                    <ProgressBar value={progress} />
+                </Link>
+            ) : (
+                <div className="flex flex-col space-y-4">
+                    {/* Image */}
+                    <div className="w-full">
+                        <LazyImage
+                            src={image}
+                            alt={title}
+                            aspectRatio={16/9}
+                            containerClassName="w-full rounded-3xl"
+                            className="w-full h-full object-cover"
+                            onError={onImageError}
+                        />
                     </div>
                 ) : (
                     /* cancelled — just a divider */

@@ -3,63 +3,28 @@
  *
  * Displays and manages the user's active notification subscriptions.
  * Shown in the Settings page under the Notifications tab.
+ * Uses useUserSubscriptions hook for typed loading and error states.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Bell, Trash2, AlertCircle, ExternalLink, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import {
-  getUserSubscriptions,
-  unsubscribeFromRaffle,
-  type UserSubscription,
-} from '../services/notificationService';
-import { useAuthContext } from '../providers/AuthProvider';
+import { type UserSubscription } from '../services/notificationService';
 import NotificationEventPreferences, { type NotificationEventType } from './NotificationEventPreferences';
+import { useUserSubscriptions } from '../hooks/useUserSubscriptions';
 
 export default function NotificationPreferences() {
-  const { isAuthenticated } = useAuthContext();
-  const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    subscriptions,
+    isLoading,
+    error,
+    unsubscribe,
+    clearError,
+  } = useUserSubscriptions();
+
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [preferencesLoading, setPreferencesLoading] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadSubscriptions();
-    } else {
-      setSubscriptions([]);
-      setIsLoading(false);
-    }
-  }, [isAuthenticated]);
-
-  const loadSubscriptions = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const subs = await getUserSubscriptions();
-      setSubscriptions(subs);
-    } catch (err) {
-      console.error('Error loading subscriptions:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load subscriptions');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUnsubscribe = async (subscription: UserSubscription) => {
-    try {
-      setRemovingId(subscription.id);
-      await unsubscribeFromRaffle(subscription.raffleId);
-      setSubscriptions((prev) => prev.filter((s) => s.id !== subscription.id));
-    } catch (err) {
-      console.error('Error unsubscribing:', err);
-      setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
-    } finally {
-      setRemovingId(null);
-    }
-  };
 
   const handleEventPreferencesChange = async (subscriptionId: string, events: NotificationEventType[]) => {
     try {
