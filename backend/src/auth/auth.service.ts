@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, createHmac } from 'crypto';
 import { SiwsService } from './siws.service';
@@ -31,6 +32,8 @@ export class AuthService {
     issuedAt: string;
     message: string;
   }> {
+    await this.cleanupExpiredNonces();
+
     const nonce = randomBytes(16).toString('hex');
     const issuedAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + this.NONCE_TTL_MS).toISOString();
@@ -66,6 +69,8 @@ export class AuthService {
     nonce: string,
     issuedAt?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
+    await this.cleanupExpiredNonces();
+
     const { data: stored, error } = await this.client
       .from('siws_nonces')
       .select('*')
@@ -76,10 +81,45 @@ export class AuthService {
       .maybeSingle();
 
     if (error || !stored) {
+      this.logger.warn(
+        `SIWS verification failed for address=${address} nonce=${nonce} reason=missing-or-consumed`,
+      );
+      // Audit to Sentry with a hashed wallet identifier (never send raw address)
+      try {
+        const walletHash = createHmac('sha256', env.auth.jwtSecret)
+          .update(String(address).trim().toLowerCase())
+          .digest('hex')
+          .slice(0, 16);
+        Sentry.withScope((scope) => {
+          scope.setTag('event', 'siws_nonce_failure');
+          scope.setTag('reason', 'missing-or-consumed');
+          scope.setTag('wallet_hash', walletHash);
+          Sentry.captureException(new Error('SIWS nonce failure'));
+        });
+      } catch {
+        /* best-effort, never throw from logging path */
+      }
       throw new Error('Invalid or expired nonce');
     }
 
     if (new Date() > new Date(stored.expires_at)) {
+      this.logger.warn(
+        `SIWS verification failed for address=${address} nonce=${nonce} reason=expired`,
+      );
+      try {
+        const walletHash = createHmac('sha256', env.auth.jwtSecret)
+          .update(String(address).trim().toLowerCase())
+          .digest('hex')
+          .slice(0, 16);
+        Sentry.withScope((scope) => {
+          scope.setTag('event', 'siws_nonce_failure');
+          scope.setTag('reason', 'expired');
+          scope.setTag('wallet_hash', walletHash);
+          Sentry.captureException(new Error('SIWS nonce expired'));
+        });
+      } catch {
+        /* best-effort */
+      }
       throw new Error('Nonce expired');
     }
 
@@ -95,6 +135,23 @@ export class AuthService {
     const message = this.siwsService.buildMessage(address, nonce, messageIssuedAt);
 
     if (!signature || !this.siwsService.verify(address, message, signature)) {
+      this.logger.warn(
+        `SIWS verification failed for address=${address} nonce=${nonce} reason=invalid-signature`,
+      );
+      try {
+        const walletHash = createHmac('sha256', env.auth.jwtSecret)
+          .update(String(address).trim().toLowerCase())
+          .digest('hex')
+          .slice(0, 16);
+        Sentry.withScope((scope) => {
+          scope.setTag('event', 'siws_nonce_failure');
+          scope.setTag('reason', 'invalid-signature');
+          scope.setTag('wallet_hash', walletHash);
+          Sentry.captureException(new Error('SIWS invalid signature'));
+        });
+      } catch {
+        /* best-effort */
+      }
       throw new Error('Invalid signature');
     }
 
@@ -297,6 +354,20 @@ export class AuthService {
 
     if (error) {
       this.logger.error(`Failed to revoke token family ${familyId}: ${error.message}`);
+    }
+  }
+
+  private async cleanupExpiredNonces(): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const { error } = await this.client
+      .from('siws_nonces')
+      .delete()
+      .lte('expires_at', nowIso);
+
+    if (error) {
+      this.logger.warn(
+        `Failed to cleanup expired SIWS nonces: ${error.message}`,
+      );
     }
   }
 }

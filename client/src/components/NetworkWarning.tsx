@@ -1,4 +1,4 @@
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 
 /**
  * Renders a full-screen blocking modal when the connected wallet's network

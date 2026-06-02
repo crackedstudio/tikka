@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ProgressBar } from "../ui/ProgressBar";
 import Line from "../../assets/svg/Line";
 import EnterRaffleButton from "../EnterRaffleButton";
+import LazyImage from "../LazyImage";
 
 type Countdown = {
     days: string;
@@ -26,6 +27,8 @@ type RaffleCardProps = {
     buttonText?: string;
     onEnter?: () => void; // optional click handler
     raffleId?: number; // Contract raffle ID
+    /** Optional telemetry callback for image errors */
+    onImageError?: (src: string) => void;
 };
 
 const RaffleCard: React.FC<RaffleCardProps> = ({
@@ -41,6 +44,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
     buttonText = "Enter Raffle",
     onEnter,
     raffleId,
+    onImageError,
 }) => {
     return (
         <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
@@ -52,10 +56,13 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                 >
                     {/* Image */}
                     <div className="w-full">
-                        <img
+                        <LazyImage
                             src={image}
-                            alt="Raffle"
-                            className="w-full object-cover rounded-3xl"
+                            alt={title}
+                            aspectRatio={16/9}
+                            containerClassName="w-full rounded-3xl"
+                            className="w-full h-full object-cover"
+                            onError={onImageError}
                         />
                     </div>
 
@@ -116,10 +123,13 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                 <div className="flex flex-col space-y-4">
                     {/* Image */}
                     <div className="w-full">
-                        <img
+                        <LazyImage
                             src={image}
-                            alt="Raffle"
-                            className="w-full object-cover rounded-3xl"
+                            alt={title}
+                            aspectRatio={16/9}
+                            containerClassName="w-full rounded-3xl"
+                            className="w-full h-full object-cover"
+                            onError={onImageError}
                         />
                     </div>
 

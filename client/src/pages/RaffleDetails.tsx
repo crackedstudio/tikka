@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from "react-router-dom";
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 import { useRaffleDetailsData } from "../hooks/useRaffleDetailsData";
 import RaffleDetailsCard from "../components/cards/RaffleDetailsCard";
 import ShareRaffle from "../components/ShareRaffle";
