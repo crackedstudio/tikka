@@ -1,7 +1,89 @@
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { Logger } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { env } from '../config/env.config';
+
+// ---------------------------------------------------------------------------
+// Redaction utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Sensitive field names that should be redacted from telemetry.
+ * Case-insensitive matching.
+ */
+export const REDACTED_FIELDS = [
+  'authorization',
+  'token',
+  'signature',
+  'mnemonic', 
+  'seed',
+  'password',
+  'privatekey',
+  'secret',
+  'x-api-key',
+  'cookie',
+  'session',
+  'jwt',
+  'bearer',
+] as const;
+
+/**
+ * Recursively redact sensitive fields from an object or array.
+ * Returns a new object/array without mutating the original.
+ * Prevents infinite recursion with depth limiting.
+ */
+export function redactSensitive(input: unknown, depth = 0): unknown {
+  // Prevent infinite recursion
+  if (depth >= 10) {
+    return '[DEPTH_LIMIT]';
+  }
+
+  if (input === null || input === undefined) {
+    return input;
+  }
+
+  if (Array.isArray(input)) {
+    return input.map(item => redactSensitive(item, depth + 1));
+  }
+
+  if (typeof input === 'object') {
+    const result: Record<string, unknown> = {};
+    const redactSet = new Set(REDACTED_FIELDS.map(f => f.toLowerCase()));
+    
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      if (redactSet.has(key.toLowerCase())) {
+        result[key] = '[REDACTED]';
+      } else {
+        result[key] = redactSensitive(value, depth + 1);
+      }
+    }
+    return result;
+  }
+
+  return input;
+}
+
+/**
+ * Hash a wallet address for safe telemetry.
+ * Returns the first 16 characters of SHA-256 hash in lowercase hex.
+ * Returns null if input is null/undefined/blank.
+ */
+export function hashWallet(address: string | null | undefined): string | null {
+  if (!address || typeof address !== 'string') {
+    return null;
+  }
+  
+  const trimmed = address.trim();
+  if (!trimmed) {
+    return null;
+  }
+  
+  // Normalize to lowercase for consistent hashing
+  const normalized = trimmed.toLowerCase();
+  const hash = createHash('sha256').update(normalized).digest('hex');
+  return hash.substring(0, 16);
+}
 
 export interface IngestionErrorContext {
   /** Stellar ledger sequence number. Omitted from tags if undefined. */
