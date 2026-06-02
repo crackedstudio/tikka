@@ -2,6 +2,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import RaffleCard from "./RaffleCard";
+import { FALLBACK_IMAGE } from "./raffleCardViewModel";
+import type { RaffleCardViewModel } from "./raffleCardViewModel";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
@@ -26,17 +28,12 @@ vi.mock("../EnterRaffleButton", () => ({
     default: ({
         children,
         onSuccess,
-        onError,
     }: {
         children: React.ReactNode;
         onSuccess?: () => void;
         onError?: (e: string) => void;
     }) => (
-        <button
-            data-testid="enter-raffle-btn"
-            onClick={onSuccess}
-            data-on-error={onError ? "present" : "absent"}
-        >
+        <button data-testid="enter-raffle-btn" onClick={onSuccess}>
             {children}
         </button>
     ),
@@ -54,21 +51,36 @@ vi.mock("../../assets/svg/Line", () => ({
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
-const baseProps = {
-    image: "https://example.com/prize.jpg",
-    title: "Win a MacBook Pro",
-    prizeValue: "3000",
-    prizeCurrency: "XLM",
-    countdown: { days: "02", hours: "14", minutes: "30", seconds: "05" },
-    ticketPrice: "10 XLM",
-    entries: 250,
-    progress: 50,
-};
+const SEVEN_DAYS = Math.floor(Date.now() / 1000) + 7 * 86400;
+const ONE_HOUR = Math.floor(Date.now() / 1000) + 3600;
 
-const renderCard = (props: Partial<typeof baseProps> & { raffleId?: number; onEnter?: () => void; buttonText?: string } = {}) =>
+function buildVm(overrides: Partial<RaffleCardViewModel> = {}): RaffleCardViewModel {
+    return {
+        raffleId: 42,
+        title: "Win a MacBook Pro",
+        description: "An amazing MacBook Pro raffle.",
+        imageUrl: "https://example.com/prize.jpg",
+        status: "live",
+        statusLabel: "Live",
+        ticketPrice: "10.000 XLM",
+        ticketAsset: "XLM",
+        prizeValue: "3000",
+        prizeCurrency: "XLM",
+        entries: 250,
+        maxTickets: 500,
+        progress: 50,
+        endTimeUnix: SEVEN_DAYS,
+        countdown: { days: "07", hours: "00", minutes: "00", seconds: "00" },
+        winner: null,
+        buttonText: "Enter Raffle",
+        ...overrides,
+    };
+}
+
+const renderCard = (vm: RaffleCardViewModel, onEnter?: () => void) =>
     render(
         <MemoryRouter>
-            <RaffleCard {...baseProps} {...props} />
+            <RaffleCard viewModel={vm} onEnter={onEnter} />
         </MemoryRouter>
     );
 

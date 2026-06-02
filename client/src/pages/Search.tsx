@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "../hooks/useSearch";
-import { mapListItemToCardProps } from "../services/raffleService";
+import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import RaffleCard from "../components/cards/RaffleCard";
 import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
@@ -75,7 +75,7 @@ const SearchPage: React.FC = () => {
                     {results.map((raffle) => (
                         <RaffleCard
                             key={raffle.id}
-                            {...mapListItemToCardProps(raffle)}
+                            viewModel={toRaffleCardViewModel(raffle)}
                         />
                     ))}
                 </div>
