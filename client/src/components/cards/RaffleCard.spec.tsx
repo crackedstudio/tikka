@@ -5,6 +5,23 @@ import RaffleCard from "./RaffleCard";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
+vi.mock("../LazyImage", () => ({
+    default: ({ src, alt, aspectRatio, onError }: {
+        src: string;
+        alt: string;
+        aspectRatio?: number | string;
+        onError?: (src: string) => void;
+    }) => (
+        <img
+            src={src}
+            alt={alt}
+            data-testid="lazy-image"
+            data-aspect-ratio={aspectRatio}
+            onError={() => onError?.(src)}
+        />
+    ),
+}));
+
 vi.mock("../EnterRaffleButton", () => ({
     default: ({
         children,
@@ -117,21 +134,27 @@ describe("RaffleCard", () => {
     describe("image handling", () => {
         it("renders the image with correct src", () => {
             renderCard();
-            const img = screen.getByAltText("Raffle") as HTMLImageElement;
+            const img = screen.getByAltText("Win a MacBook Pro") as HTMLImageElement;
             expect(img).toBeInTheDocument();
             expect(img.src).toBe("https://example.com/prize.jpg");
         });
 
         it("renders image element even when src is an empty string", () => {
             renderCard({ image: "" });
-            const img = screen.getByAltText("Raffle") as HTMLImageElement;
+            const img = screen.getByAltText("Win a MacBook Pro") as HTMLImageElement;
             expect(img).toBeInTheDocument();
         });
 
         it("renders image element when src is a relative path", () => {
             renderCard({ image: "/images/local-prize.jpg" });
-            const img = screen.getByAltText("Raffle") as HTMLImageElement;
+            const img = screen.getByAltText("Win a MacBook Pro") as HTMLImageElement;
             expect(img.getAttribute("src")).toBe("/images/local-prize.jpg");
+        });
+
+        it("sets aspect ratio on image container", () => {
+            renderCard();
+            const img = screen.getByTestId("lazy-image");
+            expect(img).toHaveAttribute("data-aspect-ratio", "1.7777777777777777");
         });
     });
 
@@ -186,7 +209,7 @@ describe("RaffleCard", () => {
             const onEnter = vi.fn();
             renderCard({ raffleId: 7, onEnter });
             // Clicking the card image/link should NOT trigger onEnter
-            fireEvent.click(screen.getByAltText("Raffle"));
+            fireEvent.click(screen.getByAltText("Win a MacBook Pro"));
             expect(onEnter).not.toHaveBeenCalled();
         });
     });

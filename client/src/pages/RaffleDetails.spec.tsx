@@ -4,15 +4,16 @@ import { BrowserRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import RaffleDetails from "./RaffleDetails";
 import * as useRaffleDetailsDataHook from "../hooks/useRaffleDetailsData";
-import * as walletProvider from "../providers/WalletProvider";
 import type { FormattedRaffle } from "../types/types";
 
 // Mock the hook module
 vi.mock("../hooks/useRaffleDetailsData");
 
-// Mock WalletProvider
-vi.mock("../providers/WalletProvider", () => ({
-    useWalletContext: vi.fn(),
+import { useWallet } from "../hooks/useWallet";
+
+// Mock wallet hook
+vi.mock("../hooks/useWallet", () => ({
+    useWallet: vi.fn(),
 }));
 
 // Mock child components
@@ -92,13 +93,13 @@ const renderWithProviders = (component: React.ReactElement) => {
 describe("RaffleDetails Page", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(walletProvider.useWalletContext).mockReturnValue({
+        vi.mocked(useWallet).mockReturnValue({
             address: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
             isConnected: true,
             connect: vi.fn(),
             disconnect: vi.fn(),
-            signTransaction: vi.fn(),
-        } as any);
+            signTx: vi.fn(),
+        });
     });
 
     afterEach(() => {

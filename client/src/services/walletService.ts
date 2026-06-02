@@ -6,7 +6,31 @@ import {
 } from "@creit.tech/stellar-wallets-kit";
 
 const SELECTED_WALLET_ID = "selectedWalletId";
+const TEST_MODE_WALLET_AVAILABLE_KEY = "tikka_test_wallet_available";
+const TEST_MODE_WALLET_CONNECTED_KEY = "tikka_test_wallet_connected";
+const TEST_MODE_WALLET_TYPE_KEY = "tikka_test_wallet_type";
 const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
+
+function getTestModeOverride(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(key);
+}
+
+function isTestWalletAvailable(): boolean {
+  if (typeof window === "undefined") return true;
+  return getTestModeOverride(TEST_MODE_WALLET_AVAILABLE_KEY) !== "false";
+}
+
+function isTestWalletConnected(): boolean {
+  if (typeof window === "undefined") return true;
+  return isTestWalletAvailable() && getTestModeOverride(TEST_MODE_WALLET_CONNECTED_KEY) !== "false";
+}
+
+function getTestWalletType(): string {
+  if (typeof window === "undefined") return "freighter";
+  if (!isTestWalletAvailable()) return "default";
+  return getTestModeOverride(TEST_MODE_WALLET_TYPE_KEY) ?? "freighter";
+}
 
 // ─── Wallet Capabilities ────────────────────────────────────────────────────────
 
@@ -83,7 +107,7 @@ const WALLET_CAPABILITY_PROFILES: Record<string, WalletCapabilities> = {
  */
 function detectWalletType(): string {
   if (IS_TEST_MODE) {
-    return "freighter"; // Default to Freighter-like in test mode
+    return getTestWalletType();
   }
 
   const selectedWalletId = getSelectedWalletId();
@@ -158,6 +182,9 @@ function getSelectedWalletId(): string | null {
 
 export async function getAccountAddress(): Promise<string | null> {
   if (IS_TEST_MODE) {
+    if (typeof window !== "undefined" && !isTestWalletConnected()) {
+      return null;
+    }
     return "GTESTADDRESS1234567890ABCDEF";
   }
 
@@ -174,7 +201,11 @@ export async function getAccountAddress(): Promise<string | null> {
 export async function connectWallet(): Promise<{ success: boolean; address?: string; error?: string }> {
   if (IS_TEST_MODE) {
     if (typeof window !== "undefined") {
+      if (!isTestWalletAvailable()) {
+        return { success: false, error: "No wallet detected" };
+      }
       localStorage.setItem(SELECTED_WALLET_ID, "test-wallet");
+      localStorage.setItem(TEST_MODE_WALLET_CONNECTED_KEY, "true");
     }
     return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
   }
@@ -210,6 +241,9 @@ export async function disconnectWallet(): Promise<void> {
  */
 export async function getNetwork(): Promise<string | null> {
   if (IS_TEST_MODE) {
+    if (typeof window !== "undefined" && !isTestWalletConnected()) {
+      return null;
+    }
     return 'testnet';
   }
 
@@ -225,7 +259,7 @@ export async function getNetwork(): Promise<string | null> {
 
 export async function signTransaction(transaction: any): Promise<WalletSignResult> {
   const capabilities = getWalletCapabilities();
-  
+
   // Check if wallet supports signing before attempting
   if (!capabilities.canSignTransaction) {
     return {
@@ -242,7 +276,7 @@ export async function signTransaction(transaction: any): Promise<WalletSignResul
   }
 
   if (!getSelectedWalletId()) throw new WalletUserRejectedError("No wallet connected");
-  
+
   const result = await getKit().signTransaction(transaction);
   // Map the kit's result to our WalletSignResult interface
   return {
@@ -266,12 +300,12 @@ export async function isWalletConnected(): Promise<boolean> {
 
 export async function isWalletInstalled(): Promise<boolean> {
   if (IS_TEST_MODE) {
-    return true;
+    return isTestWalletAvailable();
   }
 
   // Check if any wallet extension is available
   return typeof window !== "undefined" && (
-    !!(window as any).freighter || 
+    !!(window as any).freighter ||
     !!(window as any).xBull ||
     !!(window as any).rabet
   );

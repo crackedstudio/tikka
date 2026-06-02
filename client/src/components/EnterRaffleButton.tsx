@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { buyTickets } from "../services/contractService";
 import Modal from "./modals/Modal";
@@ -28,12 +28,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 const STAGE_LABEL: Record<string, string> = {
-    BUILD:    "Building transaction...",
+    BUILD: "Building transaction...",
     ESTIMATE: "Estimating fees...",
-    SIGN:     "Waiting for wallet signature...",
-    SUBMIT:   "Submitting to network...",
-    POLL:     "Waiting for confirmation...",
-    DONE:     "Tickets purchased!",
+    SIGN: "Waiting for wallet signature...",
+    SUBMIT: "Submitting to network...",
+    POLL: "Waiting for confirmation...",
+    DONE: "Tickets purchased!",
 };
 
 const EnterRaffleButton = ({
@@ -105,13 +105,13 @@ const EnterRaffleButton = ({
     return (
         <>
             <button
+                data-testid="enter-raffle-btn"
                 onClick={handleButtonClick}
                 disabled={isLoading}
-                className={`${className} ${isLoading ? "opacity-50 cursor-not-allowed" : ""} ${
-                    (!isConnected || isWrongNetwork) && !isLoading
+                className={`${className} ${isLoading ? "opacity-50 cursor-not-allowed" : ""} ${(!isConnected || isWrongNetwork) && !isLoading
                         ? "!bg-indigo-600 !text-gray-900 dark:text-white !border-indigo-600 hover:!bg-indigo-700"
                         : ""
-                }`}
+                    }`}
             >
                 {getButtonText()}
             </button>

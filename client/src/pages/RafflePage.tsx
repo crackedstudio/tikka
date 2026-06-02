@@ -8,6 +8,7 @@ import ErrorMessage from "../components/ui/ErrorMessage";
 import VerifiedBadge from "../components/VerifiedBadge";
 import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
 import RecentParticipants from "../components/RecentParticipants";
+import LazyImage from "../components/LazyImage";
 import {
     Ticket,
     Users,
@@ -174,10 +175,13 @@ const RafflePage = () => {
                     {/* Hero Section */}
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl z-10" />
-                        <img
+                        <LazyImage
                             src={image || detailimage}
                             alt={title}
-                            className="w-full aspect-video md:aspect-auto md:max-h-[500px] object-cover rounded-3xl shadow-2xl border border-gray-200 dark:border-white/5"
+                            aspectRatio={16/9}
+                            containerClassName="w-full rounded-3xl shadow-2xl border border-gray-200 dark:border-white/5"
+                            className="w-full h-full object-cover md:max-h-[500px]"
+                            blurUp={false}
                         />
                         {/* Status Badge Over Image */}
                         <div className="absolute top-6 left-6 z-20">
