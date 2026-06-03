@@ -98,7 +98,7 @@ export async function fetchStatus(): Promise<StatusResult> {
   let last24hEvents = 0;
   let lastProcessedAt: string | null = null;
   let pool: DbPoolStats | null = null;
-  let dlqTotal = 0;
+  let checkpoint: CheckpointInfo | null = null;
 
   try {
     await ds.initialize();

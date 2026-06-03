@@ -1,8 +1,45 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+/**
+ * cursor-manager.service.ts
+ *
+ * Manages the singleton cursor row (id=1) in the indexer_cursor table.
+ *
+ * Changes in issue #560:
+ *  - Added IngestorMode ("RUNNING" | "DEGRADED" | "STOPPED")
+ *  - validateOnLoad() called in getCursor(); violation → DEGRADED, no loop start
+ *  - validateBeforeSave() called in saveCursor(); violation → DEGRADED + throws
+ *  - validateLedgerHash() exposed via checkForReorg() (existing callers unchanged)
+ *  - getStatus() exposes mode, lastCheckpoint, lastViolation, uptimeMs
+ *  - CursorIntegrityError typed error class for callers to catch
+ *
+ * Storage: TypeORM upsert on IndexerCursorEntity (PostgreSQL, singleton row id=1).
+ * The existing IndexerCursor interface and saveCursor/getCursor signatures are
+ * preserved for backward compatibility with LedgerPollerService.
+ */
+
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, QueryRunner } from 'typeorm';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
-import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
+import {
+  CursorCheckpoint,
+  CURSOR_CHECKPOINT_VERSION,
+  IntegrityViolation,
+  validateBeforeSave,
+  validateLedgerHash,
+  validateOnLoad,
+} from './cursor-integrity';
+
+// ── Public types ──────────────────────────────────────────────────────────────
+
+/**
+ * Operational mode of the ingestion pipeline.
+ *
+ * RUNNING  — normal operation.
+ * DEGRADED — integrity violation detected; ingestion paused, no writes.
+ *            Operator action required to clear or reset.
+ * STOPPED  — clean shutdown.
+ */
+export type IngestorMode = 'RUNNING' | 'DEGRADED' | 'STOPPED';
 
 /** Legacy shape returned by getCursor() — unchanged for backward compat. */
 export interface IndexerCursor {
@@ -142,6 +179,19 @@ export class CursorManagerService {
     hashes.push({ ledger, hash: ledgerHash });
     if (hashes.length > HASH_RING_SIZE) hashes.shift();
 
+    this.logger.debug(
+      `Saving cursor: ledger=${ledger}, hash=${ledgerHash}, events=${eventCount}, token=${token}`,
+    );
+
+    const manager: EntityManager = queryRunner
+      ? queryRunner.manager
+      : this.cursorRepo.manager;
+
+    const existing = await manager.findOne(IndexerCursorEntity, { where: { id: 1 } });
+    const hashes = existing?.ledgerHashes ?? [];
+    hashes.push({ ledger, hash: ledgerHash });
+    if (hashes.length > HASH_RING_SIZE) hashes.shift();
+
     await manager.upsert(
       IndexerCursorEntity,
       {
@@ -156,7 +206,7 @@ export class CursorManagerService {
       ['id'],
     );
 
-    this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
+    this.lastCheckpoint = candidate;
   }
 
   /**

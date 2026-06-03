@@ -19,12 +19,11 @@ function colorDbStatus(s: 'ok' | 'error'): string {
   return s === 'ok' ? `${GREEN}ok${RESET}` : `${RED}error${RESET}`;
 }
 
-function colorCacheStatus(s: 'ok' | 'error'): string {
-  return s === 'ok' ? `${GREEN}ok${RESET}` : `${RED}error${RESET}`;
-}
-
-function colorDlq(total: number): string {
-  return total > 0 ? `${RED}${total}${RESET}` : `${GREEN}${total}${RESET}`;
+function colorMode(mode: 'RUNNING' | 'DEGRADED' | 'STOPPED' | null): string {
+  if (mode === null)       return `${DIM}n/a${RESET}`;
+  if (mode === 'RUNNING')  return `${GREEN}RUNNING${RESET}`;
+  if (mode === 'DEGRADED') return `${RED}DEGRADED${RESET}`;
+  return `${YELLOW}${mode}${RESET}`;
 }
 
 function pad(s: string | number, width: number): string {
