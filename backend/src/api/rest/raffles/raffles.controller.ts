@@ -190,6 +190,7 @@ export class RafflesController {
   @ApiOperation({ summary: "Purchase tickets for a raffle" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
   @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+  @ApiResponse({ status: 501, description: "Ticket purchase is not yet implemented" })
   @UseInterceptors(IdempotencyInterceptor)
   async purchaseTickets(
     @Param("raffleId", ParseIntPipe) raffleId: number,

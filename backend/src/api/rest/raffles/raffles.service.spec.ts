@@ -1,4 +1,5 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, NotImplementedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { RafflesService } from './raffles.service';
 import { IndexerService, IndexerRaffleData } from '../../../services/indexer.service';
 import { MetadataService, RaffleMetadata } from '../../../services/metadata.service';
@@ -30,12 +31,14 @@ const mockMetadata: RaffleMetadata = {
   metadata_cid: 'ipfs://abc',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
+  deleted_at: null,
 };
 
 describe('RafflesService', () => {
   let service: RafflesService;
   let indexerService: jest.Mocked<Pick<IndexerService, 'listRaffles' | 'getRaffle'>>;
   let metadataService: jest.Mocked<Pick<MetadataService, 'getMetadata' | 'getBatchMetadata' | 'upsertMetadata'>>;
+  let configService: jest.Mocked<Pick<ConfigService, 'get'>>;
 
   beforeEach(() => {
     indexerService = {
@@ -47,10 +50,14 @@ describe('RafflesService', () => {
       getBatchMetadata: jest.fn().mockResolvedValue(new Map()),
       upsertMetadata: jest.fn(),
     };
+    configService = {
+      get: jest.fn().mockReturnValue(false),
+    };
 
     service = new RafflesService(
       metadataService as unknown as MetadataService,
       indexerService as unknown as IndexerService,
+      configService as unknown as ConfigService,
     );
   });
 
@@ -177,6 +184,40 @@ describe('RafflesService', () => {
       await expect(
         service.upsertMetadata(1, { title: 'Nope' }, 'GOTHER999'),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('purchaseTickets', () => {
+    const payload = { quantity: 2 };
+
+    it('throws NotImplementedException when feature flag is disabled', async () => {
+      configService.get.mockReturnValue(false);
+
+      await expect(
+        service.purchaseTickets(1, payload, 'GABC123'),
+      ).rejects.toThrow(NotImplementedException);
+
+      expect(indexerService.getRaffle).not.toHaveBeenCalled();
+    });
+
+    it('throws NotImplementedException when feature flag is enabled but integration is pending', async () => {
+      configService.get.mockReturnValue(true);
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
+
+      await expect(
+        service.purchaseTickets(1, payload, 'GABC123'),
+      ).rejects.toThrow(NotImplementedException);
+
+      expect(indexerService.getRaffle).toHaveBeenCalledWith(1);
+    });
+
+    it('throws NotFoundException when raffle does not exist and feature flag is enabled', async () => {
+      configService.get.mockReturnValue(true);
+      indexerService.getRaffle.mockResolvedValue(null);
+
+      await expect(
+        service.purchaseTickets(99, payload, 'GABC123'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -1,10 +1,12 @@
-import { Request, Response } from 'express';
 import { RequestIdMiddleware, REQUEST_ID_HEADER } from './request-id.middleware';
+
+type MockRequest = { headers: Record<string, string | string[] | undefined> };
+type MockResponse = { setHeader: jest.Mock };
 
 describe('RequestIdMiddleware', () => {
   let middleware: RequestIdMiddleware;
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+  let mockRequest: MockRequest;
+  let mockResponse: MockResponse;
   let nextFunction: jest.Mock;
 
   beforeEach(() => {
@@ -19,7 +21,7 @@ describe('RequestIdMiddleware', () => {
   });
 
   it('should generate a request ID when none is provided', () => {
-    middleware.use(mockRequest as Request, mockResponse as Response, nextFunction);
+    middleware.use(mockRequest, mockResponse, nextFunction);
 
     expect(mockRequest.headers![REQUEST_ID_HEADER]).toBeDefined();
     expect(typeof mockRequest.headers![REQUEST_ID_HEADER]).toBe('string');
@@ -34,7 +36,7 @@ describe('RequestIdMiddleware', () => {
     const existingId = 'existing-request-id-123';
     mockRequest.headers![REQUEST_ID_HEADER] = existingId;
 
-    middleware.use(mockRequest as Request, mockResponse as Response, nextFunction);
+    middleware.use(mockRequest, mockResponse, nextFunction);
 
     expect(mockRequest.headers![REQUEST_ID_HEADER]).toBe(existingId);
     expect(mockResponse.setHeader).toHaveBeenCalledWith(REQUEST_ID_HEADER, existingId);
@@ -42,7 +44,7 @@ describe('RequestIdMiddleware', () => {
   });
 
   it('should generate UUID format for new request IDs', () => {
-    middleware.use(mockRequest as Request, mockResponse as Response, nextFunction);
+    middleware.use(mockRequest, mockResponse, nextFunction);
 
     const requestId = mockRequest.headers![REQUEST_ID_HEADER] as string;
     // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx

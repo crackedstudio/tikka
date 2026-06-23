@@ -1,5 +1,5 @@
 import * as fc from 'fast-check';
-import * as Sentry from '@sentry/nestjs';
+import * as Sentry from '@sentry/node';
 import { Logger } from '@nestjs/common';
 import {
   buildSentryOptions,
@@ -238,6 +238,7 @@ describe('buildSentryOptions — unit tests', () => {
       dsn: 'https://abc@sentry.io/123',
       environment: 'production',
       tracesSampleRate: 0.5,
+      integrations: [],
     });
   });
 

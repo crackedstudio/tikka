@@ -135,7 +135,7 @@ export class ReplayService {
 
     // Acquire lock to prevent concurrent indexing
     if (!this.lock.tryAcquire()) {
-      throw new BackfillLockError('Could not acquire backfill lock');
+      throw new BackfillLockError();
     }
 
     try {

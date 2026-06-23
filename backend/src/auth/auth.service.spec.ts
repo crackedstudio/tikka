@@ -28,7 +28,9 @@ describe('AuthService', () => {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn(),
-      update: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ error: null }),
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -68,7 +70,6 @@ describe('AuthService', () => {
         data: { id: 1, address, nonce, issued_at: issuedAt, expires_at: expiresAt, consumed: false },
         error: null,
       });
-      supabaseClient.update.mockResolvedValue({ error: null });
 
       const result = await service.verify(address, signature, nonce, issuedAt);
 

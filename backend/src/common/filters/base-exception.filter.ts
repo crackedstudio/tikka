@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import * as Sentry from '@sentry/nestjs';
+import * as Sentry from '@sentry/node';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 export interface ErrorResponse {

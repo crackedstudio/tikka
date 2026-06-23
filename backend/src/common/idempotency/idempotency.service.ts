@@ -10,7 +10,7 @@ const TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
 @Injectable()
 export class IdempotencyService implements OnModuleInit, OnModuleDestroy {
-  private redis!: Redis;
+  private redis?: Redis;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -21,7 +21,9 @@ export class IdempotencyService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.redis.quit();
+    if (this.redis) {
+      await this.redis.quit();
+    }
   }
 
   private key(walletAddress: string, idempotencyKey: string): string {
@@ -33,7 +35,7 @@ export class IdempotencyService implements OnModuleInit, OnModuleDestroy {
    * Returns true if the lock was acquired (first request), false if already exists.
    */
   async lock(walletAddress: string, idempotencyKey: string): Promise<boolean> {
-    const result = await this.redis.set(
+    const result = await this.redis!.set(
       this.key(walletAddress, idempotencyKey),
       JSON.stringify({ status: 'in-flight' }),
       'EX',
@@ -49,7 +51,7 @@ export class IdempotencyService implements OnModuleInit, OnModuleDestroy {
     idempotencyKey: string,
     response: unknown,
   ): Promise<void> {
-    await this.redis.set(
+    await this.redis!.set(
       this.key(walletAddress, idempotencyKey),
       JSON.stringify({ status: 'done', response }),
       'EX',
@@ -62,7 +64,7 @@ export class IdempotencyService implements OnModuleInit, OnModuleDestroy {
     walletAddress: string,
     idempotencyKey: string,
   ): Promise<IdempotencyState | null> {
-    const raw = await this.redis.get(this.key(walletAddress, idempotencyKey));
+    const raw = await this.redis!.get(this.key(walletAddress, idempotencyKey));
     if (!raw) return null;
     return JSON.parse(raw) as IdempotencyState;
   }
