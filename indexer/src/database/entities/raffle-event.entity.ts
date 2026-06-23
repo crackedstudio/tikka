@@ -14,6 +14,23 @@ import {
  * is a no-op.
  *
  * Columns map to the `raffle_events` table in ARCHITECTURE.md.
+ *
+ * ## Field Ownership
+ * - **Raw chain state**: raffleId, eventType, schemaVersion, ledger, txHash, payloadJson
+ * - **Derived**: id (UUID), indexedAt (indexer timestamp)
+ *
+ * ## Updater Handlers
+ * - All processors insert events idempotently via orIgnore() on unique txHash constraint
+ *
+ * ## Recalculation Safety
+ * - ❌ Unsafe: All fields are source-of-truth from chain events
+ * - This table is APPEND-ONLY — no updates or deletes (except archiving)
+ *
+ * ## Archiving
+ * - Old events can be safely archived after retention period (default: 30 days)
+ * - See: `src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md`
+ *
+ * See: `ENTITY_OWNERSHIP.md` for full documentation
  */
 @Entity("raffle_events")
 @Index("idx_raffle_events_raffle_id", ["raffleId"])

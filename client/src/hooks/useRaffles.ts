@@ -14,11 +14,54 @@ import type {
     FormattedRaffle,
 } from "../types/types";
 
-export const useRaffles = (filters?: RaffleListFilters) => {
+// ─── Raffle List Query Status Types ────────────────────────────────────────────────
+
+/**
+ * Status flags for raffle list queries.
+ * These provide clear, typed states for UI components to render appropriate loading,
+ * empty, error, and stale states.
+ */
+export interface RaffleQueryStatus {
+    /** True during the initial data fetch */
+    isLoading: boolean;
+    /** True during a manual refresh (cached data remains visible) */
+    isRefreshing: boolean;
+    /** True when the query has successfully loaded data */
+    isSuccess: boolean;
+    /** True when the query returned an empty result set */
+    isEmpty: boolean;
+    /** True when the query failed (error state) */
+    isError: boolean;
+    /** True when data might be outdated (e.g., after a failed refresh) */
+    isStale: boolean;
+}
+
+/**
+ * Return type for useRaffles hook with resilient status flags.
+ */
+export interface UseRafflesReturn {
+    /** The list of raffles */
+    raffles: ApiRaffleListItem[];
+    /** Total count of raffles (may be larger than current page) */
+    total: number;
+    /** Status flags for UI rendering */
+    status: RaffleQueryStatus;
+    /** Error object if query failed */
+    error: Error | null;
+    /** Manually trigger a refresh (keeps cached data visible) */
+    refetch: () => void;
+    /** Retry after an error (clears error and refetches) */
+    retry: () => void;
+}
+
+export const useRaffles = (filters?: RaffleListFilters): UseRafflesReturn => {
     const [raffles, setRaffles] = useState<ApiRaffleListItem[]>([]);
     const [total, setTotal] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+    const [isStale, setIsStale] = useState(false);
     const requestId = useRef(0);
     const [refetchFlag, setRefetchFlag] = useState(0);
 
@@ -26,32 +69,59 @@ export const useRaffles = (filters?: RaffleListFilters) => {
 
     useEffect(() => {
         const currentRequest = ++requestId.current;
+        const isRefresh = hasLoadedOnce;
 
-        setIsLoading(true);
+        if (isRefresh) {
+            setIsRefreshing(true);
+        } else {
+            setIsLoading(true);
+        }
         setError(null);
 
-        const parsed = JSON.parse(serializedFilters) as RaffleListFilters | undefined;
+        const parsed = serializedFilters ? (JSON.parse(serializedFilters) as RaffleListFilters) : undefined;
         fetchRaffles(parsed)
             .then((response) => {
                 if (currentRequest !== requestId.current) return;
                 setRaffles(response.raffles);
                 setTotal(response.total ?? response.raffles.length);
+                setHasLoadedOnce(true);
+                setIsStale(false);
             })
             .catch((err) => {
                 if (currentRequest !== requestId.current) return;
                 setError(err instanceof Error ? err : new Error("Failed to fetch raffles"));
+                // Mark as stale if this was a refresh that failed
+                if (isRefresh) {
+                    setIsStale(true);
+                }
             })
             .finally(() => {
                 if (currentRequest !== requestId.current) return;
                 setIsLoading(false);
+                setIsRefreshing(false);
             });
-    }, [serializedFilters, refetchFlag]);
+    }, [serializedFilters, refetchFlag, hasLoadedOnce]);
 
     const refetch = useCallback(() => {
         setRefetchFlag((prev: number) => prev + 1);
     }, []);
 
-    return { raffles, total, isLoading, error, refetch };
+    const retry = useCallback(() => {
+        setError(null);
+        setRefetchFlag((prev: number) => prev + 1);
+    }, []);
+
+    // Compute derived status flags
+    const status: RaffleQueryStatus = {
+        isLoading,
+        isRefreshing,
+        isSuccess: hasLoadedOnce && !error,
+        isEmpty: hasLoadedOnce && !error && raffles.length === 0,
+        isError: error !== null,
+        isStale,
+    };
+
+    return { raffles, total, status, error, refetch, retry };
 };
 
 export const useRaffle = (raffleId: number) => {

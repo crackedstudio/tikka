@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS siws_nonces (
 
 CREATE INDEX IF NOT EXISTS idx_siws_nonces_address ON siws_nonces(address);
 CREATE INDEX IF NOT EXISTS idx_siws_nonces_expires_at ON siws_nonces(expires_at);
+CREATE INDEX IF NOT EXISTS idx_siws_nonces_consumed ON siws_nonces(consumed);
 
 ALTER TABLE siws_nonces ENABLE ROW LEVEL SECURITY;
 

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
@@ -60,6 +60,12 @@ export class MetadataService {
 
   private getCacheTtlSeconds(): number {
     return this.config.get<number>('METADATA_CACHE_TTL_SECONDS', 600);
+  }
+
+  private validateMetadata(payload: UpsertMetadataPayload): void {
+    if (payload.title !== undefined && payload.title.trim().length === 0) {
+      throw new BadRequestException('Title cannot be empty');
+    }
   }
 
   /**
@@ -199,9 +205,13 @@ export class MetadataService {
     raffleId: number,
     payload: UpsertMetadataPayload,
   ): Promise<RaffleMetadata> {
+    // Validate payload before processing
+    this.validateMetadata(payload);
+
     const normalizedImageUrls = payload.image_urls
       ?.map((url) => url?.trim())
       .filter((url): url is string => Boolean(url));
+
 
     const metadataCid = await this.pinningService.pin({
       raffle_id: raffleId,

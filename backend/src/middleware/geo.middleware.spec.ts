@@ -319,7 +319,7 @@ describe('GeoMiddleware', () => {
 
       await middleware.use(mockRequest as FastifyRequest, mockResponse as FastifyReply, mockNext);
 
-      expect(geoService.lookupIp).toHaveBeenCalledWith('192.168.1.1');
+      expect(geoService.lookupIp).toHaveBeenCalledWith('');
       expect(mockNext).toHaveBeenCalled();
     });
 

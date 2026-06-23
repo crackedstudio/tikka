@@ -26,7 +26,7 @@ describe('SearchService', () => {
       indexerService as any,
     );
 
-    await expect(service.search({ query: 'summer', limit: 5, offset: 10 })).resolves.toEqual({
+    await expect((service as any).search({ query: 'summer', limit: 5, offset: 10 })).resolves.toEqual({
       raffles: [
         {
           id: 2,

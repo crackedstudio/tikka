@@ -8,6 +8,7 @@ import {
   rpc,
   xdr,
 } from '@stellar/stellar-sdk';
+import BigNumber from 'bignumber.js';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig } from '../network/network.config';
@@ -199,9 +200,9 @@ export class FeeEstimatorService {
       // transactionData may be absent in mocked/test responses; degrade gracefully.
     }
 
-    const totalStroops = (
-      BigInt(BASE_FEE_STROOPS) + BigInt(resourceFeeStroops)
-    ).toString();
+    const totalStroops = new BigNumber(BASE_FEE_STROOPS)
+      .plus(resourceFeeStroops)
+      .toFixed(0);
 
     const breakdown: FeeResourceBreakdown = {
       baseFeeStroops: String(BASE_FEE_STROOPS),

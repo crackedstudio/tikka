@@ -8,6 +8,59 @@
 import { API_CONFIG } from "../config/api";
 import { toast } from "sonner";
 
+// ─── Typed API Error Types ────────────────────────────────────────────────────────
+
+/**
+ * Error codes for different types of API failures
+ */
+export enum ApiErrorCode {
+  /** Validation error (400) - invalid request data */
+  VALIDATION_ERROR = "VALIDATION_ERROR",
+  /** Authentication required or failed (401) */
+  UNAUTHORIZED = "UNAUTHORIZED",
+  /** Forbidden - insufficient permissions (403) */
+  FORBIDDEN = "FORBIDDEN",
+  /** Resource not found (404) */
+  NOT_FOUND = "NOT_FOUND",
+  /** Rate limit exceeded (429) */
+  RATE_LIMITED = "RATE_LIMITED",
+  /** Server error (500-599) */
+  SERVER_ERROR = "SERVER_ERROR",
+  /** Network failure or timeout */
+  NETWORK_ERROR = "NETWORK_ERROR",
+  /** Unknown or unexpected error */
+  UNKNOWN_ERROR = "UNKNOWN_ERROR",
+}
+
+/**
+ * Typed error envelope for API failures
+ * Provides stable error codes and messages for UI consumers
+ */
+export class ApiError extends Error {
+  constructor(
+    public code: ApiErrorCode,
+    message: string,
+    public statusCode?: number,
+    public details?: unknown
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+/**
+ * Map HTTP status codes to ApiErrorCode
+ */
+function mapStatusCodeToErrorCode(status: number): ApiErrorCode {
+  if (status === 400) return ApiErrorCode.VALIDATION_ERROR;
+  if (status === 401) return ApiErrorCode.UNAUTHORIZED;
+  if (status === 403) return ApiErrorCode.FORBIDDEN;
+  if (status === 404) return ApiErrorCode.NOT_FOUND;
+  if (status === 429) return ApiErrorCode.RATE_LIMITED;
+  if (status >= 500 && status < 600) return ApiErrorCode.SERVER_ERROR;
+  return ApiErrorCode.UNKNOWN_ERROR;
+}
+
 /**
  * Get the stored JWT token
  */
@@ -114,10 +167,17 @@ export async function apiRequest<T = any>(
         },
       },
     });
-    throw new Error(`Network Error: ${errorMessage}`);
+    throw new ApiError(
+      ApiErrorCode.NETWORK_ERROR,
+      `Network Error: ${errorMessage}`,
+      undefined,
+      { originalError: error instanceof Error ? error.message : String(error) }
+    );
   }
 
   if (!response.ok) {
+    const errorCode = mapStatusCodeToErrorCode(response.status);
+
     // Handle 401 Unauthorized - clear token, notify auth layer, and throw
     if (response.status === 401) {
       clearToken();
@@ -126,7 +186,11 @@ export async function apiRequest<T = any>(
         description: "Please sign in again to continue.",
         action: { label: "Sign In", onClick: () => window.location.reload() },
       });
-      throw new Error("Unauthorized - please sign in again");
+      throw new ApiError(
+        ApiErrorCode.UNAUTHORIZED,
+        "Unauthorized - please sign in again",
+        401
+      );
     }
 
     const errorData = await response.json().catch(() => ({
@@ -159,7 +223,7 @@ export async function apiRequest<T = any>(
       },
     });
 
-    throw new Error(errorMessage);
+    throw new ApiError(errorCode, errorMessage, response.status, errorData);
   }
 
   // Handle empty responses

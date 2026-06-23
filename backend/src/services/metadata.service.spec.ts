@@ -51,14 +51,14 @@ describe('MetadataService', () => {
       del: jest.fn().mockResolvedValue(undefined),
     };
 
+    pinningService = {
+      pin: jest.fn().mockResolvedValue(null),
+    };
+
     metrics = new MetadataCacheMetricsService();
 
     config = {
       get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
-    };
-
-    pinningService = {
-      pin: jest.fn().mockResolvedValue('ipfs://test-cid'),
     };
 
     service = new MetadataService(
@@ -70,14 +70,17 @@ describe('MetadataService', () => {
     );
   });
 
-  it('searches metadata using ranked RPC full-text search', async () => {
+  it('searches metadata using full-text search vector', async () => {
     await service.searchMetadata('raffle');
 
     expect(client.rpc).toHaveBeenCalledWith(
       'search_raffles_ranked',
-      expect.objectContaining({
+      {
         search_query: 'raffle',
-      }),
+        p_category: null,
+        p_limit: 20,
+        p_offset: 0,
+      },
     );
   });
 

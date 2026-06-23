@@ -17,9 +17,9 @@ export class LeaderboardQueryDto {
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20, description: 'Number of entries' })
   limit?: number;
 
-  @ApiPropertyOptional({ description: 'Opaque cursor for pagination' })
+  @ApiPropertyOptional({ description: 'Cursor for cursor-based pagination' })
   cursor?: string;
 
-  @ApiPropertyOptional({ minimum: 0, description: 'Deprecated offset pagination' })
+  @ApiPropertyOptional({ minimum: 0, description: 'Offset for offset-based pagination (deprecated)' })
   offset?: number;
 }

@@ -7,7 +7,7 @@ import WalletButton from "./WalletButton";
 import ThemeToggle from "./ThemeToggle";
 import SignInButton from "./SignInButton";
 import { Search } from "lucide-react";
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { useTranslation } from "react-i18next";
 

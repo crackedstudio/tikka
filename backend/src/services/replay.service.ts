@@ -10,6 +10,7 @@ export interface ReplayJobConfig {
   toLedger: number;
   contractId?: string;
   dryRun?: boolean;
+  confirmed?: boolean;
 }
 
 export interface ReplayJobStatus {
@@ -25,6 +26,12 @@ export interface ReplayJobStatus {
   result?: {
     elapsedMs: number;
     missingLedgers: number[];
+    plannedActions?: Array<{ ledger: number; action: 'submit' | 'skip'; reason?: string }>;
+    totalLedgers?: number;
+    fromLedger?: number;
+    toLedger?: number;
+    processedCount?: number;
+    skippedCount?: number;
   };
   error?: string;
   createdAt: string;
@@ -121,6 +128,13 @@ export class ReplayService {
         `Range of ${range} ledgers exceeds BACKFILL_MAX_RANGE (${this.maxRange})`,
       );
     }
+
+    const isDryRun = config.dryRun === true;
+    if (!isDryRun && config.confirmed !== true) {
+      throw new Error(
+        `Mutating replay operations require explicit confirmation. Please set 'confirmed' to true.`,
+      );
+    }
   }
 
   /**
@@ -141,6 +155,7 @@ export class ReplayService {
     try {
       const { fromLedger, toLedger, dryRun } = job.config;
       const missingLedgers: number[] = [];
+      const plannedActions: Array<{ ledger: number; action: 'submit' | 'skip'; reason?: string }> = [];
       const runStart = Date.now();
 
       this.logger.log(
@@ -175,12 +190,22 @@ export class ReplayService {
           );
           missingLedgers.push(seq);
           job.progress.skippedCount++;
+          plannedActions.push({
+            ledger: seq,
+            action: 'skip',
+            reason: `Transient error after ${attempts} attempt(s): ${lastError.message}`,
+          });
         } else if (ledgerData === null) {
           this.logger.warn(
             `Replay job ${jobId}: Missing ledger seq=${seq}: not found in Horizon archive`,
           );
           missingLedgers.push(seq);
           job.progress.skippedCount++;
+          plannedActions.push({
+            ledger: seq,
+            action: 'skip',
+            reason: 'Not found in Horizon archive',
+          });
         } else {
           // Submit to indexer (unless dry-run)
           if (!dryRun) {
@@ -191,6 +216,11 @@ export class ReplayService {
             );
           }
           job.progress.processedCount++;
+          plannedActions.push({
+            ledger: seq,
+            action: 'submit',
+            reason: dryRun ? 'Dry-run preview' : 'Confirmed replay submission',
+          });
         }
 
         // Progress log every 100 ledgers
@@ -211,6 +241,12 @@ export class ReplayService {
       job.result = {
         elapsedMs,
         missingLedgers,
+        plannedActions,
+        totalLedgers: job.progress.totalLedgers,
+        fromLedger,
+        toLedger,
+        processedCount: job.progress.processedCount,
+        skippedCount: job.progress.skippedCount,
       };
 
       this.logger.log(

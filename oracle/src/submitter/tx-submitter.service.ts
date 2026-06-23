@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
-import { FeeEstimatorService } from './fee-estimator.service';
+import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 import { CostEstimatorService } from './cost-estimator.service';
 
@@ -100,6 +100,14 @@ export interface SubmitResult {
   ledger: number;
   success: boolean;
   feePaid?: number;
+}
+
+export interface RandomnessSubmissionPreview {
+  networkPassphrase: string;
+  sourceAddress: string;
+  feeEstimate: FeeEstimate;
+  contractId: string;
+  rpcUrl: string;
 }
 
 @Injectable()
@@ -747,10 +755,24 @@ export class TxSubmitterService {
       this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    return this.submitContractCall('commit_randomness', [
-      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(commitment, 32)),
-    ]);
+    const inv = ContractBuilders.buildCommitRandomness(raffleId, commitment);
+    return this.submitContractCall(inv.method, inv.args);
+  }
+
+  async estimateRandomnessSubmission(
+    raffleId: number,
+    randomness: RandomnessResult,
+  ): Promise<RandomnessSubmissionPreview> {
+    const sourceAddress = await this.keyService.getPublicKey();
+    const feeEstimate = await this.feeEstimator.estimateFee(0);
+
+    return {
+      networkPassphrase: this.networkPassphrase,
+      sourceAddress,
+      feeEstimate,
+      contractId: this.contractId,
+      rpcUrl: this.rpcUrls[this.currentRpcIndex],
+    };
   }
 
   async submitReveal(raffleId: number, secret: string, nonce: string): Promise<SubmitResult> {
@@ -758,11 +780,8 @@ export class TxSubmitterService {
       this.logger.error('Missing configuration for TxSubmitter (RAFFLE_CONTRACT_ID).');
       return { txHash: '', ledger: 0, success: false };
     }
-    return this.submitContractCall('reveal_randomness', [
-      (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(secret, 32)),
-      (StellarSdk as any).xdr.ScVal.scvBytes(this.parseToBytes(nonce, 16)),
-    ]);
+    const inv = ContractBuilders.buildRevealRandomness(raffleId, secret, nonce);
+    return this.submitContractCall(inv.method, inv.args);
   }
 
   private async submitContractCall(method: string, args: any[]): Promise<SubmitResult> {
@@ -861,6 +880,7 @@ export class TxSubmitterService {
     this.logger.log(
       `Submitting randomness for raffle ${raffleId} with fee ${feeEstimate.cappedFee} stroops ` +
       `(p95: ${feeEstimate.priorityFee}, capped: ${feeEstimate.isCapped})`,
+      JSON.stringify({ raffle_id: raffleId } as OracleLogFields),
     );
 
     while (attempt < this.maxAttempts) {
@@ -916,7 +936,10 @@ export class TxSubmitterService {
           feeBump = Math.max(feeBump * 2, feeBump + 1);
           this.costEstimator.recordSubmissionRetry(raffleId, 'VRF');
         }
-        this.logger.error(`Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`);
+        this.logger.error(
+          `Error submitting randomness (attempt ${attempt}/${this.maxAttempts}): ${msg}`,
+          JSON.stringify({ raffle_id: raffleId, attempt, outcome: 'failure' } as OracleLogFields),
+        );
         lastError = e;
         if (!this.isRetriableError(e, msg)) {
           this.costEstimator.recordSubmissionFailure(raffleId, 'VRF', msg);
@@ -931,6 +954,7 @@ export class TxSubmitterService {
       attempt,
       lastError,
       `Persistent failure submitting randomness for raffle ${raffleId} after ${attempt} attempts.`,
+      { raffle_id: raffleId },
     );
     return { txHash: '', ledger: 0, success: false };
   }
@@ -971,19 +995,14 @@ export class TxSubmitterService {
     const account = await this.rpcServer.getAccount(sourceAddress);
     const fee = (Number((StellarSdk as any).BASE_FEE || 100) * feeStroops).toString();
 
-    const seedBytes = this.parseToBytes(randomness.seed, 32);
-    const proofBytes = this.parseToBytes(randomness.proof, 64);
-
     const contract = new (StellarSdk as any).Contract(this.contractId);
-    const u32 = (StellarSdk as any).xdr.ScVal.scvU32(raffleId >>> 0);
-    const seedVal = (StellarSdk as any).xdr.ScVal.scvBytes(seedBytes);
-    const proofVal = (StellarSdk as any).xdr.ScVal.scvBytes(proofBytes);
+    const inv = ContractBuilders.buildReceiveRandomness(raffleId, randomness);
 
     const tx = new (StellarSdk as any).TransactionBuilder(account, {
       fee,
       networkPassphrase: this.networkPassphrase,
     })
-      .addOperation(contract.call('receive_randomness', u32, seedVal, proofVal))
+      .addOperation(contract.call(inv.method, ...inv.args))
       .setTimeout(30)
       .build();
 
@@ -1066,8 +1085,12 @@ export class TxSubmitterService {
     attempts: number,
     error: unknown,
     logMessage: string,
+    fields?: OracleLogFields,
   ): Promise<void> {
-    this.logger.error(`${logMessage} Last error: ${this.errorToString(error)}`);
+    this.logger.error(
+      `${logMessage} Last error: ${this.errorToString(error)}`,
+      fields ? JSON.stringify({ ...fields, outcome: 'failure' } as OracleLogFields) : undefined,
+    );
     await this.sendFailureAlert(operation, attempts, error);
   }
 
@@ -1109,20 +1132,5 @@ export class TxSubmitterService {
 
   private delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  private parseToBytes(input: string, expectedLen?: number): Buffer {
-    if (!input) return Buffer.alloc(expectedLen ?? 0);
-    const hexLike = /^[0-9a-fA-F]+$/.test(input) && input.length % 2 === 0;
-    let buf = hexLike ? Buffer.from(input, 'hex') : Buffer.from(input, 'utf8');
-    if (expectedLen !== undefined) {
-      if (buf.length > expectedLen) buf = buf.subarray(0, expectedLen);
-      else if (buf.length < expectedLen) {
-        const padded = Buffer.alloc(expectedLen);
-        buf.copy(padded);
-        buf = padded;
-      }
-    }
-    return buf;
   }
 }

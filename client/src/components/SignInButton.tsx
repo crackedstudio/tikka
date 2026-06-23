@@ -6,8 +6,8 @@
  * Shows "Signed in as G..." with logout when authenticated
  */
 
-import { useWalletContext } from '../providers/WalletProvider';
-import { useAuthContext } from '../providers/AuthProvider';
+import { useWalletContext } from '../providers';
+import { useAuthContext } from '../providers';
 
 /**
  * Truncate a Stellar address for display

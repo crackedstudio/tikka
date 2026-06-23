@@ -59,7 +59,7 @@ export class LobstrAdapter extends WalletAdapter {
 
   async signTransaction(
     xdr: string,
-    opts?: { networkPassphrase?: string; accountToSign?: string },
+    _opts?: { networkPassphrase?: string; accountToSign?: string },
   ): Promise<SignTransactionResult> {
     try {
       const connected = await isConnected();

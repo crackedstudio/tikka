@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { Bell, BellOff, ChevronDown } from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
-import { useAuthContext } from '../providers/AuthProvider';
+import { useAuthContext } from '../providers';
 import type { NotificationChannel } from '../services/notificationService';
 
 interface NotificationSubscribeButtonProps {
