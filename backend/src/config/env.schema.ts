@@ -79,8 +79,8 @@ const envSchemaInner = z
     BACKFILL_RETRY_DELAY_MS: z.coerce.number().int().positive().default(1000),
     BACKFILL_HORIZON_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
 
-    // Redis — required for idempotency keys
-    REDIS_URL: z.string().url(),
+    // Redis — used for idempotency keys; empty string disables metadata cache-aside
+    REDIS_URL: z.union([z.string().url(), z.literal('')]).default(''),
 
     // JWT
     JWT_SECRET: z.string().min(32),
@@ -128,6 +128,10 @@ const envSchemaInner = z
     LOG_REDACT_FIELDS: z.string().optional(),
     // Metadata cache (Redis) — optional; empty REDIS_URL disables cache-aside
     METADATA_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
+
+    // Feature flags
+    FEATURE_RAFFLE_TICKET_PURCHASE: z.coerce.boolean().default(false),
+
     RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
     RAFFLE_CREATE_RATE_WINDOW_SECONDS: z.coerce
       .number()

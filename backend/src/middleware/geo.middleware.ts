@@ -58,6 +58,7 @@ export class GeoMiddleware implements NestMiddleware {
       // Never block the request due to a geo error
       const message = err instanceof Error ? err.message : String(err);
       this.logger.warn(`GeoMiddleware error: ${message}`);
+      (req.headers as Record<string, string>)['x-country-code'] = '';
     }
 
     next();

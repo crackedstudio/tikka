@@ -7,7 +7,7 @@ import {
   Query,
   BadRequestException,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { Public } from "./decorators/public.decorator";
 import { Throttle } from "../middleware/throttle.decorator";

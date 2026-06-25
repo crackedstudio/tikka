@@ -9,6 +9,8 @@ describe('MetadataService', () => {
     textSearch: jest.Mock;
     range: jest.Mock;
     eq: jest.Mock;
+    is: jest.Mock;
+    order: jest.Mock;
     maybeSingle: jest.Mock;
     upsert: jest.Mock;
     in: jest.Mock;
@@ -30,6 +32,8 @@ describe('MetadataService', () => {
       textSearch: jest.fn().mockReturnThis(),
       range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
       eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       upsert: jest.fn(),
       in: jest.fn().mockReturnThis(),
@@ -132,6 +136,7 @@ describe('MetadataService', () => {
       metadata_cid: null,
       created_at: '2020-01-01T00:00:00.000Z',
       updated_at: '2020-01-01T00:00:00.000Z',
+      deleted_at: null,
     };
     redis.get.mockResolvedValue(JSON.stringify(cached));
 
@@ -161,6 +166,7 @@ describe('MetadataService', () => {
       metadata_cid: null,
       created_at: '2020-01-01T00:00:00.000Z',
       updated_at: '2020-01-01T00:00:00.000Z',
+      deleted_at: null,
     };
     queryBuilder.maybeSingle.mockResolvedValue({ data: row, error: null });
 

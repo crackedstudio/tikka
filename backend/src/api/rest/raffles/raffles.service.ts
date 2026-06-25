@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  NotImplementedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   MetadataService,
   RaffleMetadata,
@@ -42,6 +48,7 @@ export class RafflesService {
   constructor(
     private readonly metadataService: MetadataService,
     private readonly indexerService: IndexerService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -155,13 +162,21 @@ export class RafflesService {
     payload: PurchaseTicketPayload,
     walletAddress: string,
   ): Promise<{ raffleId: number; quantity: number; buyer: string }> {
+    if (!this.config.get<boolean>('FEATURE_RAFFLE_TICKET_PURCHASE', false)) {
+      throw new NotImplementedException(
+        'Ticket purchase is disabled until blockchain integration is complete.',
+      );
+    }
+
     const raffle = await this.indexerService.getRaffle(raffleId);
     if (!raffle) {
       throw new NotFoundException(`Raffle ${raffleId} not found`);
     }
 
     // TODO: submit on-chain transaction via SDK and persist DB record
-    return { raffleId, quantity: payload.quantity, buyer: walletAddress };
+    throw new NotImplementedException(
+      'Ticket purchase blockchain integration is not yet implemented.',
+    );
   }
 
   /**

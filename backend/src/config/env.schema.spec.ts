@@ -46,6 +46,7 @@ describe('env.schema validate()', () => {
     expect(result.METADATA_CACHE_TTL_SECONDS).toBe(3600);
     expect(result.RAFFLE_CREATE_RATE_LIMIT).toBe(5);
     expect(result.RAFFLE_CREATE_RATE_WINDOW_SECONDS).toBe(600);
+    expect(result.FEATURE_RAFFLE_TICKET_PURCHASE).toBe(false);
     expect(result.ADMIN_IP_ALLOWLIST).toBe('');
   });
 
@@ -199,9 +200,10 @@ describe('env.schema validate()', () => {
     );
   });
 
-  it('throws when REDIS_URL is missing', () => {
+  it('defaults REDIS_URL to empty string when missing', () => {
     const { REDIS_URL: _, ...rest } = validEnv;
-    expect(() => validate(rest)).toThrow('Environment validation failed');
+    const result = validate(rest);
+    expect(result.REDIS_URL).toBe('');
   });
 
   it('throws when SUPABASE_URL is not a URL', () => {

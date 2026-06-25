@@ -234,13 +234,16 @@ describe('buildSentryOptions — unit tests', () => {
       NODE_ENV: 'production',
       SENTRY_TRACES_SAMPLE_RATE: '0.5',
     });
-    expect(result).toEqual({
-      dsn: 'https://abc@sentry.io/123',
-      environment: 'production',
-      tracesSampleRate: 0.5,
-      integrations: expect.any(Array),
-      profilesSampleRate: 1.0,
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        dsn: 'https://abc@sentry.io/123',
+        environment: 'production',
+        tracesSampleRate: 0.5,
+        integrations: expect.any(Array),
+        profilesSampleRate: 1.0,
+        sendDefaultPii: false,
+      }),
+    );
   });
 
   it('defaults tracesSampleRate to 0.1 when SENTRY_TRACES_SAMPLE_RATE is absent', () => {

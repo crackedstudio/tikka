@@ -33,26 +33,14 @@ export interface SearchMetadataOptions {
 }
 
 /** Payload for creating or updating raffle metadata */
-enum ValidationErrorReason {
-  TITLE_TOO_LONG = 'Title exceeds maximum length',
-  TITLE_EMPTY = 'Title cannot be empty',
-  DESCRIPTION_TOO_LONG = 'Description exceeds maximum length',
-  INVALID_URL = 'Invalid URL format',
-  UNSUPPORTED_IMAGE_TYPE = 'Unsupported image MIME type',
-  UNSAFE_CONTENT = 'Contains unsafe HTML/script content',
+export interface UpsertMetadataPayload {
+  title?: string;
+  description?: string;
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  category?: string | null;
+  metadata_cid?: string | null;
 }
-
-interface ValidationResult {
-  field: string;
-  reason: ValidationErrorReason;
-}
-
-/**
- * Validates raffle metadata payload for safety and moderation.
- * Throws BadRequestException with details if validation fails.
- */
-}
-
 
 const TABLE = 'raffle_metadata';
 
@@ -72,6 +60,12 @@ export class MetadataService {
 
   private getCacheTtlSeconds(): number {
     return this.config.get<number>('METADATA_CACHE_TTL_SECONDS', 600);
+  }
+
+  private validateMetadata(payload: UpsertMetadataPayload): void {
+    if (payload.title !== undefined && payload.title.trim().length === 0) {
+      throw new BadRequestException('Title cannot be empty');
+    }
   }
 
   /**

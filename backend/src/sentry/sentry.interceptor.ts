@@ -5,10 +5,9 @@ import * as Sentry from '@sentry/nestjs';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { setSentryRequestContext } from './sentry';
 
-interface AuthenticatedRequest extends FastifyRequest {
+type AuthenticatedRequest = FastifyRequest & {
   user?: { address?: string };
-  id?: string;
-}
+};
 
 @Injectable()
 export class SentryInterceptor implements NestInterceptor {

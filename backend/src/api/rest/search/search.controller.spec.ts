@@ -21,7 +21,7 @@ describe('SearchController', () => {
     const controller = new SearchController(searchService as unknown as SearchService);
 
     await expect(
-      (controller as any).search({ q: 'rare', limit: 1, offset: 5 }),
+      controller.search({ q: 'rare', limit: 1, offset: 5 }),
     ).resolves.toEqual({
       raffles: [
         {
@@ -48,9 +48,10 @@ describe('SearchController', () => {
     const searchService = { search: jest.fn() };
     const controller = new SearchController(searchService as unknown as SearchService);
 
-    await expect(
-      (controller as any).search({ q: 'a' }),
-    ).resolves.toEqual({ raffles: [], total: 0 });
+    await expect(controller.search({ q: 'a' })).resolves.toEqual({
+      raffles: [],
+      total: 0,
+    });
 
     expect(searchService.search).not.toHaveBeenCalled();
   });

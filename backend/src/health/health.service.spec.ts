@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthService } from './health.service';
+import { PushNotificationService } from '../services/push-notification.service';
 
 const originalFetch = global.fetch;
 let mockFetch: jest.Mock;
@@ -30,6 +31,19 @@ describe('HealthService', () => {
             },
             get: (key: string, def?: number) =>
               key === 'INDEXER_TIMEOUT_MS' ? 3000 : def,
+          },
+        },
+        {
+          provide: PushNotificationService,
+          useValue: {
+            isEnabled: jest.fn().mockReturnValue(false),
+            getDeliveryMetrics: jest.fn().mockReturnValue({
+              transientRetry: 0,
+              permanentInvalidToken: 0,
+              permanentOther: 0,
+              providerOutage: 0,
+              totalFailures: 0,
+            }),
           },
         },
       ],

@@ -85,7 +85,7 @@ export class ImageOptimizerService {
       primary: {
         buffer: primaryBuffer,
         width: originalWidth,
-        mimeType: 'image/webp',
+        mimeType: 'image/webp' as const,
       },
       variants,
     };
