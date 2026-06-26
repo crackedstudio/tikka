@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  NotImplementedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   MetadataService,
   RaffleMetadata,
@@ -42,6 +48,7 @@ export class RafflesService {
   constructor(
     private readonly metadataService: MetadataService,
     private readonly indexerService: IndexerService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -99,6 +106,53 @@ export class RafflesService {
   }
 
   /**
+   * Soft-delete raffle metadata. Creator can delete their own; admin bypass is
+   * handled at the controller level (AdminGuard). Here we enforce creator-only
+   * for the standard JWT path.
+   */
+  async deleteMetadata(
+    raffleId: number,
+    requesterAddress: string,
+  ): Promise<{ raffle_id: number; deleted_at: string }> {
+    const raffle = await this.indexerService.getRaffle(raffleId);
+    if (!raffle) {
+      throw new NotFoundException(`Raffle ${raffleId} not found`);
+    }
+
+    if (raffle.creator.toLowerCase() !== requesterAddress.toLowerCase()) {
+      throw new ForbiddenException(
+        `Only raffle creator ${raffle.creator} can delete metadata for raffle ${raffleId}`,
+      );
+    }
+
+    return this.softDeleteMetadata(raffleId);
+  }
+
+  /**
+   * Soft-delete raffle metadata (creator or admin).
+   * Callers must verify authorization before calling this method.
+   */
+  async softDeleteMetadata(raffleId: number): Promise<{ raffle_id: number; deleted_at: string }> {
+    const result = await this.metadataService.softDeleteMetadata(raffleId);
+    return { raffle_id: result.raffle_id, deleted_at: result.deleted_at as string };
+  }
+
+  /**
+   * Restore a soft-deleted raffle metadata record (admin only).
+   */
+  async restoreMetadata(raffleId: number): Promise<{ raffle_id: number }> {
+    const result = await this.metadataService.restoreMetadata(raffleId);
+    return { raffle_id: result.raffle_id };
+  }
+
+  /**
+   * Return all soft-deleted raffle metadata records (admin only).
+   */
+  async getArchivedMetadata() {
+    return this.metadataService.getArchivedMetadata();
+  }
+
+  /**
    * Purchase tickets for a raffle.
    * The actual on-chain transaction is submitted by the client via the SDK;
    * this endpoint records the intent and returns a confirmation.
@@ -108,13 +162,35 @@ export class RafflesService {
     payload: PurchaseTicketPayload,
     walletAddress: string,
   ): Promise<{ raffleId: number; quantity: number; buyer: string }> {
+    if (!this.config.get<boolean>('FEATURE_RAFFLE_TICKET_PURCHASE', false)) {
+      throw new NotImplementedException(
+        'Ticket purchase is disabled until blockchain integration is complete.',
+      );
+    }
+
     const raffle = await this.indexerService.getRaffle(raffleId);
     if (!raffle) {
       throw new NotFoundException(`Raffle ${raffleId} not found`);
     }
 
     // TODO: submit on-chain transaction via SDK and persist DB record
-    return { raffleId, quantity: payload.quantity, buyer: walletAddress };
+    throw new NotImplementedException(
+      'Ticket purchase blockchain integration is not yet implemented.',
+    );
+  }
+
+  /**
+   * Get recent participants for a raffle.
+   * Returns list of participant addresses with timestamps, optionally filtered by 'since' timestamp.
+   */
+  async getRecentParticipants(
+    raffleId: number,
+    sinceTimestamp: number = 0,
+  ): Promise<Array<{ address: string; timestamp: number }>> {
+    // TODO: Query blockchain events or database for ticket purchases
+    // For now, return empty array as placeholder
+    // This will be populated by the indexer service once ticket purchase events are indexed
+    return [];
   }
 
   private mergeRaffleDetail(

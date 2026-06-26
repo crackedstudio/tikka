@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { KeyProvider } from './key-provider.interface';
+import { KeyProvider, KeyProviderHealth } from './key-provider.interface';
 import { KeyProviderFactory } from './key-provider.factory';
 import { EnvKeyProvider } from './providers/env-key.provider';
 import * as StellarSdk from '@stellar/stellar-sdk';

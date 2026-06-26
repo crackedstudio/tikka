@@ -1,5 +1,5 @@
 import React from "react";
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 
 /**
  * Truncate a Stellar address for display

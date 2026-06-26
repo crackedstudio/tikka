@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
@@ -17,6 +17,7 @@ export interface RaffleMetadata {
   metadata_cid: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 export interface SearchMetadataResult {
@@ -61,6 +62,12 @@ export class MetadataService {
     return this.config.get<number>('METADATA_CACHE_TTL_SECONDS', 600);
   }
 
+  private validateMetadata(payload: UpsertMetadataPayload): void {
+    if (payload.title !== undefined && payload.title.trim().length === 0) {
+      throw new BadRequestException('Title cannot be empty');
+    }
+  }
+
   /**
    * Get metadata for multiple raffle IDs in a single query.
    * Returns a map of raffle_id → RaffleMetadata for found records only.
@@ -71,7 +78,8 @@ export class MetadataService {
     const { data, error } = await this.client
       .from(TABLE)
       .select('*')
-      .in('raffle_id', raffleIds);
+      .in('raffle_id', raffleIds)
+      .is('deleted_at', null);
 
     if (error) {
       throw new Error(`Failed to fetch batch metadata: ${error.message}`);
@@ -109,6 +117,7 @@ export class MetadataService {
       .from(TABLE)
       .select('*')
       .eq('raffle_id', raffleId)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (error) {
@@ -155,6 +164,7 @@ export class MetadataService {
       let builder = this.client
         .from(TABLE)
         .select('*', { count: 'exact' })
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .range(off, off + lim - 1);
 
@@ -195,9 +205,13 @@ export class MetadataService {
     raffleId: number,
     payload: UpsertMetadataPayload,
   ): Promise<RaffleMetadata> {
+    // Validate payload before processing
+    this.validateMetadata(payload);
+
     const normalizedImageUrls = payload.image_urls
       ?.map((url) => url?.trim())
       .filter((url): url is string => Boolean(url));
+
 
     const metadataCid = await this.pinningService.pin({
       raffle_id: raffleId,
@@ -233,5 +247,74 @@ export class MetadataService {
     await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
 
     return saved;
+  }
+
+  /**
+   * Soft-delete raffle metadata by setting deleted_at = now().
+   * Returns the updated record.
+   */
+  async softDeleteMetadata(raffleId: number): Promise<RaffleMetadata> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('raffle_id', raffleId)
+      .is('deleted_at', null)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to soft-delete metadata for raffle ${raffleId}: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error(`No active metadata found for raffle ${raffleId}`);
+    }
+
+    await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
+
+    return data as RaffleMetadata;
+  }
+
+  /**
+   * Restore a soft-deleted raffle metadata record by clearing deleted_at.
+   * Returns the restored record.
+   */
+  async restoreMetadata(raffleId: number): Promise<RaffleMetadata> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .update({ deleted_at: null })
+      .eq('raffle_id', raffleId)
+      .not('deleted_at', 'is', null)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to restore metadata for raffle ${raffleId}: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error(`No archived metadata found for raffle ${raffleId}`);
+    }
+
+    await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
+
+    return data as RaffleMetadata;
+  }
+
+  /**
+   * Return all soft-deleted raffle metadata records (admin-only).
+   */
+  async getArchivedMetadata(): Promise<RaffleMetadata[]> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('*')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch archived metadata: ${error.message}`);
+    }
+
+    return (data ?? []) as RaffleMetadata[];
   }
 }

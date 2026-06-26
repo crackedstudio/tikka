@@ -7,7 +7,7 @@ import {
   Query,
   BadRequestException,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { Public } from "./decorators/public.decorator";
 import { Throttle } from "../middleware/throttle.decorator";
@@ -17,8 +17,10 @@ import {
   GetNonceQuerySchema,
   VerifyBodySchema,
   RefreshBodySchema,
+  SignOutBodySchema,
   VerifyBodyDto,
   RefreshBodyDto,
+  SignOutBodyDto,
 } from "./auth.schema";
 
 @ApiTags("Authentication")
@@ -84,6 +86,28 @@ export class AuthController {
     } catch (err) {
       throw new BadRequestException(
         err instanceof Error ? err.message : "Refresh failed",
+      );
+    }
+  }
+
+  /**
+   * POST /auth/sign-out — Revoke the current refresh token family (sign out).
+   *
+   * Rate limit: 10 req / 60 s per IP.
+   */
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  @Post("sign-out")
+  @ApiOperation({ summary: "Revoke refresh token family and sign out" })
+  @ApiResponse({ status: 201, description: "Session revoked" })
+  @ApiResponse({ status: 400, description: "Sign-out failed" })
+  @UsePipes(new (createZodPipe(SignOutBodySchema))())
+  async signOut(@Body() body: SignOutBodyDto) {
+    try {
+      await this.authService.signOut(body.refreshToken);
+      return { message: "Signed out" };
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Sign-out failed",
       );
     }
   }

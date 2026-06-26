@@ -97,6 +97,7 @@ export class VrfService {
       publicKey,
       requestId,
       proof,
+      raffleId,
     });
     if (!verifiedProof.valid || !verifiedProof.seed) return false;
 
@@ -116,11 +117,13 @@ export class VrfService {
     requestId: string;
     proof: string;
     publicKey: string | Buffer;
+    raffleId?: number;
   }): { valid: boolean; seed?: string } {
     return this.ed25519Provider.verifyProof(
       input.publicKey,
       input.requestId,
       input.proof,
+      input.raffleId,
     );
   }
 
