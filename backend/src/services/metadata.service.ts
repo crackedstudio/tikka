@@ -43,6 +43,48 @@ export interface UpsertMetadataPayload {
 
 const TABLE = 'raffle_metadata';
 
+const METADATA_TITLE_MAX_LENGTH = 100;
+const METADATA_DESCRIPTION_MAX_LENGTH = 2000;
+const METADATA_CATEGORY_MAX_LENGTH = 50;
+/** Rejects strings that contain HTML tags or common XSS vectors. */
+const DANGEROUS_CONTENT_RE = /<[^>]*>|javascript\s*:|data\s*:/i;
+
+function validateMetadata(payload: UpsertMetadataPayload): void {
+  if (payload.title !== undefined && payload.title !== null) {
+    if (payload.title.length > METADATA_TITLE_MAX_LENGTH) {
+      throw new Error(
+        `title exceeds maximum length of ${METADATA_TITLE_MAX_LENGTH} characters`,
+      );
+    }
+    if (DANGEROUS_CONTENT_RE.test(payload.title)) {
+      throw new Error('title contains disallowed content (HTML or script)');
+    }
+  }
+
+  if (payload.description !== undefined && payload.description !== null) {
+    if (payload.description.length > METADATA_DESCRIPTION_MAX_LENGTH) {
+      throw new Error(
+        `description exceeds maximum length of ${METADATA_DESCRIPTION_MAX_LENGTH} characters`,
+      );
+    }
+    if (DANGEROUS_CONTENT_RE.test(payload.description)) {
+      throw new Error('description contains disallowed content (HTML or script)');
+    }
+  }
+
+  if (payload.category !== undefined && payload.category !== null) {
+    const trimmed = payload.category.trim();
+    if (trimmed.length > METADATA_CATEGORY_MAX_LENGTH) {
+      throw new Error(
+        `category exceeds maximum length of ${METADATA_CATEGORY_MAX_LENGTH} characters`,
+      );
+    }
+    if (DANGEROUS_CONTENT_RE.test(trimmed)) {
+      throw new Error('category contains disallowed content (HTML or script)');
+    }
+  }
+}
+
 function cacheKeyForRaffle(raffleId: number): string {
   return `tikka:raffle_metadata:${raffleId}`;
 }
@@ -195,6 +237,8 @@ export class MetadataService {
     raffleId: number,
     payload: UpsertMetadataPayload,
   ): Promise<RaffleMetadata> {
+    validateMetadata(payload);
+
     const normalizedImageUrls = payload.image_urls
       ?.map((url) => url?.trim())
       .filter((url): url is string => Boolean(url));
