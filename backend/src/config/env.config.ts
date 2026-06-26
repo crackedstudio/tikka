@@ -44,8 +44,15 @@ export const env = {
     };
   },
   get jwt() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret || secret.length < 32) {
+      throw new Error(
+        'JWT_SECRET must be set to a random string of at least 32 characters. ' +
+        'Refusing to start with a missing or weak secret.',
+      );
+    }
     return {
-      secret: process.env.JWT_SECRET ?? "dev-secret-change-in-production",
+      secret,
       expiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
       refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? "30d",
     };
