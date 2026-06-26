@@ -1,4 +1,4 @@
-import { Inject, Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, ConflictException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
 
@@ -9,6 +9,7 @@ export interface NotificationSubscription {
   user_address: string;
   channel: string;
   created_at: string;
+  status?: string; // 'active' | 'revoked'
 }
 
 /** Payload for creating a subscription */
@@ -28,14 +29,14 @@ export class NotificationService {
 
   /**
    * Subscribe user to raffle notifications
-   * Returns existing subscription if already subscribed
+   * Returns existing active subscription if already subscribed
    */
   async subscribe(payload: CreateSubscriptionPayload): Promise<NotificationSubscription> {
     const { raffleId, userAddress, channel = 'email' } = payload;
 
-    // Check if subscription already exists
+    // Check if subscription already exists and is active
     const existing = await this.getSubscription(raffleId, userAddress);
-    if (existing) {
+    if (existing && existing.status !== 'revoked') {
       return existing;
     }
 
@@ -44,13 +45,10 @@ export class NotificationService {
       user_address: userAddress,
       channel,
       created_at: new Date().toISOString(),
+      status: 'active',
     };
 
-    const { data, error } = await this.client
-      .from(TABLE)
-      .insert(row)
-      .select()
-      .single();
+    const { data, error } = await this.client.from(TABLE).insert(row).select().single();
 
     if (error) {
       // Handle unique constraint violation
@@ -64,17 +62,35 @@ export class NotificationService {
   }
 
   /**
-   * Unsubscribe user from raffle notifications
+   * Unsubscribe (mark revoked)
    */
   async unsubscribe(raffleId: number, userAddress: string): Promise<void> {
     const { error } = await this.client
       .from(TABLE)
-      .delete()
+      .update({ status: 'revoked' })
       .eq('raffle_id', raffleId)
       .eq('user_address', userAddress);
 
     if (error) {
-      throw new Error(`Failed to delete subscription: ${error.message}`);
+      throw new Error(`Failed to revoke subscription: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update a subscription (e.g., channel)
+   */
+  async updateSubscription(id: string, dto: { channel?: string }): Promise<void> {
+    const updates: Record<string, any> = {};
+    if (dto.channel) updates.channel = dto.channel;
+    if (Object.keys(updates).length === 0) return;
+
+    const { error } = await this.client
+      .from(TABLE)
+      .update(updates)
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to update subscription: ${error.message}`);
     }
   }
 
@@ -138,6 +154,6 @@ export class NotificationService {
    */
   async isSubscribed(raffleId: number, userAddress: string): Promise<boolean> {
     const subscription = await this.getSubscription(raffleId, userAddress);
-    return subscription !== null;
+    return subscription !== null && subscription.status !== 'revoked';
   }
 }

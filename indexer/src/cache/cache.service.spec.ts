@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CacheService } from './cache.service';
 import { ConfigService } from '@nestjs/config';
+import { CacheKeys } from './cache.keys';
+import { CacheInvalidations } from './cache.invalidations';
 import RedisMock from 'ioredis-mock';
 
 jest.mock('ioredis', () => {
@@ -90,5 +92,93 @@ describe('CacheService', () => {
     await service.invalidatePlatformStats();
     stats = await service.getPlatformStats();
     expect(stats).toBeNull();
+  });
+
+  // --- CacheKeys unit tests ---
+
+  describe('CacheKeys', () => {
+    it('generates correct static keys', () => {
+      expect(CacheKeys.raffle.active()).toBe('raffle:active');
+      expect(CacheKeys.leaderboard.global()).toBe('leaderboard');
+      expect(CacheKeys.stats.platform()).toBe('stats:platform');
+    });
+
+    it('generates correct dynamic keys', () => {
+      expect(CacheKeys.raffle.detail('abc')).toBe('raffle:abc');
+      expect(CacheKeys.user.profile('GADDR')).toBe('user:GADDR');
+    });
+
+    it('generates distinct keys for different ids', () => {
+      expect(CacheKeys.raffle.detail('r1')).not.toBe(CacheKeys.raffle.detail('r2'));
+      expect(CacheKeys.user.profile('A')).not.toBe(CacheKeys.user.profile('B'));
+    });
+  });
+
+  // --- CacheInvalidations tests ---
+
+  describe('CacheInvalidations.onPurchase', () => {
+    it('invalidates raffle detail, active list, leaderboard, and buyer profile', async () => {
+      const raffleId = 'raffle1';
+      const buyer = 'GBUYER';
+
+      await service.setRaffleDetail(raffleId, { seats: 10 });
+      await service.setActiveRaffles([{ id: raffleId }]);
+      await service.setLeaderboard([{ address: buyer }]);
+      await service.setUserProfile(buyer, { wins: 0 });
+
+      await CacheInvalidations.onPurchase(service, raffleId, buyer);
+
+      expect(await service.getRaffleDetail(raffleId)).toBeNull();
+      expect(await service.getActiveRaffles()).toBeNull();
+      expect(await service.getLeaderboard()).toBeNull();
+      expect(await service.getUserProfile(buyer)).toBeNull();
+    });
+
+    it('does not throw when keys are missing', async () => {
+      await expect(
+        CacheInvalidations.onPurchase(service, 'nonexistent', 'GNOBODY'),
+      ).resolves.not.toThrow();
+    });
+
+    it('does not throw on repeated calls', async () => {
+      await CacheInvalidations.onPurchase(service, 'r1', 'GADDR');
+      await expect(
+        CacheInvalidations.onPurchase(service, 'r1', 'GADDR'),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('CacheInvalidations.onFinalize', () => {
+    it('invalidates raffle detail, active list, leaderboard, platform stats, and winner profile', async () => {
+      const raffleId = 'raffle2';
+      const winner = 'GWINNER';
+
+      await service.setRaffleDetail(raffleId, { seats: 5 });
+      await service.setActiveRaffles([{ id: raffleId }]);
+      await service.setLeaderboard([{ address: winner, wins: 1 }]);
+      await service.setPlatformStats({ totalRaffles: 42 });
+      await service.setUserProfile(winner, { wins: 1 });
+
+      await CacheInvalidations.onFinalize(service, raffleId, winner);
+
+      expect(await service.getRaffleDetail(raffleId)).toBeNull();
+      expect(await service.getActiveRaffles()).toBeNull();
+      expect(await service.getLeaderboard()).toBeNull();
+      expect(await service.getPlatformStats()).toBeNull();
+      expect(await service.getUserProfile(winner)).toBeNull();
+    });
+
+    it('does not throw when keys are missing', async () => {
+      await expect(
+        CacheInvalidations.onFinalize(service, 'nonexistent', 'GNOBODY'),
+      ).resolves.not.toThrow();
+    });
+
+    it('does not throw on repeated calls', async () => {
+      await CacheInvalidations.onFinalize(service, 'r2', 'GADDR');
+      await expect(
+        CacheInvalidations.onFinalize(service, 'r2', 'GADDR'),
+      ).resolves.not.toThrow();
+    });
   });
 });

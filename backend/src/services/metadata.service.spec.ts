@@ -9,11 +9,13 @@ describe('MetadataService', () => {
     textSearch: jest.Mock;
     range: jest.Mock;
     eq: jest.Mock;
+    is: jest.Mock;
+    order: jest.Mock;
     maybeSingle: jest.Mock;
     upsert: jest.Mock;
     in: jest.Mock;
   };
-  let client: { from: jest.Mock };
+  let client: { from: jest.Mock; rpc: jest.Mock };
   let redis: jest.Mocked<
     Pick<
       MetadataRedisService,
@@ -22,6 +24,7 @@ describe('MetadataService', () => {
   >;
   let metrics: MetadataCacheMetricsService;
   let config: { get: jest.Mock };
+  let pinningService: { pin: jest.Mock };
 
   beforeEach(() => {
     queryBuilder = {
@@ -29,6 +32,8 @@ describe('MetadataService', () => {
       textSearch: jest.fn().mockReturnThis(),
       range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
       eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       upsert: jest.fn(),
       in: jest.fn().mockReturnThis(),
@@ -36,6 +41,7 @@ describe('MetadataService', () => {
 
     client = {
       from: jest.fn().mockReturnValue(queryBuilder),
+      rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
 
     redis = {
@@ -43,6 +49,10 @@ describe('MetadataService', () => {
       get: jest.fn().mockResolvedValue(null),
       setEx: jest.fn().mockResolvedValue(undefined),
       del: jest.fn().mockResolvedValue(undefined),
+    };
+
+    pinningService = {
+      pin: jest.fn().mockResolvedValue(null),
     };
 
     metrics = new MetadataCacheMetricsService();
@@ -53,6 +63,7 @@ describe('MetadataService', () => {
 
     service = new MetadataService(
       client as any,
+      pinningService as any,
       config as any,
       redis as unknown as MetadataRedisService,
       metrics,
@@ -62,13 +73,14 @@ describe('MetadataService', () => {
   it('searches metadata using full-text search vector', async () => {
     await service.searchMetadata('raffle');
 
-    expect(queryBuilder.textSearch).toHaveBeenCalledWith(
-      'search_vector',
-      'raffle',
-      expect.objectContaining({
-        config: 'english',
-        type: 'websearch',
-      }),
+    expect(client.rpc).toHaveBeenCalledWith(
+      'search_raffles_ranked',
+      {
+        search_query: 'raffle',
+        p_category: null,
+        p_limit: 20,
+        p_offset: 0,
+      },
     );
   });
 
@@ -124,6 +136,7 @@ describe('MetadataService', () => {
       metadata_cid: null,
       created_at: '2020-01-01T00:00:00.000Z',
       updated_at: '2020-01-01T00:00:00.000Z',
+      deleted_at: null,
     };
     redis.get.mockResolvedValue(JSON.stringify(cached));
 
@@ -153,6 +166,7 @@ describe('MetadataService', () => {
       metadata_cid: null,
       created_at: '2020-01-01T00:00:00.000Z',
       updated_at: '2020-01-01T00:00:00.000Z',
+      deleted_at: null,
     };
     queryBuilder.maybeSingle.mockResolvedValue({ data: row, error: null });
 

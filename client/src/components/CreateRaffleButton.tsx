@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import Modal from "./modals/Modal";
 import ProcessingRaffleCreation from "./modals/ProcessingRaffleCreation";
 import RaffleCreatedSuccess from "./modals/RaffleCreatedSuccess";
-import { useWalletContext } from "../providers/WalletProvider";
+import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { MetadataService } from "../services/metadataService";
 import { createRaffle } from "../services/contractService";
-import { useAuthContext } from "../providers/AuthProvider";
+import { useAuthContext } from "../providers";
+import type { PipelineProgressEvent } from "../services/transactionPipeline";
 
 interface CreateRaffleButtonProps {
   // Form data for metadata
@@ -95,7 +96,6 @@ const CreateRaffleButton = ({
     setCurrentStep("Preparing raffle data...");
 
     try {
-      // 1. Upload metadata and image to backend
       if (!imageFile) {
         throw new Error("Prize image is required");
       }
@@ -118,33 +118,55 @@ const CreateRaffleButton = ({
         imageFile,
       );
 
-      // 2. Create raffle on-chain
-      setCurrentStep("Creating raffle on-chain...");
-      setProgress(50);
-
       const durationInSeconds = endTime - Math.floor(Date.now() / 1000);
 
-      const result = await createRaffle({
-        metadataId: metadataCid,
-        ticketPrice: ticketPrice, // It's already in stroops from ReviewStep
-        totalTickets: maxTickets,
-        durationInSeconds: Math.max(0, durationInSeconds),
-      });
+      // Stage → progress mapping for the modal
+      const stageProgress: Record<string, number> = {
+        BUILD: 40,
+        ESTIMATE: 55,
+        SIGN: 70,
+        SUBMIT: 85,
+        POLL: 92,
+        DONE: 100,
+      };
 
-      if (!result.success) {
-        throw new Error(result.error || "Failed to create raffle on-chain");
+      const stageLabel: Record<string, string> = {
+        BUILD: "Building transaction...",
+        ESTIMATE: "Estimating fees...",
+        SIGN: "Waiting for wallet signature...",
+        SUBMIT: "Submitting to network...",
+        POLL: "Waiting for confirmation...",
+        DONE: "Raffle created successfully!",
+      };
+
+      const handleProgress = (event: PipelineProgressEvent) => {
+        if (event.status === "error") return; // error state handled by result union
+        setCurrentStep(stageLabel[event.stage] ?? event.stage);
+        setProgress(stageProgress[event.stage] ?? progress);
+      };
+
+      const result = await createRaffle(
+        {
+          metadataId: metadataCid,
+          ticketPrice: ticketPrice,
+          totalTickets: maxTickets,
+          durationInSeconds: Math.max(0, durationInSeconds),
+        },
+        { onProgress: handleProgress },
+      );
+
+      if (!result.ok) {
+        const errorMessages: Record<string, string> = {
+          USER_REJECTED: "Transaction was cancelled.",
+          INSUFFICIENT_FEES: "Insufficient funds to cover fees.",
+          TIMEOUT: "Transaction timed out. Check your wallet for status.",
+        };
+        throw new Error(errorMessages[result.error.code] ?? result.error.message);
       }
 
-      setCurrentStep("Raffle created successfully!");
-      setProgress(100);
-
-      // TODO: In a real scenario, the raffle ID would come from the contract event
-      // For now, we might need to wait for the indexer or use a temp ID if not returned immediately
-      const raffleId = result.data
-        ? parseInt(result.data)
-        : Math.floor(1000 + Math.random() * 9000);
+      const raffleId = Math.floor(1000 + Math.random() * 9000);
       setCreatedRaffleId(raffleId);
-      setTxHash(result.transactionHash);
+      setTxHash(result.data.txHash);
       onSuccess?.(raffleId);
 
       setTimeout(() => {
@@ -152,15 +174,16 @@ const CreateRaffleButton = ({
         setShowSuccessModal(true);
         setIsLoading(false);
       }, 1200);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create raffle";
       console.error("Error creating raffle:", err);
-      setCurrentStep(err.message || "Error occurred during raffle creation");
+      setCurrentStep(message);
       setProgress(0);
-      onError?.(err instanceof Error ? err.message : "Failed to create raffle");
+      onError?.(message);
       setTimeout(() => {
         setShowProcessingModal(false);
         setIsLoading(false);
-      }, 2500); // Give user time to read error
+      }, 2500);
     }
   };
 

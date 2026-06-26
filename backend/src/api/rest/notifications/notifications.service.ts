@@ -51,7 +51,14 @@ export class NotificationsService {
    * Unsubscribe user from raffle notifications
    */
   async unsubscribe(raffleId: number, userAddress: string): Promise<void> {
-    return this.notificationService.unsubscribe(raffleId, userAddress);
+    await this.notificationService.unsubscribe(raffleId, userAddress);
+  }
+
+  /**
+   * Update a subscription (e.g., channel)
+   */
+  async updateSubscription(id: string, dto: { channel?: string }): Promise<void> {
+    await this.notificationService.updateSubscription(id, dto);
   }
 
   /**

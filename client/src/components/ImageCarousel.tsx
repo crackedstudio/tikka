@@ -55,12 +55,13 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
         <>
             <div className="w-full">
                 {/* Main Image Display */}
-                <div className="relative rounded-3xl overflow-hidden mb-4" style={{ aspectRatio: '16/9' }}>
+                <div className="relative rounded-3xl overflow-hidden mb-4">
                     <LazyImage
                         src={images[currentIndex]}
                         alt={`${alt} ${currentIndex + 1}`}
+                        aspectRatio={16/9}
                         className="w-full h-full object-cover cursor-pointer"
-                        containerClassName="w-full h-full"
+                        containerClassName="w-full rounded-3xl"
                         blurUp={true}
                         onLoad={() => {
                             // Image loaded successfully

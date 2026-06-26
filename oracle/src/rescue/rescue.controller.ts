@@ -54,6 +54,15 @@ export class RescueController {
   }
 
   /**
+   * Stuck-draw detection report (queue + lag monitor + contract).
+   * GET /rescue/stuck-draws
+   */
+  @Get('rescue/stuck-draws')
+  async getStuckDraws() {
+    return this.rescueService.getStuckDrawReport();
+  }
+
+  /**
    * Get failed jobs
    * GET /rescue/failed-jobs
    */
