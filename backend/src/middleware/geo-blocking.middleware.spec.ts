@@ -1,22 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GeoBlockingMiddleware } from './geo-blocking.middleware';
 import { GeoService } from '../services/geo.service';
+import { ConfigService } from '@nestjs/config';
 import { ForbiddenException } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
 
 describe('GeoBlockingMiddleware', () => {
   let middleware: GeoBlockingMiddleware;
   let geoService: jest.Mocked<GeoService>;
+  let configService: jest.Mocked<ConfigService>;
   let mockRequest: any;
   let mockResponse: any;
   let mockNext: jest.Mock;
 
   beforeEach(async () => {
-    // Mock environment variables
-    process.env.BLOCKED_COUNTRIES = 'US,NG,GB';
-
     geoService = {
       checkAccess: jest.fn(),
+    } as any;
+
+    configService = {
+      get: jest.fn((key: string, defaultValue?: any) => {
+        if (key === 'GEO_BLOCK_COUNTRIES') return 'US,NG,GB';
+        return defaultValue;
+      }),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -25,6 +31,10 @@ describe('GeoBlockingMiddleware', () => {
         {
           provide: GeoService,
           useValue: geoService,
+        },
+        {
+          provide: ConfigService,
+          useValue: configService,
         },
       ],
     }).compile();
@@ -45,46 +55,45 @@ describe('GeoBlockingMiddleware', () => {
     mockNext = jest.fn();
   });
 
-  afterEach(() => {
-    delete process.env.BLOCKED_COUNTRIES;
-  });
-
   describe('constructor', () => {
-    it('should parse blocked countries from environment variable', () => {
-      process.env.BLOCKED_COUNTRIES = 'US,NG,GB';
-      const newMiddleware = new GeoBlockingMiddleware(geoService);
+    it('should parse blocked countries from ConfigService', () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'GEO_BLOCK_COUNTRIES') return 'US,NG,GB';
+        return undefined;
+      });
+      const newMiddleware = new GeoBlockingMiddleware(geoService, configService);
       expect(newMiddleware['blockedCountries']).toEqual(['US', 'NG', 'GB']);
     });
 
     it('should handle empty blocked countries', () => {
-      process.env.BLOCKED_COUNTRIES = '';
-      const newMiddleware = new GeoBlockingMiddleware(geoService);
+      configService.get.mockImplementation(() => '');
+      const newMiddleware = new GeoBlockingMiddleware(geoService, configService);
       expect(newMiddleware['blockedCountries']).toEqual([]);
     });
 
     it('should handle wildcard allow-all', () => {
-      process.env.BLOCKED_COUNTRIES = '*';
-      const newMiddleware = new GeoBlockingMiddleware(geoService);
+      configService.get.mockImplementation(() => '*');
+      const newMiddleware = new GeoBlockingMiddleware(geoService, configService);
       expect(newMiddleware['blockedCountries']).toEqual([]);
     });
 
     it('should filter invalid country codes', () => {
-      process.env.BLOCKED_COUNTRIES = 'US,NG,INVALID,GB,123';
-      const newMiddleware = new GeoBlockingMiddleware(geoService);
+      configService.get.mockImplementation(() => 'US,NG,INVALID,GB,123');
+      const newMiddleware = new GeoBlockingMiddleware(geoService, configService);
       expect(newMiddleware['blockedCountries']).toEqual(['US', 'NG', 'GB']);
     });
 
     it('should handle lowercase country codes', () => {
-      process.env.BLOCKED_COUNTRIES = 'us,ng,gb';
-      const newMiddleware = new GeoBlockingMiddleware(geoService);
+      configService.get.mockImplementation(() => 'us,ng,gb');
+      const newMiddleware = new GeoBlockingMiddleware(geoService, configService);
       expect(newMiddleware['blockedCountries']).toEqual(['US', 'NG', 'GB']);
     });
   });
 
   describe('use', () => {
     it('should allow request when no countries are blocked', async () => {
-      process.env.BLOCKED_COUNTRIES = '';
-      const newMiddleware = new GeoBlockingMiddleware(geoService);
+      configService.get.mockImplementation(() => '');
+      const newMiddleware = new GeoBlockingMiddleware(geoService, configService);
 
       await newMiddleware.use(mockRequest as FastifyRequest, mockResponse as FastifyReply, mockNext);
 
@@ -93,8 +102,8 @@ describe('GeoBlockingMiddleware', () => {
     });
 
     it('should allow request when wildcard is set', async () => {
-      process.env.BLOCKED_COUNTRIES = '*';
-      const newMiddleware = new GeoBlockingMiddleware(geoService);
+      configService.get.mockImplementation(() => '*');
+      const newMiddleware = new GeoBlockingMiddleware(geoService, configService);
 
       await newMiddleware.use(mockRequest as FastifyRequest, mockResponse as FastifyReply, mockNext);
 

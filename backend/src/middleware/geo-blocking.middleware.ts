@@ -1,11 +1,11 @@
 import { Injectable, Logger, NestMiddleware, ForbiddenException } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { ConfigService } from '@nestjs/config';
 import { GeoService } from '../services/geo.service';
-import { env } from '../config/env.config';
 
 /**
  * GeoBlockingMiddleware — blocks requests from restricted geographic regions
- * based on the BLOCKED_COUNTRIES environment variable.
+ * based on the GEO_BLOCK_COUNTRIES environment variable.
  *
  * This middleware uses the GeoService.checkAccess method to determine if a request
  * should be allowed or blocked based on the client's IP address and country.
@@ -17,13 +17,13 @@ import { env } from '../config/env.config';
  *     the country from the client IP using GeoService
  *
  * Environment configuration:
- *   - BLOCKED_COUNTRIES: Comma-separated list of ISO 3166-1 alpha-2 country codes
- *                        to block (e.g., "US,NG,GB"). Empty string or "*" allows all.
+ *   - GEO_BLOCK_COUNTRIES: Comma-separated list of ISO 3166-1 alpha-2 country codes
+ *                          to block (e.g., "US,NG,GB"). Empty string or "*" allows all.
  *   - GEO_PROVIDER_URL: URL for IP geolocation service (defaults to ip-api.com)
  *   - GEO_TIMEOUT_MS: Timeout for geolocation requests (defaults to 3000ms)
  *
  * Local development override:
- *   Set BLOCKED_COUNTRIES="*" to disable all geo-blocking during local development.
+ *   Set GEO_BLOCK_COUNTRIES="*" to disable all geo-blocking during local development.
  *
  * Registration: Can be applied globally in AppModule or selectively to specific routes.
  */
@@ -32,8 +32,13 @@ export class GeoBlockingMiddleware implements NestMiddleware {
   private readonly logger = new Logger(GeoBlockingMiddleware.name);
   private readonly blockedCountries: string[];
 
-  constructor(private readonly geoService: GeoService) {
-    this.blockedCountries = this.parseBlockedCountries(env.blockedCountries);
+  constructor(
+    private readonly geoService: GeoService,
+    private readonly configService: ConfigService,
+  ) {
+    this.blockedCountries = this.parseBlockedCountries(
+      this.configService.get<string>('GEO_BLOCK_COUNTRIES', '')
+    );
   }
 
   /**
