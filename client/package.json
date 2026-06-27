@@ -23,6 +23,8 @@
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
         "@stellar/stellar-sdk": "^14.4.3",
         "@supabase/supabase-js": "^2.76.1",
+        "@vercel/analytics": "^1.5.0",
+        "@vercel/speed-insights": "^1.2.0",
         "@tailwindcss/vite": "^4.1.13",
         "canvas-confetti": "^1.9.4",
         "i18next": "^26.0.7",

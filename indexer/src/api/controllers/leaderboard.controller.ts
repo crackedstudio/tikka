@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { UserEntity } from '../../database/entities/user.entity';
 import { CacheService } from '../../cache/cache.service';
 import {
@@ -9,6 +10,7 @@ import {
   LeaderboardEntryDto,
 } from './dto/leaderboard.dto';
 
+@ApiTags('leaderboard')
 @Controller('leaderboard')
 export class LeaderboardController {
   constructor(
@@ -17,6 +19,12 @@ export class LeaderboardController {
     private readonly cacheService: CacheService,
   ) {}
 
+  @ApiOperation({ summary: 'Cursor-paginated leaderboard', description: 'Returns users ranked by wins, volume, or ticket count.' })
+  @ApiQuery({ name: 'by', required: false, enum: ['wins', 'volume', 'tickets'] })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'cursor', required: false })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: LeaderboardResponseDto })
   @Get()
   async getLeaderboard(
     @Query('by') by: LeaderboardMode = 'wins',
