@@ -1,6 +1,8 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { captureIngestionError } from '../sentry/sentry';
+import { getRequestId } from '../middleware/request-id.context';
+import { REQUEST_ID_HEADER } from '../middleware/request-id.middleware';
 import { BackfillLock } from './backfill-lock';
 
 // ── Response types aligned with indexer API (ARCHITECTURE §3) ─────────────────
@@ -218,9 +220,15 @@ export class IndexerService {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
+    const requestId = getRequestId();
+    const extraHeaders: Record<string, string> = requestId
+      ? { [REQUEST_ID_HEADER]: requestId }
+      : {};
+
     try {
       const res = await fetch(url, {
         ...init,
+        headers: { ...(init?.headers as Record<string, string>), ...extraHeaders },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

@@ -1,5 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { requestIdStorage } from './request-id.context';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
 
@@ -19,6 +20,6 @@ export class RequestIdMiddleware implements NestMiddleware {
     req.headers[REQUEST_ID_HEADER] = requestId;
     res.setHeader(REQUEST_ID_HEADER, requestId);
 
-    next();
+    requestIdStorage.run(requestId, next);
   }
 }

@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Horizon } from '@stellar/stellar-sdk';
 import { env } from '../config/env.config';
+import { getRequestId } from '../middleware/request-id.context';
+import { REQUEST_ID_HEADER } from '../middleware/request-id.middleware';
 import {
   HorizonLedgerData,
   HorizonTransactionRecord,
@@ -22,6 +24,16 @@ export class HorizonClientService {
     // set it on the underlying HTTP client defaults instead.
     (this.server.httpClient.defaults as Record<string, unknown>).timeout =
       timeoutMs;
+
+    // Forward X-Request-Id on every Horizon outbound call.
+    this.server.httpClient.interceptors.request.use((config) => {
+      const requestId = getRequestId();
+      if (requestId) {
+        config.headers = config.headers ?? {};
+        (config.headers as Record<string, string>)[REQUEST_ID_HEADER] = requestId;
+      }
+      return config;
+    });
   }
 
   async fetchLedger(sequence: number): Promise<HorizonLedgerData | null> {

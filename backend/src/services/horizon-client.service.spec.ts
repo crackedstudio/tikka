@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { HorizonClientService } from './horizon-client.service';
+import { requestIdStorage } from '../middleware/request-id.context';
+import { REQUEST_ID_HEADER } from '../middleware/request-id.middleware';
 
 // ---------------------------------------------------------------------------
 // Minimal stubs for Horizon.Server responses
@@ -243,5 +245,51 @@ describe('HorizonClientService', () => {
 
       expect(result!.transactionCount).toBe(5);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// X-Request-Id forwarding via Axios interceptor
+// ---------------------------------------------------------------------------
+
+describe('HorizonClientService — X-Request-Id forwarding', () => {
+  /**
+   * Extract the last registered request-interceptor handler from the real
+   * service's httpClient so we can invoke it without triggering network calls.
+   */
+  async function getInterceptorFn(): Promise<(cfg: Record<string, unknown>) => Record<string, unknown>> {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        HorizonClientService,
+        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(10_000) } },
+      ],
+    }).compile();
+
+    const svc = module.get<HorizonClientService>(HorizonClientService);
+    // Axios AxiosInterceptorManager exposes handlers[] on its internal state
+    const httpClient = (svc as unknown as Record<string, unknown>)['server'] as Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handlers: Array<{ fulfilled: unknown }> = (httpClient.httpClient as any).interceptors.request.handlers;
+
+    return handlers[handlers.length - 1].fulfilled as (
+      cfg: Record<string, unknown>,
+    ) => Record<string, unknown>;
+  }
+
+  it('injects X-Request-Id header when AsyncLocalStorage has a request ID', async () => {
+    const fn = await getInterceptorFn();
+
+    let result: Record<string, unknown> = {};
+    await requestIdStorage.run('horizon-req-xyz', async () => {
+      result = fn({ headers: {} });
+    });
+
+    expect((result.headers as Record<string, string>)[REQUEST_ID_HEADER]).toBe('horizon-req-xyz');
+  });
+
+  it('leaves headers unchanged when no request ID is in AsyncLocalStorage', async () => {
+    const fn = await getInterceptorFn();
+    const result = fn({ headers: {} });
+    expect((result.headers as Record<string, string>)[REQUEST_ID_HEADER]).toBeUndefined();
   });
 });
