@@ -34,13 +34,21 @@ const LazyRoute = ({ Component }: { Component: React.LazyExoticComponent<any> })
     </ErrorBoundary>
 );
 
+import { logger } from "./utils/logger";
+
 function App() {
     useEffect(() => {
         checkConnection().then((isAlive) => {
-            console.log(
-                `Stellar Network (${STELLAR_CONFIG.network}) connected:`,
-                isAlive,
-            );
+            if (!isAlive) {
+                logger.warn(
+                    `Stellar Network (${STELLAR_CONFIG.network}) connection failed`,
+                );
+            } else {
+                logger.log(
+                    `Stellar Network (${STELLAR_CONFIG.network}) connected:`,
+                    isAlive,
+                );
+            }
         });
     }, []);
 
