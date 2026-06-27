@@ -20,7 +20,8 @@ import {
 } from "../../contract/response";
 import { assertPositiveInt, assertNonEmpty } from "../../utils/validation";
 import { xlmToStroops } from "../../utils/formatting";
-import { nativeToScVal } from "@stellar/stellar-sdk";
+import { nativeToScVal, TransactionBuilder } from "@stellar/stellar-sdk";
+import type { Transaction } from "@stellar/stellar-sdk";
 import { FeeEstimatorService } from "../../fee-estimator/fee-estimator.service";
 import { toTypedSdkError } from "../../utils/errors";
 
@@ -55,13 +56,28 @@ export class RaffleService {
    * Simulates the transaction via {@link FeeEstimatorService} without submitting.
    */
   async estimateCreate(params: RaffleParams): Promise<CreateRaffleEstimate> {
-    const contractParams = this.buildCreateContractParams(params);
-    const fee = await this.feeEstimator.estimateFee({
-      method: ContractFn.CREATE_RAFFLE,
-      params: contractParams,
-    });
+    assertNonEmpty(params.ticketPrice, "ticketPrice");
+    assertPositiveInt(params.maxTickets, "maxTickets");
 
-    return { xlm: fee.xlm, stroops: fee.stroops };
+    const contractParams = this.buildCreateContractParams(params);
+
+    try {
+      const sim = await this.contract.simulate<number>(
+        ContractFn.CREATE_RAFFLE,
+        contractParams,
+        { memo: params.memo },
+      );
+
+      const tx = this.getSimulatedTransaction(
+        sim.assembledXdr,
+        sim.networkPassphrase,
+      );
+      const fee = await this.feeEstimator.estimate(tx);
+
+      return { xlm: fee.xlm, stroops: fee.stroops };
+    } catch (error: unknown) {
+      throw toTypedSdkError(error);
+    }
   }
 
   /**
@@ -86,9 +102,11 @@ export class RaffleService {
         { memo: params.memo },
       );
 
-      const feeEstimate = this.feeEstimator.estimateFromResourceFee(
-        sim.minResourceFee,
+      const tx = this.getSimulatedTransaction(
+        sim.assembledXdr,
+        sim.networkPassphrase,
       );
+      const feeEstimate = await this.feeEstimator.estimate(tx);
 
       const signedXdr = await this.contract.sign(
         sim.assembledXdr,
@@ -256,6 +274,16 @@ export class RaffleService {
   /* ------------------------------------------------------------------ */
   /*  Private helpers                                                    */
   /* ------------------------------------------------------------------ */
+
+  private getSimulatedTransaction(
+    assembledXdr: string,
+    networkPassphrase: string,
+  ): Transaction {
+    return TransactionBuilder.fromXDR(
+      assembledXdr,
+      networkPassphrase,
+    ) as Transaction;
+  }
 
   private buildCreateContractParams(params: RaffleParams): any[] {
     assertNonEmpty(params.ticketPrice, "ticketPrice");
