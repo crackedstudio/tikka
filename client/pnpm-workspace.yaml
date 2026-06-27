@@ -1,0 +1,9 @@
+allowBuilds:
+  blake-hash: set this to true or false
+  bufferutil: set this to true or false
+  esbuild: set this to true or false
+  protobufjs: set this to true or false
+  secp256k1: set this to true or false
+  tiny-secp256k1: set this to true or false
+  usb: set this to true or false
+  utf-8-validate: set this to true or false
