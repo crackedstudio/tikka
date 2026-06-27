@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   NotFoundException,
@@ -189,7 +190,8 @@ export class RafflesController {
   @ApiOperation({ summary: "Purchase tickets for a raffle" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
   @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
-  @ApiResponse({ status: 501, description: "Ticket purchase is not yet implemented" })
+  @ApiResponse({ status: 201, description: "Ticket purchase submitted, returns transaction hash" })
+  @HttpCode(201)
   @UseInterceptors(IdempotencyInterceptor)
   async purchaseTickets(
     @Param("raffleId", ParseIntPipe) raffleId: number,

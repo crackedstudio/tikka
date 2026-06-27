@@ -204,10 +204,11 @@ describe('RafflesService', () => {
       configService.get.mockReturnValue(true);
       indexerService.getRaffle.mockResolvedValue(mockRaffle);
 
-      await expect(
-        service.purchaseTickets(1, payload, 'GABC123'),
-      ).rejects.toThrow(NotImplementedException);
-
+      const res = await service.purchaseTickets(1, payload, 'GABC123');
+      expect(res).toHaveProperty('transactionHash');
+      expect(res.raffleId).toBe(1);
+      expect(res.quantity).toBe(payload.quantity);
+      expect(res.buyer).toBe('GABC123');
       expect(indexerService.getRaffle).toHaveBeenCalledWith(1);
     });
 
@@ -218,6 +219,16 @@ describe('RafflesService', () => {
       await expect(
         service.purchaseTickets(99, payload, 'GABC123'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws UnprocessableEntity when raffle is not open', async () => {
+      configService.get.mockReturnValue(true);
+      const closed = { ...mockRaffle, status: 'finalized' } as any;
+      indexerService.getRaffle.mockResolvedValue(closed);
+
+      await expect(
+        service.purchaseTickets(1, payload, 'GABC123'),
+      ).rejects.toThrow();
     });
   });
 });
