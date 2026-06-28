@@ -25,16 +25,13 @@ import {
     Bell
 } from "lucide-react";
 import AddToCalendar from "../components/ui/AddToCalendar";
+import Skeleton from "../components/ui/Skeleton";
 import Line from "../assets/svg/Line";
 import detailimage from "../assets/detailimage.png";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { CountdownTimer } from "../components/ui/CountdownTimer";
-
-const Skeleton = ({ className }: { className?: string }) => (
-    <div className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`} />
-);
 
 const RafflePage = () => {
     const { t } = useTranslation();

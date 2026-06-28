@@ -4,6 +4,7 @@ import { useWallet } from "../hooks/useWallet";
 import { useUserProfile, useUserHistory } from "../hooks/useRaffles";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
+import Skeleton from "../components/ui/Skeleton";
 import type { ApiUserHistoryItem } from "../types/types";
 import { API_CONFIG } from "../config/api";
 import { getToken } from "../services/apiClient";
@@ -272,7 +273,7 @@ const MyRaffles: React.FC = () => {
             return (
                 <div className="space-y-3">
                     {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-20 bg-gray-100 dark:bg-[#1E1932] rounded-xl animate-pulse" />
+                        <Skeleton key={i} className="h-20 rounded-xl" />
                     ))}
                 </div>
             );
@@ -367,7 +368,7 @@ const MyRaffles: React.FC = () => {
                     </div>
                 )}
                 {profileLoading && (
-                    <div className="h-28 bg-white dark:bg-[#1E1932] rounded-2xl animate-pulse mb-8" />
+                    <Skeleton className="h-28 rounded-2xl mb-8" />
                 )}
 
                 {/* Tabs */}
