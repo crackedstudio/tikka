@@ -17,7 +17,9 @@
         "preview": "vite preview",
         "validate-env": "node scripts/validate-env.js",
         "test:e2e:ui": "playwright test --ui",
-        "test:e2e:headed": "playwright test --headed"
+        "test:e2e:headed": "playwright test --headed",
+        "lighthouse": "lhci autorun",
+        "lighthouse:local": "pnpm run build && lhci autorun"
     },
     "dependencies": {
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
@@ -43,6 +45,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^9.33.0",
+        "@lhci/cli": "^0.14.0",
         "@playwright/test": "^1.43.0",
         "@testing-library/jest-dom": "^5.16.5",
         "@testing-library/react": "^13.4.0",
