@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { REQUEST_ID_HEADER, runWithRequestId } from '../middleware/request-id.middleware';
 import { HorizonClientService } from './horizon-client.service';
 
 // ---------------------------------------------------------------------------
@@ -56,7 +57,7 @@ function buildMockServer(opts: {
     : jest.fn().mockResolvedValue({ records: opts.txRecords ?? [] });
 
   const mockServer = {
-    httpClient: { defaults: {} },
+    httpClient: { defaults: { headers: {} } },
     ledgers: jest.fn().mockReturnValue({
       ledger: jest.fn().mockReturnValue({ call: callLedger }),
     }),
@@ -207,6 +208,19 @@ describe('HorizonClientService', () => {
 
       expect(result).not.toBeNull();
       expect(result!.transactions).toEqual([]);
+    });
+
+    it('adds the active request ID to Horizon client headers for outbound requests', async () => {
+      const { mockServer } = buildMockServer({
+        ledgerRecords: [makeLedgerRecord(42)],
+        txRecords: [],
+      });
+      service = await createService(mockServer);
+
+      await runWithRequestId('req-123', () => service.fetchLedger(42));
+
+      const headers = mockServer.httpClient.defaults.headers as Headers;
+      expect(headers.get(REQUEST_ID_HEADER)).toBe('req-123');
     });
 
     it('maps multiple transaction records correctly', async () => {

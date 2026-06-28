@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Horizon } from '@stellar/stellar-sdk';
 import { env } from '../config/env.config';
+import { applyRequestIdToHeaders } from '../middleware/outbound-http.interceptor';
 import {
   HorizonLedgerData,
   HorizonTransactionRecord,
@@ -24,9 +25,20 @@ export class HorizonClientService {
       timeoutMs;
   }
 
+  private applyRequestIdHeaders(): void {
+    const requestHeaders = applyRequestIdToHeaders(
+      this.server.httpClient.defaults?.headers as HeadersInit | undefined,
+    );
+    (this.server.httpClient.defaults as Record<string, unknown>).headers = requestHeaders;
+  }
+
   async fetchLedger(sequence: number): Promise<HorizonLedgerData | null> {
     try {
-      const ledgerPage = await this.server.ledgers().ledger(sequence).call();
+      this.applyRequestIdHeaders();
+      const ledgerPage = await this.server
+        .ledgers()
+        .ledger(sequence)
+        .call();
       const ledgerRecord = ledgerPage.records[0];
 
       if (!ledgerRecord) {

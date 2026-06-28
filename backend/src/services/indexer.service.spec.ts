@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { REQUEST_ID_HEADER, runWithRequestId } from '../middleware/request-id.middleware';
 import { IndexerError, IndexerService } from './indexer.service';
 
 describe('IndexerService', () => {
@@ -59,6 +60,27 @@ describe('IndexerService', () => {
       'http://indexer.test/raffles?status=open&creator=GABC&limit=10&offset=20',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+  });
+
+  it('includes the active request ID in outbound indexer requests', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ id: 1 }),
+      headers: { get: () => 'application/json' },
+    });
+
+    await runWithRequestId('req-123', () => service.getRaffle(1));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://indexer.test/raffles/1',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        headers: expect.any(Headers),
+      }),
+    );
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get(REQUEST_ID_HEADER)).toBe('req-123');
   });
 
   it('maps AbortError to IndexerError timeout', async () => {
