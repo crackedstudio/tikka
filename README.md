@@ -76,6 +76,7 @@ To regenerate locally: `cd sdk && npm run docs`
 
 ## Documentation
 
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** — Prerequisites, first-time setup, branching strategy, commit format, testing, and PR guidelines
 - **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — Full ecosystem specification with diagrams, data flows, contract interface, and API design
 - **[RAFFLE_LIFECYCLE.md](./docs/RAFFLE_LIFECYCLE.md)** — Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
 
