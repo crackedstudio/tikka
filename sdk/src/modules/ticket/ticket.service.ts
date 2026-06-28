@@ -1,17 +1,22 @@
-import { Injectable } from '@nestjs/common';
-import { ContractService } from '../../contract/contract.service';
-import { ContractFn } from '../../contract/bindings';
+import { Injectable } from "@nestjs/common";
+import { ContractService } from "../../contract/contract.service";
+import { ContractFn } from "../../contract/bindings";
 import {
   BuyTicketParams,
+  BuyTicketResult,
   RefundTicketParams,
+  RefundTicketResult,
+  ClaimPrizeParams,
   GetUserTicketsParams,
   BuyBatchParams,
+  BuyBatchResult,
   BatchPurchaseResult,
   TICKET_CONSTRAINTS,
-} from './ticket.types';
-import { TicketTxResponse, TxResponse } from '../../contract/response';
-import { assertPositiveInt } from '../../utils/validation';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+  ClaimPrizeResult,
+} from "./ticket.types";
+import { ContractResponse } from "../../contract/response";
+import { assertPositiveInt } from "../../utils/validation";
+import { TikkaSdkError, TikkaSdkErrorCode } from "../../utils/errors";
 
 @Injectable()
 export class TicketService {
@@ -23,7 +28,7 @@ export class TicketService {
    * Validates ticket purchase quantity constraints.
    * @throws TikkaSdkError if quantity is invalid
    */
-  private validateQuantity(quantity: number, fieldName = 'quantity'): void {
+  private validateQuantity(quantity: number, fieldName = "quantity"): void {
     if (!Number.isInteger(quantity)) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
@@ -87,16 +92,18 @@ export class TicketService {
    *
    * @throws TikkaSdkError if validation fails or submission is duplicate
    */
-  async buy(params: BuyTicketParams): Promise<ContractResponse<BuyTicketResult>> {
+  async buy(
+    params: BuyTicketParams,
+  ): Promise<ContractResponse<BuyTicketResult>> {
     const { raffleId, quantity } = params;
-    assertPositiveInt(raffleId, 'raffleId');
+    assertPositiveInt(raffleId, "raffleId");
     this.validateQuantity(quantity);
 
-    const publicKey = await this.contractService['wallet']?.getPublicKey();
+    const publicKey = await this.contractService["wallet"]?.getPublicKey();
     if (!publicKey) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
-        'Wallet required for ticket purchase',
+        "Wallet required for ticket purchase",
       );
     }
 
@@ -115,9 +122,9 @@ export class TicketService {
         success: result.success,
         value: {
           ticketIds: result.value || [],
-          transactionHash: result.transactionHash || '',
+          transactionHash: result.transactionHash || "",
           ledger: result.ledger || 0,
-          feePaid: result.feePaid || '0',
+          feePaid: result.feePaid || "0",
         } as BuyTicketResult,
         transactionHash: result.transactionHash,
         ledger: result.ledger,
@@ -150,8 +157,8 @@ export class TicketService {
     params: RefundTicketParams,
   ): Promise<ContractResponse<RefundTicketResult>> {
     const { raffleId, ticketId } = params;
-    assertPositiveInt(raffleId, 'raffleId');
-    assertPositiveInt(ticketId, 'ticketId');
+    assertPositiveInt(raffleId, "raffleId");
+    assertPositiveInt(ticketId, "ticketId");
 
     try {
       const result = await this.contractService.invoke<void>(
@@ -164,9 +171,9 @@ export class TicketService {
       return {
         success: result.success,
         value: {
-          transactionHash: result.transactionHash || '',
+          transactionHash: result.transactionHash || "",
           ledger: result.ledger || 0,
-          feePaid: result.feePaid || '0',
+          feePaid: result.feePaid || "0",
         } as RefundTicketResult,
         transactionHash: result.transactionHash,
         ledger: result.ledger,
@@ -188,6 +195,37 @@ export class TicketService {
   }
 
   /**
+   * Claims the prize for a finalized raffle.
+   * Requires wallet signature and submission.
+   *
+   * @throws TikkaSdkError if validation fails or prize claim fails
+   */
+  async claimPrize(
+    params: ClaimPrizeParams,
+  ): Promise<ContractResponse<ClaimPrizeResult>> {
+    const { raffleId } = params;
+    assertPositiveInt(raffleId, "raffleId");
+
+    const result = await this.contractService.invoke<void>(
+      ContractFn.CLAIM_PRIZE,
+      [raffleId],
+      { memo: params.memo },
+    );
+
+    return {
+      success: result.success,
+      value: {
+        transactionHash: result.transactionHash || result.txHash || "",
+        ledger: result.ledger || 0,
+        feePaid: result.feePaid || "0",
+      } as ClaimPrizeResult,
+      transactionHash: result.transactionHash || result.txHash,
+      ledger: result.ledger,
+      feePaid: result.feePaid,
+    } as ContractResponse<ClaimPrizeResult>;
+  }
+
+  /**
    * Gets all ticket IDs owned by a user for a specific raffle.
    * Read-only operation (no signing required).
    *
@@ -197,12 +235,12 @@ export class TicketService {
     params: GetUserTicketsParams,
   ): Promise<ContractResponse<number[]>> {
     const { raffleId, userAddress } = params;
-    assertPositiveInt(raffleId, 'raffleId');
+    assertPositiveInt(raffleId, "raffleId");
 
-    if (!userAddress || typeof userAddress !== 'string') {
+    if (!userAddress || typeof userAddress !== "string") {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
-        'userAddress must be a non-empty string',
+        "userAddress must be a non-empty string",
       );
     }
 
@@ -214,20 +252,20 @@ export class TicketService {
 
   /**
    * Purchases tickets for multiple raffles in a single operation.
-   * 
+   *
    * This method handles batch ticket purchases with individual validation for each raffle.
    * Returns individual success/failure results for each purchase, allowing partial failures.
-   * 
+   *
    * Constraints:
    * - Maximum 100 purchases per batch
    * - Each purchase quantity: 1-1000 tickets
    * - Follows same duplicate submission detection as single purchase
-   * 
+   *
    * @param params - Batch purchase parameters containing array of raffle purchases
    * @returns Individual results for each raffle purchase attempt
-   * 
+   *
    * @throws {TikkaSdkError} If validation fails or all purchases fail
-   * 
+   *
    * @example
    * ```typescript
    * const result = await ticketService.buyBatch({
@@ -239,14 +277,16 @@ export class TicketService {
    * });
    * ```
    */
-  async buyBatch(params: BuyBatchParams): Promise<ContractResponse<BuyBatchResult>> {
+  async buyBatch(
+    params: BuyBatchParams,
+  ): Promise<ContractResponse<BuyBatchResult>> {
     const { purchases, memo } = params;
 
     // Validate inputs
     if (!purchases || purchases.length === 0) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
-        'Purchases array cannot be empty',
+        "Purchases array cannot be empty",
       );
     }
 
@@ -261,7 +301,10 @@ export class TicketService {
     purchases.forEach((purchase, index) => {
       try {
         assertPositiveInt(purchase.raffleId, `purchases[${index}].raffleId`);
-        this.validateQuantity(purchase.quantity, `purchases[${index}].quantity`);
+        this.validateQuantity(
+          purchase.quantity,
+          `purchases[${index}].quantity`,
+        );
       } catch (err) {
         throw new TikkaSdkError(
           TikkaSdkErrorCode.InvalidParams,
@@ -270,48 +313,48 @@ export class TicketService {
       }
     });
 
-    const publicKey = await this.contractService['wallet']?.getPublicKey();
+    const publicKey = await this.contractService["wallet"]?.getPublicKey();
     if (!publicKey) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
-        'Wallet required for batch purchase',
+        "Wallet required for batch purchase",
       );
     }
 
     // Simulate each purchase individually to check feasibility
     const simulationResults: BatchPurchaseResult[] = [];
-    
+
     for (const purchase of purchases) {
       try {
         await this.contractService.simulateReadOnly<number[]>(
           ContractFn.BUY_TICKET,
           [purchase.raffleId, publicKey, purchase.quantity],
         );
-        
+
         simulationResults.push({
           raffleId: purchase.raffleId,
           ticketIds: [],
-          status: 'SUCCESS',
+          status: "SUCCESS",
         });
       } catch (err) {
         simulationResults.push({
           raffleId: purchase.raffleId,
           ticketIds: [],
-          status: 'ERROR',
+          status: "ERROR",
           error: err instanceof Error ? err.message : String(err),
         });
       }
     }
 
     // Filter out failed simulations
-    const validPurchases = purchases.filter((_, index) => 
-      simulationResults[index].status === 'SUCCESS'
+    const validPurchases = purchases.filter(
+      (_, index) => simulationResults[index].status === "SUCCESS",
     );
 
     if (validPurchases.length === 0) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.SimulationFailed,
-        'All batch purchases failed simulation',
+        "All batch purchases failed simulation",
       );
     }
 
@@ -319,14 +362,18 @@ export class TicketService {
     // Note: Soroban doesn't support true atomic multi-call in a single tx,
     // so we execute them individually but track results together
     const results: BatchPurchaseResult[] = [];
-    let lastTxHash = '';
+    let lastTxHash = "";
     let lastLedger = 0;
     let totalFeeLamports = 0;
 
     for (const purchase of validPurchases) {
       try {
         // Check for duplicate before executing
-        this.checkDuplicateSubmission(purchase.raffleId, purchase.quantity, publicKey);
+        this.checkDuplicateSubmission(
+          purchase.raffleId,
+          purchase.quantity,
+          publicKey,
+        );
 
         const res = await this.contractService.invoke<number[]>(
           ContractFn.BUY_TICKET,
@@ -337,13 +384,13 @@ export class TicketService {
         results.push({
           raffleId: purchase.raffleId,
           ticketIds: res.value || [],
-          status: 'SUCCESS',
+          status: "SUCCESS",
         });
 
-        lastTxHash = res.txHash || '';
+        lastTxHash = res.txHash || "";
         lastLedger = res.ledger || 0;
         // Accumulate fees as integers (stroops) to avoid floating point issues
-        const feeLamports = parseInt(res.feePaid || '0', 10);
+        const feeLamports = parseInt(res.feePaid || "0", 10);
         totalFeeLamports += feeLamports;
       } catch (err) {
         results.push({
@@ -365,7 +412,7 @@ export class TicketService {
     let validIndex = 0;
 
     for (let i = 0; i < purchases.length; i++) {
-      if (simulationResults[i].status === 'SUCCESS') {
+      if (simulationResults[i].status === "SUCCESS") {
         finalResults.push(results[validIndex]);
         validIndex++;
       } else {
