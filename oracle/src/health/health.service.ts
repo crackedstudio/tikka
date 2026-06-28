@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { CircuitState } from '../listener/circuit-breaker.types';
 import { PriorityTier } from '../queue/priority-classifier.service';
@@ -65,7 +66,8 @@ export interface ErrorRecord {
 
 @Injectable()
 export class HealthService {
-  private readonly logger = new Logger(HealthService.name);
+  constructor(private readonly logger: OracleLoggerService) {}
+
   private readonly startTime = Date.now();
   private queueDepth = 0;
   private lastProcessedAt: Date | null = null;

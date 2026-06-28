@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Keypair } from '@stellar/stellar-sdk';
@@ -15,7 +16,7 @@ import {
 
 @Injectable()
 export class OracleRegistryService implements OnModuleInit {
-  private readonly logger = new Logger(OracleRegistryService.name);
+  
 
   private oracles: Map<string, OracleRegistryEntry> = new Map();
   private peers: PeerOracleEndpoint[] = [];
@@ -30,6 +31,7 @@ export class OracleRegistryService implements OnModuleInit {
   private readonly ORACLE_ENTRY_SEPARATOR = ':';
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly keyService: KeyService,
   ) {}
