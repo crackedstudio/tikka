@@ -68,6 +68,8 @@ export enum TikkaSdkErrorCode {
   ValidationError = 'ValidationError',
   /** An external/cross-contract call (e.g. SEP-41 token) failed */
   ExternalContractError = 'EXTERNAL_CONTRACT_ERROR',
+  /** Raffle has ended and no longer accepts purchases or operations */
+  RaffleEnded = 'RAFFLE_ENDED',
 }
 
 /**
@@ -151,4 +153,4 @@ export class ContractFailureError extends TikkaSdkError {
     this.name = 'ContractFailureError';
     Object.setPrototypeOf(this, ContractFailureError.prototype);
   }
-}
+}

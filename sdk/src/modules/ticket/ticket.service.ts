@@ -12,6 +12,7 @@ import {
 import { TicketTxResponse, TxResponse } from '../../contract/response';
 import { assertPositiveInt } from '../../utils/validation';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+import { validateLifecycleTransition } from '../../contract/lifecycle';
 
 @Injectable()
 export class TicketService {
