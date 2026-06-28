@@ -6,6 +6,7 @@ import RaffleCard from "../components/cards/RaffleCard";
 import { mapListItemToCardProps } from "../services/raffleService";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Spinner } from "../components/ui/Spinner";
+import Skeleton from "../components/ui/Skeleton";
 
 const CreatorProfile: React.FC = () => {
     const { address } = useParams<{ address: string }>();
@@ -123,7 +124,7 @@ const CreatorProfile: React.FC = () => {
                     {rafflesLoading && page === 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {[1, 2, 3, 4].map((n) => (
-                                <div key={n} className="h-[450px] bg-white dark:bg-[#11172E] rounded-3xl animate-pulse" />
+                                <Skeleton key={n} className="h-[450px] rounded-3xl" />
                             ))}
                         </div>
                     ) : rafflesError ? (
