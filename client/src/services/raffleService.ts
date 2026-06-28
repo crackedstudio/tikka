@@ -41,10 +41,11 @@ export async function fetchRaffleDetail(id: number): Promise<ApiRaffleDetail> {
 
 export async function searchRaffles(
   query: string,
+  signal?: AbortSignal,
 ): Promise<ApiRaffleListResponse> {
   const trimmedQuery = query.trim();
   const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
-  return api.get<ApiRaffleListResponse>(endpoint);
+  return api.get<ApiRaffleListResponse>(endpoint, { signal });
 }
 export async function fetchUserProfile(
   address: string,

@@ -41,7 +41,7 @@ export class ApiError extends Error {
     public code: ApiErrorCode,
     message: string,
     public statusCode?: number,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -116,7 +116,12 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { requiresAuth = false, headers = {}, ...fetchOptions } = options;
+  const {
+    requiresAuth = false,
+    headers = {},
+    signal,
+    ...fetchOptions
+  } = options;
 
   const url = endpoint.startsWith("http")
     ? endpoint
@@ -137,17 +142,34 @@ export async function apiRequest<T = any>(
     throw new Error("Authentication required");
   }
 
-  const timeoutMs = typeof API_CONFIG.timeout === 'number' ? API_CONFIG.timeout : 8000;
+  const timeoutMs =
+    typeof API_CONFIG.timeout === "number" ? API_CONFIG.timeout : 8000;
+
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const requestController = new AbortController();
+
+  const abortRequest = () => requestController.abort();
+  timeoutSignal.addEventListener("abort", abortRequest);
+  signal?.addEventListener("abort", abortRequest);
+
+  if (timeoutSignal.aborted || signal?.aborted) {
+    abortRequest();
+  }
 
   let response: Response;
   try {
     response = await fetch(url, {
       ...fetchOptions,
       headers: requestHeaders,
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: requestController.signal,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Network error occurred";
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Network error occurred";
 
     // Global Error Toast Notification for Network Failures
     toast.error("API Connection Failed", {
@@ -161,7 +183,7 @@ export async function apiRequest<T = any>(
         label: "Copy Error",
         onClick: () => {
           navigator.clipboard.writeText(
-            JSON.stringify({ endpoint: url, error: errorMessage }, null, 2)
+            JSON.stringify({ endpoint: url, error: errorMessage }, null, 2),
           );
           toast.success("Error copied to clipboard", { duration: 2000 });
         },
@@ -171,8 +193,11 @@ export async function apiRequest<T = any>(
       ApiErrorCode.NETWORK_ERROR,
       `Network Error: ${errorMessage}`,
       undefined,
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
+  } finally {
+    timeoutSignal.removeEventListener("abort", abortRequest);
+    signal?.removeEventListener("abort", abortRequest);
   }
 
   if (!response.ok) {
@@ -189,7 +214,7 @@ export async function apiRequest<T = any>(
       throw new ApiError(
         ApiErrorCode.UNAUTHORIZED,
         "Unauthorized - please sign in again",
-        401
+        401,
       );
     }
 
@@ -215,8 +240,8 @@ export async function apiRequest<T = any>(
             JSON.stringify(
               { endpoint: url, status: response.status, error: errorData },
               null,
-              2
-            )
+              2,
+            ),
           );
           toast.success("Error copied to clipboard", { duration: 2000 });
         },
