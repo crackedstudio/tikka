@@ -239,11 +239,32 @@ jobs:
           path: oracle/dist
           retention-days: 7
 
+
+  # Secret scanning - blocks PRs that contain verified secrets
+  security-scan:
+    name: Secret Scanning (TruffleHog)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: >-
+            --only-verified
+            --exclude-paths .trufflehog-exclude
+
   # Summary job - fails if any package fails
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [client, sdk, backend, indexer, oracle]
+    needs: [client, sdk, backend, indexer, oracle, security-scan]
     if: always()
     steps:
       - name: Check all jobs status
@@ -252,7 +273,8 @@ jobs:
              [[ "${{ needs.sdk.result }}" != "success" ]] || \
              [[ "${{ needs.backend.result }}" != "success" ]] || \
              [[ "${{ needs.indexer.result }}" != "success" ]] || \
-             [[ "${{ needs.oracle.result }}" != "success" ]]; then
+             [[ "${{ needs.oracle.result }}" != "success" ]] || \
+             [[ "${{ needs.security-scan.result }}" != "success" ]]; then
             echo "❌ One or more packages failed CI checks"
             exit 1
           fi
