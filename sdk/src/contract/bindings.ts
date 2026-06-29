@@ -29,6 +29,7 @@ export const ContractFn = {
   GET_ALL_RAFFLE_IDS: 'get_all_raffle_ids',
   GET_USER_TICKETS: 'get_user_tickets',
   GET_USER_PARTICIPATION: 'get_user_participation',
+  GET_RAFFLE_STATE: 'get_raffle_data',
 
   // Admin
   SET_ORACLE_ADDRESS: 'set_oracle_address',

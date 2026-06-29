@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
-import { ContractFn } from '../../contract/bindings';
+import { ContractFn, RaffleStatus } from '../../contract/bindings';
+import { validateLifecycleTransition } from '../../contract/lifecycle';
 import { assertNonEmpty } from '../../utils/validation';
 import { AdminWriteOptions } from './admin.types';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 import { AdminTxResponse, TxResponse } from '../../contract/response';
 
 /**
@@ -167,4 +169,47 @@ export class AdminService {
   async acceptAdmin(options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     return this.contract.invoke<void>(ContractFn.ACCEPT_ADMIN, [], { memo: options.memo });
   }
+
+  /**
+   * Finalizes a raffle by triggering the draw.
+   * Validates the raffle is in OPEN state before proceeding.
+   *
+   * @param raffleId - The raffle to finalize
+   * @param options - Optional transaction configuration
+   * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+   */
+  async finalizeRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+    const stateResp = await this.contract.simulateReadOnly<{ status: number }>(
+      ContractFn.GET_RAFFLE_STATE,
+      [raffleId],
+    );
+    validateLifecycleTransition(
+      ContractFn.TRIGGER_DRAW,
+      stateResp.value?.status ?? stateResp.value ?? -1,
+      raffleId,
+    );
+    return this.contract.invoke<void>(ContractFn.TRIGGER_DRAW, [raffleId], { memo: options.memo });
+  }
+
+  /**
+   * Cancels a raffle.
+   * Validates the raffle is in OPEN state before proceeding.
+   *
+   * @param raffleId - The raffle to cancel
+   * @param options - Optional transaction configuration
+   * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+   */
+  async cancelRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+    const stateResp = await this.contract.simulateReadOnly<{ status: number }>(
+      ContractFn.GET_RAFFLE_STATE,
+      [raffleId],
+    );
+    validateLifecycleTransition(
+      ContractFn.CANCEL_RAFFLE,
+      stateResp.value?.status ?? stateResp.value ?? -1,
+      raffleId,
+    );
+    return this.contract.invoke<void>(ContractFn.CANCEL_RAFFLE, [raffleId], { memo: options.memo });
+  }
+
 }
