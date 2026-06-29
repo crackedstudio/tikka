@@ -1,3 +1,4 @@
+import { OracleLoggerService, CorrelationContext, OracleLogFields } from '../logger/oracle-logger';
 import { RandomnessRequest, RandomnessMethod, RandomnessResult, JobPriority } from './queue.types';
 import { JobState } from './job-state.types';
 import { JobStateManager } from './job-state-manager';
@@ -16,17 +17,17 @@ import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OracleLogFields } from '../logger/oracle-logger';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
 export class RandomnessWorker {
-  private readonly logger = new Logger(RandomnessWorker.name);
+  
   private readonly vrfThresholdXlm: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly stateManager: JobStateManager,
     private readonly processor: RandomnessProcessorService,
     private readonly contractService: ContractService,
@@ -46,6 +47,7 @@ export class RandomnessWorker {
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
+    return CorrelationContext.run(String(job.id), async () => {
     const priority = job.opts.priority ?? JobPriority.NORMAL;
     const isHighPriority = priority <= JobPriority.HIGH;
     
@@ -100,6 +102,7 @@ export class RandomnessWorker {
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
+    }); // end CorrelationContext.run
   }
 
   private delay(ms: number): Promise<void> {

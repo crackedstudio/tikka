@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Horizon } from '@stellar/stellar-sdk';
@@ -14,7 +15,7 @@ const MAX_SEEN_IDS = 10_000;
 
 @Injectable()
 export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(StellarSubscriberService.name);
+  
 
   private horizonServer: Horizon.Server;
   private closeStream: (() => void) | null = null;
@@ -32,6 +33,7 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
   private readonly HEARTBEAT_TIMEOUT_MS = 60_000;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly healthService: HealthService,
   ) {

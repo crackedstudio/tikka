@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Controller, Get, Logger } from '@nestjs/common';
 import { JobStateManager } from './job-state-manager';
 import { JobState, QueueMetrics } from './job-state.types';
@@ -8,9 +9,9 @@ import { JobState, QueueMetrics } from './job-state.types';
  */
 @Controller('queue')
 export class QueueHealthController {
-  private readonly logger = new Logger(QueueHealthController.name);
+  
 
-  constructor(private readonly stateManager: JobStateManager) {}
+  constructor(private readonly logger: OracleLoggerService, private readonly stateManager: JobStateManager) {}
 
   /**
    * Get comprehensive queue metrics aggregated by job state.

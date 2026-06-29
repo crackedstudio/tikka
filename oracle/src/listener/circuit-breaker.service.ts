@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CircuitState } from './circuit-breaker.types';
@@ -29,7 +30,7 @@ function parsePositiveInt(raw: string | undefined, varName: string, logger: Logg
 
 @Injectable()
 export class CircuitBreakerService {
-  private readonly logger = new Logger(CircuitBreakerService.name);
+  
 
   private state: CircuitState = 'closed';
   private consecutiveFailures = 0;
@@ -39,6 +40,7 @@ export class CircuitBreakerService {
   private readonly nowFn: () => number;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly healthService: HealthService,
     nowFn?: () => number,
