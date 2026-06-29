@@ -44,12 +44,14 @@ export async function fetchRaffleDetail(
 
 export async function searchRaffles(
     query: string,
-    categories?: string[]
+    categories?: string[],
+    sort?: string,
 ): Promise<ApiRaffleListResponse> {
     const trimmedQuery = query.trim();
+    const sortParam = sort && sort !== 'relevance' ? `&sort=${encodeURIComponent(sort)}` : '';
 
     if (!categories || categories.length === 0) {
-        const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
+        const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}${sortParam}`;
         return api.get<ApiRaffleListResponse>(endpoint);
     }
 
