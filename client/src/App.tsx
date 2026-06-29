@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
+import { logger } from "./utils/logger";
 import { AppProviders } from "./providers/AppProviders";
 import NetworkWarning from "./components/NetworkWarning";
 import { InstallPWA } from "./components/InstallPWA";
@@ -37,10 +38,16 @@ const LazyRoute = ({ Component }: { Component: React.LazyExoticComponent<any> })
 function App() {
     useEffect(() => {
         checkConnection().then((isAlive) => {
-            console.log(
-                `Stellar Network (${STELLAR_CONFIG.network}) connected:`,
-                isAlive,
-            );
+            if (!isAlive) {
+                logger.warn(
+                    `Stellar Network (${STELLAR_CONFIG.network}) connection failed`,
+                );
+            } else {
+                logger.log(
+                    `Stellar Network (${STELLAR_CONFIG.network}) connected:`,
+                    isAlive,
+                );
+            }
         });
     }, []);
 
