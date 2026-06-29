@@ -16,6 +16,21 @@ function getTestModeOverride(key: string): string | null {
   return window.localStorage.getItem(key);
 }
 
+export function normalizeNetworkName(network: string | undefined | null): string {
+  if (!network) return "";
+  const normalized = network.trim().toLowerCase();
+  if (normalized === "mainnet" || normalized === "public") return "public";
+  if (normalized === "testnet") return "testnet";
+  return normalized;
+}
+
+export function prettyNetworkName(network: string | undefined | null): string {
+  const normalized = normalizeNetworkName(network);
+  if (normalized === "public") return "Mainnet";
+  if (normalized === "testnet") return "Testnet";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 function isTestWalletAvailable(): boolean {
   if (typeof window === "undefined") return true;
   return getTestModeOverride(TEST_MODE_WALLET_AVAILABLE_KEY) !== "false";
@@ -61,11 +76,11 @@ export interface WalletCapabilities {
 const WALLET_CAPABILITY_PROFILES: Record<string, WalletCapabilities> = {
   freighter: {
     canSignTransaction: true,
-    canSwitchNetwork: false, // Freighter requires manual network switching
+    canSwitchNetwork: true,
     canGetAccount: true,
     supportsMobileDeepLink: false,
     walletName: "Freighter",
-    unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension.",
+    unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension if automatic switching fails.",
   },
   lobstr: {
     canSignTransaction: true,
@@ -77,11 +92,11 @@ const WALLET_CAPABILITY_PROFILES: Record<string, WalletCapabilities> = {
   },
   xbull: {
     canSignTransaction: true,
-    canSwitchNetwork: false,
+    canSwitchNetwork: true,
     canGetAccount: true,
     supportsMobileDeepLink: false,
     walletName: "xBull",
-    unsupportedActionCopy: "This action is not supported by xBull. Please switch networks manually in the extension.",
+    unsupportedActionCopy: "This action is not supported by xBull. Please switch networks manually in the extension if automatic switching fails.",
   },
   rabet: {
     canSignTransaction: true,
@@ -121,13 +136,76 @@ function detectWalletType(): string {
 
   // Fallback: detect from window object
   if (typeof window !== "undefined") {
-    if ((window as any).freighter) return "freighter";
-    if ((window as any).lobstr) return "lobstr";
-    if ((window as any).xBull) return "xbull";
-    if ((window as any).rabet) return "rabet";
+    const g = window as any;
+    if (g.freighter) return "freighter";
+    if (g.lobstr) return "lobstr";
+    if (g.xBull || g.xbull) return "xbull";
+    if (g.rabet) return "rabet";
   }
 
   return "default";
+}
+
+function getWalletSettingsUrl(walletType: string): string | undefined {
+  switch (walletType) {
+    case "freighter":
+      return "https://freighter.app";
+    case "xbull":
+      return "https://xbull.app";
+    case "lobstr":
+      return "https://lobstr.co";
+    case "rabet":
+      return "https://rabet.io";
+    default:
+      return undefined;
+  }
+}
+
+function getProgrammaticNetworkSwitcher(walletType: string): ((network: string) => Promise<void>) | undefined {
+  if (typeof window === "undefined") return undefined;
+  const g = window as any;
+
+  if (walletType === "freighter") {
+    if (typeof g.freighter?.switchNetwork === "function") {
+      return async (network) => {
+        await g.freighter.switchNetwork(network);
+      };
+    }
+    if (typeof g.freighter?.openWallet === "function") {
+      return async () => {
+        await g.freighter.openWallet();
+      };
+    }
+    return undefined;
+  }
+
+  if (walletType === "xbull") {
+    if (typeof g.xBull?.switchNetwork === "function") {
+      return async (network) => {
+        await g.xBull.switchNetwork(network);
+      };
+    }
+    if (typeof g.xbull?.switchNetwork === "function") {
+      return async (network) => {
+        await g.xbull.switchNetwork(network);
+      };
+    }
+    if (typeof g.xBull?.request === "function") {
+      return async (network) => {
+        await g.xBull.request({ method: "xbull_switchNetwork", params: [network] });
+      };
+    }
+    return undefined;
+  }
+
+  return undefined;
+}
+
+async function openWalletSettings(walletType: string): Promise<void> {
+  const settingsUrl = getWalletSettingsUrl(walletType);
+  if (settingsUrl && typeof window !== "undefined") {
+    window.open(settingsUrl, "_blank");
+  }
 }
 
 /**
@@ -312,14 +390,40 @@ export async function isWalletInstalled(): Promise<boolean> {
 }
 
 export async function setNetwork(network: string): Promise<void> {
-  console.warn(`Network switch to ${network} requested. Please switch manually in your wallet extension.`);
-  // Most Stellar wallets don't support programmatic network switching
-  // Users need to switch manually in their wallet extension
+  if (IS_TEST_MODE) return;
+
+  const targetNetwork = normalizeNetworkName(network);
+  const walletType = detectWalletType();
+  const switcher = getProgrammaticNetworkSwitcher(walletType);
+
+  if (switcher) {
+    try {
+      await switcher(targetNetwork);
+      return;
+    } catch (error) {
+      console.warn("Programmatic network switch failed:", error);
+    }
+  }
+
+  const settingsUrl = getWalletSettingsUrl(walletType);
+  if (settingsUrl && typeof window !== "undefined") {
+    window.open(settingsUrl, "_blank");
+    return;
+  }
+
+  throw new Error(`${walletType} does not support automatic network switching.`);
 }
 
-// Placeholder for future Kit support
-export async function promptNetworkSwitch(_targetNetwork: string): Promise<void> {
-  console.warn("Manual network switch required in the wallet extension.");
+export async function promptNetworkSwitch(targetNetwork: string): Promise<void> {
+  const walletType = detectWalletType();
+  const settingsUrl = getWalletSettingsUrl(walletType);
+
+  if (settingsUrl && typeof window !== "undefined") {
+    window.open(settingsUrl, "_blank");
+    return;
+  }
+
+  console.warn(`Please switch your wallet to ${prettyNetworkName(targetNetwork)} manually.`);
 }
 
 // ─── Typed signing result ─────────────────────────────────────────────────────

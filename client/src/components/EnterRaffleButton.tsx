@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
-import { buyTickets } from "../services/contractService";
+import { useBuyTicketsMutation } from "../hooks/useRaffleMutations";
 import Modal from "./modals/Modal";
 import ProcessingTickets from "./modals/ProcessingTickets";
 import SuccessfulTicket from "./modals/SuccessfulTicket";
@@ -66,6 +66,8 @@ const EnterRaffleButton = ({
         handleEnterRaffle();
     };
 
+    const { mutateAsync: buyTicketsMutation } = useBuyTicketsMutation();
+
     const handleEnterRaffle = async () => {
         setIsLoading(true);
         setShowProcessingModal(true);
@@ -76,10 +78,13 @@ const EnterRaffleButton = ({
             setCurrentStep(STAGE_LABEL[event.stage] ?? event.stage);
         };
 
-        const result = await buyTickets(
-            { raffleId, ticketCount, maxPricePerTicket: ticketPrice },
-            { onProgress: handleProgress },
-        );
+        const result = await buyTicketsMutation({ 
+            raffleId, 
+            ticketCount, 
+            maxPricePerTicket: ticketPrice 
+        }, { 
+            onProgress: handleProgress 
+        });
 
         setShowProcessingModal(false);
 

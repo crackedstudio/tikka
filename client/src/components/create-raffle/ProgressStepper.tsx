@@ -10,7 +10,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
             <nav aria-label="Raffle creation steps">
                 <div className="flex items-center justify-between relative">
                 {/* Progress line */}
-                <div className="absolute top-6 left-12 right-12 h-0.5 bg-gray-600 z-0">
+                <div className="absolute top-6 left-12 right-12 h-0.5 bg-gray-300 dark:bg-gray-600 z-0">
                     <div
                         className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
                         style={{
