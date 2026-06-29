@@ -93,10 +93,12 @@ export const env = {
     };
   },
   get geo() {
+    const blockedCountriesStr = process.env.GEO_BLOCK_COUNTRIES ?? '';
+    const blockedCountries = this.parseBlockedCountries(blockedCountriesStr);
     return {
       providerUrl: process.env.GEO_PROVIDER_URL ?? 'http://ip-api.com/json',
       timeoutMs: parseInt(process.env.GEO_TIMEOUT_MS ?? '3000', 10),
-      blockedCountries: process.env.BLOCKED_COUNTRIES ?? '',
+      blockedCountries: blockedCountries,
     };
   },
   get server() {
@@ -121,6 +123,20 @@ export const env = {
       retryDelayMs: parseInt(process.env.BACKFILL_RETRY_DELAY_MS ?? '1000', 10),
       horizonTimeoutMs: parseInt(process.env.BACKFILL_HORIZON_TIMEOUT_MS ?? '10000', 10),
     };
+  },
+
+  // Private helper for parsing blocked countries
+  private parseBlockedCountries(str: string): string[] {
+    if (!str || str.trim() === '') {
+      return [];
+    }
+    if (str.trim() === '*') {
+      return []; // Wildcard means allow all
+    }
+    return str
+      .split(',')
+      .map(code => code.trim().toUpperCase())
+      .filter(code => code.length === 2 && /^[A-Z]{2}$/.test(code));
   },
 
   // -------------------------------------------------------------------------
@@ -155,6 +171,6 @@ export const env = {
   },
   /** @deprecated Use `env.geo.blockedCountries` instead. */
   get blockedCountries() {
-    return this.geo.blockedCountries;
+    return this.geo.blockedCountries.join(',');
   },
 } as const;
