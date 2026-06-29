@@ -73,7 +73,7 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
     "@nestjs/testing": "^10.4.0",
-    "@size-limit/preset-small-lib": "^11.1.6",
+    "@size-limit/preset-small-lib": "^12.1.0",
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
