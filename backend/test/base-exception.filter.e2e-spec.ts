@@ -6,6 +6,7 @@ import {
 import * as request from 'supertest';
 import { Controller, Get, HttpException, HttpStatus, Module } from '@nestjs/common';
 import { BaseExceptionFilter } from '../src/common/filters/base-exception.filter';
+import { REQUEST_ID_HEADER } from '../src/middleware/request-id.middleware';
 
 // Test controller to trigger various exceptions
 @Controller('test-errors')
@@ -73,12 +74,15 @@ describe('BaseExceptionFilter (e2e)', () => {
     it('should catch HttpException and return proper error response', () => {
       return request(app.getHttpServer())
         .get('/test-errors/http-exception')
+        .set(REQUEST_ID_HEADER, 'req-123')
         .expect(400)
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 400);
+          expect(res.body).toHaveProperty('error', 'Bad Request');
           expect(res.body).toHaveProperty('message', 'Bad request');
           expect(res.body).toHaveProperty('timestamp');
           expect(res.body).toHaveProperty('path', '/test-errors/http-exception');
+          expect(res.body).toHaveProperty(REQUEST_ID_HEADER, 'req-123');
           expect(res.body.timestamp).toBeTruthy();
         });
     });
@@ -86,12 +90,15 @@ describe('BaseExceptionFilter (e2e)', () => {
     it('should handle different HTTP status codes', () => {
       return request(app.getHttpServer())
         .get('/test-errors/not-found')
+        .set(REQUEST_ID_HEADER, 'req-404')
         .expect(404)
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 404);
+          expect(res.body).toHaveProperty('error', 'Not Found');
           expect(res.body).toHaveProperty('message', 'Not found');
           expect(res.body).toHaveProperty('timestamp');
           expect(res.body).toHaveProperty('path', '/test-errors/not-found');
+          expect(res.body).toHaveProperty(REQUEST_ID_HEADER, 'req-404');
         });
     });
   });
@@ -100,16 +107,20 @@ describe('BaseExceptionFilter (e2e)', () => {
     it('should catch unexpected errors and return 500', () => {
       return request(app.getHttpServer())
         .get('/test-errors/internal-error')
+        .set(REQUEST_ID_HEADER, 'req-500')
         .expect(500)
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 500);
+          expect(res.body).toHaveProperty('error', 'Internal Server Error');
           expect(res.body).toHaveProperty(
             'message',
             'Internal server error',
           );
           expect(res.body).toHaveProperty('timestamp');
           expect(res.body).toHaveProperty('path', '/test-errors/internal-error');
+          expect(res.body).toHaveProperty(REQUEST_ID_HEADER, 'req-500');
           expect(res.body.timestamp).toBeTruthy();
+          expect(JSON.stringify(res.body)).not.toContain('Unexpected error');
         });
     });
 
@@ -146,13 +157,15 @@ describe('BaseExceptionFilter (e2e)', () => {
     it('should include all required fields in error response', () => {
       return request(app.getHttpServer())
         .get('/test-errors/http-exception')
+        .set(REQUEST_ID_HEADER, 'req-required')
         .expect(400)
         .expect((res) => {
-          const requiredFields = ['statusCode', 'message', 'timestamp', 'path'];
+          const requiredFields = ['statusCode', 'error', 'message', 'timestamp', 'path', REQUEST_ID_HEADER];
           requiredFields.forEach((field) => {
             expect(res.body).toHaveProperty(field);
           });
           expect(typeof res.body.statusCode).toBe('number');
+          expect(typeof res.body.error).toBe('string');
           expect(typeof res.body.message).toBe('string');
           expect(typeof res.body.timestamp).toBe('string');
           expect(typeof res.body.path).toBe('string');

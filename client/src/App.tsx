@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
+import { logger } from "./utils/logger";
 import { AppProviders } from "./providers/AppProviders";
 import NetworkWarning from "./components/NetworkWarning";
 import { InstallPWA } from "./components/InstallPWA";
@@ -33,8 +34,6 @@ const LazyRoute = ({ Component }: { Component: React.LazyExoticComponent<any> })
         </Suspense>
     </ErrorBoundary>
 );
-
-import { logger } from "./utils/logger";
 
 function App() {
     useEffect(() => {
