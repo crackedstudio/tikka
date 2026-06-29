@@ -14,6 +14,8 @@ import { IndexerService } from '../../../services/indexer.service';
 =======
 <<<<<<< HEAD
 =======
+<<<<<<< HEAD
+=======
 =======
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
@@ -32,10 +34,14 @@ import { AuditLogInterceptor } from "./audit-log.interceptor";
 >>>>>>> origin/master
 >>>>>>> origin/master
 >>>>>>> origin/master
+>>>>>>> origin/master
 
 @Module({
   imports: [SupabaseModule, ConfigModule],
   controllers: [MonitorController, ReplayController],
+<<<<<<< HEAD
+  providers: [MonitorService, ReplayService, AdminGuard, BackfillLock, HorizonClientService, IndexerService],
+=======
 <<<<<<< HEAD
   providers: [MonitorService, ReplayService, AdminGuard, BackfillLock, HorizonClientService, IndexerService],
 =======
@@ -56,6 +62,7 @@ import { AuditLogInterceptor } from "./audit-log.interceptor";
     IndexerService,
     AuditLogInterceptor,
   ],
+>>>>>>> origin/master
 >>>>>>> origin/master
 >>>>>>> origin/master
 >>>>>>> origin/master

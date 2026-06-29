@@ -39,8 +39,12 @@
 <<<<<<< HEAD
     "@sentry/profiling-node": "8.55.1",
 =======
+<<<<<<< HEAD
+    "@sentry/profiling-node": "8.55.1",
+=======
     "@react-email/components": "^0.5.7",
     "@sentry/profiling-node": "^10.55.0",
+>>>>>>> origin/master
 >>>>>>> origin/master
 >>>>>>> origin/master
 >>>>>>> origin/master
