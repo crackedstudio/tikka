@@ -146,6 +146,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                                 {isWrongNetwork ? (
                                     <button
                                         onClick={() => switchNetwork()}
+                                        aria-label={`Wrong network. Switch to ${targetNetwork}`}
                                         className="flex items-center gap-2 rounded-full border border-red-500/50 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition"
                                     >
                                         <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
@@ -163,12 +164,16 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                         <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-100 dark:bg-white/5">
                             <button
                                 onClick={() => i18n.changeLanguage("en")}
+                                aria-label="Switch to English"
+                                aria-pressed={i18n.language === "en"}
                                 className={`px-2 py-1 text-xs font-medium rounded ${i18n.language === "en" ? "bg-[#FE3796] text-white" : "text-gray-500 hover:text-gray-900 dark:text-white/60"}`}
                             >
                                 EN
                             </button>
                             <button
                                 onClick={() => i18n.changeLanguage("es")}
+                                aria-label="Switch to Spanish"
+                                aria-pressed={i18n.language === "es"}
                                 className={`px-2 py-1 text-xs font-medium rounded ${i18n.language === "es" ? "bg-[#FE3796] text-white" : "text-gray-500 hover:text-gray-900 dark:text-white/60"}`}
                             >
                                 ES
