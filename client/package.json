@@ -17,13 +17,20 @@
         "preview": "vite preview",
         "validate-env": "node scripts/validate-env.js",
         "test:e2e:ui": "playwright test --ui",
-        "test:e2e:headed": "playwright test --headed"
+        "test:e2e:headed": "playwright test --headed",
+        "lighthouse": "lhci autorun",
+        "lighthouse:local": "pnpm run build && lhci autorun"
     },
     "dependencies": {
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
+        "@sentry/react": "^10.62.0",
         "@stellar/stellar-sdk": "^14.4.3",
         "@supabase/supabase-js": "^2.76.1",
+        "@vercel/analytics": "^1.5.0",
+        "@vercel/speed-insights": "^1.2.0",
         "@tailwindcss/vite": "^4.1.13",
+        "@tanstack/react-query": "^5.101.1",
+        "@tanstack/react-query-devtools": "^5.101.1",
         "canvas-confetti": "^1.9.4",
         "i18next": "^26.0.7",
         "i18next-browser-languagedetector": "^8.2.1",
@@ -43,6 +50,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^9.33.0",
+        "@lhci/cli": "^0.14.0",
         "@playwright/test": "^1.43.0",
         "@testing-library/jest-dom": "^5.16.5",
         "@testing-library/react": "^13.4.0",

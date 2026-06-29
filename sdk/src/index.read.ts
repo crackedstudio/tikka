@@ -55,5 +55,9 @@ export type { RaffleData, AssetDescriptor } from './modules/raffle/raffle.types'
 export type { GetUserTicketsParams } from './modules/ticket/ticket.types';
 export type { UserParticipation, GetParticipationParams } from './modules/user/user.types';
 
+// ── Read-only service classes ────────────────────────────────────────────────
+export { ReadOnlyRaffleService } from './modules/raffle/raffle.read.service';
+export { ReadOnlyUserService } from './modules/user/user.read.service';
+
 // ── Utils ────────────────────────────────────────────────────────────────────
 export * from './utils';

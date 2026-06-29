@@ -21,6 +21,8 @@
 import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { WalletProvider } from "./WalletProvider";
 import { AuthProvider } from "./AuthProvider";
 import { Toaster } from "sonner";
@@ -29,22 +31,34 @@ interface AppProvidersProps {
     children: ReactNode;
 }
 
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+        },
+    },
+});
+
 export function AppProviders({ children }: AppProvidersProps) {
     return (
-        <HelmetProvider>
-            <BrowserRouter>
-                <WalletProvider>
-                    <AuthProvider>
-                        <Toaster
-                            richColors
-                            position="bottom-right"
-                            closeButton
-                            theme="system"
-                        />
-                        {children}
-                    </AuthProvider>
-                </WalletProvider>
-            </BrowserRouter>
-        </HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+            <HelmetProvider>
+                <BrowserRouter>
+                    <WalletProvider>
+                        <AuthProvider>
+                            <Toaster
+                                richColors
+                                position="bottom-right"
+                                closeButton
+                                theme="system"
+                            />
+                            {children}
+                        </AuthProvider>
+                    </WalletProvider>
+                </BrowserRouter>
+            </HelmetProvider>
+            <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
     );
 }
