@@ -13,6 +13,7 @@ export class MetricsService {
   private errorsCounter: Counter;
   private reorgDetectedCounter: Counter;
   private lagGauge: Gauge;
+  private indexerLedgerLagGauge: Gauge;
   private pollDurationHistogram: Histogram;
   private slowQueryCounter: Counter;
   private queryDurationHistogram: Histogram;
@@ -43,6 +44,10 @@ export class MetricsService {
 
     this.lagGauge = this.meter.createGauge('tikka_indexer_lag_ledgers', {
       description: 'Current ledger lag behind the network',
+    });
+
+    this.indexerLedgerLagGauge = this.meter.createGauge('indexer_ledger_lag', {
+      description: 'Number of ledgers the indexer is behind the Stellar network tip',
     });
 
     this.pollDurationHistogram = this.meter.createHistogram('tikka_indexer_poll_duration_seconds', {
@@ -81,6 +86,7 @@ export class MetricsService {
 
   setLagLedgers(lag: number) {
     this.lagGauge.record(lag);
+    this.indexerLedgerLagGauge.record(lag);
   }
 
   recordPollDuration(seconds: number) {

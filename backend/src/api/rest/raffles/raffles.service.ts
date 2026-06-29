@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   NotImplementedException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -10,6 +11,7 @@ import {
   RaffleMetadata,
   UpsertMetadataPayload,
 } from '../../../services/metadata.service';
+import { PinningService } from '../../../services/pinning.service';
 import {
   IndexerService,
   IndexerRaffleData,
@@ -45,10 +47,13 @@ export interface RaffleDetailResponse {
 
 @Injectable()
 export class RafflesService {
+  private readonly logger = new Logger(RafflesService.name);
+
   constructor(
     private readonly metadataService: MetadataService,
     private readonly indexerService: IndexerService,
     private readonly config: ConfigService,
+    private readonly pinningService: PinningService,
   ) {}
 
   /**
@@ -86,7 +91,23 @@ export class RafflesService {
       );
     }
 
-    return this.metadataService.upsertMetadata(raffleId, payload);
+    const saved = await this.metadataService.upsertMetadata(raffleId, payload);
+
+    try {
+      const cid = await this.pinningService.pin(saved);
+      if (cid) {
+        const updated = await this.metadataService.updateMetadataCid(raffleId, cid);
+        return updated;
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to pin metadata to IPFS for raffle ${raffleId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    return saved;
   }
 
   /**
