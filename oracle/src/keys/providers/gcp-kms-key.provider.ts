@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { KeyProvider } from '../key-provider.interface';
+import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
 
 /**
  * Google Cloud KMS KeyProvider.
@@ -25,18 +25,15 @@ export class GcpKmsKeyProvider implements KeyProvider {
 
   constructor(
     projectId: string,
-    locationId: string,
-    keyRingId: string,
-    keyId: string,
-    keyVersion: string = '1',
+    keyPath: string,
   ) {
-    if (!projectId || !locationId || !keyRingId || !keyId) {
+    if (!projectId || !keyPath) {
       throw new Error(
-        'GCP project, location, keyRing, and key IDs are required for GcpKmsKeyProvider',
+        'GCP_KMS_PROJECT and GCP_KMS_KEY_PATH are required for GcpKmsKeyProvider',
       );
     }
 
-    this.keyVersionName = `projects/${projectId}/locations/${locationId}/keyRings/${keyRingId}/cryptoKeys/${keyId}/cryptoKeyVersions/${keyVersion}`;
+    this.keyVersionName = keyPath;
 
     try {
       // Lazy load Google Cloud SDK to avoid requiring it when not using GCP KMS
@@ -119,5 +116,79 @@ export class GcpKmsKeyProvider implements KeyProvider {
 
   getProviderType(): string {
     return 'gcp-kms';
+  }
+
+  /**
+   * Probes GCP KMS and returns a safe health snapshot.
+   *
+   * Calls `getCryptoKeyVersion` (read-only, no key material returned) to verify
+   * connectivity and IAM permissions, then exposes only the key-version resource name.
+   *
+   * SECURITY: GCP KMS never returns private key material from getCryptoKeyVersion.
+   *           Raw gRPC error details are sanitised before inclusion.
+   */
+  async getProviderHealth(): Promise<KeyProviderHealth> {
+    const checkedAt = new Date().toISOString();
+    // Use the key-version resource name as identifier (contains no secrets).
+    const cachedKeyId = this.keyVersionName ?? null;
+
+    try {
+      const [keyVersion] = await this.kmsClient.getCryptoKeyVersion({
+        name: this.keyVersionName,
+      });
+
+      const resourceName: string = keyVersion?.name ?? this.keyVersionName;
+
+      return {
+        status: 'healthy',
+        activeKeyId: resourceName,
+        message: 'GCP KMS provider is healthy. Key version is accessible.',
+        checkedAt,
+        providerType: this.getProviderType(),
+      };
+    } catch (error: any) {
+      const status = this.classifyGcpError(error);
+      return {
+        status,
+        activeKeyId: cachedKeyId,
+        message: this.sanitiseGcpError(status),
+        checkedAt,
+        providerType: this.getProviderType(),
+      };
+    }
+  }
+
+  /** Maps gRPC / GCP error codes to our status taxonomy. */
+  private classifyGcpError(error: any): 'unavailable' | 'permission_denied' | 'unknown' {
+    // gRPC status codes are numeric; gRPC-js also sets a `code` property.
+    const code: number | string = error?.code ?? error?.status ?? '';
+    // gRPC PERMISSION_DENIED = 7, UNAUTHENTICATED = 16
+    if (code === 7 || code === 16 || error?.message?.includes('PERMISSION_DENIED') || error?.message?.includes('UNAUTHENTICATED')) {
+      return 'permission_denied';
+    }
+    // gRPC UNAVAILABLE = 14, DEADLINE_EXCEEDED = 4
+    if (
+      code === 14 ||
+      code === 4 ||
+      error?.message?.includes('UNAVAILABLE') ||
+      error?.message?.includes('DEADLINE_EXCEEDED') ||
+      error?.message?.includes('ECONNREFUSED') ||
+      error?.message?.includes('ETIMEDOUT')
+    ) {
+      return 'unavailable';
+    }
+    return 'unknown';
+  }
+
+  /** Returns a safe, sanitised description of a GCP error. */
+  private sanitiseGcpError(status: 'unavailable' | 'permission_denied' | 'unknown'): string {
+    switch (status) {
+      case 'permission_denied':
+        return 'GCP KMS returned a permission or authentication error. Check the service-account IAM bindings.';
+      case 'unavailable':
+        return 'GCP KMS is unreachable. Check network connectivity and the configured project/location.';
+      default:
+        return 'An unexpected error occurred while contacting GCP KMS.';
+    }
   }
 }

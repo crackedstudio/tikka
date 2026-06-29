@@ -1,12 +1,18 @@
-import { Injectable, Optional, EventEmitter } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { EventEmitter } from 'events';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
 import { CursorManagerService } from '../ingestor/cursor-manager.service';
 import { DlqService } from '../ingestor/dlq.service';
+import {
+  PipelineStateMachine,
+  PipelineStateSnapshot,
+} from '../ingestor/pipeline-state';
 
 export const LAG_THRESHOLD_DEFAULT = 100;
 export const LAG_ALERT_THRESHOLD_DEFAULT = 50;
+export const DLQ_PRESSURE_THRESHOLD_DEFAULT = 100;
 
 export interface HealthResult {
   status: 'ok' | 'degraded';
@@ -15,7 +21,10 @@ export interface HealthResult {
   db: 'ok' | 'error';
   redis: 'ok' | 'error';
   redis_latency_ms: number | null;
+  cursor: 'ok' | 'error';
   dlq_size: number;
+  dlqPressure: 'ok' | 'high';
+  pipeline?: PipelineStateSnapshot | null;
 }
 
 @Injectable()
@@ -23,6 +32,7 @@ export class HealthService {
   private readonly horizonUrl: string;
   private readonly lagThreshold: number;
   private readonly lagAlertThreshold: number;
+  private readonly dlqPressureThreshold: number;
   private previousLagStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
   private eventEmitter: EventEmitter;
 
@@ -32,6 +42,7 @@ export class HealthService {
     private readonly cacheService: CacheService,
     private readonly cursorManagerService: CursorManagerService,
     @Optional() private readonly dlqService?: DlqService,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {
     this.horizonUrl = this.configService.get<string>(
       'HORIZON_URL',
@@ -44,6 +55,10 @@ export class HealthService {
     this.lagAlertThreshold = this.configService.get<number>(
       'INDEXER_LAG_ALERT_THRESHOLD_LEDGERS',
       LAG_ALERT_THRESHOLD_DEFAULT,
+    );
+    this.dlqPressureThreshold = this.configService.get<number>(
+      'DLQ_PRESSURE_THRESHOLD',
+      DLQ_PRESSURE_THRESHOLD_DEFAULT,
     );
     this.eventEmitter = new EventEmitter();
   }
@@ -59,6 +74,9 @@ export class HealthService {
 
     const db: 'ok' | 'error' = dbOk ? 'ok' : 'error';
     const redis: 'ok' | 'error' = redisLatency !== null ? 'ok' : 'error';
+    const cursorSanity = this.checkCursorSanity(cursor);
+    const cursor_status: 'ok' | 'error' = cursorSanity.ok ? 'ok' : 'error';
+    const dlqPressure: 'ok' | 'high' = dlq_size > this.dlqPressureThreshold ? 'high' : 'ok';
 
     let lag_ledgers: number | null = null;
     if (latestLedger != null && cursor != null && cursor.lastLedger > 0) {
@@ -87,10 +105,40 @@ export class HealthService {
 
     const degradedByLag =
       lag_ledgers != null && lag_ledgers > this.lagThreshold;
+    const degradedByDlq = dlqPressure === 'high';
     const status: 'ok' | 'degraded' =
+      db === 'error' || redis === 'error' || cursor_status === 'error' || degradedByLag || degradedByDlq ? 'degraded' : 'ok';
+
+    return { 
+      status, 
+      lag_ledgers, 
+      lagStatus, 
+      db, 
+      redis, 
+      redis_latency_ms: redisLatency, 
+      cursor: cursor_status,
+      dlq_size, 
+      dlqPressure,
+    };
       db === 'error' || redis === 'error' || degradedByLag ? 'degraded' : 'ok';
 
-    return { status, lag_ledgers, lagStatus, db, redis, redis_latency_ms: redisLatency, dlq_size };
+    const pipeline = this.pipeline ? this.pipeline.snapshot() : null;
+
+    return {
+      status,
+      lag_ledgers,
+      lagStatus,
+      db,
+      redis,
+      redis_latency_ms: redisLatency,
+      dlq_size,
+      pipeline,
+    };
+  }
+
+  /** Returns the current pipeline state snapshot, or null when unavailable. */
+  getPipelineState(): PipelineStateSnapshot | null {
+    return this.pipeline ? this.pipeline.snapshot() : null;
   }
 
   private async checkDb(): Promise<boolean> {
@@ -101,6 +149,31 @@ export class HealthService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Validates cursor sanity:
+   * - Cursor must exist
+   * - lastLedger must be > 0 (not null or 0)
+   * - lastLedger should be reasonable (not impossibly large)
+   */
+  private checkCursorSanity(cursor: any): { ok: boolean; reason?: string } {
+    if (!cursor) {
+      return { ok: false, reason: 'Cursor not initialized' };
+    }
+
+    if (!Number.isInteger(cursor.lastLedger) || cursor.lastLedger <= 0) {
+      return { ok: false, reason: `Invalid lastLedger: ${cursor.lastLedger}` };
+    }
+
+    // Cursor ledger should not be unreasonably far in the future
+    // Stellar ledgers close roughly every 5 seconds, so ~17k per day
+    // Allow up to 1 million as a reasonable upper bound
+    if (cursor.lastLedger > 1_000_000_000) {
+      return { ok: false, reason: `Cursor ledger impossibly large: ${cursor.lastLedger}` };
+    }
+
+    return { ok: true };
   }
 
   /**
@@ -132,6 +205,11 @@ export class HealthService {
   /** Lag above this value triggers critical alerts. */
   getLagAlertThreshold(): number {
     return this.lagAlertThreshold;
+  }
+
+  /** DLQ size above this value is considered high pressure. */
+  getDlqPressureThreshold(): number {
+    return this.dlqPressureThreshold;
   }
 
   /** Get the event emitter for listening to lag alerts. */

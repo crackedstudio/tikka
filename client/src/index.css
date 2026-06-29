@@ -2,28 +2,39 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+    --color-surface: #f3f4f6;
+    --color-surface-hover: #e5e7eb;
+    --color-border: #6b7280;
+    --color-icon: #1f2937;
+    --color-icon-hover: #000000;
+}
+
+.dark {
+    --color-surface: rgba(255, 255, 255, 0.05);
+    --color-surface-hover: #d1d5db;
+    --color-border: rgba(255, 255, 255, 0.40);
+    --color-icon: rgba(255, 255, 255, 0.80);
+    --color-icon-hover: #111827;
+    --color-bg: #242424;
+    --color-text-body: rgba(255, 255, 255, 0.87);
+}
+
 :root {
+    --color-bg: #ffffff;
+    --color-text-body: #1a1a1a;
     font-family: "IBM Plex Sans", "Space Mono", system-ui, Avenir, Helvetica,
         Arial, sans-serif;
     line-height: 1.5;
     font-weight: 400;
 
     color-scheme: light dark;
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #242424;
 
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-}
 
-:root {
-    color: #1a1a1a;
-    background-color: #ffffff;
-}
-
-.dark {
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #242424;
+    color: var(--color-text-body);
+    background-color: var(--color-bg);
 }

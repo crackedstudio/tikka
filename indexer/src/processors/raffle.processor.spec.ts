@@ -26,6 +26,7 @@ describe('RaffleProcessor', () => {
       invalidateActiveRaffles: jest.fn().mockResolvedValue(undefined),
       invalidateRaffleDetail: jest.fn().mockResolvedValue(undefined),
       invalidateLeaderboard: jest.fn().mockResolvedValue(undefined),
+      invalidatePlatformStats: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     webhookService = {

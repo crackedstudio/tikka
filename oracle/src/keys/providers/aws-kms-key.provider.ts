@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { KeyProvider } from '../key-provider.interface';
+import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
+import { KeyProviderError } from '../key-provider.error';
 
 /**
  * AWS KMS KeyProvider.
@@ -27,7 +28,7 @@ export class AwsKmsKeyProvider implements KeyProvider {
 
   constructor(region: string, keyId: string) {
     if (!region || !keyId) {
-      throw new Error('AWS region and keyId are required for AwsKmsKeyProvider');
+      throw new KeyProviderError('AWS region and keyId are required for AwsKmsKeyProvider');
     }
 
     this.keyId = keyId;
@@ -37,10 +38,11 @@ export class AwsKmsKeyProvider implements KeyProvider {
       const { KMSClient } = require('@aws-sdk/client-kms');
       this.kmsClient = new KMSClient({ region });
       this.logger.log(`AwsKmsKeyProvider initialized for key: ${keyId}`);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to initialize AWS KMS client: ${error.message}`);
-      throw new Error(
+      throw new KeyProviderError(
         'AWS SDK not installed. Run: npm install @aws-sdk/client-kms',
+        error
       );
     }
   }
@@ -76,9 +78,9 @@ export class AwsKmsKeyProvider implements KeyProvider {
       this.publicKeyString = this.publicKey.toString('hex');
 
       this.logger.log('Public key loaded from AWS KMS');
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to load public key from AWS KMS: ${error.message}`);
-      throw new Error('Failed to retrieve public key from AWS KMS');
+      throw new KeyProviderError('Failed to retrieve public key from AWS KMS', error);
     }
   }
 
@@ -101,13 +103,95 @@ export class AwsKmsKeyProvider implements KeyProvider {
 
       this.logger.debug(`Signed ${data.length} bytes using AWS KMS`);
       return signature;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`AWS KMS signing failed: ${error.message}`);
-      throw new Error('Failed to sign data with AWS KMS');
+      throw new KeyProviderError('Failed to sign data with AWS KMS', error);
     }
   }
 
   getProviderType(): string {
     return 'aws-kms';
+  }
+
+  /**
+   * Probes AWS KMS and returns a safe health snapshot.
+   *
+   * Calls `DescribeKey` (read-only, no key material returned) to verify
+   * connectivity and IAM permissions, then exposes only the key ARN.
+   *
+   * SECURITY: AWS KMS never returns private key material from DescribeKey.
+   *           Raw SDK error messages are sanitised before inclusion.
+   */
+  async getProviderHealth(): Promise<KeyProviderHealth> {
+    const checkedAt = new Date().toISOString();
+    // Use the cached public key string as the key identifier when available.
+    const cachedKeyId = this.publicKeyString
+      ? `arn-cached:${this.keyId}` // safer label when we already have the pubkey
+      : null;
+
+    try {
+      const { DescribeKeyCommand } = require('@aws-sdk/client-kms');
+      const command = new DescribeKeyCommand({ KeyId: this.keyId });
+      const response = await this.kmsClient.send(command);
+
+      const keyArn: string = response?.KeyMetadata?.Arn ?? this.keyId;
+
+      return {
+        status: 'healthy',
+        activeKeyId: keyArn,
+        message: 'AWS KMS provider is healthy. Key is accessible.',
+        checkedAt,
+        providerType: this.getProviderType(),
+      };
+    } catch (error: any) {
+      const status = this.classifyAwsError(error);
+      return {
+        status,
+        activeKeyId: cachedKeyId,
+        message: this.sanitiseAwsError(error, status),
+        checkedAt,
+        providerType: this.getProviderType(),
+      };
+    }
+  }
+
+  /** Maps AWS error codes to our status taxonomy without leaking raw messages. */
+  private classifyAwsError(error: any): 'unavailable' | 'permission_denied' | 'unknown' {
+    const code: string = error?.name ?? error?.code ?? '';
+    if (
+      code === 'AccessDeniedException' ||
+      code === 'InvalidClientTokenId' ||
+      code === 'AuthFailure' ||
+      code === 'UnrecognizedClientException'
+    ) {
+      return 'permission_denied';
+    }
+    if (
+      code === 'NetworkingError' ||
+      code === 'TimeoutError' ||
+      code === 'RequestTimeout' ||
+      code === 'EndpointResolutionError' ||
+      // Common transient AWS errors
+      error?.message?.includes('ECONNREFUSED') ||
+      error?.message?.includes('ETIMEDOUT')
+    ) {
+      return 'unavailable';
+    }
+    return 'unknown';
+  }
+
+  /** Returns a safe, sanitised description of an AWS error. */
+  private sanitiseAwsError(
+    error: any,
+    status: 'unavailable' | 'permission_denied' | 'unknown',
+  ): string {
+    switch (status) {
+      case 'permission_denied':
+        return 'AWS KMS returned an authentication or permission error. Check IAM policies and credentials.';
+      case 'unavailable':
+        return 'AWS KMS is unreachable. Check network connectivity and the configured region.';
+      default:
+        return 'An unexpected error occurred while contacting AWS KMS.';
+    }
   }
 }

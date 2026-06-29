@@ -42,10 +42,11 @@ describe('env.schema validate()', () => {
     expect(result.JWT_EXPIRES_IN).toBe('7d');
     expect(result.SIWS_DOMAIN).toBe('tikka.io');
     expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
-    expect(result.REDIS_URL).toBe('');
-    expect(result.METADATA_CACHE_TTL_SECONDS).toBe(600);
+    expect(result.REDIS_URL).toBe('redis://localhost:6379');
+    expect(result.METADATA_CACHE_TTL_SECONDS).toBe(3600);
     expect(result.RAFFLE_CREATE_RATE_LIMIT).toBe(5);
     expect(result.RAFFLE_CREATE_RATE_WINDOW_SECONDS).toBe(600);
+    expect(result.FEATURE_RAFFLE_TICKET_PURCHASE).toBe(false);
     expect(result.ADMIN_IP_ALLOWLIST).toBe('');
   });
 
@@ -171,5 +172,89 @@ describe('env.schema validate()', () => {
     expect(() => validate({ ...validEnv, SENTRY_TRACES_SAMPLE_RATE: '1.1' })).toThrow(
       'Environment validation failed',
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // New fields added in #531
+  // -------------------------------------------------------------------------
+
+  it('defaults NODE_ENV to development', () => {
+    const result = validate(validEnv);
+    expect(result.NODE_ENV).toBe('development');
+  });
+
+  it('accepts custom NODE_ENV', () => {
+    const result = validate({ ...validEnv, NODE_ENV: 'production' });
+    expect(result.NODE_ENV).toBe('production');
+  });
+
+  it('throws when PORT is a non-numeric string', () => {
+    expect(() => validate({ ...validEnv, PORT: 'abc' })).toThrow(
+      'Environment validation failed',
+    );
+  });
+
+  it('throws when PORT is negative', () => {
+    expect(() => validate({ ...validEnv, PORT: '-1' })).toThrow(
+      'Environment validation failed',
+    );
+  });
+
+  it('defaults REDIS_URL to empty string when missing', () => {
+    const { REDIS_URL: _, ...rest } = validEnv;
+    const result = validate(rest);
+    expect(result.REDIS_URL).toBe('');
+  });
+
+  it('throws when SUPABASE_URL is not a URL', () => {
+    expect(() => validate({ ...validEnv, SUPABASE_URL: 'not-a-url' })).toThrow(
+      'Environment validation failed',
+    );
+  });
+
+  it('defaults FCM_ENABLED to false', () => {
+    const result = validate(validEnv);
+    expect(result.FCM_ENABLED).toBe(false);
+  });
+
+  it('coerces FCM_ENABLED from string', () => {
+    const result = validate({ ...validEnv, FCM_ENABLED: 'true' });
+    expect(result.FCM_ENABLED).toBe(true);
+  });
+
+  it('defaults backfill settings', () => {
+    const result = validate(validEnv);
+    expect(result.BACKFILL_MAX_RANGE).toBe(10000);
+    expect(result.BACKFILL_RETRY_COUNT).toBe(3);
+    expect(result.BACKFILL_RETRY_DELAY_MS).toBe(1000);
+    expect(result.BACKFILL_HORIZON_TIMEOUT_MS).toBe(10000);
+  });
+
+  it('defaults throttle settings', () => {
+    const result = validate(validEnv);
+    expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
+    expect(result.THROTTLE_DEFAULT_TTL).toBe(60);
+    expect(result.THROTTLE_AUTH_LIMIT).toBe(5);
+    expect(result.THROTTLE_AUTH_TTL).toBe(900);
+    expect(result.THROTTLE_NONCE_LIMIT).toBe(10);
+    expect(result.THROTTLE_NONCE_TTL).toBe(60);
+  });
+
+  it('defaults geo settings', () => {
+    const result = validate(validEnv);
+    expect(result.GEO_PROVIDER_URL).toBe('http://ip-api.com/json');
+    expect(result.GEO_TIMEOUT_MS).toBe(3000);
+    expect(result.BLOCKED_COUNTRIES).toBe('');
+  });
+
+  it('includes descriptive error messages listing all invalid fields', () => {
+    try {
+      validate({});
+      fail('should have thrown');
+    } catch (e: any) {
+      expect(e.message).toContain('Environment validation failed');
+      expect(e.message).toContain('SUPABASE_URL');
+      expect(e.message).toContain('.env.example');
+    }
   });
 });

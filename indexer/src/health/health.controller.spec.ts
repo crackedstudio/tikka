@@ -30,7 +30,9 @@ describe('HealthController', () => {
       db: 'ok',
       redis: 'ok',
       redis_latency_ms: 0,
+      cursor: 'ok',
       dlq_size: 0,
+      dlqPressure: 'ok',
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
@@ -46,7 +48,9 @@ describe('HealthController', () => {
       db: 'ok',
       redis: 'ok',
       redis_latency_ms: 0,
+      cursor: 'ok',
       dlq_size: 0,
+      dlqPressure: 'ok',
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -63,7 +67,9 @@ describe('HealthController', () => {
       db: 'error',
       redis: 'ok',
       redis_latency_ms: 0,
+      cursor: 'ok',
       dlq_size: 0,
+      dlqPressure: 'ok',
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -86,7 +92,9 @@ describe('HealthController', () => {
       db: 'ok',
       redis: 'ok',
       redis_latency_ms: 0,
+      cursor: 'ok',
       dlq_size: 0,
+      dlqPressure: 'ok',
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
@@ -102,7 +110,9 @@ describe('HealthController', () => {
       db: 'ok',
       redis: 'ok',
       redis_latency_ms: 10,
+      cursor: 'ok',
       dlq_size: 0,
+      dlqPressure: 'ok',
     };
     healthService.getHealth.mockResolvedValue(criticalResult);
 

@@ -11,8 +11,12 @@ export class MetricsService {
 
   private eventsProcessedCounter: Counter;
   private errorsCounter: Counter;
+  private reorgDetectedCounter: Counter;
   private lagGauge: Gauge;
+  private indexerLedgerLagGauge: Gauge;
   private pollDurationHistogram: Histogram;
+  private slowQueryCounter: Counter;
+  private queryDurationHistogram: Histogram;
 
   constructor(private readonly healthService: HealthService) {
     // PrometheusExporter automatically initializes the Prometheus registry
@@ -38,13 +42,26 @@ export class MetricsService {
       description: 'Total number of ledger reorgs detected',
     });
 
-    this.meter.createObservableGauge('tikka_indexer_lag_ledgers', {
     this.lagGauge = this.meter.createGauge('tikka_indexer_lag_ledgers', {
       description: 'Current ledger lag behind the network',
     });
 
+    this.indexerLedgerLagGauge = this.meter.createGauge('indexer_ledger_lag', {
+      description: 'Number of ledgers the indexer is behind the Stellar network tip',
+    });
+
     this.pollDurationHistogram = this.meter.createHistogram('tikka_indexer_poll_duration_seconds', {
       description: 'Duration of ledger polling cycles',
+      unit: 's',
+    });
+
+    this.slowQueryCounter = this.meter.createCounter('tikka_db_slow_query_total', {
+      description: 'Total number of slow database queries detected',
+      unit: '1',
+    });
+
+    this.queryDurationHistogram = this.meter.createHistogram('tikka_db_query_duration_seconds', {
+      description: 'Database query duration in seconds',
       unit: 's',
     });
 
@@ -65,12 +82,23 @@ export class MetricsService {
 
   incrementReorgDetected(amount: number = 1) {
     this.reorgDetectedCounter.add(amount);
+  }
+
   setLagLedgers(lag: number) {
     this.lagGauge.record(lag);
+    this.indexerLedgerLagGauge.record(lag);
   }
 
   recordPollDuration(seconds: number) {
     this.pollDurationHistogram.record(seconds);
+  }
+
+  recordDatabaseQueryDuration(durationSeconds: number, queryHash: string) {
+    this.queryDurationHistogram.record(durationSeconds, { query_hash: queryHash });
+  }
+
+  incrementSlowDbQuery(queryHash: string, amount: number = 1) {
+    this.slowQueryCounter.add(amount, { query_hash: queryHash });
   }
 
   /**

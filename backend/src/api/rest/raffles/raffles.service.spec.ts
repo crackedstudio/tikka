@@ -1,7 +1,9 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, NotImplementedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { RafflesService } from './raffles.service';
 import { IndexerService, IndexerRaffleData } from '../../../services/indexer.service';
 import { MetadataService, RaffleMetadata } from '../../../services/metadata.service';
+import { PinningService } from '../../../services/pinning.service';
 
 const mockRaffle: IndexerRaffleData = {
   id: 1,
@@ -30,12 +32,15 @@ const mockMetadata: RaffleMetadata = {
   metadata_cid: 'ipfs://abc',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
+  deleted_at: null,
 };
 
 describe('RafflesService', () => {
   let service: RafflesService;
   let indexerService: jest.Mocked<Pick<IndexerService, 'listRaffles' | 'getRaffle'>>;
-  let metadataService: jest.Mocked<Pick<MetadataService, 'getMetadata' | 'getBatchMetadata' | 'upsertMetadata'>>;
+  let metadataService: jest.Mocked<Pick<MetadataService, 'getMetadata' | 'getBatchMetadata' | 'upsertMetadata' | 'updateMetadataCid'>>;
+  let configService: jest.Mocked<Pick<ConfigService, 'get'>>;
+  let pinningService: jest.Mocked<Pick<PinningService, 'pin'>>;
 
   beforeEach(() => {
     indexerService = {
@@ -46,11 +51,20 @@ describe('RafflesService', () => {
       getMetadata: jest.fn().mockResolvedValue(null),
       getBatchMetadata: jest.fn().mockResolvedValue(new Map()),
       upsertMetadata: jest.fn(),
+      updateMetadataCid: jest.fn(),
+    };
+    configService = {
+      get: jest.fn().mockReturnValue(false),
+    };
+    pinningService = {
+      pin: jest.fn().mockResolvedValue(null),
     };
 
     service = new RafflesService(
       metadataService as unknown as MetadataService,
       indexerService as unknown as IndexerService,
+      configService as unknown as ConfigService,
+      pinningService as unknown as PinningService,
     );
   });
 
@@ -153,14 +167,51 @@ describe('RafflesService', () => {
   });
 
   describe('upsertMetadata', () => {
-    it('delegates to metadataService.upsertMetadata', async () => {
+    it('delegates to metadataService.upsertMetadata, pins, and updates metadata_cid on success', async () => {
       const payload = { title: 'New Title' };
       indexerService.getRaffle.mockResolvedValue(mockRaffle);
       metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title' });
+      pinningService.pin.mockResolvedValue('QmPinnedIpfsHash');
+      metadataService.updateMetadataCid.mockResolvedValue({
+        ...mockMetadata,
+        title: 'New Title',
+        metadata_cid: 'QmPinnedIpfsHash',
+      });
 
-      await service.upsertMetadata(1, payload, 'GABC123');
+      const result = await service.upsertMetadata(1, payload, 'GABC123');
 
       expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
+      expect(pinningService.pin).toHaveBeenCalledWith({ ...mockMetadata, title: 'New Title' });
+      expect(metadataService.updateMetadataCid).toHaveBeenCalledWith(1, 'QmPinnedIpfsHash');
+      expect(result.metadata_cid).toBe('QmPinnedIpfsHash');
+    });
+
+    it('continues gracefully if PinningService.pin returns null', async () => {
+      const payload = { title: 'New Title' };
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
+      metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title', metadata_cid: null });
+      pinningService.pin.mockResolvedValue(null);
+
+      const result = await service.upsertMetadata(1, payload, 'GABC123');
+
+      expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
+      expect(pinningService.pin).toHaveBeenCalled();
+      expect(metadataService.updateMetadataCid).not.toHaveBeenCalled();
+      expect(result.metadata_cid).toBeNull();
+    });
+
+    it('continues gracefully if PinningService.pin throws an error', async () => {
+      const payload = { title: 'New Title' };
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
+      metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title', metadata_cid: null });
+      pinningService.pin.mockRejectedValue(new Error('Pinata API offline'));
+
+      const result = await service.upsertMetadata(1, payload, 'GABC123');
+
+      expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
+      expect(pinningService.pin).toHaveBeenCalled();
+      expect(metadataService.updateMetadataCid).not.toHaveBeenCalled();
+      expect(result.metadata_cid).toBeNull();
     });
 
     it('throws NotFoundException when raffle is missing in indexer', async () => {
@@ -177,6 +228,40 @@ describe('RafflesService', () => {
       await expect(
         service.upsertMetadata(1, { title: 'Nope' }, 'GOTHER999'),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('purchaseTickets', () => {
+    const payload = { quantity: 2 };
+
+    it('throws NotImplementedException when feature flag is disabled', async () => {
+      configService.get.mockReturnValue(false);
+
+      await expect(
+        service.purchaseTickets(1, payload, 'GABC123'),
+      ).rejects.toThrow(NotImplementedException);
+
+      expect(indexerService.getRaffle).not.toHaveBeenCalled();
+    });
+
+    it('throws NotImplementedException when feature flag is enabled but integration is pending', async () => {
+      configService.get.mockReturnValue(true);
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
+
+      await expect(
+        service.purchaseTickets(1, payload, 'GABC123'),
+      ).rejects.toThrow(NotImplementedException);
+
+      expect(indexerService.getRaffle).toHaveBeenCalledWith(1);
+    });
+
+    it('throws NotFoundException when raffle does not exist and feature flag is enabled', async () => {
+      configService.get.mockReturnValue(true);
+      indexerService.getRaffle.mockResolvedValue(null);
+
+      await expect(
+        service.purchaseTickets(99, payload, 'GABC123'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

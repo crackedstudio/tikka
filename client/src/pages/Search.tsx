@@ -1,17 +1,43 @@
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "../hooks/useSearch";
-import { mapListItemToCardProps } from "../services/raffleService";
+import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import RaffleCard from "../components/cards/RaffleCard";
 import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
+const CATEGORIES = ["Gaming", "Electronics", "Art", "Music", "Sports", "Collectibles", "Other"];
+
 const SearchPage: React.FC = () => {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const query = searchParams.get("q") || "";
-    const { results, isLoading, error } = useSearch(query);
+    const categoriesParam = searchParams.get("category") || "";
+    const selectedCategories = useMemo(
+        () => categoriesParam
+            ? categoriesParam.split(",").map((c) => c.trim()).filter(Boolean)
+            : [],
+        [categoriesParam]
+    );
+    const { results, isLoading, error } = useSearch(query, selectedCategories);
     const navigate = useNavigate();
+
+    const toggleCategory = useCallback((category: string) => {
+        const current = new Set(selectedCategories);
+        if (current.has(category)) {
+            current.delete(category);
+        } else {
+            current.add(category);
+        }
+        const next = Array.from(current);
+        const params = new URLSearchParams(searchParams);
+        if (next.length > 0) {
+            params.set("category", next.join(","));
+        } else {
+            params.delete("category");
+        }
+        setSearchParams(params, { replace: true });
+    }, [selectedCategories, searchParams, setSearchParams]);
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -25,6 +51,29 @@ const SearchPage: React.FC = () => {
             <h1 className="text-2xl font-bold mb-6">
                 {query ? `Search results for "${query}"` : "Search Raffles"}
             </h1>
+
+            <div className="mb-6 overflow-x-auto scrollbar-hide">
+                <div className="flex gap-2 min-w-max pb-2">
+                    {CATEGORIES.map((category) => {
+                        const isActive = selectedCategories.includes(category);
+                        return (
+                            <button
+                                key={category}
+                                onClick={() => toggleCategory(category)}
+                                className={`
+                                    px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap
+                                    ${isActive
+                                        ? "bg-[#FE3796] text-white shadow-lg shadow-[#FE3796]/20"
+                                        : "bg-white dark:bg-[#11172E] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:border-[#FE3796]/50"
+                                    }
+                                `}
+                            >
+                                {category}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
 
             {isLoading && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -43,7 +92,6 @@ const SearchPage: React.FC = () => {
 
             {!isLoading && !error && results.length === 0 && query && (
                 <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-500">
-                    {/* Animated Icon */}
                     <div className="relative mb-6">
                         <div className="absolute inset-0 rounded-full bg-[#FE3796]/20 animate-ping"></div>
                         <div className="relative bg-white dark:bg-[#11172E] p-6 rounded-full border border-gray-200 dark:border-white/10">
@@ -75,7 +123,7 @@ const SearchPage: React.FC = () => {
                     {results.map((raffle) => (
                         <RaffleCard
                             key={raffle.id}
-                            {...mapListItemToCardProps(raffle)}
+                            viewModel={toRaffleCardViewModel(raffle)}
                         />
                     ))}
                 </div>

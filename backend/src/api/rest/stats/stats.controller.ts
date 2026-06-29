@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { StatsService } from './stats.service';
@@ -23,7 +23,7 @@ export class StatsController {
     return this.statsService.getTransparencyStats();
   }
 
-  /** POST /stats/verify — Verify a VRF draw result. */
+  /** POST /stats/verify — Verify a VRF draw result with 60-second caching. */
   @Post('verify')
   @HttpCode(HttpStatus.OK)
   async verifyDraw(

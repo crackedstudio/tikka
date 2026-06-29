@@ -1,0 +1,393 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  # Client package
+  client:
+    name: Client - Lint, Test, Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./client
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: client/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Check colour contrast (WCAG AA)
+        run: node scripts/check-contrast.js
+        continue-on-error: false
+      
+      - name: Lint
+        run: pnpm run lint
+        continue-on-error: false
+      
+      - name: Run unit tests
+        run: pnpm run test:unit
+        continue-on-error: false
+      
+      - name: Build
+        run: pnpm run build
+        continue-on-error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: client-build
+          path: client/dist
+          retention-days: 7
+
+  # SDK package
+  sdk:
+    name: SDK - Lint, Test, Build, Docs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./sdk
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: sdk/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Lint
+        run: pnpm run lint
+        continue-on-error: false
+      
+      - name: Run tests
+        run: pnpm run test
+        continue-on-error: false
+      
+      - name: Build
+        run: pnpm run build
+        continue-on-error: false
+      
+      - name: Generate docs
+        run: pnpm run docs
+        continue-on-error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdk-build
+          path: sdk/dist
+          retention-days: 7
+
+  # Backend package
+  backend:
+    name: Backend - Lint, Test, Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: backend/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Lint
+        run: pnpm run lint
+        continue-on-error: false
+      
+      - name: Run tests (mocked)
+        run: pnpm run test
+        env:
+          NODE_ENV: test
+        continue-on-error: false
+      
+      - name: Build
+        run: pnpm run build
+        continue-on-error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-build
+          path: backend/dist
+          retention-days: 7
+
+  # Indexer package
+  indexer:
+    name: Indexer - Lint, Test, Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./indexer
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: indexer/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Lint
+        run: pnpm run lint
+        continue-on-error: false
+      
+      - name: Run unit tests (network tests excluded)
+        run: pnpm run test
+        env:
+          NODE_ENV: test
+        continue-on-error: false
+      
+      - name: Build
+        run: pnpm run build
+        continue-on-error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: indexer-build
+          path: indexer/dist
+          retention-days: 7
+
+  # Oracle package
+  oracle:
+    name: Oracle - Lint, Test, Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./oracle
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: oracle/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Lint
+        run: pnpm run lint
+        continue-on-error: false
+      
+      - name: Run tests (mocked)
+        run: pnpm run test
+        env:
+          NODE_ENV: test
+        continue-on-error: false
+      
+      - name: Build
+        run: pnpm run build
+        continue-on-error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: oracle-build
+          path: oracle/dist
+          retention-days: 7
+
+
+  # Secret scanning - blocks PRs that contain verified secrets
+  security-scan:
+    name: Secret Scanning (TruffleHog)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: >-
+            --only-verified
+            --exclude-paths .trufflehog-exclude
+
+  # Lighthouse CI for client performance budgets
+  lighthouse:
+    name: Lighthouse CI - Performance Budgets
+    runs-on: ubuntu-latest
+    needs: client
+    defaults:
+      run:
+        working-directory: ./client
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: client/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: client-build
+          path: client/dist
+      
+      - name: Run Lighthouse CI
+        run: |
+          pnpm exec lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+      
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-results
+          path: |
+            client/.lighthouseci
+          retention-days: 30
+      
+      - name: Comment PR with Lighthouse results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read the Lighthouse results
+            const resultsPath = path.join(process.cwd(), 'client/.lighthouseci');
+            
+            if (!fs.existsSync(resultsPath)) {
+              console.log('No Lighthouse results found');
+              return;
+            }
+            
+            // Find the manifest file
+            const files = fs.readdirSync(resultsPath);
+            const manifestFile = files.find(f => f.includes('manifest.json'));
+            
+            if (!manifestFile) {
+              console.log('No manifest file found');
+              return;
+            }
+            
+            const manifest = JSON.parse(
+              fs.readFileSync(path.join(resultsPath, manifestFile), 'utf8')
+            );
+            
+            // Get the first result
+            const result = manifest[0];
+            const summary = result.summary;
+            
+            // Create comment body
+            const comment = `## 🔦 Lighthouse CI Results
+            
+            Performance metrics for this build:
+            
+            | Metric | Score | Status |
+            |--------|-------|--------|
+            | 🎨 Performance | ${Math.round(summary.performance * 100)} | ${summary.performance >= 0.9 ? '✅' : '⚠️'} |
+            | ♿ Accessibility | ${Math.round(summary.accessibility * 100)} | ${summary.accessibility >= 0.9 ? '✅' : '⚠️'} |
+            | 🎯 Best Practices | ${Math.round(summary['best-practices'] * 100)} | ${summary['best-practices'] >= 0.9 ? '✅' : '⚠️'} |
+            | 🔍 SEO | ${Math.round(summary.seo * 100)} | ${summary.seo >= 0.9 ? '✅' : '⚠️'} |
+            
+            [📊 View full Lighthouse report](${result.url})
+            
+            ### Core Web Vitals
+            - **LCP (Largest Contentful Paint)**: Target < 2.5s
+            - **CLS (Cumulative Layout Shift)**: Target < 0.1
+            - **FCP (First Contentful Paint)**: Target < 2.0s
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Summary job - fails if any package fails
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [client, sdk, backend, indexer, oracle, security-scan, lighthouse]
+    if: always()
+    steps:
+      - name: Check all jobs status
+        run: |
+          if [[ "${{ needs.client.result }}" != "success" ]] || \
+             [[ "${{ needs.sdk.result }}" != "success" ]] || \
+             [[ "${{ needs.backend.result }}" != "success" ]] || \
+             [[ "${{ needs.indexer.result }}" != "success" ]] || \
+             [[ "${{ needs.oracle.result }}" != "success" ]] || \
+             [[ "${{ needs.security-scan.result }}" != "success" ]] || \
+             [[ "${{ needs.lighthouse.result }}" != "success" ]]; then
+            echo "❌ One or more packages failed CI checks"
+            exit 1
+          fi
+          echo "✅ All packages passed CI checks"

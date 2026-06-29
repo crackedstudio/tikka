@@ -8,17 +8,30 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiSecurity } from "@nestjs/swagger";
 import { CacheService } from "../../cache/cache.service";
 import { UserEntity } from "../../database/entities/user.entity";
 import { TicketEntity } from "../../database/entities/ticket.entity";
 import { RaffleEntity } from "../../database/entities/raffle.entity";
 import { ApiKeyGuard } from "../api-key.guard";
+import {
+  UserProfileDto,
+  UserLeaderboardResponseDto,
+  UserLeaderboardEntryDto,
+} from "./dto/user.dto";
+import {
+  RaffleListItemDto,
+  UserRaffleHistoryItemDto,
+  UserRaffleHistoryResponseDto,
+} from "./dto/raffle.dto";
 
 export interface PaginationQuery {
   limit?: string;
   offset?: string;
 }
 
+@ApiTags('users')
+@ApiSecurity('api-key')
 @UseGuards(ApiKeyGuard)
 @Controller()
 export class UsersController {
@@ -37,8 +50,12 @@ export class UsersController {
    * Top users by total_raffles_won, then total_prize_xlm.
    * Declared before /:address to avoid route shadowing.
    */
+  @ApiOperation({ summary: 'User leaderboard', description: 'Top users ordered by wins, then prize XLM.' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: UserLeaderboardResponseDto })
   @Get("leaderboard")
-  async leaderboard(@Query() query: PaginationQuery) {
+  async leaderboard(@Query() query: PaginationQuery): Promise<UserLeaderboardResponseDto> {
     const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
     const offset = parseInt(query.offset ?? "0", 10);
 
@@ -57,8 +74,8 @@ export class UsersController {
       .offset(offset)
       .getManyAndCount();
 
-    const result = {
-      data: users.map((u, i) => ({
+    const result: UserLeaderboardResponseDto = {
+      data: users.map((u, i): UserLeaderboardEntryDto => ({
         rank: offset + i + 1,
         address: u.address,
         total_raffles_won: u.totalRafflesWon,
@@ -82,8 +99,12 @@ export class UsersController {
    * GET /users/:address
    * User profile — cache-first, PostgreSQL fallback.
    */
+  @ApiOperation({ summary: 'Get user profile' })
+  @ApiParam({ name: 'address', description: 'Stellar public key' })
+  @ApiResponse({ status: 200, type: UserProfileDto })
+  @ApiResponse({ status: 404, description: 'User not found' })
   @Get("users/:address")
-  async profile(@Param("address") address: string) {
+  async profile(@Param("address") address: string): Promise<UserProfileDto> {
     const cached = await this.cacheService.getUserProfile(address);
     if (cached) return cached;
 
@@ -121,14 +142,12 @@ export class UsersController {
       ? (winnerCount / participantCount) * 100
       : 0;
 
-    const result = {
+    const result: UserProfileDto = {
       address: user.address,
       total_tickets_bought: user.totalTicketsBought,
       total_raffles_entered: user.totalRafflesEntered,
       total_raffles_won: user.totalRafflesWon,
       total_prize_xlm: user.totalPrizeXlm,
-      first_seen_ledger: user.firstSeenLedger,
-      updated_at: user.updatedAt,
       creator_stats: {
         raffles_created: rafflesCreated,
         total_tickets_sold: parseInt(totals?.totalTicketsSold ?? "0", 10),
@@ -145,11 +164,16 @@ export class UsersController {
    * GET /users/:address/history
    * Paginated list of raffles the user has participated in.
    */
+  @ApiOperation({ summary: 'Get user raffle history' })
+  @ApiParam({ name: 'address', description: 'Stellar public key' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: UserRaffleHistoryResponseDto })
   @Get("users/:address/history")
   async history(
     @Param("address") address: string,
     @Query() query: PaginationQuery,
-  ) {
+  ): Promise<UserRaffleHistoryResponseDto> {
     const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
     const offset = parseInt(query.offset ?? "0", 10);
 
@@ -190,9 +214,10 @@ export class UsersController {
       ticketCounts.map((r) => [Number(r.raffleId), Number(r.count)]),
     );
 
-    return {
-      data: raffles.map((r) => ({
+    const result: UserRaffleHistoryResponseDto = {
+      data: raffles.map((r): UserRaffleHistoryItemDto => ({
         id: r.id,
+        creator: r.creator,
         status: r.status,
         ticket_price: r.ticketPrice,
         asset: r.asset,
@@ -201,7 +226,8 @@ export class UsersController {
         end_time: r.endTime,
         winner: r.winner,
         prize_amount: r.prizeAmount,
-        created_at: r.createdAt,
+        metadata_cid: r.metadataCid,
+        created_at: r.createdAt.toISOString(),
         user_tickets: countMap.get(r.id) ?? 0,
         won: r.winner === address,
       })),
@@ -209,5 +235,7 @@ export class UsersController {
       limit,
       offset,
     };
+
+    return result;
   }
 }

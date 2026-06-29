@@ -1,10 +1,37 @@
 import FeaturedRaffleCard from "../cards/FeaturedRaffleCard";
 import featraff from "../../assets/featraff.png";
 import RocketLaunch from "../../assets/svg/RocketLaunch";
+import type { RaffleCardViewModel } from "../cards/raffleCardViewModel";
 
 interface FeaturedRaffleProps {
     isSignedIn: boolean;
 }
+
+// Static demo ViewModel — not fetched from the API.
+// countdown is fixed display text; endTimeUnix drives the calendar widget.
+const DEMO_END_TIME =
+    Math.floor(Date.now() / 1000) + 86400 + 12 * 3600 + 45 * 60 + 33;
+
+const DEMO_RAFFLE: RaffleCardViewModel = {
+    raffleId: 0,
+    title: "Rare Crypto Punk #3842",
+    description:
+        "Win a 7-day all-inclusive stay at a 5-star resort in Bali, including flights and activities for two people.",
+    imageUrl: featraff,
+    status: "live",
+    statusLabel: "Live",
+    ticketPrice: "0.010 ETH",
+    ticketAsset: "ETH",
+    prizeValue: "12.5",
+    prizeCurrency: "ETH",
+    entries: 782,
+    maxTickets: 1117,
+    progress: 70,
+    endTimeUnix: DEMO_END_TIME,
+    countdown: { days: "01", hours: "12", minutes: "45", seconds: "33" },
+    winner: null,
+    buttonText: "Enter Raffle",
+};
 
 const FeaturedRaffle = ({ isSignedIn }: FeaturedRaffleProps) => {
     return (
@@ -18,22 +45,7 @@ const FeaturedRaffle = ({ isSignedIn }: FeaturedRaffleProps) => {
                 {/* Card */}
                 <div className="mt-8">
                     <FeaturedRaffleCard
-                        image={featraff}
-                        title="Rare Crypto Punk #3842"
-                        body={`Win a 7-day all-inclusive stay at a 5-star resort in Bali, including flights 
-and activities for two people.`}
-                        prizeValue="12.5"
-                        prizeCurrency="ETH"
-                        countdown={{
-                            days: "01",
-                            hours: "12",
-                            minutes: "45",
-                            seconds: "33",
-                        }}
-                        ticketPrice="0.01 ETH"
-                        entries={782}
-                        progress={70}
-                        buttonText="Enter Raffle"
+                        viewModel={DEMO_RAFFLE}
                         onEnter={() => alert("Entering raffle...")}
                     />
                 </div>
@@ -48,10 +60,6 @@ and activities for two people.`}
                             <RocketLaunch />
                             <span>Get Started</span>
                         </a>
-
-                        <p className="font-semibold text-lg md:text-2xl text-center md:text-left">
-                            Sign up now to host raffles or join raffles
-                        </p>
                     </div>
                 )}
             </div>
