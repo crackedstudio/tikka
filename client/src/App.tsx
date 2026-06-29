@@ -7,6 +7,7 @@ import { logger } from "./utils/logger";
 import { AppProviders } from "./providers/AppProviders";
 import NetworkWarning from "./components/NetworkWarning";
 import { InstallPWA } from "./components/InstallPWA";
+import { ServiceWorkerUpdate } from "./components/ServiceWorkerUpdate";
 import { Spinner } from "./components/ui/Spinner";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -78,6 +79,7 @@ function App() {
                 </Route>
             </Routes>
             <InstallPWA />
+            <ServiceWorkerUpdate />
         </AppProviders>
     );
 }

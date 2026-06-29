@@ -34,17 +34,18 @@ export default function ThemeToggle() {
         });
     };
 
-    const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    const ariaLabel = isDark ? "Switch to light theme" : "Switch to dark theme";
-
     return (
         <button
             onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 dark:border-white/10 bg-gray-100 dark:bg-white/5 text-gray-800 dark:text-white/80 transition hover:bg-gray-200 dark:hover:bg-gray-300 dark:bg-white/10 hover:text-black dark:hover:text-gray-900 dark:text-white"
-            aria-label={ariaLabel}
-            title={ariaLabel}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-icon transition hover:bg-surface-hover hover:text-icon-hover"
+            aria-label="Toggle theme"
+            title={`Current theme: ${theme}`}
         >
-            {isDark ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
+            {(theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)) ? (
+                <Moon size={18} />
+            ) : (
+                <Sun size={18} />
+            )}
         </button>
     );
 }
