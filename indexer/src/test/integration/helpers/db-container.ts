@@ -23,6 +23,7 @@ import { PlatformStatEntity } from '../../../database/entities/platform-stat.ent
 import { PlatformStateEntity } from '../../../database/entities/platform-state.entity';
 import { IndexerCursorEntity } from '../../../database/entities/indexer-cursor.entity';
 import { WebhookEntity } from '../../../database/entities/webhook.entity';
+import { ArchiveCheckpointEntity } from '../../../database/entities/archive-checkpoint.entity';
 
 import { CreateRaffles1700000000000 } from '../../../database/migrations/1700000000000-CreateRaffles';
 import { CreateTickets1700000000001 } from '../../../database/migrations/1700000000001-CreateTickets';
@@ -35,6 +36,7 @@ import { AddWebhooksTable1720000000000 } from '../../../database/migrations/1720
 import { AddUserLastTxHash1720000000001 } from '../../../database/migrations/1720000000001-AddUserLastTxHash';
 import { AddLedgerHashesToCursor1730000000001 } from '../../../database/migrations/1730000000001-AddLedgerHashesToCursor';
 import { AddCheckpointIntegrityColumns1748736000000 } from '../../../database/migrations/1748736000000-AddCheckpointIntegrityColumns';
+import { AddArchiveCheckpointIntegrityFields1748900000000 } from '../../../database/migrations/1748900000000-AddArchiveCheckpointIntegrityFields';
 
 /** How long to wait for the container to be ready (ms). */
 export const CONTAINER_STARTUP_MS = 120_000;
@@ -94,6 +96,7 @@ export function buildDataSource(container: StartedPostgreSqlContainer): DataSour
       PlatformStateEntity,
       IndexerCursorEntity,
       WebhookEntity,
+      ArchiveCheckpointEntity,
     ],
     migrations: [
       CreateRaffles1700000000000,
@@ -107,6 +110,7 @@ export function buildDataSource(container: StartedPostgreSqlContainer): DataSour
       AddUserLastTxHash1720000000001,
       AddLedgerHashesToCursor1730000000001,
       AddCheckpointIntegrityColumns1748736000000,
+      AddArchiveCheckpointIntegrityFields1748900000000,
     ],
     migrationsRun: false,
     synchronize: false,
