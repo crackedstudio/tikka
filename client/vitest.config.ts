@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
   test: {
@@ -9,6 +10,11 @@ export default defineConfig({
     coverage: {
       provider: 'istanbul',
       reporter: ['text', 'lcov'],
+    },
+  },
+  resolve: {
+    alias: {
+      'virtual:pwa-register/react': path.resolve(__dirname, 'src/test-utils/virtual-pwa-register.ts'),
     },
   },
 });
