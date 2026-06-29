@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from "@nestjs/swagger";
 import { CacheService } from "../../cache/cache.service";
 import { PlatformStatEntity } from "../../database/entities/platform-stat.entity";
 import { RaffleEntity, RaffleStatus } from "../../database/entities/raffle.entity";
@@ -8,6 +9,8 @@ import { UserEntity } from "../../database/entities/user.entity";
 import { ApiKeyGuard } from "../api-key.guard";
 import { PlatformStatDto } from "./dto/stats.dto";
 
+@ApiTags('stats')
+@ApiSecurity('api-key')
 @UseGuards(ApiKeyGuard)
 @Controller("stats")
 export class StatsController {
@@ -26,6 +29,8 @@ export class StatsController {
    * Aggregated platform-wide stats — cache-first (5 min TTL), PostgreSQL fallback.
    * Merges the latest daily roll-up row with live counts for active raffles.
    */
+  @ApiOperation({ summary: 'Platform statistics', description: 'Aggregated platform-wide stats (cached, 5 min TTL).' })
+  @ApiResponse({ status: 200, type: PlatformStatDto })
   @Get("platform")
   async platform(): Promise<PlatformStatDto> {
     const cached = await this.cacheService.getPlatformStats();
