@@ -23,7 +23,7 @@ export class StatsController {
     return this.statsService.getTransparencyStats();
   }
 
-  /** POST /stats/verify — Verify a VRF draw result. */
+  /** POST /stats/verify — Verify a VRF draw result with 60-second caching. */
   @Post('verify')
   @HttpCode(HttpStatus.OK)
   async verifyDraw(

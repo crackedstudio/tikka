@@ -10,6 +10,11 @@ spec:
   selector:
     matchLabels:
       app: tikka-indexer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
@@ -50,7 +55,7 @@ spec:
               path: /health
               port: 3002
             initialDelaySeconds: 10
-            periodSeconds: 15
+            periodSeconds: 5
             failureThreshold: 3
             timeoutSeconds: 5
           livenessProbe:
@@ -58,10 +63,9 @@ spec:
               path: /health
               port: 3002
             initialDelaySeconds: 30
-            periodSeconds: 30
+            periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
-      terminationGracePeriodSeconds: 30
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -1,13 +1,10 @@
-/**
- * Snapshot DTOs — admin snapshot export/import responses.
- * Hide implementation details of storage, processing, or file handling.
- */
+import { ApiProperty } from '@nestjs/swagger';
 
-export interface SnapshotExportResponseDto {
-  message: string;
-  filename: string;
+export class SnapshotExportResponseDto {
+  @ApiProperty() message: string;
+  @ApiProperty() filename: string;
 }
 
-export interface SnapshotImportResponseDto {
-  message: string;
+export class SnapshotImportResponseDto {
+  @ApiProperty() message: string;
 }
