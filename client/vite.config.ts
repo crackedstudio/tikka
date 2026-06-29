@@ -20,7 +20,7 @@ export default defineConfig({
                 open: false,
             }),
         VitePWA({
-            registerType: "autoUpdate",
+            registerType: "prompt",
             includeAssets: ["vite.svg", "offline.html"],
             manifest: {
                 name: "Tikka",
@@ -47,13 +47,41 @@ export default defineConfig({
                 navigateFallback: "/offline.html",
                 runtimeCaching: [
                     {
+                        // Navigation requests (HTML documents) — NetworkFirst
+                        urlPattern: ({ request }) => request.mode === 'navigate',
+                        handler: "NetworkFirst",
+                        options: {
+                            cacheName: "pages-cache",
+                            expiration: {
+                                maxEntries: 50,
+                                maxAgeSeconds: 24 * 60 * 60,
+                            },
+                        },
+                    },
+                    {
+                        // API calls — NetworkFirst
+                        urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+                        handler: "NetworkFirst",
+                        options: {
+                            cacheName: "api-cache",
+                            expiration: {
+                                maxEntries: 100,
+                                maxAgeSeconds: 5 * 60,
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200],
+                            },
+                        },
+                    },
+                    {
+                        // Raffles data — NetworkFirst
                         urlPattern: ({ url }) => url.pathname.includes('/raffles'),
                         handler: "NetworkFirst",
                         options: {
                             cacheName: "raffles-cache",
                             expiration: {
                                 maxEntries: 50,
-                                maxAgeSeconds: 5 * 60, // 5 minutes
+                                maxAgeSeconds: 5 * 60,
                             },
                             cacheableResponse: {
                                 statuses: [0, 200],
