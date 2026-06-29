@@ -71,7 +71,7 @@
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.16",
+    "@nestjs/cli": "^11.0.23",
     "@nestjs/testing": "^10.4.0",
     "@size-limit/preset-small-lib": "^11.1.6",
     "@types/inquirer": "^9.0.7",
