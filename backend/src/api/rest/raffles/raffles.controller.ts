@@ -151,7 +151,10 @@ export class RafflesController {
   @Post(":raffleId/metadata")
   @ApiOperation({ summary: "Create or update raffle metadata" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiHeader({ name: "Idempotency-Key", description: "Client-generated UUID for safe retries. Prevents duplicate metadata writes if request is retried within 24 hours.", required: false })
   @ApiResponse({ status: 201, description: "Metadata created/updated successfully" })
+  @ApiResponse({ status: 409, description: "Conflict — request with this Idempotency-Key is already in progress" })
+  @UseInterceptors(IdempotencyInterceptor)
   async upsertMetadata(
     @Param("raffleId", ParseIntPipe) raffleId: number,
     @CurrentUser("address") address: string,
