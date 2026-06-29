@@ -1,11 +1,16 @@
+// RaffleCard.tsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { ProgressBar } from "../ui/ProgressBar";
 import Line from "../../assets/svg/Line";
 import EnterRaffleButton from "../EnterRaffleButton";
-import LazyImage from "../LazyImage";
 
-// ── Status badge ──────────────────────────────────────────────────────────────
+type Countdown = {
+    days: string;
+    hours: string;
+    minutes: string;
+    seconds: string;
+};
 
 type RaffleCardProps = {
     image: string;
@@ -21,8 +26,6 @@ type RaffleCardProps = {
     buttonText?: string;
     onEnter?: () => void; // optional click handler
     raffleId?: number; // Contract raffle ID
-    /** Optional telemetry callback for image errors */
-    onImageError?: (src: string) => void;
 };
 
 const RaffleCard: React.FC<RaffleCardProps> = ({
@@ -38,7 +41,6 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
     buttonText = "Enter Raffle",
     onEnter,
     raffleId,
-    onImageError,
 }) => {
     return (
         <div className="w-full bg-white dark:bg-[#11172E] p-4 rounded-3xl flex flex-col space-y-4">
@@ -50,29 +52,25 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                 >
                     {/* Image */}
                     <div className="w-full">
-                        <LazyImage
+                        <img
                             src={image}
-                            alt={title}
-                            aspectRatio={16/9}
-                            containerClassName="w-full rounded-3xl"
-                            className="w-full h-full object-cover"
-                            onError={onImageError}
+                            alt="Raffle"
+                            className="w-full object-cover rounded-3xl"
                         />
                     </div>
 
-                {/* Title & Prize */}
-                <div>
-                    <p className="text-[22px] font-bold">{title}</p>
-                    <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
-                        Prize Value:{" "}
-                        <span className="font-bold text-yellow-600 dark:text-[#FFD700]">
-                            {prizeValue} {prizeCurrency}
-                        </span>
-                    </p>
-                </div>
+                    {/* Title & Prize */}
+                    <div>
+                        <p className="text-[22px] font-bold">{title}</p>
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
+                            Prize Value:{" "}
+                            <span className="font-bold text-yellow-600 dark:text-[#FFD700]">
+                                {prizeValue} {prizeCurrency}
+                            </span>
+                        </p>
+                    </div>
 
-                {/* Countdown (active) or winner / status info (inactive) */}
-                {isActive ? (
+                    {/* Countdown */}
                     <div>
                         <Line />
                         <p className="text-xs text-center text-gray-600 dark:text-[#9CA3AF]">
@@ -94,22 +92,18 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                         </div>
                         <Line />
                     </div>
-                ) : status === "finalized" ? (
-                    <div>
-                        <Line />
-                        <p className="text-xs text-center text-gray-600 dark:text-[#9CA3AF]">
-                            Winner
-                        </p>
-                        {winner ? (
-                            <p
-                                className="text-center text-xs text-blue-400 font-mono truncate px-2"
-                                data-testid="winner-address"
-                            >
-                                {winner.slice(0, 6)}…{winner.slice(-6)}
+
+                    {/* Ticket & Entries */}
+                    <div className="flex justify-between">
+                        <div>
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
+                                Ticket price
                             </p>
-                        ) : (
-                            <p className="text-center text-xs text-gray-500">
-                                Awaiting result
+                            <p>{ticketPrice} <span className="text-xs text-gray-500 dark:text-[#9CA3AF]">{ticketAsset}</span></p>
+                        </div>
+                        <div>
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
+                                Entries
                             </p>
                             <p data-testid="entries-count">{entries}</p>
                         </div>
@@ -122,46 +116,75 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                 <div className="flex flex-col space-y-4">
                     {/* Image */}
                     <div className="w-full">
-                        <LazyImage
+                        <img
                             src={image}
-                            alt={title}
-                            aspectRatio={16/9}
-                            containerClassName="w-full rounded-3xl"
-                            className="w-full h-full object-cover"
-                            onError={onImageError}
+                            alt="Raffle"
+                            className="w-full object-cover rounded-3xl"
                         />
                     </div>
-                ) : (
-                    /* cancelled — just a divider */
-                    <Line />
-                )}
 
-                {/* Ticket & Entries */}
-                <div className="flex justify-between">
+                    {/* Title & Prize */}
                     <div>
-                        <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
-                            Ticket price
+                        <p className="text-[22px] font-bold">{title}</p>
+                        <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
+                            Prize Value:{" "}
+                            <span className="font-bold text-yellow-600 dark:text-[#FFD700]">
+                                {prizeValue} {prizeCurrency}
+                            </span>
                         </p>
-                        <p>{ticketPrice}</p>
                     </div>
+
+                    {/* Countdown */}
                     <div>
-                        <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
-                            Entries
+                        <Line />
+                        <p className="text-xs text-center text-gray-600 dark:text-[#9CA3AF]">
+                            Ends In
                         </p>
-                        <p data-testid="entries-count">{entries}</p>
+                        <div className="flex justify-center space-x-1">
+                            <span className="bg-[#242B46] rounded p-1">
+                                {countdown.days}d
+                            </span>
+                            <span className="bg-[#242B46] rounded p-1">
+                                {countdown.hours}h
+                            </span>
+                            <span className="bg-[#242B46] rounded p-1">
+                                {countdown.minutes}m
+                            </span>
+                            <span className="bg-[#242B46] rounded p-1">
+                                {countdown.seconds}s
+                            </span>
+                        </div>
+                        <Line />
                     </div>
+
+                    {/* Ticket & Entries */}
+                    <div className="flex justify-between">
+                        <div>
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
+                                Ticket price
+                            </p>
+                            <p>{ticketPrice} <span className="text-xs text-gray-500 dark:text-[#9CA3AF]">{ticketAsset}</span></p>
+                        </div>
+                        <div>
+                            <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">
+                                Entries
+                            </p>
+                            <p data-testid="entries-count">{entries}</p>
+                        </div>
+                    </div>
+
+                    {/* Progress */}
+                    <ProgressBar value={progress} />
                 </div>
+            )}
 
-                {/* Progress */}
-                <ProgressBar value={progress} />
-            </Link>
-
-            {/* CTA — outside the Link to prevent navigation on button click */}
-            {isActive ? (
+            {/* CTA - Separate from clickable area to prevent navigation when clicking button */}
+            {raffleId ? (
                 <EnterRaffleButton
                     raffleId={raffleId}
                     ticketPrice={ticketPrice}
                     onSuccess={() => {
+                        console.log("Ticket purchased successfully!");
                         onEnter?.();
                     }}
                     onError={(error) => {
@@ -173,9 +196,8 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                 </EnterRaffleButton>
             ) : (
                 <button
-                    disabled
-                    className="border border-gray-500 dark:border-gray-600 px-8 py-4 rounded-xl opacity-50 cursor-not-allowed"
-                    data-testid="status-button"
+                    onClick={onEnter}
+                    className="border border-pink-500 dark:border-[#fe3796] px-8 py-4 rounded-xl hover:bg-[#fe3796]/10 transition"
                 >
                     {buttonText}
                 </button>
