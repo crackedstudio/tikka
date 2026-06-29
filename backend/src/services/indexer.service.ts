@@ -331,12 +331,14 @@ export class IndexerService {
     limit = 10,
     offset = 0,
     raffleId?: number,
+    txHash?: string,
   ): Promise<IndexerTransparencyLog> {
     const params = new URLSearchParams({
       limit: String(limit),
       offset: String(offset),
     });
     if (raffleId != null) params.set('raffle_id', String(raffleId));
+    if (txHash) params.set('tx_hash', txHash);
     return this.fetch<IndexerTransparencyLog>(`/transparency?${params}`);
   }
 
