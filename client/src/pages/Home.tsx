@@ -1,5 +1,5 @@
 import BrowseRaffles from "../components/home/BrowseRaffles";
-import FeaturedRaffleCardSkeleton from "../components/cards/FeaturedRaffleCardSkeleton";
+import FollowedCreatorsRaffles from "../components/home/FollowedCreatorsRaffles";
 import FeaturedRaffle from "../components/landing/FeaturedRaffle";
 import TrendingRaffles from "../components/landing/TrendingRaffles";
 import VerifiedBadge from "../components/VerifiedBadge";
