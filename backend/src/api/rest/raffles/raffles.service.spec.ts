@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { RafflesService } from './raffles.service';
 import { IndexerService, IndexerRaffleData } from '../../../services/indexer.service';
 import { MetadataService, RaffleMetadata } from '../../../services/metadata.service';
+import { PinningService } from '../../../services/pinning.service';
 
 const mockRaffle: IndexerRaffleData = {
   id: 1,
@@ -37,8 +38,9 @@ const mockMetadata: RaffleMetadata = {
 describe('RafflesService', () => {
   let service: RafflesService;
   let indexerService: jest.Mocked<Pick<IndexerService, 'listRaffles' | 'getRaffle'>>;
-  let metadataService: jest.Mocked<Pick<MetadataService, 'getMetadata' | 'getBatchMetadata' | 'upsertMetadata'>>;
+  let metadataService: jest.Mocked<Pick<MetadataService, 'getMetadata' | 'getBatchMetadata' | 'upsertMetadata' | 'updateMetadataCid'>>;
   let configService: jest.Mocked<Pick<ConfigService, 'get'>>;
+  let pinningService: jest.Mocked<Pick<PinningService, 'pin'>>;
 
   beforeEach(() => {
     indexerService = {
@@ -49,15 +51,20 @@ describe('RafflesService', () => {
       getMetadata: jest.fn().mockResolvedValue(null),
       getBatchMetadata: jest.fn().mockResolvedValue(new Map()),
       upsertMetadata: jest.fn(),
+      updateMetadataCid: jest.fn(),
     };
     configService = {
       get: jest.fn().mockReturnValue(false),
+    };
+    pinningService = {
+      pin: jest.fn().mockResolvedValue(null),
     };
 
     service = new RafflesService(
       metadataService as unknown as MetadataService,
       indexerService as unknown as IndexerService,
       configService as unknown as ConfigService,
+      pinningService as unknown as PinningService,
     );
   });
 
@@ -160,14 +167,51 @@ describe('RafflesService', () => {
   });
 
   describe('upsertMetadata', () => {
-    it('delegates to metadataService.upsertMetadata', async () => {
+    it('delegates to metadataService.upsertMetadata, pins, and updates metadata_cid on success', async () => {
       const payload = { title: 'New Title' };
       indexerService.getRaffle.mockResolvedValue(mockRaffle);
       metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title' });
+      pinningService.pin.mockResolvedValue('QmPinnedIpfsHash');
+      metadataService.updateMetadataCid.mockResolvedValue({
+        ...mockMetadata,
+        title: 'New Title',
+        metadata_cid: 'QmPinnedIpfsHash',
+      });
 
-      await service.upsertMetadata(1, payload, 'GABC123');
+      const result = await service.upsertMetadata(1, payload, 'GABC123');
 
       expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
+      expect(pinningService.pin).toHaveBeenCalledWith({ ...mockMetadata, title: 'New Title' });
+      expect(metadataService.updateMetadataCid).toHaveBeenCalledWith(1, 'QmPinnedIpfsHash');
+      expect(result.metadata_cid).toBe('QmPinnedIpfsHash');
+    });
+
+    it('continues gracefully if PinningService.pin returns null', async () => {
+      const payload = { title: 'New Title' };
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
+      metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title', metadata_cid: null });
+      pinningService.pin.mockResolvedValue(null);
+
+      const result = await service.upsertMetadata(1, payload, 'GABC123');
+
+      expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
+      expect(pinningService.pin).toHaveBeenCalled();
+      expect(metadataService.updateMetadataCid).not.toHaveBeenCalled();
+      expect(result.metadata_cid).toBeNull();
+    });
+
+    it('continues gracefully if PinningService.pin throws an error', async () => {
+      const payload = { title: 'New Title' };
+      indexerService.getRaffle.mockResolvedValue(mockRaffle);
+      metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title', metadata_cid: null });
+      pinningService.pin.mockRejectedValue(new Error('Pinata API offline'));
+
+      const result = await service.upsertMetadata(1, payload, 'GABC123');
+
+      expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
+      expect(pinningService.pin).toHaveBeenCalled();
+      expect(metadataService.updateMetadataCid).not.toHaveBeenCalled();
+      expect(result.metadata_cid).toBeNull();
     });
 
     it('throws NotFoundException when raffle is missing in indexer', async () => {

@@ -17,6 +17,7 @@
     "@types/react-router-dom": "^5.3.3"
   },
   "dependencies": {
+    "@pinata/sdk": "^2.1.0",
     "react-router-dom": "^7.13.2"
   }
 }
