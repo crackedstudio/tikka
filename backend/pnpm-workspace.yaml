@@ -1,0 +1,6 @@
+allowBuilds:
+  '@firebase/util': true
+  '@nestjs/core': true
+  '@sentry/node-cpu-profiler': true
+  protobufjs: true
+  sharp: true

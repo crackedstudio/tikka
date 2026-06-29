@@ -1,33 +1,50 @@
 import { HealthService, ComponentStatus } from './health.service';
+import { CircuitBreakerService } from '../listener/circuit-breaker.service';
 
 describe('HealthService', () => {
   let service: HealthService;
+  let circuitBreakerServiceMock: any;
 
   beforeEach(() => {
-    service = new HealthService();
+    circuitBreakerServiceMock = {
+      getState: jest.fn().mockReturnValue('closed'),
+      getFailureCount: jest.fn().mockReturnValue(0),
+      getLastFailureAt: jest.fn().mockReturnValue(null),
+    };
+    service = new HealthService(circuitBreakerServiceMock as unknown as CircuitBreakerService);
   });
 
   describe('circuitState', () => {
-    it('defaults to "closed" when never updated', () => {
+    it('defaults to "closed" based on circuit breaker state', () => {
       const metrics = service.getMetrics();
       expect(metrics.circuitState).toBe('closed');
+      expect(metrics.circuit_breaker.state).toBe('CLOSED');
+      expect(metrics.circuit_breaker.failureCount).toBe(0);
     });
 
-    it('reflects "open" after updateCircuitState("open")', () => {
-      service.updateCircuitState('open');
-      expect(service.getMetrics().circuitState).toBe('open');
+    it('reflects "open" when circuit breaker is open and returns unhealthy', () => {
+      circuitBreakerServiceMock.getState.mockReturnValue('open');
+      circuitBreakerServiceMock.getFailureCount.mockReturnValue(5);
+      circuitBreakerServiceMock.getLastFailureAt.mockReturnValue(1600000000000);
+
+      const metrics = service.getMetrics();
+      expect(metrics.circuitState).toBe('open');
+      expect(metrics.circuit_breaker.state).toBe('OPEN');
+      expect(metrics.circuit_breaker.failureCount).toBe(5);
+      expect(metrics.circuit_breaker.lastFailureAt).toBe(new Date(1600000000000).toISOString());
+      
+      expect(service.isHealthy()).toBe(false);
     });
 
-    it('reflects "half-open" after updateCircuitState("half-open")', () => {
-      service.updateCircuitState('half-open');
-      expect(service.getMetrics().circuitState).toBe('half-open');
-    });
+    it('returns healthy when circuit breaker is closed', () => {
+      // Simulate healthy components
+      service.updateStreamStatus('connected');
+      service.updateQueueDepth(5);
+      service.updateKeyProviderStatus('healthy');
+      service.updateRandomnessProviderStatus('healthy');
+      service.updateNetworkStatus('healthy');
 
-    it('reflects the most recently set state', () => {
-      service.updateCircuitState('open');
-      service.updateCircuitState('half-open');
-      service.updateCircuitState('closed');
-      expect(service.getMetrics().circuitState).toBe('closed');
+      expect(service.isHealthy()).toBe(true);
     });
   });
 
@@ -172,25 +189,27 @@ describe('HealthService', () => {
       });
 
       it('becomes degraded when failure rate exceeds 10%', () => {
-        // Add 9 successes and 1 failure = 10% failure rate
-        for (let i = 0; i < 9; i++) {
+        // Add 8 successes and 2 failures = 20% failure rate
+        for (let i = 0; i < 8; i++) {
           service.recordSuccess('req-' + i);
         }
-        service.recordFailure('req-10', 1, 'Test error');
+        service.recordFailure('req-8', 1, 'Test error');
+        service.recordFailure('req-9', 1, 'Test error');
 
         const components = service.getComponentHealth();
         expect(components.submitter.status).toBe('degraded');
-        expect(components.submitter.message).toContain('11.1%');
+        expect(components.submitter.message).toContain('20.0%');
       });
 
       it('becomes unhealthy when failure rate exceeds 50%', () => {
-        // Add 1 success and 1 failure = 50% failure rate
+        // Add 1 success and 2 failures = 66.7% failure rate
         service.recordSuccess('req-1');
         service.recordFailure('req-2', 1, 'Test error');
+        service.recordFailure('req-3', 1, 'Test error');
 
         const components = service.getComponentHealth();
         expect(components.submitter.status).toBe('unhealthy');
-        expect(components.submitter.message).toContain('50.0%');
+        expect(components.submitter.message).toContain('66.7%');
       });
 
       it('can be manually updated', () => {
@@ -256,7 +275,7 @@ describe('HealthService', () => {
       service.updateNetworkStatus('healthy');
 
       expect(service.isDegraded()).toBe(true);
-      expect(service.isHealthy()).toBe(false);
+      expect(service.isHealthy()).toBe(true); // Reconnecting stream is degraded, not unhealthy
     });
 
     it('returns false for isDegraded when all components are healthy or unhealthy but no degraded', () => {

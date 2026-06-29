@@ -26,10 +26,17 @@ class ErrorBoundary extends React.Component<
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         console.error("ErrorBoundary caught:", error, errorInfo);
+        try {
+            import('@sentry/react').then(Sentry => {
+                Sentry.captureException(error, { extra: errorInfo as unknown as Record<string, unknown> });
+            });
+        } catch (e) {
+            // Ignore if Sentry is not available
+        }
     }
 
     handleReset = () => {
-        this.setState({ hasError: false, error: null });
+        window.location.reload();
     };
 
     render() {
