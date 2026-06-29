@@ -7,7 +7,7 @@ import { ProgressBar } from "../components/ui/ProgressBar";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import VerifiedBadge from "../components/VerifiedBadge";
 import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
-import RecentParticipants from "../components/RecentParticipants";
+import RecentParticipants, { type RecentParticipantsHandle } from "../components/RecentParticipants";
 import LazyImage from "../components/LazyImage";
 import {
     Ticket,
@@ -42,15 +42,15 @@ const RafflePage = () => {
     const navigate = useNavigate();
     const { address } = useAuth();
     const [ticketCount, setTicketCount] = useState(1);
-    const recentParticipantsRef = useRef<any>(null);
+    const recentParticipantsRef = useRef<RecentParticipantsHandle>(null);
 
     const raffleId = id ? parseInt(id) : 0;
     const { raffle, isLoading, error } = useRaffle(raffleId);
 
     const handleTicketPurchase = () => {
         // Add optimistic update for current user
-        if (address && (window as any).__addOptimisticParticipant) {
-            (window as any).__addOptimisticParticipant(address);
+        if (address && recentParticipantsRef.current) {
+            recentParticipantsRef.current.addOptimisticParticipant(address);
         }
         console.log("Buying tickets:", ticketCount);
     };
