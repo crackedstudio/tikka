@@ -64,6 +64,7 @@ export class RafflesController {
     private readonly rafflesService: RafflesService,
     private readonly storageService: StorageService,
     private readonly idempotencyService: IdempotencyService,
+    private readonly sseService: SseService,
   ) {}
 
   /**
@@ -105,6 +106,25 @@ export class RafflesController {
     return this.rafflesService.getById(id);
   }
 
+  /**
+   * GET /raffles/:id/events — SSE stream for real-time ticket count updates.
+   * Streams `ticket_count_updated` events whenever the indexer processes a ticket_purchased event.
+   */
+  @Public()
+  @Sse(":id/events")
+  @ApiOperation({ summary: "SSE stream for real-time ticket count updates" })
+  @ApiParam({ name: "id", description: "Internal raffle ID" })
+  ticketCountEvents(
+    @Param("id", ParseIntPipe) id: number,
+  ): Observable<MessageEvent> {
+    const subject = this.sseService.subscribe(id);
+    return subject.pipe(
+      map((data) => ({
+        type: "ticket_count_updated",
+        data: JSON.stringify({ raffleId: data.raffleId, ticketsSold: data.ticketsSold }),
+      } as MessageEvent)),
+    );
+  }
   /**
    * GET /raffles/:id/participants?since= — Get recent participants for a raffle.
    * Optional query param 'since' (unix timestamp in ms) to get participants since that time.
