@@ -1,83 +1,96 @@
 # Contributing to Tikka
 
-Thank you for contributing! Please read this guide before opening a PR.
+## Development setup
 
-## Getting started
+```bash
+# Install all workspace dependencies
+pnpm install
 
-1. Fork the repo and create a branch from `master`.
-2. Install dependencies per package: `cd <package> && pnpm install`.
-3. Make your changes, add tests, and ensure CI passes locally.
-4. Open a pull request — all checks must be green before merging.
+# Start the backend, client, and indexer in watch mode
+pnpm dev
+```
 
-## Secret scanning policy
+## Running unit tests
 
-Tikka uses TruffleHog in CI to prevent real credentials from being
-committed to the repository. Every PR and push to `master` is scanned
-automatically in --only-verified mode.
+Unit tests run without any external services and are safe to run in CI.
 
-### What is blocked
+```bash
+# All packages
+pnpm test
 
-Any verified secret detected by TruffleHog will fail the security-scan
-CI job and block the PR from merging. This includes:
+# A single package
+pnpm --filter sdk  test
+pnpm --filter client test
+pnpm --filter backend test
+```
 
-- AWS access keys and secret keys
-- Private keys (RSA, Ed25519, etc.)
-- JWT secrets and signing keys
-- Database connection strings with embedded credentials
-- API tokens (GitHub, Stripe, SendGrid, etc.)
-- OAuth client secrets
+## Integration Tests
 
-### What is NOT blocked
+Integration tests make real network calls (Stellar testnet, local backend) and are
+**opt-in only**. They are gated behind the `TEST_INTEGRATION=true` environment variable
+so they never run during normal `pnpm test` passes.
 
-- .env.exame files with placeholder values
-- Test fixture strings and mock tokens
-- Documentation examples
-- Stripe test keys (sk_test_ / pk_test_)
+### Prerequisites
 
-See .trufflehog-exclude for the full exclusion list.
+| Requirement | How to start |
+|---|---|
+| Stellar testnet reachable | Public endpoints are used automatically; no action needed. |
+| Local backend running | `pnpm --filter backend dev` (default port 3000) |
+| Local database running | `docker compose up -d db redis` |
 
-### If you get a false positive
+### SEP-10 / SIWS authentication integration tests
 
-1. Confirm the flagged string is not a real credential.
-2. Add a pattern to .trufflehog-exclude and explain it in your PR.
-3. Never disable the security-scan job without maintainer approval.
+File: `sdk/src/test/sep10-integration.spec.ts`
 
-### If you accidentally commit a real secret
+These tests cover:
+1. **SDK SEP-10 primitives** — `buildChallenge` + `verifyResponse` executed against
+   a freshly-funded Stellar testnet keypair (no backend required for this group).
+2. **Backend SIWS auth round-trip** — full flow against a locally-running backend:
+   `GET /auth/nonce` → sign message → `POST /auth/verify` → assert valid JWT.
 
-1. Rotate the secret immediately — assume it is compromised.
-2. Notify the maintainers via a private security disclosure.
-3. Coordinate history purge with maintainers — do not act alone.
+#### Running the SEP-10 integration tests
 
-### Running TruffleHog locally
-docker run --rm -it 
+```bash
+# With default backend URL (http://localhost:3000)
+TEST_INTEGRATION=true pnpm --filter sdk test
 
--v "$(pwd):/repo" 
+# With a custom backend URL
+TEST_INTEGRATION=true BACKEND_URL=http://localhost:4000 pnpm --filter sdk test
 
-trufflesecurity/trufflehog:latest 
+# Run only the integration spec
+TEST_INTEGRATION=true pnpm --filter sdk test -- --testPathPattern=sep10-integration
+```
 
-git file:///repo 
+#### Environment variables
 
---only-verified 
+| Variable | Default | Description |
+|---|---|---|
+| `TEST_INTEGRATION` | `false` | Set to `true` to enable integration tests. |
+| `BACKEND_URL` | `http://localhost:3000` | Base URL of the locally-running backend. |
+| `SEP10_ANCHOR_DOMAIN` | `tikka.io` | Anchor domain used in challenge messages. |
 
---exclude-paths /repo/.trufflehog-exclude
+#### What the tests assert
 
-## Code style
+- Friendbot funds a fresh testnet keypair before the suite begins.
+- `buildChallenge` + `verifyResponse` succeed end-to-end.
+- Expired challenges are rejected with `ChallengeExpired`.
+- Replay attacks are rejected by the in-memory nonce store.
+- `GET /auth/nonce` returns a `{ nonce, issuedAt, message }` payload.
+- Signing the message and posting to `POST /auth/verify` returns a well-formed JWT
+  whose payload contains the signer's Stellar address.
+- Wrong signature → 400.
+- Replayed (already-consumed) nonce → 400.
 
-- TypeScript everywhere; no `any` without justification.
-- Run `pnpm run lint` and `pnpm run test` before pushing.
-- Keep PRs focused — one concern per PR.
+### RPC integration tests
 
-## Cmessages
+File: `sdk/src/test/rpc-integration.spec.ts`
 
-Follow Conventional Commits (https://www.conventionalcommits.org/):
-feat(sdk): add batch purchase support
+These are currently mock-based and run as part of the normal unit test suite.
+A future issue will convert them to use a real Soroban testnet endpoint.
 
-fix(backend): handle null oracle response
+## Pull request checklist
 
-docs: update secret scanning policy
-
-## Opening a PR
-
-- Link the issue your PR resolves (Closes #NNN).
-- Fill in the PR template with description and testing notes.
-- All CI jobs including security-scan must pass before requesting review.
+- [ ] `pnpm test` passes with no new failures.
+- [ ] New public APIs include JSDoc.
+- [ ] Integration tests (if added) are gated behind `TEST_INTEGRATION=true`.
+- [ ] `CONTRIBUTING.md` is updated if new integration test setup is required.

@@ -15,6 +15,7 @@ export interface DeadLetterEvent {
   errorMessage: string;
   errorStack?: string;
   durationMs: number;
+  attemptCount: number;
   event: DomainEvent;
   rawEvent: unknown;
   failedAt: string;

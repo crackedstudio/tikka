@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Search } from 'lucide-react';
 import { faqData } from './FAQContent';
+import React, { useMemo } from 'react';
+import { faqContent } from './FAQContent';
 
 const HighlightText = ({ text, highlight }: { text: string; highlight: string }) => {
   if (!highlight.trim()) {
@@ -94,115 +96,72 @@ const FAQItem = ({
   );
 };
 
-const FAQPage = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const location = useLocation();
-  const [openItems, setOpenItems] = useState<Record<string, boolean>>(() => {
-    // Initial state check for hash
-    const hashId = window.location.hash.replace('#', '');
-    return hashId ? { [hashId]: true } : {};
-  });
+export const FAQPage: React.FC = () => {
+  // Flatten array and format valid structural JSON-LD matching Schema.org expectations
+  const jsonLdSchema = useMemo(() => {
+    const mainEntities = faqContent.flatMap((category) =>
+      category.items.map((item) => ({
+        "@type": "Question",
+        "name": item.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": item.answer
+        }
+      }))
+    );
 
-  // Keep open items in sync if hash changes externally
-  useEffect(() => {
-    const hashId = location.hash.replace('#', '');
-    if (hashId && !openItems[hashId]) {
-      setOpenItems((prev) => ({ ...prev, [hashId]: true }));
-    }
-  }, [location.hash]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const filteredFaqs = faqData.filter(
-    (item) =>
-      item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.answer.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const toggleItem = (id: string) => {
-    setOpenItems((prev) => {
-      const isOpening = !prev[id];
-      
-      // Update hash to reflect state
-      if (isOpening) {
-        window.history.pushState(null, '', `#${id}`);
-      } else if (location.hash === `#${id}`) {
-        window.history.pushState(null, '', window.location.pathname + window.location.search);
-      }
-      
-      return { ...prev, [id]: isOpening };
+    return JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": mainEntities
     });
-  };
-
-  const schemaData = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": faqData.map((item) => ({
-      "@type": "Question",
-      "name": item.question,
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": item.answer,
-      },
-    })),
-  };
+  }, []);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      <Helmet>
-        <title>FAQ | Tikka</title>
-        <script type="application/ld+json">
-          {JSON.stringify(schemaData)}
-        </script>
-      </Helmet>
+    <div className="faq-page-container max-w-4xl mx-auto px-4 py-8">
+      {/* Dynamic injection of schema structure into the head element */}
+      <script 
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdSchema }}
+      />
 
       <header className="mb-10 text-center">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Help & FAQ</h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400">
-          Everything you need to know about Tikka and the Stellar ecosystem.
+        <h1 className="text-3xl font-bold mb-2">Frequently Asked Questions</h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Everything you need to know about Stellar, Soroban Smart Contracts, and Tikka Raffles.
         </p>
       </header>
-      
-      <div className="mb-8 relative max-w-xl mx-auto">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          className="block w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors shadow-sm"
-          placeholder="Search for answers..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 md:p-8">
-        {filteredFaqs.length > 0 ? (
-          filteredFaqs.map((item) => (
-            <FAQItem
-              key={item.id}
-              question={item.question}
-              answer={item.answer}
-              id={item.id}
-              searchQuery={searchQuery}
-              isOpen={!!openItems[item.id] || (searchQuery.trim().length > 0 && filteredFaqs.length <= 3)}
-              onToggle={() => toggleItem(item.id)}
-            />
-          ))
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">No questions found matching "{searchQuery}"</p>
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="mt-4 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
-            >
-              Clear search
-            </button>
-          </div>
-        )}
+      <div className="faq-categories-wrapper space-y-8">
+        {faqContent.map((category, catIdx) => (
+          <section key={catIdx} className="faq-category-block">
+            <h2 className="text-xl font-semibold border-b pb-2 mb-4 text-primary">
+              {category.title}
+            </h2>
+            <div className="faq-items-list space-y-4">
+              {category.items.map((item, itemIdx) => (
+                <details 
+                  key={itemIdx} 
+                  className="group bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg p-4 transition-all duration-200 cursor-pointer"
+                >
+                  <summary className="flex justify-between items-center font-medium list-none focus:outline-none select-none">
+                    <span className="text-gray-900 dark:text-gray-100 pr-4">
+                      {item.question}
+                    </span>
+                    {/* Native pure-CSS accordion arrow indicator using group styles */}
+                    <span className="transition-transform duration-200 transform group-open:rotate-180 text-gray-500">
+                      ▼
+                    </span>
+                  </summary>
+                  <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-400 border-t pt-3 border-gray-100 dark:border-zinc-800 pointer-events-none">
+                    {item.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
-      
-      <footer className="mt-12 text-center text-sm text-gray-500">
-        Still have questions? <a href="mailto:support@tikka.com" className="text-blue-600 hover:underline transition-colors">Contact Support</a>
-      </footer>
     </div>
   );
 };

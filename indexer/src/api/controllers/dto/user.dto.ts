@@ -1,34 +1,33 @@
-/**
- * User DTOs — stable contracts for API responses.
- * Hide internal fields like lastTxHash (removed from all responses).
- */
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export interface UserProfileDto {
-  address: string;
-  total_tickets_bought: number;
-  total_raffles_entered: number;
-  total_raffles_won: number;
-  total_prize_xlm: string;
-  creator_stats?: {
-    raffles_created: number;
-    total_tickets_sold: number;
-    total_xlm_raised: string;
-    participant_win_rate: number;
-  };
+export class CreatorStatsDto {
+  @ApiProperty() raffles_created: number;
+  @ApiProperty() total_tickets_sold: number;
+  @ApiProperty() total_xlm_raised: string;
+  @ApiProperty() participant_win_rate: number;
 }
 
-export interface UserLeaderboardEntryDto {
-  rank: number;
-  address: string;
-  total_tickets_bought: number;
-  total_raffles_won: number;
-  total_prize_xlm: string;
-  total_raffles_entered: number;
+export class UserProfileDto {
+  @ApiProperty() address: string;
+  @ApiProperty() total_tickets_bought: number;
+  @ApiProperty() total_raffles_entered: number;
+  @ApiProperty() total_raffles_won: number;
+  @ApiProperty() total_prize_xlm: string;
+  @ApiPropertyOptional({ type: CreatorStatsDto }) creator_stats?: CreatorStatsDto;
 }
 
-export interface UserLeaderboardResponseDto {
-  data: UserLeaderboardEntryDto[];
-  total: number;
-  limit: number;
-  offset: number;
+export class UserLeaderboardEntryDto {
+  @ApiProperty() rank: number;
+  @ApiProperty() address: string;
+  @ApiProperty() total_tickets_bought: number;
+  @ApiProperty() total_raffles_won: number;
+  @ApiProperty() total_prize_xlm: string;
+  @ApiProperty() total_raffles_entered: number;
+}
+
+export class UserLeaderboardResponseDto {
+  @ApiProperty({ type: [UserLeaderboardEntryDto] }) data: UserLeaderboardEntryDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() offset: number;
 }

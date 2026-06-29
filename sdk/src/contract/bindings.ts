@@ -17,6 +17,7 @@ export const ContractFn = {
   // Lifecycle
   CREATE_RAFFLE: 'create_raffle',
   BUY_TICKET: 'buy_ticket',
+  BUY_TICKETS_BATCH: 'buy_tickets_batch',
   TRIGGER_DRAW: 'trigger_draw',
   RECEIVE_RANDOMNESS: 'receive_randomness',
   CANCEL_RAFFLE: 'cancel_raffle',

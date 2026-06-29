@@ -45,6 +45,7 @@ import {
 } from "./metadata.schema";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
 import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
+import * as fileType from "file-type";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
@@ -237,14 +238,16 @@ export class RafflesController {
       throw new BadRequestException("Image file is required");
     }
 
-    const mimeType = file.mimetype as AllowedUploadMimeType;
-    if (!ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {
+    const buffer = await file.toBuffer();
+    const detectedFileType = await fileType.fromBuffer(buffer);
+    const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
+
+    if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {
       throw new BadRequestException(
-        `Unsupported file type "${file.mimetype}". Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(", ")}`,
+        `Unsupported file type "${detectedFileType?.mime ?? file.mimetype}". Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(", ")}`,
       );
     }
 
-    const buffer = await file.toBuffer();
     if (buffer.length > MAX_UPLOAD_BYTES) {
       throw new PayloadTooLargeException(
         `File too large (${(buffer.length / 1024 / 1024).toFixed(1)} MB). Max: ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,

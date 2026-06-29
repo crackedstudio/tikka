@@ -34,8 +34,8 @@ export class RpcError extends Error {
  * SDK-wide error codes exactly as required by Issue #154
  */
 export enum TikkaSdkErrorCode {
-  /** Wallet extension not installed */
-  WalletNotInstalled = 'WALLET_NOT_INSTALLED',
+ /** Wallet extension installed but not connected/authorized */
+  WalletNotConnected = 'WALLET_NOT_CONNECTED',
   /** User rejected the transaction / signature request */
   UserRejected = 'UserRejected',
   /** Transaction simulation failed */
@@ -68,8 +68,6 @@ export enum TikkaSdkErrorCode {
   ValidationError = 'ValidationError',
   /** An external/cross-contract call (e.g. SEP-41 token) failed */
   ExternalContractError = 'EXTERNAL_CONTRACT_ERROR',
-  /** Raffle has ended and no longer accepts purchases or operations */
-  RaffleEnded = 'RAFFLE_ENDED',
 }
 
 /**

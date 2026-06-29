@@ -44,13 +44,16 @@ export interface RpcConfig {
   circuitBreakerResetTimeoutMs?: number;
 }
 
+export const SOROBAN_RPC_MAX_RETRIES = 3;
+export const SOROBAN_RPC_BASE_DELAY_MS = 300;
+
 export const DEFAULT_RPC_CONFIG: RpcConfig = {
   headers: {},
   failoverEndpoints: [],
   timeoutMs: 30_000,
   enableRetries: true,
-  maxRetryAttempts: 3,
-  retryBaseDelayMs: 300,
+  maxRetryAttempts: SOROBAN_RPC_MAX_RETRIES,
+  retryBaseDelayMs: SOROBAN_RPC_BASE_DELAY_MS,
   retryBackoffFactor: 2,
   retryableStatusCodes: [429, 500, 502, 503, 504, 'RATE_LIMIT', 'UNAVAILABLE', 'TIMEOUT', 'ECONNRESET'],
   circuitBreakerFailureThreshold: 5,
