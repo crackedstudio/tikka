@@ -12,10 +12,13 @@ import {
   Query,
   Req,
   Res,
+  Sse,
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse } from "@nestjs/swagger";
+import { Observable, fromEvent } from "rxjs";
+import { map } from "rxjs/operators";
+import { SseService } from "../../../services/sse.service";import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
