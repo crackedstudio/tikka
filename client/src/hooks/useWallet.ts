@@ -13,8 +13,10 @@ import {
     isWalletConnected,
     isWalletInstalled,
     setNetwork,
+    promptNetworkSwitch,
     signTransaction,
     getWalletCapabilities,
+    normalizeNetworkName,
     type WalletCapabilities,
 } from "../services/walletService";
 import { useAuthStore } from "../store/useAuthStore";
@@ -41,9 +43,9 @@ export interface UseWalletReturn extends WalletState {
 
 export function useWallet(): UseWalletReturn {
     const store = useAuthStore();
-    
-    // The network the app expects from .env (e.g., "testnet")
-    const APP_REQUIRED_NETWORK = import.meta.env.VITE_STELLAR_NETWORK || "testnet";
+
+    // The network the app expects from .env (e.g., "testnet" or "mainnet")
+    const APP_REQUIRED_NETWORK = normalizeNetworkName(import.meta.env.VITE_STELLAR_NETWORK || "testnet");
 
     /**
      * Refresh wallet state and validate network
@@ -117,11 +119,13 @@ export function useWallet(): UseWalletReturn {
     const switchNetwork = useCallback(async () => {
         try {
             await setNetwork(APP_REQUIRED_NETWORK);
-            await refresh();
         } catch (_error) {
+            await promptNetworkSwitch(APP_REQUIRED_NETWORK);
             store.setWalletState({
-                error: "Please switch network manually in your wallet extension."
+                error: "Please switch network manually in your wallet extension or wallet settings.",
             });
+        } finally {
+            await refresh();
         }
     }, [refresh, APP_REQUIRED_NETWORK, store.setWalletState]);
 

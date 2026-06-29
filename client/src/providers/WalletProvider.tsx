@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useWallet, type UseWalletReturn } from "../hooks/useWallet";
+import { normalizeNetworkName } from "../services/walletService";
 import { useAuthStore } from "../store/useAuthStore";
 
 interface WalletContextType extends UseWalletReturn {
@@ -20,7 +21,7 @@ interface WalletProviderProps {
 export function WalletProvider({ children }: WalletProviderProps) {
   const wallet = useWallet();
   const store = useAuthStore();
-  const requiredNetwork = import.meta.env.VITE_STELLAR_NETWORK || "testnet";
+  const requiredNetwork = normalizeNetworkName(import.meta.env.VITE_STELLAR_NETWORK || "testnet");
 
   /**
    * Detect network mismatch immediately after connection.
