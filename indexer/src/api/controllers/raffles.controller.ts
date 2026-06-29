@@ -7,12 +7,13 @@ import {
   ParseIntPipe,
   UseGuards,
 } from "@nestjs/common";
+import { ApiKeyGuard } from "../api-key.guard";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiSecurity } from "@nestjs/swagger";
 import { CacheService } from "../../cache/cache.service";
 import { RaffleEntity } from "../../database/entities/raffle.entity";
 import { TicketEntity } from "../../database/entities/ticket.entity";
-import { ApiKeyGuard } from "../api-key.guard";
 import {
   RaffleListItemDto,
   RaffleDetailDto,
@@ -28,6 +29,8 @@ export interface RaffleListQuery {
   offset?: string;
 }
 
+@ApiTags('raffles')
+@ApiSecurity('api-key')
 @UseGuards(ApiKeyGuard)
 @Controller("raffles")
 export class RafflesController {
@@ -44,6 +47,13 @@ export class RafflesController {
    * List raffles with optional filters and pagination.
    * Uses cache for the active-raffle list; falls back to PostgreSQL.
    */
+  @ApiOperation({ summary: 'List raffles', description: 'Returns a paginated list of raffles with optional filters.' })
+  @ApiQuery({ name: 'status', required: false, enum: ['open', 'drawing', 'finalized', 'cancelled'] })
+  @ApiQuery({ name: 'creator', required: false })
+  @ApiQuery({ name: 'asset', required: false })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: RaffleListResponseDto })
   @Get()
   async list(@Query() query: RaffleListQuery): Promise<RaffleListResponseDto> {
     const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
@@ -93,6 +103,10 @@ export class RafflesController {
    * GET /raffles/:id
    * Raffle detail — cache-first, PostgreSQL fallback.
    */
+  @ApiOperation({ summary: 'Get raffle by ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, type: RaffleDetailDto })
+  @ApiResponse({ status: 404, description: 'Raffle not found' })
   @Get(":id")
   async detail(@Param("id", ParseIntPipe) id: number): Promise<RaffleDetailDto> {
     const cached = await this.cacheService.getRaffleDetail(String(id));

@@ -234,9 +234,9 @@ describe('env.schema validate()', () => {
     const result = validate(validEnv);
     expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
     expect(result.THROTTLE_DEFAULT_TTL).toBe(60);
-    expect(result.THROTTLE_AUTH_LIMIT).toBe(10);
-    expect(result.THROTTLE_AUTH_TTL).toBe(60);
-    expect(result.THROTTLE_NONCE_LIMIT).toBe(30);
+    expect(result.THROTTLE_AUTH_LIMIT).toBe(5);
+    expect(result.THROTTLE_AUTH_TTL).toBe(900);
+    expect(result.THROTTLE_NONCE_LIMIT).toBe(10);
     expect(result.THROTTLE_NONCE_TTL).toBe(60);
   });
 
