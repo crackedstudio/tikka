@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { MetadataRedisService } from '../../../services/metadata-redis.service';
 import {
   IndexerService,
   IndexerPlatformStats,
@@ -20,9 +21,14 @@ export interface VerifyResult {
 
 @Injectable()
 export class StatsService {
+  private readonly logger = new Logger(StatsService.name);
+  private readonly cacheKeyPrefix = 'stats:verify:';
+  private readonly cacheTtl = 60; // 60 seconds
+
   constructor(
     private readonly indexerService: IndexerService,
     private readonly config: ConfigService,
+    private readonly redis: MetadataRedisService,
   ) {}
 
   async getPlatformStats(): Promise<IndexerPlatformStats> {
@@ -30,20 +36,97 @@ export class StatsService {
   }
 
   async getTransparencyStats(): Promise<TransparencyStats> {
+    const cacheKey = 'stats:transparency:60';
+
+    // Try to get from cache if Redis is enabled
+    if (this.redis.isEnabled()) {
+      try {
+        const cached = await this.redis.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      } catch (e) {
+        this.logger.warn(`Cache lookup failed for transparency stats: ${e}`);
+        // Continue with normal fetch
+      }
+    }
+
+    // Fetch fresh data
     const [platform, log] = await Promise.all([
       this.indexerService.getPlatformStats(),
       this.indexerService.getTransparencyLog(10, 0).catch(() => ({ entries: [], total: 0 })),
     ]);
 
-    return {
+    const result: TransparencyStats = {
       ...platform,
       oracle_public_key: this.config.get<string>('ORACLE_PUBLIC_KEY', ''),
       draws_completed: log.total,
       recent_audit_log: log.entries,
     };
+
+    // Store in cache if Redis is enabled
+    if (this.redis.isEnabled()) {
+      try {
+        await this.redis.set(
+          cacheKey,
+          JSON.stringify(result),
+          this.cacheTtl,
+        );
+      } catch (e) {
+        this.logger.warn(`Cache write failed for transparency stats: ${e}`);
+        // Don't fail the request due to cache write error
+      }
+    }
+
+    return result;
   }
 
-  verifyDraw(
+  async verifyDraw(
+    publicKeyHex: string,
+    requestId: string,
+    proofHex: string,
+    seedHex: string,
+  ): Promise<VerifyResult> {
+    // Build cache key from inputs
+    const cacheKey = `${this.cacheKeyPrefix}${publicKeyHex}:${requestId}:${proofHex}:${seedHex}`;
+
+    // Try to get from cache if Redis is enabled
+    if (this.redis.isEnabled()) {
+      try {
+        const cached = await this.redis.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      } catch (e) {
+        this.logger.warn(`Cache lookup failed for verify: ${e}`);
+        // Continue with normal verification
+      }
+    }
+
+    // Perform verification
+    const result = this.performVerification(publicKeyHex, requestId, proofHex, seedHex);
+
+    // Store in cache if Redis is enabled
+    if (this.redis.isEnabled()) {
+      try {
+        await this.redis.set(
+          cacheKey,
+          JSON.stringify(result),
+          this.cacheTtl,
+        );
+      } catch (e) {
+        this.logger.warn(`Cache write failed for verify: ${e}`);
+        // Don't fail verification due to cache write error
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Performs the actual VRF verification logic.
+   */
+  private performVerification(
     publicKeyHex: string,
     requestId: string,
     proofHex: string,

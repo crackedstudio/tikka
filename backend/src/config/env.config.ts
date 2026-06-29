@@ -84,9 +84,9 @@ export const env = {
     return {
       throttleDefaultLimit: parseInt(process.env.THROTTLE_DEFAULT_LIMIT ?? '100', 10),
       throttleDefaultTtl: parseInt(process.env.THROTTLE_DEFAULT_TTL ?? '60', 10),
-      throttleAuthLimit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '10', 10),
-      throttleAuthTtl: parseInt(process.env.THROTTLE_AUTH_TTL ?? '60', 10),
-      throttleNonceLimit: parseInt(process.env.THROTTLE_NONCE_LIMIT ?? '30', 10),
+      throttleAuthLimit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '5', 10),
+      throttleAuthTtl: parseInt(process.env.THROTTLE_AUTH_TTL ?? '900', 10),
+      throttleNonceLimit: parseInt(process.env.THROTTLE_NONCE_LIMIT ?? '10', 10),
       throttleNonceTtl: parseInt(process.env.THROTTLE_NONCE_TTL ?? '60', 10),
       raffleCreateLimit: parseInt(process.env.RAFFLE_CREATE_RATE_LIMIT ?? '5', 10),
       raffleCreateWindowSeconds: parseInt(process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? '600', 10),

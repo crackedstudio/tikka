@@ -1,15 +1,12 @@
-/**
- * Platform Statistics DTOs — aggregated, cache-friendly responses.
- * Hide internal fields like storage date, raw aggregation details.
- */
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export interface PlatformStatDto {
-  date: string | null; // ISO date string or null
-  total_raffles: number;
-  total_tickets: number;
-  total_volume_xlm: string;
-  unique_participants: number;
-  prizes_distributed_xlm: string;
-  active_raffles: number;
-  total_users: number;
+export class PlatformStatDto {
+  @ApiPropertyOptional({ nullable: true }) date: string | null;
+  @ApiProperty() total_raffles: number;
+  @ApiProperty() total_tickets: number;
+  @ApiProperty() total_volume_xlm: string;
+  @ApiProperty() unique_participants: number;
+  @ApiProperty() prizes_distributed_xlm: string;
+  @ApiProperty() active_raffles: number;
+  @ApiProperty() total_users: number;
 }

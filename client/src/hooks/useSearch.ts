@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { searchRaffles } from "../services/raffleService";
 import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
 
-export const useSearch = (query: string) => {
+export const useSearch = (query: string, categories: string[] = []) => {
     const [results, setResults] = useState<ApiRaffleListItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const requestId = useRef(0);
+
+    const categoriesKey = categories.sort().join(",");
 
     useEffect(() => {
         const currentRequest = ++requestId.current;
@@ -20,7 +22,7 @@ export const useSearch = (query: string) => {
         setIsLoading(true);
         setError(null);
 
-        searchRaffles(query)
+        searchRaffles(query, categories)
             .then((response: ApiRaffleListResponse) => {
                 if (currentRequest !== requestId.current) return;
                 setResults(response.raffles);
@@ -33,7 +35,7 @@ export const useSearch = (query: string) => {
                 if (currentRequest !== requestId.current) return;
                 setIsLoading(false);
             });
-    }, [query]);
+    }, [query, categoriesKey]);
 
     return { results, isLoading, error };
 };
