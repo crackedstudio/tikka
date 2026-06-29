@@ -18,7 +18,7 @@ This document centralizes and catalogs all environment variables used across the
 ## 2. Client (Frontend) Environment Variables
 | Variable Name | Type | Required / Optional | Default Value | Secret? | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `VITE_BACKEND_URL` | `string` | Optional | `'http://localhost:3001'` | 🟢 No | Core routing endpoint linking client to server API. |
+| `VITE_API_BASE_URL` | `string` | Optional | `'http://localhost:3001'` | 🟢 No | Core routing endpoint linking client to server API. |
 | `VITE_STELLAR_NETWORK` | `enum` | Optional | `'testnet'` | 🟢 No | Network designation identifier string. |
 | `VITE_SUPABASE_URL` | `string` | Optional | *None* | 🟢 No | Cloud database lookup base URL router endpoint. |
 ---
