@@ -1,5 +1,5 @@
 import LandingLayout from "./layouts/LandingLayout";
-import { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
@@ -7,6 +7,7 @@ import { AppProviders } from "./providers/AppProviders";
 import NetworkWarning from "./components/NetworkWarning";
 import { InstallPWA } from "./components/InstallPWA";
 import { Spinner } from "./components/ui/Spinner";
+import { useSentryUser } from "./hooks/useSentryUser";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Home = lazy(() => import("./pages/Home"));
@@ -23,6 +24,11 @@ const Support = lazy(() => import("./pages/Support"));
 const Transparency = lazy(() => import("./pages/Transparency"));
 const FAQPage = lazy(() => import("./pages/FAQ/FAQPage"));
 const OracleAdmin = lazy(() => import("./pages/OracleAdmin"));
+
+function AppInner({ children }: { children: React.ReactNode }) {
+    useSentryUser();
+    return <>{children}</>;
+}
 
 function App() {
     useEffect(() => {

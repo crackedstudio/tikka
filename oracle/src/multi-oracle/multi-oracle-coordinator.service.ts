@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OracleRegistryService } from './oracle-registry.service';
@@ -13,13 +14,14 @@ import * as https from 'https';
 
 @Injectable()
 export class MultiOracleCoordinatorService {
-  private readonly logger = new Logger(MultiOracleCoordinatorService.name);
+  
 
   private readonly submissionTrackers: Map<string, SubmissionTracker> = new Map();
   private readonly SUBMISSION_TIMEOUT_MS = 5 * 60 * 1000;
   private readonly multiTimeoutMs: number;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly oracleRegistry: OracleRegistryService,
     private readonly configService: ConfigService,
   ) {

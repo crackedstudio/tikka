@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { Bell, BellOff, ChevronDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuthContext } from '../providers';
 import type { NotificationChannel } from '../services/notificationService';
@@ -31,19 +32,13 @@ export default function NotificationSubscribeButton({
   onAuthRequired,
 }: NotificationSubscribeButtonProps) {
   const { isAuthenticated } = useAuthContext();
-  const { isSubscribed, isLoading, error, subscribe, unsubscribe, clearError } =
+  const { isSubscribed, isLoading, isSubscribing, isUnsubscribing, error, subscribe, unsubscribe, clearError } =
     useNotifications(raffleId);
 
   const [channel, setChannel] = useState<NotificationChannel>('email');
   const [showChannelPicker, setShowChannelPicker] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const isCompact = variant === 'compact';
-
-  const flash = (msg: string) => {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(null), 2500);
-  };
 
   const handleToggle = async () => {
     if (!isAuthenticated) {
@@ -54,13 +49,13 @@ export default function NotificationSubscribeButton({
     try {
       if (isSubscribed) {
         await unsubscribe(raffleId);
-        flash('Unsubscribed successfully');
+        toast.success('Notifications unsubscribed');
       } else {
         await subscribe(raffleId, channel);
-        flash('Subscribed! You\'ll be notified when this raffle ends or you win.');
+        toast.success('You will be notified when this raffle ends!');
       }
-    } catch {
-      // error state is managed by the hook
+    } catch (err) {
+      toast.error(`Failed to subscribe — please try again${err instanceof Error && err.message ? `: ${err.message}` : ''}`);
     }
   };
 
@@ -133,7 +128,7 @@ export default function NotificationSubscribeButton({
           {isLoading ? (
             <>
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              {!isCompact && <span>Loading…</span>}
+              {!isCompact && <span>{isSubscribing ? 'Subscribing…' : isUnsubscribing ? 'Unsubscribing…' : 'Loading…'}</span>}
             </>
           ) : isSubscribed ? (
             <>
@@ -148,11 +143,6 @@ export default function NotificationSubscribeButton({
           )}
         </button>
       </div>
-
-      {/* Success feedback */}
-      {successMsg && (
-        <p className="text-sm text-green-400">{successMsg}</p>
-      )}
 
       {/* Error feedback */}
       {error && (

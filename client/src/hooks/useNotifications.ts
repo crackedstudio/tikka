@@ -17,6 +17,8 @@ import { useAuthContext } from '../providers/AuthProvider';
 export interface UseNotificationsReturn {
   isSubscribed: boolean;
   isLoading: boolean;
+  isSubscribing: boolean;
+  isUnsubscribing: boolean;
   error: string | null;
   subscribe: (raffleId: number, channel?: NotificationChannel) => Promise<void>;
   unsubscribe: (raffleId: number) => Promise<void>;
@@ -28,6 +30,8 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
   const { isAuthenticated } = useAuthContext();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [isUnsubscribing, setIsUnsubscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Track the latest request so stale responses are ignored
@@ -68,6 +72,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
 
       try {
         setIsLoading(true);
+        setIsSubscribing(true);
         setError(null);
         await subscribeToRaffle({ raffleId: id, channel });
         setIsSubscribed(true);
@@ -77,6 +82,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
         throw err;
       } finally {
         setIsLoading(false);
+        setIsSubscribing(false);
       }
     },
     [isAuthenticated]
@@ -91,6 +97,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
 
       try {
         setIsLoading(true);
+        setIsUnsubscribing(true);
         setError(null);
         await unsubscribeFromRaffle(id);
         setIsSubscribed(false);
@@ -100,6 +107,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
         throw err;
       } finally {
         setIsLoading(false);
+        setIsUnsubscribing(false);
       }
     },
     [isAuthenticated]
@@ -116,5 +124,5 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
     }
   }, [raffleId, isAuthenticated]); // intentionally omit checkSubscription — it's stable
 
-  return { isSubscribed, isLoading, error, subscribe, unsubscribe, checkSubscription, clearError };
+  return { isSubscribed, isLoading, isSubscribing, isUnsubscribing, error, subscribe, unsubscribe, checkSubscription, clearError };
 }

@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { JobStateManager } from './job-state-manager';
 import { JobState } from './job-state.types';
@@ -24,10 +25,11 @@ export interface ProcessingResult {
  */
 @Injectable()
 export class RandomnessProcessorService {
-  private readonly logger = new Logger(RandomnessProcessorService.name);
+  
   private readonly vrfThresholdXlm: number;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly stateManager: JobStateManager,
     private readonly contractService: ContractService,
     private readonly vrfService: VrfService,

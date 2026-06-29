@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import { KeyService } from '../keys/key.service';
@@ -22,10 +23,11 @@ import { Ed25519Sha256VrfProvider } from './ed25519-sha256.vrf-provider';
  */
 @Injectable()
 export class VrfService {
-  private readonly logger = new Logger(VrfService.name);
+  
   private readonly ed25519Provider: Ed25519Sha256VrfProvider;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly keyService: KeyService,
     private readonly oracleRegistry: OracleRegistryService,
   ) {

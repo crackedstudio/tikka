@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FeeEstimatorService } from './fee-estimator.service';
@@ -64,7 +65,7 @@ export interface CostAlert {
 
 @Injectable()
 export class CostEstimatorService {
-  private readonly logger = new Logger(CostEstimatorService.name);
+  
   
   private readonly STROOPS_PER_XLM = 10_000_000;
   private readonly LOW_STAKES_THRESHOLD_XLM: number;
@@ -86,6 +87,7 @@ export class CostEstimatorService {
   private readonly HIGH_FEE_THRESHOLD_STROOPS = 5_000_000; // Alert if single fee > 0.5 XLM
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly feeEstimator: FeeEstimatorService,
     private readonly metricsService: MetricsService,

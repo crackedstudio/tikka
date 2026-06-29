@@ -8,7 +8,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
+import { initSentry } from './lib/sentry.ts'
 import './i18n'
+
+initSentry();
 
 // Initialize theme before rendering to prevent FOUC
 const savedTheme = localStorage.getItem("tikka-theme");

@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import { KeyService } from '../keys/key.service';
@@ -25,7 +26,7 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
   readonly algorithm = VrfAlgorithm.Ed25519Sha256;
   private readonly logger = new Logger(Ed25519Sha256VrfProvider.name);
 
-  constructor(private readonly keyService: KeyService) {}
+  constructor(private readonly logger: OracleLoggerService, private readonly keyService: KeyService) {}
 
   async compute(requestId: string, raffleId?: number): Promise<RandomnessResult> {
     const msg = this.encodeInput(requestId, raffleId);
