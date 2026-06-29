@@ -114,9 +114,9 @@ const envSchemaInner = z
     // Throttle — all optional with sensible defaults
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().positive().default(100),
     THROTTLE_DEFAULT_TTL: z.coerce.number().int().positive().default(60),
-    THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
-    THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(60),
-    THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(30),
+    THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(5),
+    THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(900),
+    THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(10),
     THROTTLE_NONCE_TTL: z.coerce.number().int().positive().default(60),
 
     // Pinata - optional for IPFS metadata pinning

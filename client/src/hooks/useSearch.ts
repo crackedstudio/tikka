@@ -1,17 +1,41 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
 import { searchRaffles } from "../services/raffleService";
-import { queryKeys } from "../utils/queryKeys";
+import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
 
-export const useSearch = (query: string) => {
-    const searchQuery = useQuery({
-        queryKey: queryKeys.raffles.search(query),
-        queryFn: () => searchRaffles(query),
-        enabled: !!query.trim(),
-    });
+export const useSearch = (query: string, categories: string[] = []) => {
+    const [results, setResults] = useState<ApiRaffleListItem[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const requestId = useRef(0);
 
-    return {
-        results: searchQuery.data?.raffles ?? [],
-        isLoading: searchQuery.isLoading,
-        error: searchQuery.error,
-    };
+    const categoriesKey = categories.sort().join(",");
+
+    useEffect(() => {
+        const currentRequest = ++requestId.current;
+
+        if (!query.trim()) {
+            setResults([]);
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        searchRaffles(query, categories)
+            .then((response: ApiRaffleListResponse) => {
+                if (currentRequest !== requestId.current) return;
+                setResults(response.raffles);
+            })
+            .catch((err: unknown) => {
+                if (currentRequest !== requestId.current) return;
+                setError(err instanceof Error ? err : new Error("Search failed"));
+            })
+            .finally(() => {
+                if (currentRequest !== requestId.current) return;
+                setIsLoading(false);
+            });
+    }, [query, categoriesKey]);
+
+    return { results, isLoading, error };
 };

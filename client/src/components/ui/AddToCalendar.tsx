@@ -1,75 +1,41 @@
 import { useState, useRef, useEffect } from "react";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, Globe, Cloud, Download } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+    formatIcsDate,
+    generateIcs,
+    googleCalendarUrl,
+    outlookCalendarUrl,
+} from "../../utils/calendarUtils";
 
-interface AddToCalendarProps {
+export interface AddToCalendarProps {
     title: string;
     endTimeUnix: number; // Unix timestamp (seconds)
     url?: string;
+    location?: string;
+    className?: string;
 }
 
-function formatIcsDate(date: Date): string {
-    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-}
-
-function generateIcs(title: string, endDate: Date, url: string): string {
-    const now = formatIcsDate(new Date());
-    const end = formatIcsDate(endDate);
-    // Event starts 1 hour before end
-    const start = formatIcsDate(new Date(endDate.getTime() - 60 * 60 * 1000));
-    const uid = `raffle-${endDate.getTime()}@tikka`;
-
-    return [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//Tikka//Raffle Calendar//EN",
-        "BEGIN:VEVENT",
-        `UID:${uid}`,
-        `DTSTAMP:${now}`,
-        `DTSTART:${start}`,
-        `DTEND:${end}`,
-        `SUMMARY:${title} – Raffle Ends`,
-        `DESCRIPTION:Don't miss the end of this raffle! ${url}`,
-        `URL:${url}`,
-        "END:VEVENT",
-        "END:VCALENDAR",
-    ].join("\r\n");
-}
-
-function googleCalendarUrl(title: string, endDate: Date, url: string): string {
-    const end = endDate.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const start = new Date(endDate.getTime() - 60 * 60 * 1000)
-        .toISOString()
-        .replace(/[-:]/g, "")
-        .split(".")[0] + "Z";
-    const params = new URLSearchParams({
-        action: "TEMPLATE",
-        text: `${title} – Raffle Ends`,
-        dates: `${start}/${end}`,
-        details: `Don't miss the end of this raffle! ${url}`,
-        location: url,
-    });
-    return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
-
-function outlookCalendarUrl(title: string, endDate: Date, url: string): string {
-    const start = new Date(endDate.getTime() - 60 * 60 * 1000).toISOString();
-    const params = new URLSearchParams({
-        path: "/calendar/action/compose",
-        rru: "addevent",
-        subject: `${title} – Raffle Ends`,
-        startdt: start,
-        enddt: endDate.toISOString(),
-        body: `Don't miss the end of this raffle! ${url}`,
-        location: url,
-    });
-    return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
-}
-
-const AddToCalendar = ({ title, endTimeUnix, url }: AddToCalendarProps) => {
+/**
+ * AddToCalendar Component
+ * 
+ * Provides calendar integration for raffle end times.
+ * Supports Google Calendar, Outlook, and iCal (.ics) downloads.
+ * 
+ * @example
+ * <AddToCalendar 
+ *   title="Luxury Watch Raffle" 
+ *   endTimeUnix={1735689600}
+ *   url="https://tikka.example.com/raffle/123"
+ *   location="Online"
+ * />
+ */
+const AddToCalendar = ({ title, endTimeUnix, url, location, className }: AddToCalendarProps) => {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     const endDate = new Date(endTimeUnix * 1000);
-    const raffleUrl = url || window.location.href;
+    const raffleUrl = url || (typeof window !== "undefined" ? window.location.href : "");
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -82,52 +48,73 @@ const AddToCalendar = ({ title, endTimeUnix, url }: AddToCalendarProps) => {
     }, []);
 
     const downloadIcs = () => {
-        const content = generateIcs(title, endDate, raffleUrl);
-        const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `${title.replace(/\s+/g, "-")}-raffle.ics`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        setOpen(false);
+        try {
+            const content = generateIcs(title, endDate, raffleUrl, location);
+            const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${title.replace(/\s+/g, "-").toLowerCase()}-raffle.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+            setOpen(false);
+        } catch (error) {
+            console.error("Failed to download ICS file:", error);
+        }
     };
 
     return (
-        <div className="relative" ref={ref}>
+        <div className={`relative ${className || ""}`} ref={ref} data-testid="add-to-calendar">
             <button
                 onClick={() => setOpen((v) => !v)}
-                title="Add to Calendar"
+                title={t("raffle.addToCalendar", "Add to Calendar")}
+                aria-haspopup="menu"
+                aria-expanded={open}
                 className="flex items-center space-x-1 text-xs text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
                 <CalendarPlus className="w-4 h-4" />
-                <span>Add to Calendar</span>
+                <span>{t("raffle.addToCalendar", "Add to Calendar")}</span>
             </button>
 
             {open && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1A2035] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div 
+                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1A2035] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden"
+                    role="menu"
+                    aria-label={t("raffle.calendarOptions", "Calendar options")}
+                >
                     <a
-                        href={googleCalendarUrl(title, endDate, raffleUrl)}
+                        href={googleCalendarUrl(title, endDate, raffleUrl, location)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setOpen(false)}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                        role="menuitem"
+                        data-testid="google-calendar-link"
+                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                     >
-                        Google Calendar
+                        <Globe className="w-4 h-4 flex-shrink-0" />
+                        <span>Google Calendar</span>
                     </a>
                     <a
-                        href={outlookCalendarUrl(title, endDate, raffleUrl)}
+                        href={outlookCalendarUrl(title, endDate, raffleUrl, location)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setOpen(false)}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                        role="menuitem"
+                        data-testid="outlook-calendar-link"
+                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                     >
-                        Outlook Calendar
+                        <Cloud className="w-4 h-4 flex-shrink-0" />
+                        <span>Outlook Calendar</span>
                     </a>
                     <button
                         onClick={downloadIcs}
-                        className="w-full text-left flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                        role="menuitem"
+                        data-testid="ics-download-button"
+                        className="w-full text-left flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                     >
-                        Download .ics
+                        <Download className="w-4 h-4 flex-shrink-0" />
+                        <span>Download .ics</span>
                     </button>
                 </div>
             )}
