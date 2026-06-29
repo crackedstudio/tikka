@@ -19,6 +19,13 @@ function envLikeFromProcess(): Record<string, string | undefined> {
   return { ...process.env };
 }
 
+function requireJwtSecret(secret: string | undefined): string {
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be set and at least 32 characters long');
+  }
+  return secret;
+}
+
 export const env = {
   get supabase() {
     return {
@@ -45,7 +52,7 @@ export const env = {
   },
   get auth() {
     return {
-      jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+      jwtSecret: requireJwtSecret(process.env.JWT_SECRET),
       jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
       siwsDomain: process.env.SIWS_DOMAIN ?? 'tikka.io',
       siwsNonceTtlSeconds: parseInt(process.env.SIWS_NONCE_TTL_SECONDS ?? '300', 10),
