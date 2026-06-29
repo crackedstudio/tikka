@@ -1,11 +1,10 @@
 /**
  * useWallet Hook
  * 
- * Updated for Issue #120: Improved network switching detection 
- * and state synchronization with StellarWalletsKit.
+ * Thin wrapper over useAuthStore.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import {
     connectWallet,
     disconnectWallet,
@@ -18,8 +17,7 @@ import {
     getWalletCapabilities,
     type WalletCapabilities,
 } from "../services/walletService";
-
-const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
+import { useAuthStore } from "../store/useAuthStore";
 
 export interface WalletState {
     address: string | null;
@@ -42,18 +40,8 @@ export interface UseWalletReturn extends WalletState {
 }
 
 export function useWallet(): UseWalletReturn {
-    const [state, setState] = useState<WalletState>({
-        address: null,
-        isConnected: IS_TEST_MODE,
-        isConnecting: false,
-        isDisconnecting: false,
-        error: null,
-        isWalletAvailable: IS_TEST_MODE,
-        network: IS_TEST_MODE ? 'testnet' : null,
-        isWrongNetwork: false,
-        capabilities: getWalletCapabilities(),
-    });
-
+    const store = useAuthStore();
+    
     // The network the app expects from .env (e.g., "testnet")
     const APP_REQUIRED_NETWORK = import.meta.env.VITE_STELLAR_NETWORK || "testnet";
 
@@ -69,14 +57,12 @@ export function useWallet(): UseWalletReturn {
             const capabilities = getWalletCapabilities();
 
             // Check if user is on the wrong network
-            // Note: We compare simplified names like "testnet" vs "testnet"
             const isWrongNetwork = 
                 connected && 
                 network !== null &&
                 network.toLowerCase() !== APP_REQUIRED_NETWORK.toLowerCase();
 
-            setState((prev) => ({
-                ...prev,
+            store.setWalletState({
                 isWalletAvailable: available,
                 isConnected: connected,
                 address,
@@ -84,87 +70,88 @@ export function useWallet(): UseWalletReturn {
                 isWrongNetwork,
                 capabilities,
                 error: null,
-            }));
+            });
         } catch (error) {
             console.error("Wallet refresh failed:", error);
         }
-    }, [APP_REQUIRED_NETWORK]);
+    }, [APP_REQUIRED_NETWORK, store.setWalletState]);
 
     const connect = useCallback(async () => {
-        setState((prev) => ({ ...prev, isConnecting: true, error: null }));
+        store.setWalletState({ isConnecting: true, error: null });
 
         try {
             const result = await connectWallet();
             if (result.success) {
                 await refresh();
             } else {
-                setState((prev) => ({
-                    ...prev,
+                store.setWalletState({
                     isConnecting: false,
                     error: result.error || "Connection failed",
-                }));
+                });
             }
         } catch (error) {
-            setState((prev) => ({
-                ...prev,
+            store.setWalletState({
                 isConnecting: false,
                 error: error instanceof Error ? error.message : "Connect error",
-            }));
+            });
         }
-    }, [refresh]);
+    }, [refresh, store.setWalletState]);
 
     const disconnect = useCallback(async () => {
-        setState((prev) => ({ ...prev, isDisconnecting: true }));
+        store.setWalletState({ isDisconnecting: true });
         try {
             await disconnectWallet();
-            setState((prev) => ({
-                ...prev,
+            store.setWalletState({
                 address: null,
                 isConnected: false,
                 isDisconnecting: false,
                 network: null,
                 isWrongNetwork: false,
                 capabilities: getWalletCapabilities(),
-            }));
+            });
         } catch (error) {
-            setState((prev) => ({ ...prev, isDisconnecting: false }));
+            store.setWalletState({ isDisconnecting: false });
         }
-    }, []);
+    }, [store.setWalletState]);
 
     const switchNetwork = useCallback(async () => {
         try {
-            // In most Stellar wallets, this just triggers a warning or prompt
             await setNetwork(APP_REQUIRED_NETWORK);
             await refresh();
         } catch (_error) {
-            setState((prev) => ({
-                ...prev,
+            store.setWalletState({
                 error: "Please switch network manually in your wallet extension."
-            }));
+            });
         }
-    }, [refresh, APP_REQUIRED_NETWORK]);
+    }, [refresh, APP_REQUIRED_NETWORK, store.setWalletState]);
 
     const signTx = useCallback(async (transaction: any) => {
-        if (!state.isConnected) throw new Error("Wallet not connected");
-        if (state.isWrongNetwork) throw new Error(`Please switch to ${APP_REQUIRED_NETWORK}`);
+        if (!store.isConnected) throw new Error("Wallet not connected");
+        if (store.isWrongNetwork) throw new Error(`Please switch to ${APP_REQUIRED_NETWORK}`);
         
-        // Check wallet capabilities before attempting to sign
-        if (!state.capabilities.canSignTransaction) {
-            throw new Error(state.capabilities.unsupportedActionCopy);
+        if (!store.capabilities.canSignTransaction) {
+            throw new Error(store.capabilities.unsupportedActionCopy);
         }
         
         return await signTransaction(transaction);
-    }, [state.isConnected, state.isWrongNetwork, APP_REQUIRED_NETWORK, state.capabilities]);
+    }, [store.isConnected, store.isWrongNetwork, APP_REQUIRED_NETWORK, store.capabilities]);
 
     useEffect(() => {
         refresh();
-        // Poll every 5 seconds to detect manual network/account changes in the extension
         const interval = setInterval(refresh, 5000);
         return () => clearInterval(interval);
     }, [refresh]);
 
     return {
-        ...state,
+        address: store.address,
+        isConnected: store.isConnected,
+        isConnecting: store.isConnecting,
+        isDisconnecting: store.isDisconnecting,
+        error: store.error,
+        isWalletAvailable: store.isWalletAvailable,
+        network: store.network,
+        isWrongNetwork: store.isWrongNetwork,
+        capabilities: store.capabilities,
         connect,
         disconnect,
         refresh,
