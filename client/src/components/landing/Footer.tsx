@@ -40,28 +40,32 @@ const Footer = () => {
                             <a href="#" aria-label="Discord">
                                 <img
                                     src={DiscordLogo}
-                                    alt="Discord"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>
                             <a href="#" aria-label="YouTube">
                                 <img
                                     src={YoutubeLogo}
-                                    alt="YouTube"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>
                             <a href="#" aria-label="Twitter / X">
                                 <img
                                     src={TwitterLogo}
-                                    alt="Twitter / X"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>
                             <a href="#" aria-label="Instagram">
                                 <img
                                     src={InstagramLogo}
-                                    alt="Instagram"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>

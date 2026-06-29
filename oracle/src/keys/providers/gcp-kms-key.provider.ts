@@ -25,18 +25,15 @@ export class GcpKmsKeyProvider implements KeyProvider {
 
   constructor(
     projectId: string,
-    locationId: string,
-    keyRingId: string,
-    keyId: string,
-    keyVersion: string = '1',
+    keyPath: string,
   ) {
-    if (!projectId || !locationId || !keyRingId || !keyId) {
+    if (!projectId || !keyPath) {
       throw new Error(
-        'GCP project, location, keyRing, and key IDs are required for GcpKmsKeyProvider',
+        'GCP_KMS_PROJECT and GCP_KMS_KEY_PATH are required for GcpKmsKeyProvider',
       );
     }
 
-    this.keyVersionName = `projects/${projectId}/locations/${locationId}/keyRings/${keyRingId}/cryptoKeys/${keyId}/cryptoKeyVersions/${keyVersion}`;
+    this.keyVersionName = keyPath;
 
     try {
       // Lazy load Google Cloud SDK to avoid requiring it when not using GCP KMS

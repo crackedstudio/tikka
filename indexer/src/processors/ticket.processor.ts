@@ -44,7 +44,7 @@ export class TicketProcessor {
           purchaseTxHash: txHash,
           refunded: false,
         })
-        .orIgnore()
+        .onConflict(`("purchase_tx_hash", "raffle_id") DO NOTHING`)
         .execute();
     }
 

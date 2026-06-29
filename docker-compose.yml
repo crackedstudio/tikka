@@ -55,6 +55,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   indexer:
     build:
@@ -73,6 +78,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   oracle:
     build:
@@ -88,6 +98,11 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   client:
     build:
@@ -98,7 +113,8 @@ services:
       - "5173:5173"
     env_file: ./client/.env.local
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 networks:
   default:

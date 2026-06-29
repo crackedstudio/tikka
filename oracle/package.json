@@ -24,7 +24,7 @@
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^10.4.0",
     "@nestjs/platform-express": "^10.4.22",
-    "@noble/curves": "^2.0.1",
+    "@noble/curves": "^2.2.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-prometheus": "^0.218.0",
     "@opentelemetry/sdk-metrics": "^2.7.1",

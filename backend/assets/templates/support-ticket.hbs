@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      margin: 0;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+    .header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: #ffffff;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+    .header p {
+      margin: 8px 0 0 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .content {
+      padding: 30px;
+    }
+    .ticket-badge {
+      display: inline-block;
+      background-color: #e0e7ff;
+      color: #4338ca;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .meta-grid {
+      margin-bottom: 24px;
+      background-color: #f9fafb;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #f3f4f6;
+    }
+    .meta-item {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .meta-item:last-child {
+      margin-bottom: 0;
+    }
+    .meta-label {
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+    .meta-value {
+      color: #111827;
+      word-break: break-all;
+    }
+    .message-container {
+      margin-top: 24px;
+    }
+    .message-title {
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .message-body {
+      background-color: #faf5ff;
+      border-left: 4px solid #7c3aed;
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #4b5563;
+      white-space: pre-wrap;
+    }
+    .footer {
+      background-color: #f9fafb;
+      padding: 20px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #9ca3af;
+      border-top: 1px solid #f3f4f6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>New Support Ticket</h1>
+      <p>A user has submitted a new inquiry</p>
+    </div>
+    <div class="content">
+      <span class="ticket-badge">Status: Open</span>
+      
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="meta-label">Ticket ID</div>
+          <div class="meta-value" style="font-family: monospace; font-size: 13px;">{{id}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">User Address</div>
+          <div class="meta-value" style="font-family: monospace; font-size: 13px;">{{user_address}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Contact Name</div>
+          <div class="meta-value">{{name}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Contact Email</div>
+          <div class="meta-value"><a href="mailto:{{email}}" style="color: #4f46e5; text-decoration: none;">{{email}}</a></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Subject</div>
+          <div class="meta-value" style="font-weight: 600;">{{subject}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Submitted At</div>
+          <div class="meta-value">{{created_at}}</div>
+        </div>
+      </div>
+
+      <div class="message-container">
+        <div class="message-title">Inquiry Details</div>
+        <div class="message-body">{{body}}</div>
+      </div>
+    </div>
+    <div class="footer">
+      This is an automated notification from the Tikka Support Module.
+    </div>
+  </div>
+</body>
+</html>
