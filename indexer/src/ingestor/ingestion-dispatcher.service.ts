@@ -102,49 +102,67 @@ export class IngestionDispatcherService {
         reason: DlqReason.SCHEMA_UNSUPPORTED,
         error,
         durationMs: result.durationMs,
+        attemptCount: 1,
       });
       return result;
     }
 
-    try {
-      const runner = await this.applyEvent(event, raw);
-      if (runner) {
-        await runner.commitTransaction();
-        await runner.release();
+    const maxAttempts = parseInt(process.env.MAX_DISPATCH_RETRIES ?? "3", 10);
+    const baseDelayMs = parseInt(process.env.BASE_RETRY_DELAY_MS ?? "500", 10);
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const runner = await this.applyEvent(event, raw);
+        if (runner) {
+          await runner.commitTransaction();
+          await runner.release();
+        }
+
+        return this.logResult({
+          handlerName,
+          eventId,
+          eventType: event.type,
+          outcome: this.eventNeedsDatabase(event) ? "succeeded" : "skipped",
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.warn(
+          `Dispatch attempt ${attempt}/${maxAttempts} failed for ${event.type} ${eventId}: ${lastError.message}`,
+        );
+
+        if (attempt < maxAttempts) {
+          const delay = baseDelayMs * Math.pow(2, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
       }
-
-      return this.logResult({
-        handlerName,
-        eventId,
-        eventType: event.type,
-        outcome: this.eventNeedsDatabase(event) ? "succeeded" : "skipped",
-        durationMs: Date.now() - startedAt,
-      });
-    } catch (error) {
-      const result = this.logResult({
-        handlerName,
-        eventId,
-        eventType: event.type,
-        outcome: "failed",
-        durationMs: Date.now() - startedAt,
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
-
-      await this.deadLetter({
-        handlerName,
-        eventId,
-        event,
-        raw,
-        ledger,
-        txHash,
-        schemaVersion,
-        reason: DlqReason.HANDLER_ERROR,
-        error: error instanceof Error ? error : new Error(String(error)),
-        durationMs: result.durationMs,
-      });
-
-      return result;
     }
+
+    const result = this.logResult({
+      handlerName,
+      eventId,
+      eventType: event.type,
+      outcome: "failed",
+      durationMs: Date.now() - startedAt,
+      error: lastError,
+    });
+
+    await this.deadLetter({
+      handlerName,
+      eventId,
+      event,
+      raw,
+      ledger,
+      txHash,
+      schemaVersion,
+      reason: DlqReason.HANDLER_ERROR,
+      error: lastError!,
+      durationMs: result.durationMs,
+      attemptCount: maxAttempts,
+    });
+
+    return result;
   }
 
   /**
@@ -162,6 +180,7 @@ export class IngestionDispatcherService {
     reason: DlqReason;
     error: Error;
     durationMs: number;
+    attemptCount: number;
   }): Promise<void> {
     this.pipeline?.apply(PipelineTransition.HANDLER_FAILURE);
 
@@ -176,6 +195,7 @@ export class IngestionDispatcherService {
       errorMessage: params.error.message,
       errorStack: params.error.stack,
       durationMs: params.durationMs,
+      attemptCount: params.attemptCount,
       event: params.event,
       rawEvent: params.raw,
       failedAt: new Date().toISOString(),

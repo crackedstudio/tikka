@@ -117,21 +117,21 @@ describe("WalletCapabilities", () => {
   });
 
   describe("capability profiles", () => {
-    it("Freighter should not support network switching", () => {
+    it("Freighter should support programmatic network switching", () => {
       const mockCapabilities = {
         walletName: "Freighter",
         canSignTransaction: true,
-        canSwitchNetwork: false,
+        canSwitchNetwork: true,
         canGetAccount: true,
         supportsMobileDeepLink: false,
-        unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension.",
+        unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension if automatic switching fails.",
       };
       vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
 
       const capabilities = getWalletCapabilities();
 
-      expect(capabilities.canSwitchNetwork).toBe(false);
-      expect(capabilities.unsupportedActionCopy).toContain("switch networks manually");
+      expect(capabilities.canSwitchNetwork).toBe(true);
+      expect(capabilities.unsupportedActionCopy).toContain("automatic switching fails");
     });
 
     it("LOBSTR should support mobile deep links", () => {
@@ -200,5 +200,6 @@ describe("WalletCapabilities", () => {
         expect(capabilities.canSignTransaction).toBe(true);
       });
     });
+
   });
 });
