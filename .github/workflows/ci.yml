@@ -51,7 +51,7 @@ jobs:
         continue-on-error: false
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: client-build
           path: client/dist
@@ -99,7 +99,7 @@ jobs:
         continue-on-error: false
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-build
           path: sdk/dist
@@ -145,7 +145,7 @@ jobs:
         continue-on-error: false
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-build
           path: backend/dist
@@ -191,7 +191,7 @@ jobs:
         continue-on-error: false
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: indexer-build
           path: indexer/dist
@@ -237,7 +237,7 @@ jobs:
         continue-on-error: false
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: oracle-build
           path: oracle/dist
@@ -304,7 +304,7 @@ jobs:
       
       - name: Upload Lighthouse results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lighthouse-results
           path: |
