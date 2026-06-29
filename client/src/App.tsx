@@ -24,6 +24,16 @@ const Transparency = lazy(() => import("./pages/Transparency"));
 const FAQPage = lazy(() => import("./pages/FAQ/FAQPage"));
 const OracleAdmin = lazy(() => import("./pages/OracleAdmin"));
 
+import ErrorBoundary from "./components/ui/ErrorBoundary";
+
+const LazyRoute = ({ Component }: { Component: React.LazyExoticComponent<any> }) => (
+    <ErrorBoundary>
+        <Suspense fallback={<Spinner />}>
+            <Component />
+        </Suspense>
+    </ErrorBoundary>
+);
+
 function App() {
     useEffect(() => {
         checkConnection().then((isAlive) => {
@@ -40,28 +50,26 @@ function App() {
               * This will show at the top of every page if the user is on the wrong network.
             */}
             <NetworkWarning />
-            <Suspense fallback={<Spinner />}>
-                <Routes>
-                    <Route path="/" element={<LandingLayout />}>
-                        <Route index element={<LandingPage />} />
-                        <Route path="home" element={<Home />} />
-                        <Route path="search" element={<SearchPage />} />
-                        <Route path="details" element={<RaffleDetails />} />
-                        <Route path="raffles/:id" element={<RafflePage />} />
-                        <Route path="create" element={<CreateRaffle />} />
-                        <Route path="leaderboard" element={<Leaderboard />} />
-                        <Route path="my-raffles" element={<MyRaffles />} />
-                        <Route path="creators/:address" element={<CreatorProfile />} />
-                        <Route path="winner-demo" element={<WinnerDemo />} />
-                        <Route path="settings" element={<Settings />} />
-                        <Route path="support" element={<Support />} />
-                        <Route path="transparency" element={<Transparency />} />
-                        {/* Issue #192: FAQ Route Added Here */}
-                        <Route path="faq" element={<FAQPage />} />
-                        <Route path="admin/oracle" element={<OracleAdmin />} />
-                    </Route>
-                </Routes>
-            </Suspense>
+            <Routes>
+                <Route path="/" element={<LandingLayout />}>
+                    <Route index element={<LazyRoute Component={LandingPage} />} />
+                    <Route path="home" element={<LazyRoute Component={Home} />} />
+                    <Route path="search" element={<LazyRoute Component={SearchPage} />} />
+                    <Route path="details" element={<LazyRoute Component={RaffleDetails} />} />
+                    <Route path="raffles/:id" element={<LazyRoute Component={RafflePage} />} />
+                    <Route path="create" element={<LazyRoute Component={CreateRaffle} />} />
+                    <Route path="leaderboard" element={<LazyRoute Component={Leaderboard} />} />
+                    <Route path="my-raffles" element={<LazyRoute Component={MyRaffles} />} />
+                    <Route path="creators/:address" element={<LazyRoute Component={CreatorProfile} />} />
+                    <Route path="winner-demo" element={<LazyRoute Component={WinnerDemo} />} />
+                    <Route path="settings" element={<LazyRoute Component={Settings} />} />
+                    <Route path="support" element={<LazyRoute Component={Support} />} />
+                    <Route path="transparency" element={<LazyRoute Component={Transparency} />} />
+                    {/* Issue #192: FAQ Route Added Here */}
+                    <Route path="faq" element={<LazyRoute Component={FAQPage} />} />
+                    <Route path="admin/oracle" element={<LazyRoute Component={OracleAdmin} />} />
+                </Route>
+            </Routes>
             <InstallPWA />
         </AppProviders>
     );
