@@ -1,5 +1,7 @@
 # Tikka — Decentralized Raffle Platform on Stellar
 
+[![Deploy SDK Docs](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
+
 This repository is the **Tikka ecosystem**: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a **separate repo/folder** and are not included here.
 
 ## Packages
