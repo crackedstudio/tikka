@@ -8,6 +8,8 @@ import { KeysModule } from './keys/keys.module';
 import { MultiOracleModule } from './multi-oracle/multi-oracle.module';
 import { RescueModule } from './rescue/rescue.module';
 import { AuditLogModule } from './audit/audit.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { AuditLogModule } from './audit/audit.module';
     MultiOracleModule,
     RescueModule,
     AuditLogModule,
+    MetricsModule,
+    AdminModule,
   ],
   controllers: [],
   providers: [],

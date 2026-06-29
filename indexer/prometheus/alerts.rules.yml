@@ -9,6 +9,14 @@ groups:
         annotations:
           summary: "Indexer is lagging behind the Stellar network"
           description: "The indexer is currently {{ $value }} ledgers behind the Horizon tip. This has persisted for more than 5 minutes."
+      - alert: IndexerLedgerLagHigh
+        expr: indexer_ledger_lag > 100
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Indexer ledger lag is too high"
+          description: "The indexer is currently {{ $value }} ledgers behind the Stellar network tip. This has persisted for more than 5 minutes."
 
       - alert: IndexerHighLatency
         expr: rate(tikka_indexer_poll_duration_seconds_sum[5m]) / rate(tikka_indexer_poll_duration_seconds_count[5m]) > 10

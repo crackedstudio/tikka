@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
     fetchRaffles,
     fetchRaffleDetail,
@@ -13,163 +14,99 @@ import type {
     RaffleListFilters,
     FormattedRaffle,
 } from "../types/types";
+import { queryKeys } from "../utils/queryKeys";
 
-export const useRaffles = (filters?: RaffleListFilters) => {
-    const [raffles, setRaffles] = useState<ApiRaffleListItem[]>([]);
-    const [total, setTotal] = useState(0);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-    const requestId = useRef(0);
-    const [refetchFlag, setRefetchFlag] = useState(0);
+export interface RaffleQueryStatus {
+    isLoading: boolean;
+    isRefreshing: boolean;
+    isSuccess: boolean;
+    isEmpty: boolean;
+    isError: boolean;
+    isStale: boolean;
+}
 
-    const serializedFilters = JSON.stringify(filters);
+export interface UseRafflesReturn {
+    raffles: ApiRaffleListItem[];
+    total: number;
+    status: RaffleQueryStatus;
+    error: Error | null;
+    refetch: () => void;
+    retry: () => void;
+}
 
-    useEffect(() => {
-        const currentRequest = ++requestId.current;
+export const useRaffles = (filters?: RaffleListFilters): UseRafflesReturn => {
+    const query = useQuery({
+        queryKey: queryKeys.raffles.list(filters),
+        queryFn: () => fetchRaffles(filters),
+    });
 
-        setIsLoading(true);
-        setError(null);
+    const raffles = query.data?.raffles ?? [];
+    const total = query.data?.total ?? raffles.length;
 
-        const parsed = JSON.parse(serializedFilters) as RaffleListFilters | undefined;
-        fetchRaffles(parsed)
-            .then((response) => {
-                if (currentRequest !== requestId.current) return;
-                setRaffles(response.raffles);
-                setTotal(response.total ?? response.raffles.length);
-            })
-            .catch((err) => {
-                if (currentRequest !== requestId.current) return;
-                setError(err instanceof Error ? err : new Error("Failed to fetch raffles"));
-            })
-            .finally(() => {
-                if (currentRequest !== requestId.current) return;
-                setIsLoading(false);
-            });
-    }, [serializedFilters, refetchFlag]);
+    const status: RaffleQueryStatus = {
+        isLoading: query.isLoading,
+        isRefreshing: query.isFetching && !query.isLoading,
+        isSuccess: query.isSuccess,
+        isEmpty: query.isSuccess && raffles.length === 0,
+        isError: query.isError,
+        isStale: query.isStale,
+    };
 
-    const refetch = useCallback(() => {
-        setRefetchFlag((prev: number) => prev + 1);
-    }, []);
-
-    return { raffles, total, isLoading, error, refetch };
+    return {
+        raffles,
+        total,
+        status,
+        error: query.error,
+        refetch: query.refetch,
+        retry: query.refetch,
+    };
 };
 
 export const useRaffle = (raffleId: number) => {
-    const [raffle, setRaffle] = useState<FormattedRaffle | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-    const requestId = useRef(0);
-    const [refetchFlag, setRefetchFlag] = useState(0);
+    const query = useQuery({
+        queryKey: queryKeys.raffles.detail(raffleId),
+        queryFn: async () => {
+            const detail = await fetchRaffleDetail(raffleId);
+            return mapDetailToFormattedRaffle(detail);
+        },
+        enabled: !!raffleId,
+    });
 
-    useEffect(() => {
-        if (!raffleId) {
-            setRaffle(null);
-            setIsLoading(false);
-            setError(null);
-            return;
-        }
-
-        const currentRequest = ++requestId.current;
-
-        setIsLoading(true);
-        setError(null);
-
-        fetchRaffleDetail(raffleId)
-            .then((detail) => {
-                if (currentRequest !== requestId.current) return;
-                setRaffle(mapDetailToFormattedRaffle(detail));
-            })
-            .catch((err) => {
-                if (currentRequest !== requestId.current) return;
-                setError(err instanceof Error ? err : new Error(`Failed to fetch raffle ${raffleId}`));
-            })
-            .finally(() => {
-                if (currentRequest !== requestId.current) return;
-                setIsLoading(false);
-            });
-    }, [raffleId, refetchFlag]);
-
-    const refetch = useCallback(() => {
-        setRefetchFlag((prev: number) => prev + 1);
-    }, []);
-
-    return { raffle, error, isLoading, refetch };
+    return {
+        raffle: query.data ?? null,
+        error: query.error,
+        isLoading: query.isLoading,
+        refetch: query.refetch,
+    };
 };
 
 const HISTORY_PAGE_SIZE = 10;
 
 export const useUserProfile = (address: string | null) => {
-    const [profile, setProfile] = useState<ApiUserProfile | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<Error | null>(null);
-    const requestId = useRef(0);
+    const query = useQuery({
+        queryKey: queryKeys.users.profile(address as string),
+        queryFn: () => fetchUserProfile(address as string),
+        enabled: !!address,
+    });
 
-    useEffect(() => {
-        if (!address) {
-            setProfile(null);
-            setIsLoading(false);
-            setError(null);
-            return;
-        }
-
-        const currentRequest = ++requestId.current;
-        setIsLoading(true);
-        setError(null);
-
-        fetchUserProfile(address)
-            .then((data) => {
-                if (currentRequest !== requestId.current) return;
-                setProfile(data);
-            })
-            .catch((err) => {
-                if (currentRequest !== requestId.current) return;
-                setError(err instanceof Error ? err : new Error("Failed to fetch user profile"));
-            })
-            .finally(() => {
-                if (currentRequest !== requestId.current) return;
-                setIsLoading(false);
-            });
-    }, [address]);
-
-    return { profile, isLoading, error };
+    return {
+        profile: query.data ?? null,
+        isLoading: query.isLoading,
+        error: query.error,
+    };
 };
 
 export const useUserHistory = (address: string | null) => {
-    const [items, setItems] = useState<ApiUserHistoryItem[]>([]);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(0);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<Error | null>(null);
-    const requestId = useRef(0);
 
-    useEffect(() => {
-        if (!address) {
-            setItems([]);
-            setTotal(0);
-            setIsLoading(false);
-            setError(null);
-            return;
-        }
+    const query = useQuery({
+        queryKey: queryKeys.users.history(address as string, page),
+        queryFn: () => fetchUserHistory(address as string, HISTORY_PAGE_SIZE, page * HISTORY_PAGE_SIZE),
+        enabled: !!address,
+    });
 
-        const currentRequest = ++requestId.current;
-        setIsLoading(true);
-        setError(null);
-
-        fetchUserHistory(address, HISTORY_PAGE_SIZE, page * HISTORY_PAGE_SIZE)
-            .then((data) => {
-                if (currentRequest !== requestId.current) return;
-                setItems(data.items);
-                setTotal(data.total);
-            })
-            .catch((err) => {
-                if (currentRequest !== requestId.current) return;
-                setError(err instanceof Error ? err : new Error("Failed to fetch user history"));
-            })
-            .finally(() => {
-                if (currentRequest !== requestId.current) return;
-                setIsLoading(false);
-            });
-    }, [address, page]);
+    const items = query.data?.items ?? [];
+    const total = query.data?.total ?? 0;
 
     const totalPages = Math.ceil(total / HISTORY_PAGE_SIZE);
     const hasPrev = page > 0;
@@ -179,5 +116,15 @@ export const useUserHistory = (address: string | null) => {
         setPage(Math.max(0, Math.min(p, totalPages - 1)));
     }, [totalPages]);
 
-    return { items, total, page, totalPages, hasPrev, hasNext, goToPage, isLoading, error };
+    return {
+        items,
+        total,
+        page,
+        totalPages,
+        hasPrev,
+        hasNext,
+        goToPage,
+        isLoading: query.isLoading,
+        error: query.error,
+    };
 };

@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useRaffle } from "../hooks/useRaffles";
+import { useAuth } from "../hooks/useAuth";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import VerifiedBadge from "../components/VerifiedBadge";
 import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
+import RecentParticipants from "../components/RecentParticipants";
+import LazyImage from "../components/LazyImage";
 import {
     Ticket,
     Users,
@@ -37,10 +40,20 @@ const RafflePage = () => {
     const { t } = useTranslation();
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { address } = useAuth();
     const [ticketCount, setTicketCount] = useState(1);
+    const recentParticipantsRef = useRef<any>(null);
 
     const raffleId = id ? parseInt(id) : 0;
     const { raffle, isLoading, error } = useRaffle(raffleId);
+
+    const handleTicketPurchase = () => {
+        // Add optimistic update for current user
+        if (address && (window as any).__addOptimisticParticipant) {
+            (window as any).__addOptimisticParticipant(address);
+        }
+        console.log("Buying tickets:", ticketCount);
+    };
 
     if (isLoading) {
         return (
@@ -162,10 +175,13 @@ const RafflePage = () => {
                     {/* Hero Section */}
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl z-10" />
-                        <img
+                        <LazyImage
                             src={image || detailimage}
                             alt={title}
-                            className="w-full aspect-video md:aspect-auto md:max-h-[500px] object-cover rounded-3xl shadow-2xl border border-gray-200 dark:border-white/5"
+                            aspectRatio={16/9}
+                            containerClassName="w-full rounded-3xl shadow-2xl border border-gray-200 dark:border-white/5"
+                            className="w-full h-full object-cover md:max-h-[500px]"
+                            blurUp={false}
                         />
                         {/* Status Badge Over Image */}
                         <div className="absolute top-6 left-6 z-20">
@@ -243,6 +259,15 @@ const RafflePage = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Recent Participants */}
+                    <div className="bg-white dark:bg-[#11172E] border border-gray-200 dark:border-white/5 rounded-3xl p-8">
+                        <RecentParticipants
+                            raffleId={raffleId}
+                            currentUserAddress={address}
+                            ref={recentParticipantsRef}
+                        />
+                    </div>
                 </div>
 
                 {/* Right Column: CTA Sidebar */}
@@ -309,7 +334,7 @@ const RafflePage = () => {
                                      style={{
                                         background: "linear-gradient(100.92deg, #FE3796 13.57%, #3931F9 97.65%)"
                                     }}
-                                    onClick={() => console.log("Buying tickets:", ticketCount)}
+                                    onClick={handleTicketPurchase}
                                 >
                                     {t("raffle.buyFor", { cost: totalCost, currency: prizeCurrency })}
                                 </button>

@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Put,
   Delete,
   Get,
   Body,
@@ -9,12 +10,14 @@ import {
   HttpCode,
   HttpStatus,
   UsePipes,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
 import { SubscribeSchema, type SubscribeDto } from './dto';
 import { DeviceTokenSchema, type DeviceTokenDto } from './dto/device-token.dto';
+import { UpdateSubscriptionSchema, type UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
 
 @ApiTags('Notifications')
@@ -55,6 +58,27 @@ export class NotificationsController {
     @CurrentUser('address') userAddress: string,
   ) {
     await this.notificationsService.unsubscribe(raffleId, userAddress);
+  }
+
+  /**
+   * PUT /notifications/:id — Update a notification subscription
+   * Requires JWT (SIWS)
+   */
+  @Put(':id')
+  @ApiOperation({ summary: 'Update a notification subscription' })
+  @ApiResponse({ status: 200, description: 'Subscription updated' })
+  @UsePipes(new (createZodPipe(UpdateSubscriptionSchema))())
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateSubscriptionDto,
+    @CurrentUser('address') userAddress: string,
+  ) {
+    const subs = await this.notificationsService.getUserSubscriptions(userAddress);
+    if (!subs.find(s => s.id === id)) {
+      throw new NotFoundException('Subscription not found');
+    }
+    await this.notificationsService.updateSubscription(id, dto);
+    return { success: true };
   }
 
   /**

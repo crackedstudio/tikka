@@ -6,8 +6,9 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import * as Sentry from '@sentry/nestjs';
+import * as Sentry from '@sentry/node';
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { REQUEST_ID_HEADER } from '../../middleware/request-id.middleware';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
 
@@ -29,6 +30,7 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 export interface ApiErrorResponse {
   statusCode: number;
+  error: string;
   message: string;
   error: ErrorCode;
   requestId?: string;
@@ -53,11 +55,13 @@ export class BaseExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const reply = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();
+    const requestId = this.getRequestId(request);
 
     const { statusCode, message, error, details } = this.resolveError(exception);
 
     const body: ApiErrorResponse = {
       statusCode,
+      error,
       message,
       error,
       requestId: request.headers?.[REQUEST_ID_HEADER] as string | undefined,
@@ -232,8 +236,47 @@ export class BaseExceptionFilter implements ExceptionFilter {
 
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      error: this.getHttpStatusLabel(HttpStatus.INTERNAL_SERVER_ERROR),
       message: 'Internal server error',
       error: ErrorCode.INTERNAL_ERROR,
     };
+  }
+
+  private getRequestId(request: FastifyRequest): string | undefined {
+    const header = request.headers?.[REQUEST_ID_HEADER];
+
+    if (Array.isArray(header)) {
+      return header[0];
+    }
+
+    return typeof header === 'string' && header.trim().length > 0 ? header : undefined;
+  }
+
+  private normalizeMessage(message: unknown, fallback: string): string {
+    if (typeof message === 'string') {
+      return message;
+    }
+
+    if (Array.isArray(message)) {
+      return message
+        .map((entry) => (typeof entry === 'string' ? entry : String(entry)))
+        .join(', ');
+    }
+
+    return fallback;
+  }
+
+  private getHttpStatusLabel(statusCode: number): string {
+    const label = HttpStatus[statusCode];
+
+    if (typeof label !== 'string') {
+      return 'Error';
+    }
+
+    return label
+      .toLowerCase()
+      .split('_')
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
   }
 }

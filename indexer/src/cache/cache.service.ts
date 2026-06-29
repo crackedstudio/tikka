@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
+import { CacheKeys } from './cache.keys';
+import { CacheTTL } from './cache.ttl';
 
 export type CacheBucket = 'raffles' | 'users' | 'stats' | 'others';
 
@@ -87,14 +89,6 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private readonly TTLS = {
-    ACTIVE_RAFFLES: 30,
-    RAFFLE_DETAIL: 10,
-    LEADERBOARD: 60,
-    USER_PROFILE: 30,
-    PLATFORM_STATS: 300,
-  };
-
   private deriveBucket(key: string): CacheBucket {
     if (key.startsWith('raffle:') || key === 'leaderboard') {
       return 'raffles';
@@ -166,63 +160,63 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   // --- Specific Cache Accessors ---
 
   async getActiveRaffles(): Promise<any | null> {
-    return this.get('raffle:active');
+    return this.get(CacheKeys.raffle.active());
   }
 
   async setActiveRaffles(raffles: any): Promise<void> {
-    await this.set('raffle:active', raffles, this.TTLS.ACTIVE_RAFFLES);
+    await this.set(CacheKeys.raffle.active(), raffles, CacheTTL.ACTIVE_RAFFLES);
   }
 
   async invalidateActiveRaffles(): Promise<void> {
-    await this.del('raffle:active');
+    await this.del(CacheKeys.raffle.active());
   }
 
   async getRaffleDetail(id: string): Promise<any | null> {
-    return this.get(`raffle:${id}`);
+    return this.get(CacheKeys.raffle.detail(id));
   }
 
   async setRaffleDetail(id: string, detail: any): Promise<void> {
-    await this.set(`raffle:${id}`, detail, this.TTLS.RAFFLE_DETAIL);
+    await this.set(CacheKeys.raffle.detail(id), detail, CacheTTL.RAFFLE_DETAIL);
   }
 
   async invalidateRaffleDetail(id: string): Promise<void> {
-    await this.del(`raffle:${id}`);
+    await this.del(CacheKeys.raffle.detail(id));
   }
 
   async getLeaderboard(): Promise<any | null> {
-    return this.get('leaderboard');
+    return this.get(CacheKeys.leaderboard.global());
   }
 
   async setLeaderboard(leaderboard: any): Promise<void> {
-    await this.set('leaderboard', leaderboard, this.TTLS.LEADERBOARD);
+    await this.set(CacheKeys.leaderboard.global(), leaderboard, CacheTTL.LEADERBOARD);
   }
 
   async invalidateLeaderboard(): Promise<void> {
-    await this.del('leaderboard');
+    await this.del(CacheKeys.leaderboard.global());
   }
 
   async getUserProfile(address: string): Promise<any | null> {
-    return this.get(`user:${address}`);
+    return this.get(CacheKeys.user.profile(address));
   }
 
   async setUserProfile(address: string, profile: any): Promise<void> {
-    await this.set(`user:${address}`, profile, this.TTLS.USER_PROFILE);
+    await this.set(CacheKeys.user.profile(address), profile, CacheTTL.USER_PROFILE);
   }
 
   async invalidateUserProfile(address: string): Promise<void> {
-    await this.del(`user:${address}`);
+    await this.del(CacheKeys.user.profile(address));
   }
 
   async getPlatformStats(): Promise<any | null> {
-    return this.get('stats:platform');
+    return this.get(CacheKeys.stats.platform());
   }
 
   async setPlatformStats(stats: any): Promise<void> {
-    await this.set('stats:platform', stats, this.TTLS.PLATFORM_STATS);
+    await this.set(CacheKeys.stats.platform(), stats, CacheTTL.PLATFORM_STATS);
   }
 
   async invalidatePlatformStats(): Promise<void> {
-    await this.del('stats:platform');
+    await this.del(CacheKeys.stats.platform());
   }
 
   // --- Monitoring & Stats ---

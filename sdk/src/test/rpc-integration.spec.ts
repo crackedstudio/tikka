@@ -3,7 +3,7 @@ import { RaffleService } from '../modules/raffle/raffle.service';
 import { ContractService } from '../contract/contract.service';
 import { HorizonService } from '../network/horizon.service';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
-import { xdr, nativeToScVal, TransactionBuilder, Networks, Keypair, rpc as StellarRpc } from '@stellar/stellar-sdk';
+import { nativeToScVal, TransactionBuilder, Networks, Keypair } from '@stellar/stellar-sdk';
 
 // Mock Stellar SDK rpc.assembleTransaction
 jest.mock('@stellar/stellar-sdk', () => {
@@ -134,7 +134,7 @@ describe('Soroban RPC Integration (Mock)', () => {
 
     // Verify expectations
     expect(result).toBeDefined();
-    expect(result.transactionHash).toBe('1234567890abcdef');
+    expect(result.txHash).toBe('1234567890abcdef');
     expect(result.ledger).toBe(101);
 
     // Verify wallet interactions
@@ -175,7 +175,7 @@ describe('Soroban RPC Integration (Mock)', () => {
     };
 
     const result = await raffleService.create(params);
-    expect(result.success).toBe(false);
+    expect(result.status).toBe('ERROR');
     expect(result.error).toContain('Simulation failed: insufficient funds');
   });
 

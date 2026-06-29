@@ -57,6 +57,8 @@ const envSchemaInner = z
     // Server
     PORT: z.coerce.number().int().positive().default(3001),
     MAINTENANCE_MODE: z.coerce.boolean().default(false),
+    NODE_ENV: z.string().default('development'),
+    SWAGGER_ENABLED: z.enum(['true', 'false']).default('false').optional(),
 
     // Supabase — required for metadata and storage
     SUPABASE_URL: z.string().url(),
@@ -77,8 +79,8 @@ const envSchemaInner = z
     BACKFILL_RETRY_DELAY_MS: z.coerce.number().int().positive().default(1000),
     BACKFILL_HORIZON_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
 
-    // Redis — required for idempotency keys
-    REDIS_URL: z.string().url(),
+    // Redis — used for idempotency keys; empty string disables metadata cache-aside
+    REDIS_URL: z.union([z.string().url(), z.literal('')]).default(''),
 
     // JWT
     JWT_SECRET: z.string().min(32),
@@ -112,12 +114,13 @@ const envSchemaInner = z
     // Throttle — all optional with sensible defaults
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().positive().default(100),
     THROTTLE_DEFAULT_TTL: z.coerce.number().int().positive().default(60),
-    THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
-    THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(60),
-    THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(30),
+    THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(5),
+    THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(900),
+    THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(10),
     THROTTLE_NONCE_TTL: z.coerce.number().int().positive().default(60),
 
     // Pinata - optional for IPFS metadata pinning
+    ENABLE_IPFS_PINNING: z.enum(['true', 'false']).default('false').optional(),
     PINATA_JWT: z.string().optional(),
     METADATA_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
     RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),

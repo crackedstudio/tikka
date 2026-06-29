@@ -18,6 +18,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '../src/common/filters/base-exception.filter';
+import { REQUEST_ID_HEADER } from '../src/middleware/request-id.middleware';
 
 // Test controller to trigger various exceptions
 @Controller('test-errors')
@@ -125,11 +126,13 @@ describe('BaseExceptionFilter (e2e)', () => {
         .expect(400)
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 400);
+          expect(res.body).toHaveProperty('error', 'Bad Request');
           expect(res.body).toHaveProperty('message', 'Bad request');
           expect(res.body).toHaveProperty('error', 'BAD_REQUEST');
           expect(res.body).toHaveProperty('requestId', 'test-request-id');
           expect(res.body).toHaveProperty('timestamp');
           expect(res.body).toHaveProperty('path', '/test-errors/http-exception');
+          expect(res.body).toHaveProperty(REQUEST_ID_HEADER, 'req-123');
           expect(res.body.timestamp).toBeTruthy();
         });
     });
@@ -145,6 +148,7 @@ describe('BaseExceptionFilter (e2e)', () => {
           expect(res.body).toHaveProperty('error', 'NOT_FOUND');
           expect(res.body).toHaveProperty('timestamp');
           expect(res.body).toHaveProperty('path', '/test-errors/not-found');
+          expect(res.body).toHaveProperty(REQUEST_ID_HEADER, 'req-404');
         });
     });
 
@@ -222,6 +226,7 @@ describe('BaseExceptionFilter (e2e)', () => {
     it('should catch unexpected errors and return 500', () => {
       return request(app.getHttpServer())
         .get('/test-errors/internal-error')
+        .set(REQUEST_ID_HEADER, 'req-500')
         .expect(500)
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 500);
@@ -232,7 +237,9 @@ describe('BaseExceptionFilter (e2e)', () => {
           );
           expect(res.body).toHaveProperty('timestamp');
           expect(res.body).toHaveProperty('path', '/test-errors/internal-error');
+          expect(res.body).toHaveProperty(REQUEST_ID_HEADER, 'req-500');
           expect(res.body.timestamp).toBeTruthy();
+          expect(JSON.stringify(res.body)).not.toContain('Unexpected error');
         });
     });
 
@@ -279,6 +286,7 @@ describe('BaseExceptionFilter (e2e)', () => {
             expect(res.body).toHaveProperty(field);
           });
           expect(typeof res.body.statusCode).toBe('number');
+          expect(typeof res.body.error).toBe('string');
           expect(typeof res.body.message).toBe('string');
           expect(typeof res.body.error).toBe('string');
           expect(typeof res.body.requestId).toBe('string');

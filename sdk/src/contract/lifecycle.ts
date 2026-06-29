@@ -24,7 +24,6 @@ import {
   rpc,
   xdr,
   scValToNative,
-  BASE_FEE,
   Memo,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
@@ -64,6 +63,8 @@ export interface SubmitResult<T = unknown> {
   txHash: string;
   /** Ledger sequence in which the transaction was included. */
   ledger: number;
+  /** Base64-encoded transaction result XDR (safe to surface in responses). */
+  resultXdr?: string;
 }
 
 /** Configures the polling loop that waits for transaction confirmation. */
@@ -108,6 +109,55 @@ export interface InvokeLifecycleOptions {
 /** Detects Soroban contract errors in error messages / XDR. */
 function isExternalContractFailure(msg: string): boolean {
   return msg.includes('HostError') || msg.includes('WASM') || msg.includes('cross-contract');
+}
+
+
+// ─── Lifecycle Validation ─────────────────────────────────────────────────────
+
+/**
+ * Valid state transitions for raffle lifecycle operations.
+ * Maps each operation to the required raffle state.
+ */
+export const LIFECYCLE_REQUIREMENTS: Record<string, number> = {
+  buy_ticket:    0, // RaffleStatus.Open
+  trigger_draw:  0, // RaffleStatus.Open
+  cancel_raffle: 0, // RaffleStatus.Open
+};
+
+/**
+ * Validates that a raffle is in the required state for a given operation.
+ * Throws RaffleEndedError if the state does not permit the operation.
+ *
+ * Export this so external callers (and tests) can use it directly.
+ *
+ * @param operation - The contract function name (e.g. 'buy_ticket')
+ * @param currentState - The current RaffleStatus value fetched from the contract
+ * @param raffleId - Used in the error message for clarity
+ *
+ * @throws {TikkaSdkError} with code RaffleEnded if state is not permitted
+ */
+export function validateLifecycleTransition(
+  operation: string,
+  currentState: number,
+  raffleId: number | string,
+): void {
+  const required = LIFECYCLE_REQUIREMENTS[operation];
+  if (required === undefined) return; // operation has no state requirement
+
+  if (currentState !== required) {
+    const stateNames: Record<number, string> = {
+      0: 'OPEN',
+      1: 'DRAWING',
+      2: 'FINALIZED',
+      3: 'CANCELLED',
+    };
+    const currentName = stateNames[currentState] ?? String(currentState);
+    const requiredName = stateNames[required] ?? String(required);
+    throw new TikkaSdkError(
+      TikkaSdkErrorCode.RaffleEnded,
+      `Raffle ${raffleId} is in ${currentName} state — operation "${operation}" requires ${requiredName} state.`,
+    );
+  }
 }
 
 // ─── Class ───────────────────────────────────────────────────────────────────
@@ -321,6 +371,9 @@ export class TransactionLifecycle {
             : null,
           txHash,
           ledger: ok.ledger,
+          resultXdr: typeof ok.resultXdr?.toXDR === 'function'
+            ? ok.resultXdr.toXDR('base64')
+            : String(ok.resultXdr ?? ''),
         };
       }
 

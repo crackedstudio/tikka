@@ -1,15 +1,35 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { QueryRunner } from "typeorm";
+import { DataSource, QueryRunner } from "typeorm";
 import { RaffleProcessor } from "../processors/raffle.processor";
 import { TicketProcessor } from "../processors/ticket.processor";
 import { AdminProcessor } from "../processors/admin.processor";
+import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { DomainEvent } from "./event.types";
-import { DlqService } from "./dlq.service";
+import { DeadLetterQueueService } from "./dead-letter-queue.service";
+import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
+import { DlqReason } from "../database/entities/dead-letter-event.entity";
+import {
+  CURRENT_SCHEMA_VERSION,
+  isSupportedSchemaVersion,
+  UnsupportedSchemaVersionError,
+} from "./handlers/schema-version";
 
-/**
- * Orchestrates domain event ingestion: bulk-append raffle_events where applicable,
- * then applies processor side-effects inside a single transaction per batch.
- */
+export type HandlerOutcome = "succeeded" | "failed" | "skipped";
+
+export interface DispatchItem {
+  event: DomainEvent;
+  raw: Record<string, unknown>;
+}
+
+export interface HandlerExecutionResult {
+  handlerName: string;
+  eventId: string;
+  eventType: string;
+  outcome: HandlerOutcome;
+  durationMs: number;
+  error?: Error;
+}
+
 @Injectable()
 export class IngestionDispatcherService {
   private readonly logger = new Logger(IngestionDispatcherService.name);
@@ -19,137 +39,169 @@ export class IngestionDispatcherService {
     private readonly raffleProcessor: RaffleProcessor,
     private readonly ticketProcessor: TicketProcessor,
     private readonly adminProcessor: AdminProcessor,
-    @Optional() private readonly dlqService?: DlqService,
+    @Optional() private readonly deadLetterQueue?: DeadLetterQueueService,
+    @Optional() private readonly pipeline?: PipelineStateMachine,
   ) {}
 
-  /**
-   * Single-event compatibility wrapper — runs as a one-item batch.
-   */
-  async dispatch(event: DomainEvent, raw: unknown): Promise<QueryRunner | null> {
-    return this.dispatchBatch([{ event, raw: raw as DispatchItem["raw"] }]);
+  async dispatch(
+    event: DomainEvent,
+    raw: Record<string, unknown>,
+  ): Promise<HandlerExecutionResult> {
+    return this.executeIsolated({ event, raw });
+  }
+
+  async dispatchMany(
+    items: Array<{ event: DomainEvent; rawEvent: Record<string, unknown> }>,
+  ): Promise<HandlerExecutionResult[]> {
+    return this.dispatchBatch(
+      items.map((item) => ({ event: item.event, raw: item.rawEvent })),
+    );
+  }
+
+  async dispatchBatch(items: DispatchItem[]): Promise<HandlerExecutionResult[]> {
+    const results: HandlerExecutionResult[] = [];
+
+    for (const item of items) {
+      results.push(await this.executeIsolated(item));
+    }
+
+    return results;
+  }
+
+  private async executeIsolated(
+    item: DispatchItem,
+  ): Promise<HandlerExecutionResult> {
+    const { event, raw } = item;
+    const startedAt = Date.now();
+    const ledger = Number(raw.ledger);
+    const txHash = String(raw.id || raw.paging_token || "");
+    const eventId = txHash || "unknown";
+    const handlerName = this.getHandlerName(event);
+    const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
+
+    // Reject events whose schema version this build cannot decode, instead of
+    // letting a handler silently mis-parse them.
+    if (!isSupportedSchemaVersion(schemaVersion)) {
+      const error = new UnsupportedSchemaVersionError(schemaVersion, event.type);
+      const result = this.logResult({
+        handlerName,
+        eventId,
+        eventType: event.type,
+        outcome: "failed",
+        durationMs: Date.now() - startedAt,
+        error,
+      });
+      await this.deadLetter({
+        handlerName,
+        eventId,
+        event,
+        raw,
+        ledger,
+        txHash,
+        schemaVersion,
+        reason: DlqReason.SCHEMA_UNSUPPORTED,
+        error,
+        durationMs: result.durationMs,
+        attemptCount: 1,
+      });
+      return result;
+    }
+
+    const maxAttempts = parseInt(process.env.MAX_DISPATCH_RETRIES ?? "3", 10);
+    const baseDelayMs = parseInt(process.env.BASE_RETRY_DELAY_MS ?? "500", 10);
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const runner = await this.applyEvent(event, raw);
+        if (runner) {
+          await runner.commitTransaction();
+          await runner.release();
+        }
+
+        return this.logResult({
+          handlerName,
+          eventId,
+          eventType: event.type,
+          outcome: this.eventNeedsDatabase(event) ? "succeeded" : "skipped",
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.warn(
+          `Dispatch attempt ${attempt}/${maxAttempts} failed for ${event.type} ${eventId}: ${lastError.message}`,
+        );
+
+        if (attempt < maxAttempts) {
+          const delay = baseDelayMs * Math.pow(2, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    const result = this.logResult({
+      handlerName,
+      eventId,
+      eventType: event.type,
+      outcome: "failed",
+      durationMs: Date.now() - startedAt,
+      error: lastError,
+    });
+
+    await this.deadLetter({
+      handlerName,
+      eventId,
+      event,
+      raw,
+      ledger,
+      txHash,
+      schemaVersion,
+      reason: DlqReason.HANDLER_ERROR,
+      error: lastError!,
+      durationMs: result.durationMs,
+      attemptCount: maxAttempts,
+    });
+
+    return result;
   }
 
   /**
-   * Process multiple decoded events in one DB transaction.
-   * Returns an open QueryRunner (transaction not committed) for the caller to commit after cursor write.
-   * Returns null when no database work is required (e.g. only log-only events).
+   * Records a failed event in the dead-letter queue with its schema version and
+   * failure reason, and advances the pipeline state machine accordingly.
    */
-  async dispatchBatch(items: DispatchItem[]): Promise<QueryRunner | null> {
-    if (items.length === 0) {
-      return null;
-    }
+  private async deadLetter(params: {
+    handlerName: string;
+    eventId: string;
+    event: DomainEvent;
+    raw: Record<string, unknown>;
+    ledger: number;
+    txHash: string;
+    schemaVersion: number;
+    reason: DlqReason;
+    error: Error;
+    durationMs: number;
+    attemptCount: number;
+  }): Promise<void> {
+    this.pipeline?.apply(PipelineTransition.HANDLER_FAILURE);
 
-    const needsTx = items.some(({ event }) => this.eventNeedsDatabase(event));
-    if (!needsTx) {
-      return null;
-    }
+    await this.deadLetterQueue?.enqueue({
+      handlerName: params.handlerName,
+      eventId: params.eventId,
+      eventType: params.event.type,
+      ledger: Number.isFinite(params.ledger) ? params.ledger : null,
+      txHash: params.txHash || null,
+      schemaVersion: params.schemaVersion,
+      reason: params.reason,
+      errorMessage: params.error.message,
+      errorStack: params.error.stack,
+      durationMs: params.durationMs,
+      attemptCount: params.attemptCount,
+      event: params.event,
+      rawEvent: params.raw,
+      failedAt: new Date().toISOString(),
+    });
 
-    const runner = this.dataSource.createQueryRunner();
-    await runner.connect();
-    await runner.startTransaction();
-
-    try {
-      await this.bulkInsertRaffleEvents(items, runner);
-
-      for (const { event, raw } of items) {
-        await this.applyEvent(event, raw, runner);
-      switch (event.type) {
-        case "RaffleCreated":
-          return await this.raffleProcessor.handleRaffleCreated(
-            event.raffle_id,
-            event.creator,
-            ledger,
-            txHash,
-            event.params,
-          );
-
-        case "TicketPurchased":
-          return await this.ticketProcessor.handleTicketPurchased(
-            event.raffle_id,
-            event.buyer,
-            event.ticket_ids,
-            event.total_paid,
-            ledger,
-            txHash,
-          );
-
-        case "RaffleFinalized":
-          return await this.raffleProcessor.handleRaffleFinalized(
-            event.raffle_id,
-            event.winner,
-            event.winning_ticket_id,
-            event.prize_amount,
-            ledger,
-            txHash,
-          );
-
-        case "RaffleCancelled":
-          return await this.raffleProcessor.handleRaffleCancelled(
-            event.raffle_id,
-            event.reason,
-            ledger,
-            txHash,
-          );
-
-        case "TicketRefunded":
-          return await this.ticketProcessor.handleTicketRefunded(
-            event.raffle_id,
-            event.ticket_id,
-            event.recipient,
-            event.amount,
-            txHash,
-          );
-
-        case "ContractPaused":
-          return await this.adminProcessor.handleContractPaused(event.admin, ledger, txHash);
-
-        case "ContractUnpaused":
-          return await this.adminProcessor.handleContractUnpaused(event.admin, ledger, txHash);
-
-        case "AdminTransferProposed":
-          return await this.adminProcessor.handleAdminTransferProposed(
-            event.current_admin,
-            event.proposed_admin,
-            ledger,
-            txHash,
-          );
-
-        case "AdminTransferAccepted":
-          return await this.adminProcessor.handleAdminTransferAccepted(
-            event.old_admin,
-            event.new_admin,
-            ledger,
-            txHash,
-          );
-
-        case "DrawTriggered":
-          this.logger.log(`DrawTriggered for raffle ${event.raffle_id} at ledger ${event.ledger}`);
-          return null;
-
-        case "RandomnessRequested":
-          this.logger.log(`RandomnessRequested for raffle ${event.raffle_id}, request ID ${event.request_id}`);
-          return null;
-
-        case "RandomnessReceived":
-          this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
-          return null;
-
-        default:
-          this.logger.warn(`No processor method found for event type: ${(event as any).type}`);
-          return null;
-      }
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to dispatch event ${event.type} for tx ${txHash}: ${error.message}`,
-        error.stack,
-      );
-      // Write to DLQ if available
-      if (this.dlqService) {
-        await this.dlqService.insert(event, rawEvent, error);
-      }
-      // QueryRunner already released by processor on error
-      throw error;
-    }
+    this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
   }
 
   private eventNeedsDatabase(event: DomainEvent): boolean {
@@ -163,9 +215,185 @@ export class IngestionDispatcherService {
     }
   }
 
+  private async applyEvent(
+    event: DomainEvent,
+    raw: Record<string, unknown>,
+  ): Promise<QueryRunner | null> {
+    const ledger = Number(raw.ledger);
+    const txHash = String(raw.id || raw.paging_token || "");
+    const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
+
+    switch (event.type) {
+      case "RaffleCreated":
+        return this.raffleProcessor.handleRaffleCreated(
+          event.raffle_id,
+          event.creator,
+          ledger,
+          txHash,
+          event.params,
+          schemaVersion,
+        );
+
+      case "RaffleFinalized":
+        return this.raffleProcessor.handleRaffleFinalized(
+          event.raffle_id,
+          event.winner,
+          event.winning_ticket_id,
+          event.prize_amount,
+          ledger,
+          txHash,
+          schemaVersion,
+        );
+
+      case "RaffleCancelled":
+        return this.raffleProcessor.handleRaffleCancelled(
+          event.raffle_id,
+          event.reason,
+          ledger,
+          txHash,
+          schemaVersion,
+        );
+
+      case "TicketPurchased": {
+        const runner = await this.startRunner();
+        try {
+          await this.ticketProcessor.handleTicketPurchased(
+            event.raffle_id,
+            event.buyer,
+            event.ticket_ids,
+            event.total_paid,
+            ledger,
+            txHash,
+            runner,
+          );
+          return runner;
+        } catch (error) {
+          await runner.rollbackTransaction();
+          await runner.release();
+          throw error;
+        }
+      }
+
+      case "TicketRefunded": {
+        const runner = await this.startRunner();
+        try {
+          await this.ticketProcessor.handleTicketRefunded(
+            event.raffle_id,
+            event.ticket_id,
+            event.recipient,
+            event.amount,
+            txHash,
+            runner,
+          );
+          return runner;
+        } catch (error) {
+          await runner.rollbackTransaction();
+          await runner.release();
+          throw error;
+        }
+      }
+
+      case "ContractPaused":
+      case "ContractUnpaused":
+      case "AdminTransferProposed":
+      case "AdminTransferAccepted":
+        return this.applyAdminEvent(event, raw);
+
+      case "DrawTriggered":
+        this.logger.log(
+          `DrawTriggered for raffle ${event.raffle_id} at ledger ${event.ledger}`,
+        );
+        return null;
+
+      case "RandomnessRequested":
+        this.logger.log(
+          `RandomnessRequested for raffle ${event.raffle_id}, request ID ${event.request_id}`,
+        );
+        return null;
+
+      case "RandomnessReceived":
+        this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
+        return null;
+
+      default:
+        this.logger.warn(
+          `No processor method found for event type: ${(event as DomainEvent).type}`,
+        );
+        return null;
+    }
+  }
+
+  private async applyAdminEvent(
+    event: Extract<
+      DomainEvent,
+      {
+        type:
+          | "ContractPaused"
+          | "ContractUnpaused"
+          | "AdminTransferProposed"
+          | "AdminTransferAccepted";
+      }
+    >,
+    raw: Record<string, unknown>,
+  ): Promise<QueryRunner> {
+    const runner = await this.startRunner();
+    const ledger = Number(raw.ledger);
+    const row = this.toRaffleEventRow(event, raw);
+
+    try {
+      if (row) {
+        await runner.manager
+          .createQueryBuilder()
+          .insert()
+          .into(RaffleEventEntity)
+          .values(row as never)
+          .orIgnore()
+          .execute();
+      }
+
+      switch (event.type) {
+        case "ContractPaused":
+          await this.adminProcessor.handleContractPaused(event.admin, ledger, runner);
+          break;
+        case "ContractUnpaused":
+          await this.adminProcessor.handleContractUnpaused(event.admin, ledger, runner);
+          break;
+        case "AdminTransferProposed":
+          await this.adminProcessor.handleAdminTransferProposed(
+            event.current_admin,
+            event.proposed_admin,
+            ledger,
+            runner,
+          );
+          break;
+        case "AdminTransferAccepted":
+          await this.adminProcessor.handleAdminTransferAccepted(
+            event.old_admin,
+            event.new_admin,
+            ledger,
+            runner,
+          );
+          break;
+      }
+
+      return runner;
+    } catch (error) {
+      await runner.rollbackTransaction();
+      await runner.release();
+      throw error;
+    }
+  }
+
+  private async startRunner(): Promise<QueryRunner> {
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    return runner;
+  }
+
   private toRaffleEventRow(
     event: DomainEvent,
-    raw: DispatchItem["raw"],
+    raw: Record<string, unknown>,
   ): Partial<RaffleEventEntity> | null {
     const ledger = Number(raw.ledger);
     const txHash = String(raw.id || raw.paging_token || "");
@@ -174,23 +402,11 @@ export class IngestionDispatcherService {
     }
 
     switch (event.type) {
-      case "RaffleCancelled":
-        return {
-          raffleId: event.raffle_id,
-          eventType: "RaffleCancelled",
-          schemaVersion: event.schemaVersion ?? 1,
-          ledger,
-          txHash,
-          payloadJson: {
-            raffle_id: event.raffle_id,
-            reason: event.reason,
-          },
-        };
       case "ContractPaused":
         return {
           raffleId: 0,
           eventType: "ContractPaused",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
@@ -199,7 +415,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "ContractUnpaused",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
@@ -208,7 +424,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "AdminTransferProposed",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: {
@@ -220,7 +436,7 @@ export class IngestionDispatcherService {
         return {
           raffleId: 0,
           eventType: "AdminTransferAccepted",
-          schemaVersion: event.schemaVersion ?? 1,
+          schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: {
@@ -233,151 +449,40 @@ export class IngestionDispatcherService {
     }
   }
 
-  private async bulkInsertRaffleEvents(
-    items: DispatchItem[],
-    runner: QueryRunner,
-  ): Promise<void> {
-    const rows: Partial<RaffleEventEntity>[] = [];
-    for (const item of items) {
-      const row = this.toRaffleEventRow(item.event, item.raw);
-      if (row) {
-        rows.push(row);
-      }
-    }
-
-    if (rows.length === 0) {
-      return;
-    }
-
-    const byType = new Map<string, Partial<RaffleEventEntity>[]>();
-    for (const row of rows) {
-      const t = row.eventType!;
-      if (!byType.has(t)) {
-        byType.set(t, []);
-      }
-      byType.get(t)!.push(row);
-    }
-
-    for (const [, group] of byType) {
-      if (group.length === 0) {
-        continue;
-      }
-      await runner.manager
-        .createQueryBuilder()
-        .insert()
-        .into(RaffleEventEntity)
-        .values(group as never)
-        .orIgnore()
-        .execute();
+  private getHandlerName(event: DomainEvent): string {
+    switch (event.type) {
+      case "RaffleCreated":
+        return "RaffleProcessor.handleRaffleCreated";
+      case "TicketPurchased":
+        return "TicketProcessor.handleTicketPurchased";
+      case "RaffleFinalized":
+        return "RaffleProcessor.handleRaffleFinalized";
+      case "RaffleCancelled":
+        return "RaffleProcessor.handleRaffleCancelled";
+      case "TicketRefunded":
+        return "TicketProcessor.handleTicketRefunded";
+      case "ContractPaused":
+        return "AdminProcessor.handleContractPaused";
+      case "ContractUnpaused":
+        return "AdminProcessor.handleContractUnpaused";
+      case "AdminTransferProposed":
+        return "AdminProcessor.handleAdminTransferProposed";
+      case "AdminTransferAccepted":
+        return "AdminProcessor.handleAdminTransferAccepted";
+      default:
+        return `${event.type}Handler`;
     }
   }
 
-  private async applyEvent(
-    event: DomainEvent,
-    raw: DispatchItem["raw"],
-    runner: QueryRunner,
-  ): Promise<void> {
-    const ledger = Number(raw.ledger);
-    const txHash = String(raw.id || raw.paging_token || "");
+  private logResult(result: HandlerExecutionResult): HandlerExecutionResult {
+    const line = `handler=${result.handlerName} eventId=${result.eventId} outcome=${result.outcome} durationMs=${result.durationMs}`;
 
-    switch (event.type) {
-      case "RaffleCreated":
-        await this.raffleProcessor.handleRaffleCreated(
-          event.raffle_id,
-          event.creator,
-          ledger,
-          runner,
-        );
-        return;
-
-      case "TicketPurchased":
-        await this.ticketProcessor.handleTicketPurchased(
-          event.raffle_id,
-          event.buyer,
-          event.ticket_ids,
-          event.total_paid,
-          ledger,
-          txHash,
-          runner,
-        );
-        return;
-
-      case "RaffleFinalized":
-        await this.raffleProcessor.handleRaffleFinalized(
-          event.raffle_id,
-          event.winner,
-          event.prize_amount,
-          runner,
-        );
-        return;
-
-      case "RaffleCancelled":
-        await this.raffleProcessor.handleRaffleCancelled(
-          event.raffle_id,
-          event.reason,
-          ledger,
-          txHash,
-          runner,
-        );
-        return;
-
-      case "TicketRefunded":
-        await this.ticketProcessor.handleTicketRefunded(
-          event.raffle_id,
-          event.ticket_id,
-          event.recipient,
-          event.amount,
-          txHash,
-          runner,
-        );
-        return;
-
-      case "ContractPaused":
-        await this.adminProcessor.handleContractPaused(event.admin, ledger, runner);
-        return;
-
-      case "ContractUnpaused":
-        await this.adminProcessor.handleContractUnpaused(event.admin, ledger, runner);
-        return;
-
-      case "AdminTransferProposed":
-        await this.adminProcessor.handleAdminTransferProposed(
-          event.current_admin,
-          event.proposed_admin,
-          ledger,
-          runner,
-        );
-        return;
-
-      case "AdminTransferAccepted":
-        await this.adminProcessor.handleAdminTransferAccepted(
-          event.old_admin,
-          event.new_admin,
-          ledger,
-          runner,
-        );
-        return;
-
-      case "DrawTriggered":
-        this.logger.log(
-          `DrawTriggered for raffle ${event.raffle_id} at ledger ${event.ledger}`,
-        );
-        return;
-
-      case "RandomnessRequested":
-        this.logger.log(
-          `RandomnessRequested for raffle ${event.raffle_id}, request ID ${event.request_id}`,
-        );
-        return;
-
-      case "RandomnessReceived":
-        this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
-        return;
-
-      default:
-        this.logger.warn(
-          `No processor method found for event type: ${(event as DomainEvent).type}`,
-        );
+    if (result.outcome === "failed") {
+      this.logger.error(line, result.error?.stack);
+    } else {
+      this.logger.log(line);
     }
+
+    return result;
   }
 }

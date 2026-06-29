@@ -7,12 +7,18 @@ import {
   ParseIntPipe,
   UseGuards,
 } from "@nestjs/common";
+import { ApiKeyGuard } from "../api-key.guard";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiSecurity } from "@nestjs/swagger";
 import { CacheService } from "../../cache/cache.service";
 import { RaffleEntity } from "../../database/entities/raffle.entity";
 import { TicketEntity } from "../../database/entities/ticket.entity";
-import { ApiKeyGuard } from "../api-key.guard";
+import {
+  RaffleListItemDto,
+  RaffleDetailDto,
+  RaffleListResponseDto,
+} from "./dto/raffle.dto";
 
 export interface RaffleListQuery {
   status?: string;
@@ -23,6 +29,8 @@ export interface RaffleListQuery {
   offset?: string;
 }
 
+@ApiTags('raffles')
+@ApiSecurity('api-key')
 @UseGuards(ApiKeyGuard)
 @Controller("raffles")
 export class RafflesController {
@@ -39,8 +47,15 @@ export class RafflesController {
    * List raffles with optional filters and pagination.
    * Uses cache for the active-raffle list; falls back to PostgreSQL.
    */
+  @ApiOperation({ summary: 'List raffles', description: 'Returns a paginated list of raffles with optional filters.' })
+  @ApiQuery({ name: 'status', required: false, enum: ['open', 'drawing', 'finalized', 'cancelled'] })
+  @ApiQuery({ name: 'creator', required: false })
+  @ApiQuery({ name: 'asset', required: false })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: RaffleListResponseDto })
   @Get()
-  async list(@Query() query: RaffleListQuery) {
+  async list(@Query() query: RaffleListQuery): Promise<RaffleListResponseDto> {
     const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
     const offset = parseInt(query.offset ?? "0", 10);
 
@@ -88,8 +103,12 @@ export class RafflesController {
    * GET /raffles/:id
    * Raffle detail — cache-first, PostgreSQL fallback.
    */
+  @ApiOperation({ summary: 'Get raffle by ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, type: RaffleDetailDto })
+  @ApiResponse({ status: 404, description: 'Raffle not found' })
   @Get(":id")
-  async detail(@Param("id", ParseIntPipe) id: number) {
+  async detail(@Param("id", ParseIntPipe) id: number): Promise<RaffleDetailDto> {
     const cached = await this.cacheService.getRaffleDetail(String(id));
     if (cached) return cached;
 
@@ -98,16 +117,28 @@ export class RafflesController {
 
     const ticketCount = await this.ticketRepo.count({ where: { raffleId: id } });
 
-    const result = {
-      ...this.formatRaffle(raffle),
-      participant_count: ticketCount,
+    const result: RaffleDetailDto = {
+      id: raffle.id,
+      creator: raffle.creator,
+      status: raffle.status,
+      ticket_price: raffle.ticketPrice,
+      asset: raffle.asset,
+      max_tickets: raffle.maxTickets,
+      tickets_sold: raffle.ticketsSold,
+      end_time: raffle.endTime,
+      winner: raffle.winner,
+      winning_ticket_id: raffle.winningTicketId,
+      prize_amount: raffle.prizeAmount,
+      metadata_cid: raffle.metadataCid,
+      created_at: raffle.createdAt.toISOString(),
+      ticket_count: ticketCount,
     };
 
     await this.cacheService.setRaffleDetail(String(id), result);
     return result;
   }
 
-  private formatRaffle(r: RaffleEntity) {
+  private formatRaffle(r: RaffleEntity): RaffleListItemDto {
     return {
       id: r.id,
       creator: r.creator,
@@ -119,10 +150,8 @@ export class RafflesController {
       end_time: r.endTime,
       winner: r.winner,
       prize_amount: r.prizeAmount,
-      created_ledger: r.createdLedger,
-      finalized_ledger: r.finalizedLedger,
       metadata_cid: r.metadataCid,
-      created_at: r.createdAt,
+      created_at: r.createdAt.toISOString(),
     };
   }
 }

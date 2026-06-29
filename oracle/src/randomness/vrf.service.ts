@@ -6,6 +6,7 @@ import { ed25519 } from '@noble/curves/ed25519';
 import * as crypto from 'crypto';
 import { IVrfProvider, VrfAlgorithm } from './vrf.interface';
 import { Ed25519Sha256VrfProvider } from './ed25519-sha256.vrf-provider';
+import { MetricsService } from '../metrics/metrics.service';
 
 /**
  * VrfService — Verifiable Random Function computation for high-stakes raffles.
@@ -28,8 +29,9 @@ export class VrfService {
   constructor(
     private readonly keyService: KeyService,
     private readonly oracleRegistry: OracleRegistryService,
+    private readonly metricsService: MetricsService,
   ) {
-    this.ed25519Provider = new Ed25519Sha256VrfProvider(keyService);
+    this.ed25519Provider = new Ed25519Sha256VrfProvider(keyService, metricsService);
   }
 
   /**
@@ -97,6 +99,7 @@ export class VrfService {
       publicKey,
       requestId,
       proof,
+      raffleId,
     });
     if (!verifiedProof.valid || !verifiedProof.seed) return false;
 
@@ -116,11 +119,13 @@ export class VrfService {
     requestId: string;
     proof: string;
     publicKey: string | Buffer;
+    raffleId?: number;
   }): { valid: boolean; seed?: string } {
     return this.ed25519Provider.verifyProof(
       input.publicKey,
       input.requestId,
       input.proof,
+      input.raffleId,
     );
   }
 
