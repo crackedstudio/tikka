@@ -28,7 +28,7 @@
     "@opentelemetry/exporter-prometheus": "^0.218.0",
     "@opentelemetry/sdk-metrics": "^2.7.1",
     "@stellar/stellar-sdk": "^14.5.0",
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/supabase-js": "^2.108.2",
     "bull": "^4.16.5",
     "nest-winston": "^1.10.2",
     "reflect-metadata": "^0.2.0",
