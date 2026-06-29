@@ -34,9 +34,7 @@ export class RpcError extends Error {
  * SDK-wide error codes exactly as required by Issue #154
  */
 export enum TikkaSdkErrorCode {
- /** Wallet extension not installed in the browser */
-  WalletNotInstalled = 'WALLET_NOT_INSTALLED',
-  /** Wallet extension installed but not connected/authorized */
+ /** Wallet extension installed but not connected/authorized */
   WalletNotConnected = 'WALLET_NOT_CONNECTED',
   /** User rejected the transaction / signature request */
   UserRejected = 'UserRejected',

@@ -1,0 +1,345 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`LivePreview > dark mode > snapshot — complete form in dark mode 1`] = `
+<DocumentFragment>
+  <div
+    class="bg-white dark:bg-[#1E1932] rounded-xl p-6 h-fit"
+  >
+    <h3
+      class="text-gray-900 dark:text-white text-xl font-bold mb-6"
+    >
+      Live Preview
+    </h3>
+    <div
+      class="mb-4"
+    >
+      <div
+        class="space-y-2"
+      >
+        <img
+          alt="Raffle prize"
+          class="w-full h-48 object-cover rounded-lg border-2 border-yellow-400"
+          src="mock-url"
+        />
+      </div>
+    </div>
+    <div
+      class="mb-3"
+    >
+      <h4
+        class="text-gray-900 dark:text-white text-lg font-semibold min-h-[1.75rem]"
+      >
+        My Raffle
+      </h4>
+    </div>
+    <div
+      class="mb-4"
+    >
+      <p
+        class="text-gray-900 dark:text-white text-sm mb-2"
+      >
+        Description
+      </p>
+      <p
+        class="text-gray-700 dark:text-gray-300 text-sm min-h-[1.25rem]"
+      >
+        A fantastic prize
+      </p>
+    </div>
+    <div
+      class="mb-4"
+    >
+      <p
+        class="text-gray-900 dark:text-white text-sm mb-1"
+      >
+        Creator
+      </p>
+      <p
+        class="text-gray-700 dark:text-gray-300 text-sm min-h-[1.25rem]"
+      >
+        Creator not set
+      </p>
+    </div>
+    <div
+      class="space-y-3 mb-6"
+    >
+      <div
+        class="flex items-center justify-between"
+      >
+        <div
+          class="flex items-center space-x-2"
+        >
+          <svg
+            class="w-4 h-4 text-gray-900 dark:text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              clip-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+              fill-rule="evenodd"
+            />
+          </svg>
+          <span
+            class="text-gray-900 dark:text-white text-sm"
+          >
+            Duration
+          </span>
+        </div>
+        <span
+          class="text-gray-900 dark:text-white text-sm min-h-[1.25rem]"
+        >
+          7d 0h
+        </span>
+      </div>
+      <div
+        class="flex items-center justify-between"
+      >
+        <div
+          class="flex items-center space-x-2"
+        >
+          <svg
+            class="w-4 h-4 text-gray-900 dark:text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              clip-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+              fill-rule="evenodd"
+            />
+          </svg>
+          <span
+            class="text-gray-900 dark:text-white text-sm"
+          >
+            Close Time
+          </span>
+        </div>
+        <span
+          class="text-gray-900 dark:text-white text-sm min-h-[1.25rem]"
+        >
+          Close time not set
+        </span>
+      </div>
+      <div
+        class="flex items-center justify-between"
+      >
+        <div
+          class="flex items-center space-x-2"
+        >
+          <svg
+            class="w-4 h-4 text-gray-900 dark:text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              clip-rule="evenodd"
+              d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+              fill-rule="evenodd"
+            />
+          </svg>
+          <span
+            class="text-gray-900 dark:text-white text-sm"
+          >
+            Tickets
+          </span>
+        </div>
+        <span
+          class="text-gray-900 dark:text-white text-sm min-h-[1.25rem]"
+        >
+          100
+        </span>
+      </div>
+    </div>
+    <div
+      class="mb-6"
+    >
+      <p
+        class="text-gray-700 dark:text-gray-300 text-sm text-center min-h-[1.25rem]"
+      >
+        $10.00
+      </p>
+    </div>
+    <button
+      class="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+    >
+      Join Raffle
+    </button>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`LivePreview > dark mode > snapshot — empty form in dark mode 1`] = `
+<DocumentFragment>
+  <div
+    class="bg-white dark:bg-[#1E1932] rounded-xl p-6 h-fit"
+  >
+    <h3
+      class="text-gray-900 dark:text-white text-xl font-bold mb-6"
+    >
+      Live Preview
+    </h3>
+    <div
+      class="mb-4"
+    >
+      <div
+        class="w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400 dark:border-gray-500"
+      >
+        <svg
+          class="w-12 h-12 text-gray-400"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path
+            clip-rule="evenodd"
+            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+            fill-rule="evenodd"
+          />
+        </svg>
+      </div>
+    </div>
+    <div
+      class="mb-3"
+    >
+      <h4
+        class="text-gray-900 dark:text-white text-lg font-semibold min-h-[1.75rem]"
+      >
+        Raffle title not set
+      </h4>
+    </div>
+    <div
+      class="mb-4"
+    >
+      <p
+        class="text-gray-900 dark:text-white text-sm mb-2"
+      >
+        Description
+      </p>
+      <p
+        class="text-gray-700 dark:text-gray-300 text-sm min-h-[1.25rem]"
+      >
+        No description provided
+      </p>
+    </div>
+    <div
+      class="mb-4"
+    >
+      <p
+        class="text-gray-900 dark:text-white text-sm mb-1"
+      >
+        Creator
+      </p>
+      <p
+        class="text-gray-700 dark:text-gray-300 text-sm min-h-[1.25rem]"
+      >
+        Creator not set
+      </p>
+    </div>
+    <div
+      class="space-y-3 mb-6"
+    >
+      <div
+        class="flex items-center justify-between"
+      >
+        <div
+          class="flex items-center space-x-2"
+        >
+          <svg
+            class="w-4 h-4 text-gray-900 dark:text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              clip-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+              fill-rule="evenodd"
+            />
+          </svg>
+          <span
+            class="text-gray-900 dark:text-white text-sm"
+          >
+            Duration
+          </span>
+        </div>
+        <span
+          class="text-gray-900 dark:text-white text-sm min-h-[1.25rem]"
+        >
+          Duration not set
+        </span>
+      </div>
+      <div
+        class="flex items-center justify-between"
+      >
+        <div
+          class="flex items-center space-x-2"
+        >
+          <svg
+            class="w-4 h-4 text-gray-900 dark:text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              clip-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+              fill-rule="evenodd"
+            />
+          </svg>
+          <span
+            class="text-gray-900 dark:text-white text-sm"
+          >
+            Close Time
+          </span>
+        </div>
+        <span
+          class="text-gray-900 dark:text-white text-sm min-h-[1.25rem]"
+        >
+          Close time not set
+        </span>
+      </div>
+      <div
+        class="flex items-center justify-between"
+      >
+        <div
+          class="flex items-center space-x-2"
+        >
+          <svg
+            class="w-4 h-4 text-gray-900 dark:text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              clip-rule="evenodd"
+              d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+              fill-rule="evenodd"
+            />
+          </svg>
+          <span
+            class="text-gray-900 dark:text-white text-sm"
+          >
+            Tickets
+          </span>
+        </div>
+        <span
+          class="text-gray-900 dark:text-white text-sm min-h-[1.25rem]"
+        >
+          —
+        </span>
+      </div>
+    </div>
+    <div
+      class="mb-6"
+    >
+      <p
+        class="text-gray-700 dark:text-gray-300 text-sm text-center min-h-[1.25rem]"
+      >
+        Price not set
+      </p>
+    </div>
+    <button
+      class="w-full bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+    >
+      Join Raffle
+    </button>
+  </div>
+</DocumentFragment>
+`;
