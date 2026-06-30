@@ -287,7 +287,6 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         for (const item of batch) {
           this.metrics.incrementEventsProcessed(item.parsed.type);
         }
-        this.metrics.incrementEventsProcessed(batch.length);
         this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
         return;
       }

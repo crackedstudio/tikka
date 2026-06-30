@@ -16,7 +16,7 @@
  * preserved for backward compatibility with LedgerPollerService.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, QueryRunner } from 'typeorm';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
@@ -28,8 +28,35 @@ import {
   validateLedgerHash,
   validateOnLoad,
 } from './cursor-integrity';
+import { PipelineStateMachine } from './pipeline-state';
 
 // ── Public types ──────────────────────────────────────────────────────────────
+
+/**
+ * Operator-facing snapshot of the cursor manager's runtime state.
+ * Returned by getStatus() for the /health endpoint to surface.
+ */
+export interface CursorManagerStatus {
+  mode: IngestorMode;
+  lastCheckpoint: CursorCheckpoint | null;
+  lastViolation: IntegrityViolation | null;
+  uptimeMs: number;
+}
+
+/**
+ * Typed error class raised when an integrity violation is detected while
+ * preparing a write. Callers should treat this as a hard failure and stop
+ * processing until the cursor is repaired.
+ */
+export class CursorIntegrityError extends Error {
+  constructor(
+    public readonly violation: IntegrityViolation,
+    public readonly candidate: CursorCheckpoint,
+  ) {
+    super(`Cursor integrity violation: ${violation.code}`);
+    this.name = 'CursorIntegrityError';
+  }
+}
 
 /**
  * Operational mode of the ingestion pipeline.
@@ -165,19 +192,6 @@ export class CursorManagerService {
       this.transitionDegraded(violation);
       throw new CursorIntegrityError(violation, candidate);
     }
-
-    this.logger.debug(
-      `Saving cursor: ledger=${ledger}, hash=${ledgerHash}, events=${eventCount}, token=${token}`,
-    );
-
-    const manager: EntityManager = queryRunner
-      ? queryRunner.manager
-      : this.cursorRepo.manager;
-
-    const existing = await manager.findOne(IndexerCursorEntity, { where: { id: 1 } });
-    const hashes = existing?.ledgerHashes ?? [];
-    hashes.push({ ledger, hash: ledgerHash });
-    if (hashes.length > HASH_RING_SIZE) hashes.shift();
 
     this.logger.debug(
       `Saving cursor: ledger=${ledger}, hash=${ledgerHash}, events=${eventCount}, token=${token}`,

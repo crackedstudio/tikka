@@ -108,32 +108,32 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                                 {winner.slice(0, 6)}…{winner.slice(-6)}
                             </p>
                         ) : (
-                            <p className="text-center text-xs text-gray-500">
-                                Awaiting result
-                            </p>
-                            <p data-testid="entries-count">{entries}</p>
-                        </div>
-                    </div>
-
-                    {/* Progress */}
-                    <ProgressBar value={progress} />
-                </Link>
-            ) : (
-                <div className="flex flex-col space-y-4">
-                    {/* Image */}
-                    <div className="w-full">
-                        <LazyImage
-                            src={image}
-                            alt={title}
-                            aspectRatio={16/9}
-                            containerClassName="w-full rounded-3xl"
-                            className="w-full h-full object-cover"
-                            onError={onImageError}
-                        />
+                            <>
+                                <p className="text-center text-xs text-gray-500">
+                                    Awaiting result
+                                </p>
+                                <p data-testid="entries-count">{entries}</p>
+                            </>
+                        )}
                     </div>
                 ) : (
-                    /* cancelled — just a divider */
-                    <Line />
+                    <>
+                        <div className="flex flex-col space-y-4">
+                            {/* Image */}
+                            <div className="w-full">
+                                <LazyImage
+                                    src={image}
+                                    alt={title}
+                                    aspectRatio={16/9}
+                                    containerClassName="w-full rounded-3xl"
+                                    className="w-full h-full object-cover"
+                                    onError={onImageError}
+                                />
+                            </div>
+                        </div>
+                        {/* cancelled — just a divider */}
+                        <Line />
+                    </>
                 )}
 
                 {/* Ticket & Entries */}
@@ -155,6 +155,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({
                 {/* Progress */}
                 <ProgressBar value={progress} />
             </Link>
+            ) : null}
 
             {/* CTA — outside the Link to prevent navigation on button click */}
             {isActive ? (
