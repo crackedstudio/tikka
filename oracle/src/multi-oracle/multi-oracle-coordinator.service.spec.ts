@@ -7,6 +7,7 @@ describe('MultiOracleCoordinatorService (Quorum)', () => {
     getPeerEndpoints: jest.fn(),
     getLocalOracleId: jest.fn(),
     getThreshold: jest.fn(),
+    getConsensusThreshold: jest.fn(),
   };
 
   const config = {
@@ -20,6 +21,9 @@ describe('MultiOracleCoordinatorService (Quorum)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    registry.getLocalOracleId.mockReturnValue('a');
+    // Default consensus threshold to 1 to maintain backwards compatibility with existing tests
+    registry.getConsensusThreshold.mockReturnValue(1);
 
     service = new MultiOracleCoordinatorService(
       registry as any,

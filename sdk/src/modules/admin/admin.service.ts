@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
-import { ContractFn } from '../../contract/bindings';
+import { ContractFn, RaffleStatus } from '../../contract/bindings';
+import { validateLifecycleTransition } from '../../contract/lifecycle';
 import { assertNonEmpty } from '../../utils/validation';
 import { AdminWriteOptions } from './admin.types';
-import { AdminTxResponse, TxResponse } from '../../contract/response';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+import { AdminTxResponse, TxResponse, ContractResponse } from '../../contract/response';
 
 /**
  * @category Admin
@@ -167,4 +169,69 @@ export class AdminService {
   async acceptAdmin(options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     return this.contract.invoke<void>(ContractFn.ACCEPT_ADMIN, [], { memo: options.memo });
   }
+
+  /**
+   * Finalizes a raffle by triggering the draw.
+   * Validates the raffle is in OPEN state before proceeding.
+   *
+   * @param raffleId - The raffle to finalize
+   * @param options - Optional transaction configuration
+   * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+   */
+  async finalizeRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+    const stateResp = await this.contract.simulateReadOnly<{ status: number }>(
+      ContractFn.GET_RAFFLE_STATE,
+      [raffleId],
+    );
+    validateLifecycleTransition(
+      ContractFn.TRIGGER_DRAW,
+      stateResp.value?.status ?? stateResp.value ?? -1,
+      raffleId,
+    );
+    return this.contract.invoke<void>(ContractFn.TRIGGER_DRAW, [raffleId], { memo: options.memo });
+  }
+
+  /**
+   * Cancels a raffle.
+   * Validates the raffle is in OPEN state and that the caller is the raffle creator
+   * or an admin before proceeding.
+   *
+   * @param raffleId - The raffle to cancel
+   * @param options - Optional transaction configuration
+   * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+   * @throws {UnauthorizedError} if the caller is not the raffle creator or admin
+   */
+  async cancelRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+    const stateResp = await this.contract.simulateReadOnly<any>(
+      ContractFn.GET_RAFFLE_DATA,
+      [raffleId],
+    );
+    if (!stateResp.success) {
+      return stateResp as ContractResponse<void>;
+    }
+
+    const raffleData = stateResp.value;
+    const currentStatus = raffleData.status ?? raffleData.Status ?? -1;
+    validateLifecycleTransition(
+      ContractFn.CANCEL_RAFFLE,
+      currentStatus,
+      raffleId,
+    );
+
+    const callerAddress = await this.contract.getPublicKey();
+    const creatorAddress = raffleData.creator ?? raffleData.Creator ?? '';
+
+    if (callerAddress !== creatorAddress) {
+      const adminResp = await this.contract.simulateReadOnly<string>(ContractFn.GET_ADMIN, []);
+      if (!adminResp.success || adminResp.value !== callerAddress) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.Unauthorized,
+          `Caller ${callerAddress} is not authorized to cancel raffle ${raffleId}. Only the creator (${creatorAddress}) or admin can cancel.`,
+        );
+      }
+    }
+
+    return this.contract.invoke<void>(ContractFn.CANCEL_RAFFLE, [raffleId], { memo: options.memo });
+  }
+
 }
