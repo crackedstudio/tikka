@@ -12,6 +12,7 @@ import {
   Query,
   Req,
   Res,
+  Sse,
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
@@ -64,6 +65,7 @@ export class RafflesController {
     private readonly rafflesService: RafflesService,
     private readonly storageService: StorageService,
     private readonly idempotencyService: IdempotencyService,
+    private readonly sseService: SseService,
   ) {}
 
   /**

@@ -15,11 +15,12 @@ import { IdempotencyService } from '../../../common/idempotency/idempotency.serv
 import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
 import { AdminGuard } from '../monitor/admin.guard';
 import { MonitorService } from '../monitor/monitor.service';
+import { SseService } from '../../../services/sse.service';
 
 @Module({
   imports: [IndexerModule, MetadataModule, SupabaseModule, ConfigModule],
   controllers: [RafflesController, OgRenderController, AdminRafflesController],
-  providers: [
+providers: [
     RafflesService,
     StorageService,
     ImageOptimizerService,
@@ -28,6 +29,7 @@ import { MonitorService } from '../monitor/monitor.service';
     IdempotencyInterceptor,
     AdminGuard,
     MonitorService,
+    SseService,
   ],
   exports: [RafflesService],
 })
