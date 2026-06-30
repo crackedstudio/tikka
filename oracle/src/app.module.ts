@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { LoggerModule } from './logger/logger.module';
+import { OracleConfigModule } from './config';
 import { QueueModule } from './queue/queue.module';
 import { HealthModule } from './health/health.module';
 import { SubscriberModule } from './subscriber/subscriber.module';
@@ -10,11 +9,11 @@ import { MultiOracleModule } from './multi-oracle/multi-oracle.module';
 import { RescueModule } from './rescue/rescue.module';
 import { AuditLogModule } from './audit/audit.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    LoggerModule,
+    OracleConfigModule.forRoot(),
     KeysModule,
     QueueModule,
     HealthModule,
@@ -24,6 +23,7 @@ import { MetricsModule } from './metrics/metrics.module';
     RescueModule,
     AuditLogModule,
     MetricsModule,
+    AdminModule,
   ],
   controllers: [],
   providers: [],

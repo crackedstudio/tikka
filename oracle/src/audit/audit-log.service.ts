@@ -2,7 +2,7 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams } from './audit.types';
+import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams } from './audit.types';
 import { SUPABASE_CLIENT } from './supabase.provider';
 
 @Injectable()
@@ -83,6 +83,107 @@ export class AuditLogService {
     }
 
     return data[0].chain_hash as string;
+  }
+
+  /**
+   * Records a successful randomness submission to the contract.
+   * This creates or updates an audit log entry with the full VRF proof, raffle ID,
+   * transaction hash, ledger, oracle address, and timestamp.
+   * 
+   * This method ensures audit records are written even if subsequent steps fail.
+   */
+  public async record(params: RecordSubmissionParams): Promise<void> {
+    try {
+      // Check if a record already exists for this raffle
+      const { data: existing } = await this.supabase
+        .from('vrf_audit_log')
+        .select('id, committed_at, commitment_hash')
+        .eq('raffle_id', params.raffleId)
+        .single();
+
+      if (existing) {
+        // Update existing record with submission details
+        const previousChainHash = await this.getPreviousChainHash(existing.id);
+        
+        const record: Partial<VrfAuditRecord> = {
+          raffle_id: params.raffleId,
+          commitment_hash: existing.commitment_hash,
+          oracle_public_key: params.oracleAddress,
+          status: 'revealed',
+          committed_at: existing.committed_at,
+          reveal_hash: '', // Will be computed if we have the secret components
+          proof: params.vrfProof,
+          seed: '',
+        };
+        
+        const chainHash = this.computeChainHash(record, previousChainHash);
+
+        const { error } = await this.supabase
+          .from('vrf_audit_log')
+          .update({
+            request_id: params.requestId || null,
+            proof: params.vrfProof,
+            tx_hash: params.txHash,
+            ledger_sequence: params.ledger,
+            oracle_public_key: params.oracleAddress,
+            revealed_at: params.timestamp.toISOString(),
+            status: 'revealed',
+            chain_hash: chainHash,
+          })
+          .eq('raffle_id', params.raffleId);
+
+        if (error) {
+          throw new Error(`Failed to update audit record: ${error.message}`);
+        }
+      } else {
+        // Create new record if none exists
+        const previousChainHash = await this.getPreviousChainHash();
+        
+        const record: Partial<VrfAuditRecord> = {
+          raffle_id: params.raffleId,
+          commitment_hash: '',
+          oracle_public_key: params.oracleAddress,
+          status: 'revealed',
+          committed_at: params.timestamp.toISOString(),
+          reveal_hash: '',
+          proof: params.vrfProof,
+          seed: '',
+        };
+        
+        const chainHash = this.computeChainHash(record, previousChainHash);
+
+        const { error } = await this.supabase
+          .from('vrf_audit_log')
+          .insert({
+            raffle_id: params.raffleId,
+            request_id: params.requestId || null,
+            commitment_hash: '',
+            proof: params.vrfProof,
+            tx_hash: params.txHash,
+            ledger_sequence: params.ledger,
+            oracle_public_key: params.oracleAddress,
+            status: 'revealed',
+            committed_at: params.timestamp.toISOString(),
+            revealed_at: params.timestamp.toISOString(),
+            reveal_hash: '',
+            seed: '',
+            chain_hash: chainHash,
+          });
+
+        if (error) {
+          throw new Error(`Failed to insert audit record: ${error.message}`);
+        }
+      }
+
+      this.logger.log(
+        `Audit record saved for raffle ${params.raffleId}: tx=${params.txHash}, ledger=${params.ledger}`,
+      );
+    } catch (error) {
+      // Log error but don't throw - audit logging should not break the main flow
+      this.logger.error(
+        `Failed to record audit log for raffle ${params.raffleId}: ${error.message}`,
+      );
+    }
   }
 
   /**

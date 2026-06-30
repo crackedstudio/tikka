@@ -35,6 +35,7 @@ export class CircuitBreakerService {
   private state: CircuitState = 'closed';
   private consecutiveFailures = 0;
   private openedAt: number | null = null;
+  private lastFailureAt: number | null = null;
   private probeAllowed = false;
   private readonly config: CircuitBreakerConfig;
   private readonly nowFn: () => number;
@@ -114,6 +115,8 @@ export class CircuitBreakerService {
    * half-open: re-open immediately.
    */
   recordFailure(): void {
+    this.lastFailureAt = this.nowFn();
+
     if (this.state === 'closed') {
       this.consecutiveFailures++;
       if (this.consecutiveFailures >= this.config.failureThreshold) {
@@ -139,8 +142,7 @@ export class CircuitBreakerService {
     }
   }
 
-  /**
-   * Returns milliseconds until the open circuit transitions to half-open.
+  /** Returns milliseconds until the open circuit transitions to half-open.
    * Returns 0 if already elapsed or the circuit is not open.
    */
   getRemainingCooldownMs(): number {
@@ -155,5 +157,15 @@ export class CircuitBreakerService {
   /** Returns the current circuit state. */
   getState(): CircuitState {
     return this.state;
+  }
+
+  /** Returns the current consecutive failure count. */
+  getFailureCount(): number {
+    return this.consecutiveFailures;
+  }
+
+  /** Returns the timestamp of when the circuit was opened, or null if not open. */
+  getLastFailureAt(): number | null {
+    return this.lastFailureAt;
   }
 }

@@ -3,6 +3,7 @@ import { MeterProvider } from '@opentelemetry/sdk-metrics';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { Counter, Gauge, Histogram, Meter, ObservableResult } from '@opentelemetry/api';
 import { HealthService } from '../health/health.service';
+import { DlqReason } from '../database/entities/dead-letter-event.entity';
 
 @Injectable()
 export class MetricsService {
@@ -13,9 +14,15 @@ export class MetricsService {
   private errorsCounter: Counter;
   private reorgDetectedCounter: Counter;
   private lagGauge: Gauge;
+  private indexerLedgerLagGauge: Gauge;
   private pollDurationHistogram: Histogram;
   private slowQueryCounter: Counter;
   private queryDurationHistogram: Histogram;
+
+  private dlqDepthGauge: Gauge;
+  private dlqEventsTotalCounter: Counter;
+
+
 
   constructor(private readonly healthService: HealthService) {
     // PrometheusExporter automatically initializes the Prometheus registry
@@ -45,6 +52,10 @@ export class MetricsService {
       description: 'Current ledger lag behind the network',
     });
 
+    this.indexerLedgerLagGauge = this.meter.createGauge('indexer_ledger_lag', {
+      description: 'Number of ledgers the indexer is behind the Stellar network tip',
+    });
+
     this.pollDurationHistogram = this.meter.createHistogram('tikka_indexer_poll_duration_seconds', {
       description: 'Duration of ledger polling cycles',
       unit: 's',
@@ -60,12 +71,25 @@ export class MetricsService {
       unit: 's',
     });
 
+    this.dlqDepthGauge = this.meter.createGauge('indexer_dlq_depth', {
+      description: 'Current DLQ depth (failed events not yet successfully replayed)',
+    });
+
+    this.dlqEventsTotalCounter = this.meter.createCounter(
+      'indexer_dlq_events_total',
+      {
+        description:
+          'Total number of DLQ events added and replay attempts',
+      },
+    );
+
     this.meter.createObservableGauge('tikka_indexer_memory_usage_bytes', {
       description: 'Current memory usage (heapUsed)',
     }).addCallback((result: ObservableResult) => {
       result.observe(process.memoryUsage().heapUsed);
     });
   }
+
 
   incrementEventsProcessed(type: string = 'unknown', amount: number = 1) {
     this.eventsProcessedCounter.add(amount, { event_type: type });
@@ -81,6 +105,7 @@ export class MetricsService {
 
   setLagLedgers(lag: number) {
     this.lagGauge.record(lag);
+    this.indexerLedgerLagGauge.record(lag);
   }
 
   recordPollDuration(seconds: number) {
@@ -95,6 +120,14 @@ export class MetricsService {
     this.slowQueryCounter.add(amount, { query_hash: queryHash });
   }
 
+  setDlqDepth(contractAddress: string, depth: number) {
+    this.dlqDepthGauge.record(depth, { contract_address: contractAddress });
+  }
+
+  incrementDlqEventsTotal(reason: DlqReason, eventType: string, amount: number = 1) {
+    this.dlqEventsTotalCounter.add(amount, { reason, event_type: eventType });
+  }
+
   /**
    * Returns the metrics in Prometheus format.
    * Since PrometheusExporter uses a request/response pattern normally,
@@ -102,9 +135,10 @@ export class MetricsService {
    */
   async getMetrics(): Promise<string> {
     return new Promise((resolve, reject) => {
+
       // Use a mock response object to capture the output from the exporter's handler
       const res = {
-        setHeader: () => {},
+        setHeader: () => { },
         end: (data: string) => resolve(data),
         statusCode: 200,
       };

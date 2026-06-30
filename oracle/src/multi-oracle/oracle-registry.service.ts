@@ -22,6 +22,7 @@ export class OracleRegistryService implements OnModuleInit {
   private peers: PeerOracleEndpoint[] = [];
   private localOracleId: string;
   private threshold: number;
+  private consensusThreshold: number;
   private mode: MultiOracleMode = MultiOracleMode.SINGLE;
 
   /** Append-only audit trail of every registry mutation. */
@@ -69,6 +70,7 @@ export class OracleRegistryService implements OnModuleInit {
     
     this.localOracleId = oracleId;
     this.threshold = 1;
+    this.consensusThreshold = 1;
     
     this.logger.log(`Single oracle mode initialized: ${oracleId} (${publicKey})`);
   }
@@ -140,8 +142,24 @@ export class OracleRegistryService implements OnModuleInit {
     const defaultThreshold = Math.ceil(totalOracles / 2) + 1;
     this.threshold = this.configService.get<number>('MULTI_ORACLE_THRESHOLD', defaultThreshold);
     
+    // Consensus threshold: minimum oracles that must agree on the same seed
+    // Default: majority (Math.floor(N/2) + 1)
+    const defaultConsensusThreshold = Math.floor(totalOracles / 2) + 1;
+    this.consensusThreshold = this.configService.get<number>(
+      'ORACLE_CONSENSUS_THRESHOLD',
+      defaultConsensusThreshold,
+    );
+    
+    // Validate consensus threshold
+    if (this.consensusThreshold < 1 || this.consensusThreshold > totalOracles) {
+      this.logger.warn(
+        `Invalid ORACLE_CONSENSUS_THRESHOLD=${this.consensusThreshold}. Must be between 1 and ${totalOracles}. Using default=${defaultConsensusThreshold}`,
+      );
+      this.consensusThreshold = defaultConsensusThreshold;
+    }
+    
     this.logger.log(
-      `Multi-oracle mode initialized: ${this.oracles.size} oracles, ${this.peers.length} peers, threshold=${this.threshold}, local=${this.localOracleId}`
+      `Multi-oracle mode initialized: ${this.oracles.size} oracles, ${this.peers.length} peers, threshold=${this.threshold}, consensusThreshold=${this.consensusThreshold}, local=${this.localOracleId}`
     );
   }
 
@@ -155,6 +173,10 @@ export class OracleRegistryService implements OnModuleInit {
 
   getThreshold(): number {
     return this.threshold;
+  }
+
+  getConsensusThreshold(): number {
+    return this.consensusThreshold;
   }
 
   getLocalOracle(): OracleRegistryEntry | undefined {
@@ -373,6 +395,7 @@ export class OracleRegistryService implements OnModuleInit {
       totalOracles: this.oracles.size,
       oracleIds: this.getOracleIds(),
       localOracleId: this.localOracleId,
+      consensusThreshold: this.consensusThreshold,
     };
   }
 

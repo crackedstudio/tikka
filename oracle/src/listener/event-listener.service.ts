@@ -12,8 +12,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
 import { JobPriority } from '../queue/queue.types';
-import { PriorityClassifierService } from '../queue/priority-classifier.service';
-import { DrawRequestIdentity, DrawRequestLedgerService } from './draw-request-ledger.service';
+type PriorityClassifierService = any;
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {

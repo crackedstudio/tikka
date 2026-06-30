@@ -49,6 +49,21 @@ export interface ActualCostMetrics {
   periodEnd: Date;
 }
 
+/**
+ * Per-submission cost breakdown for a single randomness transaction.
+ * Exposed to operators (e.g. via the admin API) for funding planning.
+ */
+export interface SubmissionCostEstimate {
+  /** Estimated fee for one submission, in XLM (string to preserve precision) */
+  estimatedFeeXlm: string;
+  /** Network base fee in stroops */
+  baseFee: number;
+  /** Effective multiplier applied to the base fee after capping */
+  feeMultiplier: number;
+  /** Network congestion surge: how much the priority fee exceeds the base fee */
+  surgeMultiplier: number;
+}
+
 export interface CostAlert {
   type: 'COST_EXCEEDED' | 'HIGH_FEE_DETECTED' | 'BUDGET_WARNING' | 'SUBMISSION_FAILED';
   message: string;
@@ -167,6 +182,39 @@ export class CostEstimatorService {
     this.metricsService.recordEstimatedFee(avgCostPerReveal, this.network, 'average');
     
     return estimate;
+  }
+
+  /**
+   * Estimates the cost of submitting a single randomness transaction.
+   * Derives a per-submission breakdown from the current network fee stats,
+   * suitable for operator funding planning via the admin API.
+   *
+   * @param rafflePrizeXLM - Optional prize value used to select the fee cap tier
+   * @returns Cost breakdown with the estimated fee expressed in XLM
+   */
+  async estimateSubmissionCost(
+    rafflePrizeXLM?: number,
+  ): Promise<SubmissionCostEstimate> {
+    const fee = await this.feeEstimator.estimateFee(rafflePrizeXLM);
+
+    const baseFee = fee.baseFee;
+    // Surge: how much the network's priority (p95) fee exceeds the base fee.
+    const surgeMultiplier =
+      baseFee > 0 ? this.round(fee.priorityFee / baseFee, 2) : 1;
+    // Effective multiplier applied to the base fee once the cap is enforced.
+    const feeMultiplier =
+      baseFee > 0 ? this.round(fee.cappedFee / baseFee, 2) : 1;
+    const estimatedFeeXlm = (fee.cappedFee / this.STROOPS_PER_XLM).toFixed(7);
+
+    return { estimatedFeeXlm, baseFee, feeMultiplier, surgeMultiplier };
+  }
+
+  /**
+   * Rounds a number to the given number of decimal places.
+   */
+  private round(value: number, decimals: number): number {
+    const factor = 10 ** decimals;
+    return Math.round(value * factor) / factor;
   }
 
   /**
