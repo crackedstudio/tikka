@@ -86,6 +86,9 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
         [raffleId],
     );
 
+    const canWebShare =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function";
     const handleNativeShare = useCallback(async () => {
         if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
             try {
@@ -141,6 +144,33 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
         }
     }, [copyHref]);
 
+    const handleNativeShare = useCallback(async () => {
+        if (canWebShare) {
+            try {
+                await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
+                return;
+            } catch (err) {
+                const name = err instanceof DOMException ? err.name : "";
+            // Three outcomes when navigator.share is available:
+            //  1. AbortError      → user dismissed the sheet; no error toast.
+            //  2. Any other error → surface to the user and STOP. We
+            //                       intentionally do not fall through to
+            //                       the clipboard fallback, which would
+            //                       hide a real failure from the user.
+            //  3. Success         → control returns via the early `return`
+            //                       inside the `try`.
+            // (When navigator.share is unavailable the `if (canWebShare)`
+            //  above is false and execution falls through to the
+            //  `await handleCopyLink()` call at the bottom.)
+            if (name === "AbortError") return;
+            toast.error("Sharing was cancelled or failed.");
+            return;
+            }
+        }
+        // Fall back to clipboard when Web Share API is not available
+        await handleCopyLink();
+    }, [canWebShare, nativeShareUrl, shareBlurb, title, handleCopyLink]);
+
     const handleDownloadQr = useCallback(() => {
         const svg = qrRef.current;
         if (!svg) return;
@@ -189,6 +219,7 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
                         type="button"
                         className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
                         onClick={handleNativeShare}
+                        aria-label="Share"
                         aria-label="Share using your device"
                     >
                         <Share2 className="h-5 w-5 shrink-0" />
