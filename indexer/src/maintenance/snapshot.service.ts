@@ -178,6 +178,24 @@ export class SnapshotService {
   }
 
   private async uploadToS3(filename: string, data: Buffer): Promise<void> {
+    const storageUrl = this.configService.get<string>("SNAPSHOT_STORAGE_URL");
+    if (storageUrl?.startsWith("file://")) {
+      const fs = require("fs");
+      const path = require("path");
+      // Use URL constructor to handle Windows paths like file:///C:/temp or file://temp properly
+      // For simplicity, if it's file://test, we just use test. Or if file:///test, use /test.
+      let dir = storageUrl.slice("file://".length);
+      // Remove leading slash if on Windows (e.g., file:///C:/...)
+      if (process.platform === 'win32' && dir.startsWith('/')) {
+        dir = dir.slice(1);
+      }
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(dir, filename), data);
+      return;
+    }
+
     const { client, bucket, keyPrefix } = this.getS3Config();
     const key = keyPrefix ? `${keyPrefix}/${filename}` : filename;
 
@@ -192,6 +210,17 @@ export class SnapshotService {
   }
 
   private async downloadFromS3(filename: string): Promise<Buffer> {
+    const storageUrl = this.configService.get<string>("SNAPSHOT_STORAGE_URL");
+    if (storageUrl?.startsWith("file://")) {
+      const fs = require("fs");
+      const path = require("path");
+      let dir = storageUrl.slice("file://".length);
+      if (process.platform === 'win32' && dir.startsWith('/')) {
+        dir = dir.slice(1);
+      }
+      return fs.readFileSync(path.join(dir, filename));
+    }
+
     const { client, bucket, keyPrefix } = this.getS3Config();
     const key = keyPrefix ? `${keyPrefix}/${filename}` : filename;
 

@@ -36,32 +36,36 @@ const Footer = () => {
 
                         <p className="text-sm">Join our community</p>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 rtl:flex-row-reverse">
                             <a href="#" aria-label="Discord">
                                 <img
                                     src={DiscordLogo}
-                                    alt="Discord"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>
                             <a href="#" aria-label="YouTube">
                                 <img
                                     src={YoutubeLogo}
-                                    alt="YouTube"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>
                             <a href="#" aria-label="Twitter / X">
                                 <img
                                     src={TwitterLogo}
-                                    alt="Twitter / X"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>
                             <a href="#" aria-label="Instagram">
                                 <img
                                     src={InstagramLogo}
-                                    alt="Instagram"
+                                    alt=""
+                                    role="presentation"
                                     className="h-6 w-6"
                                 />
                             </a>

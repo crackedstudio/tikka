@@ -1,43 +1,40 @@
-/**
- * Raffle DTOs — stable contracts for API responses.
- * Hide internal fields like createdLedger, finalizedLedger, lastTxHash.
- */
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export interface RaffleListItemDto {
-  id: number;
-  creator: string;
-  status: "open" | "drawing" | "finalized" | "cancelled";
-  ticket_price: string;
-  asset: string;
-  max_tickets: number;
-  tickets_sold: number;
-  end_time: string;
-  winner: string | null;
-  prize_amount: string | null;
-  metadata_cid: string | null;
-  created_at: string; // ISO date string
+export class RaffleListItemDto {
+  @ApiProperty() id: number;
+  @ApiProperty() creator: string;
+  @ApiProperty({ enum: ['open', 'drawing', 'finalized', 'cancelled'] }) status: 'open' | 'drawing' | 'finalized' | 'cancelled';
+  @ApiProperty() ticket_price: string;
+  @ApiProperty() asset: string;
+  @ApiProperty() max_tickets: number;
+  @ApiProperty() tickets_sold: number;
+  @ApiProperty() end_time: string;
+  @ApiPropertyOptional({ nullable: true }) winner: string | null;
+  @ApiPropertyOptional({ nullable: true }) prize_amount: string | null;
+  @ApiPropertyOptional({ nullable: true }) metadata_cid: string | null;
+  @ApiProperty() created_at: string;
 }
 
-export interface RaffleDetailDto extends RaffleListItemDto {
-  winning_ticket_id: number | null;
-  ticket_count: number;
+export class RaffleDetailDto extends RaffleListItemDto {
+  @ApiPropertyOptional({ nullable: true }) winning_ticket_id: number | null;
+  @ApiProperty() ticket_count: number;
 }
 
-export interface UserRaffleHistoryItemDto extends RaffleListItemDto {
-  user_tickets: number;
-  won: boolean;
+export class UserRaffleHistoryItemDto extends RaffleListItemDto {
+  @ApiProperty() user_tickets: number;
+  @ApiProperty() won: boolean;
 }
 
-export interface RaffleListResponseDto {
-  data: RaffleListItemDto[];
-  total: number;
-  limit: number;
-  offset: number;
+export class RaffleListResponseDto {
+  @ApiProperty({ type: [RaffleListItemDto] }) data: RaffleListItemDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() offset: number;
 }
 
-export interface UserRaffleHistoryResponseDto {
-  data: UserRaffleHistoryItemDto[];
-  total: number;
-  limit: number;
-  offset: number;
+export class UserRaffleHistoryResponseDto {
+  @ApiProperty({ type: [UserRaffleHistoryItemDto] }) data: UserRaffleHistoryItemDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() offset: number;
 }

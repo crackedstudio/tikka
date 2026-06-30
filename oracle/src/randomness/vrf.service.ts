@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import { KeyService } from '../keys/key.service';
@@ -6,6 +7,7 @@ import { ed25519 } from '@noble/curves/ed25519';
 import * as crypto from 'crypto';
 import { IVrfProvider, VrfAlgorithm } from './vrf.interface';
 import { Ed25519Sha256VrfProvider } from './ed25519-sha256.vrf-provider';
+import { MetricsService } from '../metrics/metrics.service';
 
 /**
  * VrfService — Verifiable Random Function computation for high-stakes raffles.
@@ -22,14 +24,16 @@ import { Ed25519Sha256VrfProvider } from './ed25519-sha256.vrf-provider';
  */
 @Injectable()
 export class VrfService {
-  private readonly logger = new Logger(VrfService.name);
+  
   private readonly ed25519Provider: Ed25519Sha256VrfProvider;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly keyService: KeyService,
     private readonly oracleRegistry: OracleRegistryService,
+    private readonly metricsService: MetricsService,
   ) {
-    this.ed25519Provider = new Ed25519Sha256VrfProvider(keyService);
+    this.ed25519Provider = new Ed25519Sha256VrfProvider(keyService, metricsService);
   }
 
   /**

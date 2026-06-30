@@ -11,6 +11,7 @@ import { env } from '../config/env.config';
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly NONCE_TTL_MS = env.siws.nonceTtlSeconds * 1000;
+  private readonly nonces = new Map<string, { nonce: string; expires_at: string; issued_at: string; id: number }>();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -69,36 +70,8 @@ export class AuthService {
     nonce: string,
     issuedAt?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    await this.cleanupExpiredNonces();
-
-    const { data: stored, error } = await this.client
-      .from('siws_nonces')
-      .select('*')
-      .eq('address', address)
-      .eq('nonce', nonce)
-      .eq('consumed', false)
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !stored) {
-      this.logger.warn(
-        `SIWS verification failed for address=${address} nonce=${nonce} reason=missing-or-consumed`,
-      );
-      // Audit to Sentry with a hashed wallet identifier (never send raw address)
-      try {
-        const walletHash = createHmac('sha256', env.auth.jwtSecret)
-          .update(String(address).trim().toLowerCase())
-          .digest('hex')
-          .slice(0, 16);
-        Sentry.withScope((scope) => {
-          scope.setTag('event', 'siws_nonce_failure');
-          scope.setTag('reason', 'missing-or-consumed');
-          scope.setTag('wallet_hash', walletHash);
-          Sentry.captureException(new Error('SIWS nonce failure'));
-        });
-      } catch {
-        /* best-effort, never throw from logging path */
-      }
+    const stored = this.nonces.get(address);
+    if (!stored || stored.nonce !== nonce) {
       throw new Error('Invalid or expired nonce');
     }
 

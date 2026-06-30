@@ -4,11 +4,12 @@ import confetti from "canvas-confetti";
 import { toast } from "sonner";
 import { useRaffle } from "../hooks/useRaffles";
 import { useAuth } from "../hooks/useAuth";
+import { ContractService } from "../services/contractService";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import VerifiedBadge from "../components/VerifiedBadge";
 import NotificationSubscribeButton from "../components/NotificationSubscribeButton";
-import RecentParticipants from "../components/RecentParticipants";
+import RecentParticipants, { type RecentParticipantsHandle } from "../components/RecentParticipants";
 import LazyImage from "../components/LazyImage";
 import {
   Ticket,
@@ -42,14 +43,87 @@ const Skeleton = ({ className }: { className?: string }) => (
 );
 
 const RafflePage = () => {
-  const { t } = useTranslation();
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { address } = useAuth();
-  const [ticketCount, setTicketCount] = useState(1);
-  const [isClaimingPrize, setIsClaimingPrize] = useState(false);
-  const [isPrizeClaimed, setIsPrizeClaimed] = useState(false);
-  const recentParticipantsRef = useRef<any>(null);
+    const { t } = useTranslation();
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const { address } = useAuth();
+    const [ticketCount, setTicketCount] = useState(1);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const recentParticipantsRef = useRef<RecentParticipantsHandle>(null);
+
+    const raffleId = id ? parseInt(id) : 0;
+    const { raffle, isLoading, error } = useRaffle(raffleId);
+
+    const handleTicketPurchase = async () => {
+        if (!address) {
+            toast.error("Wallet not connected", {
+                description: "Please connect your wallet to purchase tickets.",
+            });
+            return;
+        }
+
+        if (!isActive) {
+            toast.error("Raffle not active", {
+                description: "This raffle is not currently open for purchases.",
+            });
+            return;
+        }
+
+        if (ticketCount <= 0 || ticketCount > maxTickets - entries) {
+            toast.error("Invalid ticket count", {
+                description: `Please select between 1 and ${maxTickets - entries} tickets.`,
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            // Add optimistic update for current user
+            if (recentParticipantsRef.current) {
+                recentParticipantsRef.current.addOptimisticParticipant(address);
+            }
+
+            // Submit transaction via SDK
+            const result = await ContractService.buyTickets({
+                raffleId,
+                ticketCount,
+                maxPricePerTicket: BigInt(Math.ceil(parseFloat(raffle.ticketPrice) * 10_000_000_000)), // Convert to stroops
+            });
+
+            if (result.success) {
+                toast.success("Ticket purchase successful!", {
+                    description: `You purchased ${ticketCount} ticket(s) for ${totalCost} XLM.`,
+                });
+
+                // Reset ticket count and refetch raffle data
+                setTicketCount(1);
+                // Trigger a refetch to get updated ticket counts
+                // This would typically be handled by react-query invalidation
+            } else {
+                toast.error("Transaction failed", {
+                    description: result.error?.message || "Please try again.",
+                });
+                // Remove optimistic update on failure
+                // In a real app, you'd handle this in the RecentParticipants component
+            }
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+            toast.error("Purchase failed", {
+                description: errorMessage,
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-8 animate-in fade-in duration-500">
+                <div className="flex items-center space-x-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <Skeleton className="h-6 w-32" />
+                </div>
 
   const raffleId = id ? parseInt(id) : 0;
   const { raffle, isLoading, error } = useRaffle(raffleId);
@@ -205,22 +279,68 @@ const RafflePage = () => {
           }
         />
 
-        {/* Open Graph */}
-        <meta property="og:title" content={`${title} | Tikka Raffles`} />
-        <meta
-          property="og:description"
-          content={
-            description ||
-            "Join this raffle on Tikka — Decentralized Raffles on Stellar."
-          }
-        />
-        <meta
-          property="og:image"
-          content={image || `${window.location.origin}/og-image.png`}
-        />
-        <meta property="og:url" content={window.location.href} />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Tikka" />
+    return (
+        <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <Helmet>
+                <title>{title} | Tikka Raffles</title>
+                <meta name="description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
+                
+                {/* Open Graph - Complete metadata for social sharing */}
+                <meta property="og:title" content={`${title} | Tikka Raffles`} />
+                <meta property="og:description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
+                <meta property="og:image" content={image || `${window.location.origin}/og-image.png`} />
+                <meta property="og:image:alt" content={`${title} - Raffle prize image`} />
+                <meta property="og:url" content={window.location.href} />
+                <meta property="og:type" content="website" />
+                <meta property="og:site_name" content="Tikka" />
+                
+                {/* Twitter Card - Optimized for social sharing */}
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={`${title} | Tikka Raffles`} />
+                <meta name="twitter:description" content={description || "Join this raffle on Tikka — Decentralized Raffles on Stellar."} />
+                <meta name="twitter:image" content={image || `${window.location.origin}/og-image.png`} />
+                <meta name="twitter:image:alt" content={`${title} - Raffle prize image`} />
+                <meta name="twitter:site" content="@tikaborofficial" />
+                <meta name="twitter:creator" content="@tikaborofficial" />
+                
+                {/* JSON-LD Structured Data - Event schema */}
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "Event",
+                        "name": title,
+                        "description": description || "A decentralized raffle on Tikka",
+                        "image": image || `${window.location.origin}/og-image.png`,
+                        "startDate": new Date(raffle?.createdAt || Date.now()).toISOString(),
+                        "endDate": new Date(raffle?.endTime * 1000 || Date.now()).toISOString(),
+                        "eventStatus": isActive ? "EventScheduled" : "EventCancelled",
+                        "eventAttendanceMode": "OnlineEventVirtualPresentation",
+                        "organizer": {
+                            "@type": "Organization",
+                            "name": "Tikka",
+                            "url": window.location.origin,
+                        },
+                        "offers": {
+                            "@type": "Offer",
+                            "url": window.location.href,
+                            "price": ticketPriceFormatted,
+                            "priceCurrency": "XLM",
+                            "availability": isActive ? "InStock" : "OutOfStock",
+                            "seller": {
+                                "@type": "Person",
+                                "name": creator,
+                            },
+                        },
+                    })}
+                </script>
+            </Helmet>
+            <Breadcrumbs
+                items={[
+                    { label: t("navbar.discover"), href: "/home" },
+                    { label: t("home.seeAll"), href: "/search" },
+                    { label: description || t("raffle.back") }
+                ]}
+            />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
@@ -411,29 +531,112 @@ const RafflePage = () => {
               <ProgressBar value={progress} height="8px" />
             </div>
 
-            <div className="p-4 bg-gray-200 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/5 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">
-                  {t("raffle.endsIn")}
-                </span>
-                <CountdownTimer endTime={raffle.endTime} />
-              </div>
-              {isActive && (
-                <AddToCalendar title={title} endTimeUnix={raffle.endTime} />
-              )}
-              <Line />
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">
-                  {t("raffle.totalParticipants")}
-                </span>
-                <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center space-x-1">
-                  <Users className="w-4 h-4 text-pink-600 dark:text-[#FE3796]" />
-                  <span>
-                    {entries > 10 ? entries - 3 : entries} {t("raffle.unique")}
-                  </span>
-                </span>
-              </div>
-            </div>
+                {/* Right Column: CTA Sidebar */}
+                <div className="space-y-6 sticky top-8">
+                    {/* Main Action Card */}
+                    <div className="bg-white dark:bg-[#11172E] border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-xl space-y-6">
+                        <div className="space-y-1">
+                            <p className="text-sm text-gray-400 font-medium">{t("raffle.ticketPrice")}</p>
+                            <p className="text-3xl font-black text-gray-900 dark:text-white">{ticketPriceFormatted}</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between text-sm">
+                                <div className="flex items-center space-x-2 text-gray-400">
+                                    <Ticket className="w-4 h-4" />
+                                    <span>{t("raffle.progress")}</span>
+                                </div>
+                                <span className="font-bold text-gray-900 dark:text-white">{entries} / {maxTickets} {t("raffle.sold")}</span>
+                            </div>
+                            <ProgressBar value={progress} height="8px" />
+                        </div>
+
+                        <div className="p-4 bg-gray-200 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/5 space-y-4">
+                             <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-400">{t("raffle.endsIn")}</span>
+                                <CountdownTimer endTime={raffle.endTime} />
+                            </div>
+                            {isActive && (
+                                <AddToCalendar
+                                    title={title}
+                                    endTimeUnix={raffle.endTime}
+                                />
+                            )}
+                            <Line />
+                             <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-400">{t("raffle.totalParticipants")}</span>
+                                <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center space-x-1">
+                                    <Users className="w-4 h-4 text-pink-600 dark:text-[#FE3796]" />
+                                    <span>{entries > 10 ? entries - 3 : entries} {t("raffle.unique")}</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        {isActive ? (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between bg-black/20 p-1.5 rounded-xl border border-gray-200 dark:border-white/5">
+                                    <button 
+                                        onClick={handleDecrement}
+                                        disabled={isSubmitting}
+                                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 text-gray-900 dark:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        -
+                                    </button>
+                                    <span className="text-xl font-bold">{ticketCount}</span>
+                                    <button
+                                        onClick={handleIncrement}
+                                        disabled={isSubmitting}
+                                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#FE3796] hover:brightness-110 text-gray-900 dark:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+
+                                <button 
+                                    disabled={!address || isSubmitting}
+                                    className="w-full py-4 rounded-xl font-black text-gray-900 dark:text-white tracking-wider shadow-lg shadow-[#FE3796]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                     style={{
+                                        background: "linear-gradient(100.92deg, #FE3796 13.57%, #3931F9 97.65%)"
+                                    }}
+                                    onClick={handleTicketPurchase}
+                                >
+                                    {isSubmitting ? (
+                                        <span className="flex items-center justify-center space-x-2">
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            <span>{t("raffle.processing")}</span>
+                                        </span>
+                                    ) : !address ? (
+                                        t("raffle.connectWallet")
+                                    ) : (
+                                        t("raffle.buyFor", { cost: totalCost, currency: prizeCurrency })
+                                    )}
+                                </button>
+                                <p className="text-[10px] text-center text-gray-500 uppercase tracking-widest font-bold">{t("raffle.secureCheckout")}</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {isFinalized && winner ? (
+                                     <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-center space-y-2">
+                                        <Trophy className="w-8 h-8 text-yellow-500 mx-auto" />
+                                        <p className="text-xs text-yellow-500/80 font-bold uppercase">{t("raffle.winner")}</p>
+                                        <p className="text-sm font-black text-gray-900 dark:text-white truncate px-2">{winner}</p>
+                                        <button className="text-xs text-yellow-500 hover:underline">{t("raffle.viewProof")}</button>
+                                    </div>
+                                 ) : (
+                                    <div className="p-4 bg-gray-500/10 border border-gray-500/20 rounded-2xl text-center">
+                                        <p className="text-sm font-bold text-gray-400">{t("raffle.ended")}</p>
+                                        <p className="text-xs text-gray-500">{t("raffle.noWinnerYet")}</p>
+                                    </div>
+                                )}
+                                 <button
+                                    disabled
+                                    className="w-full py-4 rounded-xl bg-gray-600/20 text-gray-500 font-bold border border-gray-200 dark:border-white/5 cursor-not-allowed uppercase tracking-widest text-sm"
+                                >
+                                    {t("raffle.participationClosed")}
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
             {isActive ? (
               <div className="space-y-4">

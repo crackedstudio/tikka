@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue, Job } from 'bull';
@@ -61,7 +62,7 @@ export interface JobInfo {
 
 @Injectable()
 export class RescueService {
-  private readonly logger = new Logger(RescueService.name);
+  
   private readonly rescueLogs: RescueLogEntry[] = [];
   private readonly HIGH_STAKES_THRESHOLD_XLM = 500;
 
@@ -74,6 +75,7 @@ export class RescueService {
   private readonly PENDING_HEALTHY_MAX_AGE_MS = 2 * 60 * 1000;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue: Queue,
     private readonly contractService: ContractService,
     private readonly vrfService: VrfService,

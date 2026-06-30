@@ -1,3 +1,4 @@
+import { OracleLoggerService, CorrelationContext, OracleLogFields } from '../logger/oracle-logger';
 import { RandomnessRequest, RandomnessMethod, RandomnessResult, JobPriority } from './queue.types';
 import { JobState } from './job-state.types';
 import { JobStateManager } from './job-state-manager';
@@ -11,22 +12,23 @@ import { LagMonitorService } from '../health/lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { PriorityClassifierService } from './priority-classifier.service';
+import { AuditLogService } from '../audit/audit-log.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OracleLogFields } from '../logger/oracle-logger';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
 export class RandomnessWorker {
-  private readonly logger = new Logger(RandomnessWorker.name);
+  
   private readonly vrfThresholdXlm: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly stateManager: JobStateManager,
     private readonly processor: RandomnessProcessorService,
     private readonly contractService: ContractService,
@@ -38,6 +40,7 @@ export class RandomnessWorker {
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
     private readonly configService: ConfigService,
+    private readonly auditLogService: AuditLogService,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -46,6 +49,7 @@ export class RandomnessWorker {
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
+    return CorrelationContext.run(String(job.id), async () => {
     const priority = job.opts.priority ?? JobPriority.NORMAL;
     const isHighPriority = priority <= JobPriority.HIGH;
     
@@ -100,6 +104,7 @@ export class RandomnessWorker {
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
+    }); // end CorrelationContext.run
   }
 
   private delay(ms: number): Promise<void> {
@@ -155,6 +160,18 @@ export class RandomnessWorker {
       if (!result.success) {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
+
+      // Record audit log immediately after successful submission
+      const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
+      await this.auditLogService.record({
+        raffleId,
+        vrfProof: randomness.proof,
+        txHash: result.txHash,
+        ledger: result.ledger,
+        oracleAddress,
+        timestamp: new Date(),
+        requestId,
+      });
 
       this.processedRequestIds.add(requestId);
 
@@ -225,6 +242,18 @@ export class RandomnessWorker {
       if (!result.success) {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
+
+      // Record audit log immediately after successful submission
+      const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
+      await this.auditLogService.record({
+        raffleId,
+        vrfProof: aggregated.proof,
+        txHash: result.txHash,
+        ledger: result.ledger,
+        oracleAddress,
+        timestamp: new Date(),
+        requestId,
+      });
 
       this.processedRequestIds.add(requestId);
 
