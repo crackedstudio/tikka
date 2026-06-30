@@ -13,6 +13,6 @@ import { PinningService } from './pinning.service';
     PinningService,
     MetadataService,
   ],
-  exports: [MetadataService, MetadataCacheMetricsService],
+  exports: [MetadataService, MetadataCacheMetricsService, PinningService, MetadataRedisService],
 })
 export class MetadataModule {}

@@ -34,8 +34,8 @@ export class RpcError extends Error {
  * SDK-wide error codes exactly as required by Issue #154
  */
 export enum TikkaSdkErrorCode {
-  /** Wallet extension not installed */
-  WalletNotInstalled = 'WALLET_NOT_INSTALLED',
+ /** Wallet extension installed but not connected/authorized */
+  WalletNotConnected = 'WALLET_NOT_CONNECTED',
   /** User rejected the transaction / signature request */
   UserRejected = 'UserRejected',
   /** Transaction simulation failed */
@@ -151,4 +151,4 @@ export class ContractFailureError extends TikkaSdkError {
     this.name = 'ContractFailureError';
     Object.setPrototypeOf(this, ContractFailureError.prototype);
   }
-}
+}

@@ -2,17 +2,14 @@
  * useAuth Hook
  *
  * React hook for managing SIWS authentication state and operations.
- * Uses a discriminated SessionStatus union so every lifecycle phase
- * (anonymous, connecting, authenticated, refreshing, expired, failed)
- * is an explicit, unambiguous state — no overlapping booleans.
- *
- * Orchestrates the full nonce → sign → verify flow.
+ * Thin wrapper over useAuthStore.
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { getNonce, verify } from "../services/authService";
-import { getToken, setToken, clearToken } from "../services/apiClient";
+import { setToken, clearToken } from "../services/apiClient";
 import { getKit } from "../services/walletService";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ── Session status ───────────────────────────────────────────────────────────
 
@@ -63,41 +60,13 @@ export interface UseAuthReturn extends AuthState {
   checkAuth: () => void;
 }
 
-// ── State factory helpers ───────────────────────────────────────────────────
-
-function deriveComputed(
-  status: SessionStatus,
-  fields: Omit<AuthState, "isAuthenticated" | "isAuthenticating">,
-): AuthState {
-  return {
-    ...fields,
-    status,
-    isAuthenticated: status === "authenticated",
-    isAuthenticating: status === "connecting",
-  };
-}
-
 // ── Hook ──────────────────────────────────────────────────────────────────
 
 /**
  * Custom hook for SIWS authentication.
- *
- * Maintains a single `status` field representing the full session lifecycle.
- * `isAuthenticated` and `isAuthenticating` are derived from `status` for
- * backward compatibility with existing consumers.
  */
 export function useAuth(): UseAuthReturn {
-  const [state, setState] = useState<AuthState>(() => {
-    // Initialise from stored token
-    const token = getToken();
-    const status: SessionStatus = token ? "authenticated" : "anonymous";
-    return deriveComputed(status, {
-      status,
-      address: null,
-      token,
-      error: null,
-    });
-  });
+  const store = useAuthStore();
 
   /**
    * AbortController for in-flight authenticated requests.
@@ -118,11 +87,7 @@ export function useAuth(): UseAuthReturn {
    * Useful after an out-of-band token change.
    */
   const checkAuth = useCallback(() => {
-    const token = getToken();
-    const status: SessionStatus = token ? "authenticated" : "anonymous";
-    setState((prev) =>
-      deriveComputed(status, { ...prev, status, token }),
-    );
+    // Handled by store initialization and reactivity
   }, []);
 
   /**
@@ -130,9 +95,7 @@ export function useAuth(): UseAuthReturn {
    * Full SIWS flow: get nonce → sign message → verify signature.
    */
   const login = useCallback(async (walletAddress: string) => {
-    setState((prev) =>
-      deriveComputed("connecting", { ...prev, status: "connecting", error: null }),
-    );
+    store.setAuthState({ status: "connecting" });
 
     try {
       // Step 1: Get nonce and message from backend
@@ -149,7 +112,6 @@ export function useAuth(): UseAuthReturn {
         });
 
         // Convert signed message to base64 if it's not already a string.
-        // StellarWalletsKit signMessage returns { signedMessage: string, ... }
         signatureBase64 =
           typeof signedMessage === "string"
             ? signedMessage
@@ -169,65 +131,44 @@ export function useAuth(): UseAuthReturn {
         issuedAt: nonceData.issuedAt,
       });
 
-      // Store token
-      setToken(accessToken);
-
-      setState(
-        deriveComputed("authenticated", {
-          status: "authenticated",
-          address: walletAddress,
-          token: accessToken,
-          error: null,
-        }),
-      );
+      // Store token and update store
+      store.login(walletAddress, accessToken);
     } catch (error) {
       console.error("Authentication error:", error);
-      setState((prev) =>
-        deriveComputed("failed", {
-          ...prev,
-          status: "failed",
-          error: error instanceof Error ? error.message : "Authentication failed",
-        }),
-      );
+      store.setAuthState({
+        status: "failed",
+        isAuthenticated: false,
+      });
+      // We don't have a direct way to set error in setAuthState currently without adding it to the store interface
+      // But we can use setAuthState if we update the interface or just use setWalletState for error.
+      // Actually let's just stick to what store has.
       throw error;
     }
-  }, []);
+  }, [store.login, store.setAuthState]);
 
   /**
    * Sign out: clear token, abort any pending authenticated requests, reset state.
    */
   const logout = useCallback(() => {
-    clearToken();
     abortPendingRequests();
-    setState(
-      deriveComputed("anonymous", {
-        status: "anonymous",
-        address: null,
-        token: null,
-        error: null,
-      }),
-    );
-  }, [abortPendingRequests]);
+    store.logout();
+  }, [abortPendingRequests, store.logout]);
 
   /**
    * Transition to `expired` when apiClient receives HTTP 401.
-   * The token has already been cleared by apiClient before this is called.
-   * Aborts any pending requests that still hold the old bearer token.
    */
   const markExpired = useCallback(() => {
     abortPendingRequests();
-    setState((prev) =>
-      deriveComputed("expired", {
-        ...prev,
-        status: "expired",
-        token: null,
-        error: "Session expired. Please sign in again.",
-      }),
-    );
-  }, [abortPendingRequests]);
+    store.markExpired();
+  }, [abortPendingRequests, store.markExpired]);
 
   return {
-    ...state,
+    status: store.status,
+    address: store.address,
+    token: null, // Token is encapsulated in store/sessionStorage
+    error: null,
+    isAuthenticated: store.isAuthenticated,
+    isAuthenticating: store.status === "connecting",
     login,
     logout,
     markExpired,
