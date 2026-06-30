@@ -1,32 +1,31 @@
-import { Logger } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
-import {
-  CursorIntegrityError,
-  CursorManagerService,
-} from "./ingestor/cursor-manager.service";
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AppModule } from './app.module';
 
 const logger = new Logger("Bootstrap");
 
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  try {
-    const cursorManager = app.get(CursorManagerService);
-    await cursorManager.validateStartupIntegrity();
-  } catch (error) {
-    if (error instanceof CursorIntegrityError) {
-      logger.error(
-        `Cursor integrity validation failed during startup (${error.violation.code}). Halting startup before ledger ingestion begins.`,
-      );
-    } else {
-      logger.error(
-        `Unexpected startup validation failure: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    await app.close();
-    throw error;
-  }
+  // ── OpenAPI / Swagger ──────────────────────────────────────────────────────
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Tikka Indexer API')
+    .setDescription('Internal REST API for raffles, users, leaderboard, stats, and snapshots')
+    .setVersion('1.0')
+    .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-key' }, 'api-key')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+
+  // GET /api-docs  → OpenAPI 3.x JSON document
+  // GET /api-docs/ui → Swagger UI (guarded: only when API key env var is set or non-production)
+  const serveUi = process.env.NODE_ENV !== 'production' || !!process.env.INTERNAL_API_KEY;
+
+  SwaggerModule.setup('api-docs', app, document, {
+    jsonDocumentUrl: 'api-docs',          // serves JSON at exactly /api-docs
+    swaggerUrl: serveUi ? 'api-docs/ui' : undefined,
+    swaggerOptions: { persistAuthorization: true },
+  });
 
   await app.listen(process.env.PORT ?? 3002);
 }

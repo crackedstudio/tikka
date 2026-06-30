@@ -8,6 +8,13 @@ import { RafflesService } from './raffles.service';
 import { StorageService } from '../../../services/storage.service';
 import { IdempotencyService } from '../../../common/idempotency/idempotency.service';
 import { MAX_UPLOAD_BYTES } from '../../../config/upload.config';
+import * as fileType from 'file-type';
+
+jest.mock('file-type', () => ({
+  fromBuffer: jest.fn(),
+}));
+
+const mockFileTypeFromBuffer = fileType.fromBuffer as jest.MockedFunction<typeof fileType.fromBuffer>;
 
 function createMockFile(
   overrides: {
@@ -33,6 +40,7 @@ describe('RafflesController — uploadImage', () => {
   let storageService: { uploadRaffleImage: jest.Mock };
 
   beforeEach(async () => {
+    mockFileTypeFromBuffer.mockResolvedValue({ mime: 'image/png', ext: 'png' } as any);
     storageService = {
       uploadRaffleImage: jest.fn().mockResolvedValue({
         url: 'https://cdn.example.com/42/addr/uuid.webp',
@@ -76,6 +84,23 @@ describe('RafflesController — uploadImage', () => {
       raffleId: 'draft',
       uploaderId: 'GABC123',
     });
+  });
+
+  it.each([
+    ['image/jpeg', 'image/jpeg'],
+    ['image/png', 'image/png'],
+    ['image/webp', 'image/webp'],
+  ] as const)('accepts %s uploads based on detected MIME type', async (mimeType, detectedMimeType) => {
+    mockFileTypeFromBuffer.mockResolvedValueOnce({ mime: detectedMimeType, ext: detectedMimeType.split('/')[1] } as any);
+
+    const file = createMockFile({ mimetype: 'application/octet-stream' });
+    const request = createMockRequest(file);
+
+    await controller.uploadImage(request, 'GABC123');
+
+    expect(storageService.uploadRaffleImage).toHaveBeenCalledWith(
+      expect.objectContaining({ mimeType }),
+    );
   });
 
   it('includes variantUrls in the upload response', async () => {
@@ -144,9 +169,23 @@ describe('RafflesController — uploadImage', () => {
     const file = createMockFile({ mimetype: 'application/pdf' });
     const request = createMockRequest(file);
 
+    mockFileTypeFromBuffer.mockResolvedValueOnce(null as any);
+
     await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  it('throws BadRequestException when the detected MIME type is not allowed', async () => {
+    const file = createMockFile({ mimetype: 'image/jpeg' });
+    const request = createMockRequest(file);
+
+    mockFileTypeFromBuffer.mockResolvedValueOnce({ mime: 'text/plain', ext: 'txt' } as any);
+
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
   });
 
   it('throws PayloadTooLargeException when file exceeds max size', async () => {
@@ -157,5 +196,111 @@ describe('RafflesController — uploadImage', () => {
     await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
       PayloadTooLargeException,
     );
+  });
+});
+
+describe('RafflesController — upsertMetadata idempotency', () => {
+  let controller: RafflesController;
+  let rafflesService: { upsertMetadata: jest.Mock };
+  let idempotencyService: {
+    get: jest.Mock;
+    lock: jest.Mock;
+    resolve: jest.Mock;
+  };
+
+  beforeEach(async () => {
+    rafflesService = {
+      upsertMetadata: jest.fn().mockResolvedValue({
+        raffleId: 42,
+        title: 'Test Raffle',
+        description: 'A test raffle',
+      }),
+    };
+
+    idempotencyService = {
+      get: jest.fn().mockResolvedValue(null),
+      lock: jest.fn().mockResolvedValue(true),
+      resolve: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [RafflesController],
+      providers: [
+        { provide: RafflesService, useValue: rafflesService },
+        { provide: StorageService, useValue: {} },
+        { provide: IdempotencyService, useValue: idempotencyService },
+      ],
+    }).compile();
+
+    controller = module.get<RafflesController>(RafflesController);
+  });
+
+  it('processes the first request and caches the response', async () => {
+    const payload = {
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    const result = await controller.upsertMetadata(42, 'GABC123', payload);
+
+    expect(result).toEqual({
+      raffleId: 42,
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    });
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledWith(42, payload, 'GABC123');
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns cached response for duplicate request with same Idempotency-Key', async () => {
+    const cachedResponse = {
+      raffleId: 42,
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    idempotencyService.get.mockResolvedValueOnce({
+      status: 'done',
+      response: cachedResponse,
+    });
+
+    const payload = {
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    const result = await controller.upsertMetadata(42, 'GABC123', payload);
+
+    expect(result).toEqual(cachedResponse);
+    expect(rafflesService.upsertMetadata).not.toHaveBeenCalled();
+    expect(idempotencyService.lock).not.toHaveBeenCalled();
+  });
+
+  it('does not call service method twice for same Idempotency-Key', async () => {
+    const cachedResponse = {
+      raffleId: 42,
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    // First request: no cache, will call service
+    idempotencyService.get.mockResolvedValueOnce(null);
+    
+    const payload = {
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    await controller.upsertMetadata(42, 'GABC123', payload);
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
+
+    // Second request with same key: cache hit, won't call service
+    idempotencyService.get.mockResolvedValueOnce({
+      status: 'done',
+      response: cachedResponse,
+    });
+
+    await controller.upsertMetadata(42, 'GABC123', payload);
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1); // Still only called once
   });
 });

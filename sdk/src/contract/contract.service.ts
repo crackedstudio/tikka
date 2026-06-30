@@ -110,6 +110,20 @@ export class ContractService {
     this.lifecycle.setWallet(adapter);
   }
 
+  /**
+   * Returns the public key of the currently connected wallet.
+   * @throws TikkaSdkError(WalletNotConnected) if no wallet is connected
+   */
+  async getPublicKey(): Promise<string> {
+    if (!this.wallet) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.WalletNotConnected,
+        'No wallet connected',
+      );
+    }
+    return this.wallet.getPublicKey();
+  }
+
   /* ---------------- STAGE METHODS (fine-grained pipeline) ---------------- */
 
   /**
@@ -215,7 +229,7 @@ export class ContractService {
     }
 
     return {
-      status: "SUCCESS",
+      success: true,
       value: scValToNative(result) as T,
     };
   }
@@ -242,12 +256,7 @@ export class ContractService {
       });
 
       if (options.simulateOnly) {
-        return {
-          status: "SUCCESS",
-          value: sim.returnValue as T,
-          txHash: "",
-          ledger: 0,
-        };
+        return { success: true, value: sim.returnValue as T, transactionHash: '', ledger: 0 };
       }
 
       const signedXdr = await this.lifecycle.sign(
@@ -258,13 +267,16 @@ export class ContractService {
       const polled = await this.lifecycle.poll<T>(txHash, options.poll);
 
       return {
-        status: "SUCCESS",
+        success: true,
         value: polled.returnValue as T,
-        txHash: polled.txHash,
+        transactionHash: polled.txHash,
         ledger: polled.ledger,
       };
-    } catch (error: unknown) {
-      throw toTypedSdkError(error);
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || String(error),
+      };
     }
   }
 
@@ -291,9 +303,9 @@ export class ContractService {
       fee: feeOverride ? String(feeOverride) : undefined,
     });
     return {
-      unsignedXdr: sim.assembledXdr,
-      simulatedResult: { status: "SUCCESS", value: sim.returnValue as T },
-      fee: sim.minResourceFee,
+      unsignedXdr:      sim.assembledXdr,
+      simulatedResult:  { success: true, value: sim.returnValue as T },
+      fee:              sim.minResourceFee,
       networkPassphrase: sim.networkPassphrase,
     };
   }
@@ -311,12 +323,7 @@ export class ContractService {
 
     const txHash = await this.lifecycle.submit(signedXdr);
     const polled = await this.lifecycle.poll<T>(txHash);
-    return {
-      status: "SUCCESS",
-      value: polled.returnValue as T,
-      txHash: polled.txHash,
-      ledger: polled.ledger,
-    };
+    return { success: true, value: polled.returnValue as T, transactionHash: polled.txHash, ledger: polled.ledger };
   }
 
   /* ---------------- BATCH INVOKE ---------------- */
@@ -325,7 +332,7 @@ export class ContractService {
     raffleId: number,
     count: number,
     options: InvokeOptions = {},
-  ): Promise<ContractResponse<any[]>> {
+  ): Promise<TxResponse<number[]>> {
     if (!this.wallet && !options.simulateOnly) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,

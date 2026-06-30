@@ -5,6 +5,8 @@ import {
   IndexerUserHistoryResponse,
 } from '../../../services/indexer.service';
 import { UserHistoryQueryDto } from './dto/user-history-query.dto';
+import { stringify } from 'csv-stringify';
+import { PassThrough } from 'stream';
 
 @Injectable()
 export class UsersService {
@@ -33,46 +35,59 @@ export class UsersService {
   }
 
   /**
-   * Fetch the full (unpaginated) history for a user and serialise it as CSV.
-   * Columns: raffle_id, role, tickets_bought, ticket_price, asset, status, outcome, timestamp
+   * Stream the full history for a user as a CSV file.
+   * Columns: raffle_id, tickets_bought, purchased_at_ledger, is_winner, prize_amount
    */
-  async getHistoryAsCsv(address: string): Promise<string> {
+  async getHistoryAsCsvStream(address: string): Promise<PassThrough> {
     const user = await this.indexerService.getUser(address);
     if (!user) {
       throw new NotFoundException(`User ${address} not found`);
     }
 
-    // Fetch up to 10 000 records — sufficient for any realistic history
-    const { items } = await this.indexerService.getUserHistory(address, 10000, 0);
-
-    const header = 'raffle_id,role,tickets_bought,ticket_price,asset,status,outcome,timestamp';
-
-    const rows = items.map((item) => {
-      const outcome = item.is_winner ? 'won' : 'entered';
-      const ticketPrice = '';   // not returned by indexer history endpoint
-      const asset = '';         // not returned by indexer history endpoint
-      const timestamp = '';     // not returned by indexer history endpoint (ledger only)
-
-      // Escape any field that might contain commas or quotes
-      const escape = (v: string | number) => {
-        const s = String(v);
-        return s.includes(',') || s.includes('"') || s.includes('\n')
-          ? `"${s.replace(/"/g, '""')}"`
-          : s;
-      };
-
-      return [
-        escape(item.raffle_id),
-        escape('participant'),
-        escape(item.tickets_bought),
-        escape(ticketPrice),
-        escape(asset),
-        escape(item.status),
-        escape(outcome),
-        escape(timestamp),
-      ].join(',');
+    const stringifier = stringify({
+      header: true,
+      columns: ['raffle_id', 'tickets_bought', 'purchased_at_ledger', 'is_winner', 'prize_amount'],
     });
 
-    return [header, ...rows].join('\r\n');
+    // Stream generation in the background
+    (async () => {
+      try {
+        let offset = 0;
+        const limit = 100;
+
+        while (true) {
+          const { items } = await this.indexerService.getUserHistory(address, limit, offset);
+          if (items.length === 0) {
+            break;
+          }
+
+          for (const item of items) {
+            stringifier.write([
+              item.raffle_id,
+              item.tickets_bought,
+              item.purchased_at_ledger,
+              item.is_winner,
+              item.prize_amount ?? '',
+            ]);
+          }
+
+          if (items.length < limit) {
+            break;
+          }
+
+          offset += limit;
+        }
+
+        stringifier.end();
+      } catch (err) {
+        stringifier.destroy(err as Error);
+      }
+    })();
+
+    // Need to return something fastify reply can stream from
+    const passThrough = new PassThrough();
+    stringifier.pipe(passThrough);
+
+    return passThrough;
   }
 }

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   NotImplementedException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -10,12 +11,15 @@ import {
   RaffleMetadata,
   UpsertMetadataPayload,
 } from '../../../services/metadata.service';
+import { PinningService } from '../../../services/pinning.service';
 import {
   IndexerService,
   IndexerRaffleData,
   IndexerListRafflesFilters,
   IndexerListRafflesResponse,
+  IndexerParticipantListResponse,
 } from '../../../services/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata-redis.service';
 import { PurchaseTicketPayload } from './dto';
 
 /** Merged raffle detail: contract data + off-chain metadata */
@@ -45,10 +49,14 @@ export interface RaffleDetailResponse {
 
 @Injectable()
 export class RafflesService {
+  private readonly logger = new Logger(RafflesService.name);
+
   constructor(
     private readonly metadataService: MetadataService,
     private readonly indexerService: IndexerService,
     private readonly config: ConfigService,
+    private readonly pinningService: PinningService,
+    private readonly redis: MetadataRedisService,
   ) {}
 
   /**
@@ -86,7 +94,23 @@ export class RafflesService {
       );
     }
 
-    return this.metadataService.upsertMetadata(raffleId, payload);
+    const saved = await this.metadataService.upsertMetadata(raffleId, payload);
+
+    try {
+      const cid = await this.pinningService.pin(saved);
+      if (cid) {
+        const updated = await this.metadataService.updateMetadataCid(raffleId, cid);
+        return updated;
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to pin metadata to IPFS for raffle ${raffleId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    return saved;
   }
 
   /**
@@ -191,6 +215,44 @@ export class RafflesService {
     // For now, return empty array as placeholder
     // This will be populated by the indexer service once ticket purchase events are indexed
     return [];
+  }
+
+  /**
+   * Get paginated list of participants (ticket holders) for a raffle.
+   * Results are cached in Redis for 30 seconds.
+   */
+  async getParticipants(
+    raffleId: number,
+    limit = 20,
+    offset = 0,
+  ): Promise<IndexerParticipantListResponse> {
+    const cacheKey = `raffle:${raffleId}:participants:${limit}:${offset}`;
+
+    // Try cache first
+    if (this.redis.isEnabled()) {
+      try {
+        const cached = await this.redis.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached) as IndexerParticipantListResponse;
+        }
+      } catch {
+        // Cache read failed, continue to fetch from indexer
+      }
+    }
+
+    // Fetch from indexer
+    const result = await this.indexerService.getRaffleParticipants(raffleId, limit, offset);
+
+    // Cache for 30 seconds
+    if (this.redis.isEnabled()) {
+      try {
+        await this.redis.setEx(cacheKey, 30, JSON.stringify(result));
+      } catch {
+        // Cache write failed, continue without caching
+      }
+    }
+
+    return result;
   }
 
   private mergeRaffleDetail(

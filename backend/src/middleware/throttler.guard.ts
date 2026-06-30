@@ -1,5 +1,5 @@
 
-import { Injectable, ExecutionContext } from "@nestjs/common";
+import { Injectable, ExecutionContext, HttpException } from "@nestjs/common";
 import { ThrottlerGuard, ThrottlerRequest } from "@nestjs/throttler";
 import { FastifyRequest } from "fastify";
 
@@ -57,13 +57,11 @@ export class TikkaThrottlerGuard extends ThrottlerGuard {
   }
 
   /**
-   * Return a helpful 429 response body that includes Retry-After seconds.
-   * NestJS Throttler sets the Retry-After header automatically; we just
-   * override the error message for clarity.
+   * Return a 429 response with a Retry-After header and a helpful body.
    */
   protected throwThrottlingException(
-    _context: ExecutionContext,
-    _throttlerLimitDetail: {
+    context: ExecutionContext,
+    throttlerLimitDetail: {
       ttl: number;
       limit: number;
       key: string;
@@ -74,20 +72,22 @@ export class TikkaThrottlerGuard extends ThrottlerGuard {
       timeToBlockExpire: number;
     },
   ): Promise<void> {
-    throw Object.assign(
-      new (require("@nestjs/common").HttpException)(
-        {
-          statusCode: 429,
-          error: "Too Many Requests",
-          message: "Rate limit exceeded. Please slow down and try again.",
-          retryAfter: Math.ceil(_throttlerLimitDetail.timeToExpire / 1000),
-        },
-        429,
-        {
-          cause: undefined,
-          description: "Too Many Requests",
-        },
-      ),
+    const retryAfter = Math.ceil(
+      throttlerLimitDetail.isBlocked
+        ? throttlerLimitDetail.timeToBlockExpire
+        : throttlerLimitDetail.timeToExpire,
+    );
+    const { res } = this.getRequestResponse(context);
+    res.header("Retry-After", retryAfter);
+
+    throw new HttpException(
+      {
+        statusCode: 429,
+        error: "Too Many Requests",
+        message: "Rate limit exceeded. Please slow down and try again.",
+        retryAfter,
+      },
+      429,
     );
   }
 }

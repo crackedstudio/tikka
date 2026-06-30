@@ -20,11 +20,9 @@ builds. Version handling lives in `schema-version.ts`.
 1. **Parse** — `EventParserV2Service` resolves the version with
    `resolveSchemaVersion` (replacing the old, buggy "read topic[1]" logic) and
    passes it to the registry.
-2. **Tag** — handlers tag their `DomainEvent` with the resolved version
-   (`RaffleCreatedHandler`, `TicketPurchasedHandler`, `RaffleFinalizedHandler`
-   do this via the `schemaVersion()` helper on `BaseEventHandler`). The registry
-   keeps the handler-set version, falling back to the routing version so every
-   parsed event carries a version.
+2. **Tag** — handlers tag their `DomainEvent` with the resolved version (`RaffleCreatedHandler`, `TicketPurchasedHandler`, `RaffleFinalizedHandler`, `RaffleCancelledHandler` do this via the `schemaVersion()` helper on `BaseEventHandler`). The registry
+    keeps the handler-set version, falling back to the routing version so every
+    parsed event carries a version.
 3. **Dispatch** — `IngestionDispatcherService` checks
    `isSupportedSchemaVersion(event.schemaVersion)` before running any handler.
    Unsupported versions are dead-lettered with reason `SCHEMA_UNSUPPORTED` and
