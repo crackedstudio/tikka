@@ -32,15 +32,15 @@ export const ContractFn = {
   GET_RAFFLE_STATE: 'get_raffle_data',
 
   // Admin
-  SET_ORACLE_ADDRESS: 'set_oracle_address',
-  SET_PROTOCOL_FEE: 'set_protocol_fee',
-  WITHDRAW_FEES: 'withdraw_fees',
-  PAUSE: 'pause',
-  UNPAUSE: 'unpause',
-  TRANSFER_ADMIN: 'transfer_admin',
-  ACCEPT_ADMIN: 'accept_admin',
-  GET_ADMIN: 'get_admin',
-  IS_PAUSED: 'is_paused',
+  SET_ORACLE_ADDRESS: "set_oracle_address",
+  SET_PROTOCOL_FEE: "set_protocol_fee",
+  WITHDRAW_FEES: "withdraw_fees",
+  PAUSE: "pause",
+  UNPAUSE: "unpause",
+  TRANSFER_ADMIN: "transfer_admin",
+  ACCEPT_ADMIN: "accept_admin",
+  GET_ADMIN: "get_admin",
+  IS_PAUSED: "is_paused",
 } as const;
 
 export type ContractFnName = (typeof ContractFn)[keyof typeof ContractFn];

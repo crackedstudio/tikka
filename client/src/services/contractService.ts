@@ -73,10 +73,14 @@ export class ContractService {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Contract paused
-    if (errorMessage.includes('ContractPaused') || errorMessage.includes('contract_paused')) {
+    if (
+      errorMessage.includes("ContractPaused") ||
+      errorMessage.includes("contract_paused")
+    ) {
       return {
         type: ContractErrorType.CONTRACT_PAUSED,
-        message: 'The platform is temporarily paused. Existing claims and refunds still work.',
+        message:
+          "The platform is temporarily paused. Existing claims and refunds still work.",
         details: errorMessage,
       };
     }
@@ -160,7 +164,9 @@ export class ContractService {
    * @returns Unsigned `Transaction` ready for simulation
    * @throws If the wallet is not connected or the RPC account fetch fails
    */
-  static async buildCreateRaffleTx(params: CreateRaffleParams): Promise<Transaction> {
+  static async buildCreateRaffleTx(
+    params: CreateRaffleParams,
+  ): Promise<Transaction> {
     const userAddress = await getAccountAddress();
     if (!userAddress) throw new Error("Wallet not connected");
 
@@ -199,7 +205,9 @@ export class ContractService {
    * @returns Unsigned `Transaction` ready for simulation
    * @throws If the wallet is not connected or the RPC account fetch fails
    */
-  static async buildBuyTicketsTx(params: BuyTicketParams): Promise<Transaction> {
+  static async buildBuyTicketsTx(
+    params: BuyTicketParams,
+  ): Promise<Transaction> {
     const userAddress = await getAccountAddress();
     if (!userAddress) throw new Error("Wallet not connected");
 
@@ -209,6 +217,31 @@ export class ContractService {
       nativeToScVal(params.raffleId, { type: "u32" }),
       nativeToScVal(params.ticketCount, { type: "u32" }),
       nativeToScVal(BigInt(params.maxPricePerTicket)),
+    );
+
+    const account = await sorobanRpcServer.getAccount(userAddress);
+    return new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: CONTRACT_CONFIG.networkPassphrase,
+    })
+      .addOperation(operation)
+      .setTimeout(30)
+      .build();
+  }
+
+  /**
+   * Build an unsigned `claim_prize` transaction.
+   */
+  static async buildClaimPrizeTx(params: {
+    raffleId: number;
+  }): Promise<Transaction> {
+    const userAddress = await getAccountAddress();
+    if (!userAddress) throw new Error("Wallet not connected");
+
+    const contract = ContractService.getContract();
+    const operation = contract.call(
+      CONTRACT_CONFIG.functions.claimPrize,
+      nativeToScVal(params.raffleId, { type: "u32" }),
     );
 
     const account = await sorobanRpcServer.getAccount(userAddress);
@@ -549,20 +582,39 @@ export class ContractService {
     options?: PipelineOptions,
   ): Promise<PipelineResult> {
     if (import.meta.env.VITE_TEST_MODE === "true") {
-      console.log("✍️ ContractService.createRaffle (test mode): Mocked success", params);
-      options?.onProgress?.({ stage: "BUILD",    status: "done" });
-      options?.onProgress?.({ stage: "ESTIMATE", status: "done", estimatedFee: "100" });
-      options?.onProgress?.({ stage: "SIGN",     status: "done" });
-      options?.onProgress?.({ stage: "SUBMIT",   status: "done", txHash: "TEST123" });
-      options?.onProgress?.({ stage: "POLL",     status: "done", confirmations: 1 });
-      options?.onProgress?.({ stage: "DONE",     status: "done", txHash: "TEST123" });
+      console.log(
+        "✍️ ContractService.createRaffle (test mode): Mocked success",
+        params,
+      );
+      options?.onProgress?.({ stage: "BUILD", status: "done" });
+      options?.onProgress?.({
+        stage: "ESTIMATE",
+        status: "done",
+        estimatedFee: "100",
+      });
+      options?.onProgress?.({ stage: "SIGN", status: "done" });
+      options?.onProgress?.({
+        stage: "SUBMIT",
+        status: "done",
+        txHash: "TEST123",
+      });
+      options?.onProgress?.({
+        stage: "POLL",
+        status: "done",
+        confirmations: 1,
+      });
+      options?.onProgress?.({
+        stage: "DONE",
+        status: "done",
+        txHash: "TEST123",
+      });
       return { ok: true, data: { txHash: "TEST123" } };
     }
 
-    return runPipeline(
-      (p) => ContractService.buildCreateRaffleTx(p),
-      { params, options },
-    );
+    return runPipeline((p) => ContractService.buildCreateRaffleTx(p), {
+      params,
+      options,
+    });
   }
 
   /**
@@ -573,19 +625,38 @@ export class ContractService {
     params: BuyTicketParams,
     options?: PipelineOptions,
   ): Promise<PipelineResult> {
-    return runPipeline(
-      (p) => ContractService.buildBuyTicketsTx(p),
-      { params, options },
-    );
+    return runPipeline((p) => ContractService.buildBuyTicketsTx(p), {
+      params,
+      options,
+    });
+  }
+
+  /**
+   * Claim a finalized raffle prize.
+   */
+  static async claimPrize(
+    params: { raffleId: number },
+    options?: PipelineOptions,
+  ): Promise<PipelineResult> {
+    return runPipeline((p) => ContractService.buildClaimPrizeTx(p), {
+      params,
+      options,
+    });
   }
 
   /**
    * @deprecated Use buyTickets() instead.
    */
-  static async buyTicket(params: BuyTicketParams): Promise<ContractResponse<string>> {
+  static async buyTicket(
+    params: BuyTicketParams,
+  ): Promise<ContractResponse<string>> {
     const result = await ContractService.buyTickets(params);
     if (result.ok) {
-      return { success: true, data: result.data.txHash, transactionHash: result.data.txHash };
+      return {
+        success: true,
+        data: result.data.txHash,
+        transactionHash: result.data.txHash,
+      };
     }
     return { success: false, error: result.error.message };
   }
@@ -628,8 +699,10 @@ export const {
   estimateCreate,
   buyTickets,
   buyTicket,
+  claimPrize,
   buildCreateRaffleTx,
   buildBuyTicketsTx,
+  buildClaimPrizeTx,
   isConfigured,
   getConfig,
 } = ContractService;

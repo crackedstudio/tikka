@@ -253,6 +253,37 @@ export class TicketService {
   }
 
   /**
+   * Claims the prize for a finalized raffle.
+   * Requires wallet signature and submission.
+   *
+   * @throws TikkaSdkError if validation fails or prize claim fails
+   */
+  async claimPrize(
+    params: ClaimPrizeParams,
+  ): Promise<ContractResponse<ClaimPrizeResult>> {
+    const { raffleId } = params;
+    assertPositiveInt(raffleId, "raffleId");
+
+    const result = await this.contractService.invoke<void>(
+      ContractFn.CLAIM_PRIZE,
+      [raffleId],
+      { memo: params.memo },
+    );
+
+    return {
+      success: result.success,
+      value: {
+        transactionHash: result.transactionHash || result.txHash || "",
+        ledger: result.ledger || 0,
+        feePaid: result.feePaid || "0",
+      } as ClaimPrizeResult,
+      transactionHash: result.transactionHash || result.txHash,
+      ledger: result.ledger,
+      feePaid: result.feePaid,
+    } as ContractResponse<ClaimPrizeResult>;
+  }
+
+  /**
    * Gets all ticket IDs owned by a user for a specific raffle.
    * Read-only operation (no signing required).
    *

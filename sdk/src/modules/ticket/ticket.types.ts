@@ -1,4 +1,4 @@
-import { TxMemo } from '../../contract/contract.service';
+import { TxMemo } from "../../contract/contract.service";
 
 /**
  * Constraints for ticket operations to prevent invalid inputs.
@@ -85,6 +85,27 @@ export interface RefundTicketResult {
   feePaid: string;
 }
 
+/**
+ * Parameters for claiming a finalized raffle prize.
+ */
+export interface ClaimPrizeParams {
+  /** Raffle ID (must be positive integer) */
+  raffleId: number;
+  /** Optional transaction memo for tracking or external integrations. */
+  memo?: TxMemo;
+}
+
+/**
+ * Result of a successful prize claim.
+ */
+export interface ClaimPrizeResult {
+  /** Transaction hash for confirmation */
+  transactionHash: string;
+  /** Ledger number where transaction was confirmed */
+  ledger: number;
+  /** Transaction fee paid in stroops */
+  feePaid: string;
+}
 
 /**
  * Parameters for querying user's tickets for a raffle.
@@ -131,6 +152,8 @@ export interface BatchPurchaseResult {
   ticketIds: number[];
   /** Whether this purchase succeeded */
   success: boolean;
+  /** Batch execution status */
+  status?: "SUCCESS" | "ERROR";
   /** Error message if purchase failed */
   error?: string;
 }
