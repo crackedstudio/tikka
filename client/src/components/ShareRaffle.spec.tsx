@@ -106,7 +106,9 @@ describe("ShareRaffle", () => {
             expect(shareMock).toHaveBeenCalled();
         });
 
-        // Should not show error toast when user dismisses the share sheet
+        // Should not show error toast when user dismisses the share sheet.
+        // navigator.clipboard is intentionally not stubbed here: the
+        // AbortError branch returns before ever touching the clipboard.
         expect(toast.error).not.toHaveBeenCalled();
     test("calls navigator.share with correct params and handles AbortError silently", async () => {
         const shareFn = vi.fn().mockRejectedValue(

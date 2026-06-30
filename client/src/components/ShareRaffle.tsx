@@ -151,9 +151,20 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
                 return;
             } catch (err) {
                 const name = err instanceof DOMException ? err.name : "";
-                if (name === "AbortError") return;
-                toast.error("Sharing was cancelled or failed.");
-                return;
+            // Three outcomes when navigator.share is available:
+            //  1. AbortError      → user dismissed the sheet; no error toast.
+            //  2. Any other error → surface to the user and STOP. We
+            //                       intentionally do not fall through to
+            //                       the clipboard fallback, which would
+            //                       hide a real failure from the user.
+            //  3. Success         → control returns via the early `return`
+            //                       inside the `try`.
+            // (When navigator.share is unavailable the `if (canWebShare)`
+            //  above is false and execution falls through to the
+            //  `await handleCopyLink()` call at the bottom.)
+            if (name === "AbortError") return;
+            toast.error("Sharing was cancelled or failed.");
+            return;
             }
         }
         // Fall back to clipboard when Web Share API is not available
