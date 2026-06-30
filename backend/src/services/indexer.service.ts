@@ -172,6 +172,19 @@ export interface IndexerTransparencyLog {
   total: number;
 }
 
+export interface IndexerParticipant {
+  address: string;
+  tickets_count: number;
+  purchased_at: number;
+}
+
+export interface IndexerParticipantListResponse {
+  participants: IndexerParticipant[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export class IndexerError extends Error {
   constructor(
     message: string,
@@ -331,13 +344,28 @@ export class IndexerService {
     limit = 10,
     offset = 0,
     raffleId?: number,
+    txHash?: string,
   ): Promise<IndexerTransparencyLog> {
     const params = new URLSearchParams({
       limit: String(limit),
       offset: String(offset),
     });
     if (raffleId != null) params.set('raffle_id', String(raffleId));
+    if (txHash) params.set('tx_hash', txHash);
     return this.fetch<IndexerTransparencyLog>(`/transparency?${params}`);
+  }
+
+  /** Get paginated list of participants (ticket holders) for a raffle. */
+  async getRaffleParticipants(
+    raffleId: number,
+    limit = 20,
+    offset = 0,
+  ): Promise<IndexerParticipantListResponse> {
+    const params = new URLSearchParams({
+      limit: String(Math.min(limit, 100)),
+      offset: String(offset),
+    });
+    return this.fetch<IndexerParticipantListResponse>(`/raffles/${raffleId}/participants?${params}`);
   }
 
   /** Submit a ledger and its transactions for re-indexing (backfill). */
