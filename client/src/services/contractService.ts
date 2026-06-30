@@ -32,6 +32,13 @@ import type {
   ContractError,
 } from "../types/types";
 import { ContractErrorType } from "../types/types";
+import { formatXlm } from "../utils/formatters";
+
+/** Pre-confirmation fee preview for raffle creation (simulation-based, no submit). */
+export interface CreateRaffleEstimate {
+  xlm: string;
+  stroops: string;
+}
 
 /**
  * Contract Service Class
@@ -487,6 +494,53 @@ export class ContractService {
   // ============================================
 
   /**
+   * Estimate the network fee for creating a raffle without submitting.
+   * Runs Soroban transaction simulation and returns the fee in XLM.
+   */
+  static async estimateCreate(
+    params: Omit<CreateRaffleParams, "metadataId"> & { metadataId?: string },
+  ): Promise<ContractResponse<CreateRaffleEstimate>> {
+    if (import.meta.env.VITE_TEST_MODE === "true") {
+      return {
+        success: true,
+        data: { xlm: "0.0000100", stroops: "100" },
+      };
+    }
+
+    try {
+      const tx = await ContractService.buildCreateRaffleTx({
+        metadataId: params.metadataId ?? "",
+        ticketPrice: params.ticketPrice,
+        totalTickets: params.totalTickets,
+        durationInSeconds: params.durationInSeconds,
+      });
+
+      const simResult = await sorobanRpcServer.simulateTransaction(tx);
+
+      if (rpc.Api.isSimulationError(simResult)) {
+        throw new Error(simResult.error ?? "Simulation failed");
+      }
+
+      const preparedTx = rpc.assembleTransaction(tx, simResult).build();
+      const stroops = preparedTx.fee;
+
+      return {
+        success: true,
+        data: {
+          xlm: formatXlm(stroops),
+          stroops,
+        },
+      };
+    } catch (error) {
+      const contractError = ContractService.handleError(error, "estimateCreate");
+      return {
+        success: false,
+        error: contractError.message,
+      };
+    }
+  }
+
+  /**
    * Create a new raffle.
    * Delegates the full build → estimate → sign → submit → poll pipeline to runPipeline.
    */
@@ -571,6 +625,7 @@ export const {
   getAllRaffleIds,
   getUserParticipation,
   createRaffle,
+  estimateCreate,
   buyTickets,
   buyTicket,
   buildCreateRaffleTx,

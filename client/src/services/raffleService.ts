@@ -43,11 +43,37 @@ export async function fetchRaffleDetail(
 
 
 export async function searchRaffles(
-    query: string
+    query: string,
+    categories?: string[],
+    sort?: string,
 ): Promise<ApiRaffleListResponse> {
     const trimmedQuery = query.trim();
-    const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
-    return api.get<ApiRaffleListResponse>(endpoint);
+    const sortParam = sort && sort !== 'relevance' ? `&sort=${encodeURIComponent(sort)}` : '';
+
+    if (!categories || categories.length === 0) {
+        const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}${sortParam}`;
+        return api.get<ApiRaffleListResponse>(endpoint);
+    }
+
+    const promises = categories.map((cat) => {
+        const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}&category=${encodeURIComponent(cat)}`;
+        return api.get<ApiRaffleListResponse>(endpoint);
+    });
+
+    const responses = await Promise.all(promises);
+
+    const seen = new Set<number>();
+    const merged: ApiRaffleListItem[] = [];
+    for (const response of responses) {
+        for (const raffle of response.raffles) {
+            if (!seen.has(raffle.id)) {
+                seen.add(raffle.id);
+                merged.push(raffle);
+            }
+        }
+    }
+
+    return { raffles: merged, total: merged.length };
 }
 export async function fetchUserProfile(address: string): Promise<ApiUserProfile> {
     const endpoint = API_CONFIG.endpoints.users.profile(encodeURIComponent(address));

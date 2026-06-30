@@ -89,6 +89,38 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
     const canWebShare =
         typeof navigator !== "undefined" &&
         typeof navigator.share === "function";
+    const handleNativeShare = useCallback(async () => {
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+            try {
+                await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
+                return;
+            } catch (err) {
+                const name = err instanceof DOMException ? err.name : "";
+                if (name === "AbortError") return;
+                toast.error("Sharing was cancelled or failed.");
+                return;
+            }
+        }
+        try {
+            await navigator.clipboard.writeText(nativeShareUrl);
+            toast.success("Link copied!");
+        } catch {
+            const ta = document.createElement("textarea");
+            ta.value = nativeShareUrl;
+            ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand("copy");
+                toast.success("Link copied!");
+            } catch {
+                toast.error("Could not copy link");
+            } finally {
+                document.body.removeChild(ta);
+            }
+        }
+    }, [nativeShareUrl, shareBlurb, title]);
 
     const handleCopyLink = useCallback(async () => {
         let success = false;
@@ -177,6 +209,7 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
                         className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
                         onClick={handleNativeShare}
                         aria-label="Share"
+                        aria-label="Share using your device"
                     >
                         <Share2 className="h-5 w-5 shrink-0" />
                         <span className="text-gray-100">Share</span>

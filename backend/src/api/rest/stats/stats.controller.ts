@@ -1,4 +1,4 @@
-import { Controller, Get, Post, HttpCode, HttpStatus, Body } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { StatsService } from './stats.service';
@@ -23,7 +23,7 @@ export class StatsController {
     return this.statsService.getTransparencyStats();
   }
 
-  /** POST /stats/verify — Verify a VRF draw result. */
+  /** POST /stats/verify — Verify a VRF draw result with 60-second caching. */
   @Post('verify')
   @HttpCode(HttpStatus.OK)
   async verifyDraw(
@@ -33,5 +33,11 @@ export class StatsController {
     @Body('seed') seed: string,
   ) {
     return this.statsService.verifyDraw(oraclePublicKey, requestId, proof, seed);
+  }
+
+  /** GET /stats/verify?txHash=:hash — Verify a VRF draw result by its transaction hash. */
+  @Get('verify')
+  async verifyDrawByTxHash(@Query('txHash') txHash: string) {
+    return this.statsService.verifyByTxHash(txHash);
   }
 }

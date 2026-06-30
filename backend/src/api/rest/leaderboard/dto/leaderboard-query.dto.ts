@@ -20,6 +20,6 @@ export class LeaderboardQueryDto {
   @ApiPropertyOptional({ description: 'Cursor for cursor-based pagination' })
   cursor?: string;
 
-  @ApiPropertyOptional({ minimum: 0, description: 'Offset for offset-based pagination (deprecated)' })
+  @ApiPropertyOptional({ description: 'Offset for offset-based pagination (deprecated)' })
   offset?: number;
 }

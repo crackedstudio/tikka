@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "openapi:generate": "ts-node --transpile-only scripts/generate-openapi.ts",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -52,6 +53,7 @@
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^10.4.0",
     "@nestjs/platform-express": "^10.4.22",
+    "@nestjs/swagger": "^8.1.1",
     "@nestjs/typeorm": "^10.0.2",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-prometheus": "^0.215.0",
@@ -67,7 +69,7 @@
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",
     "@nestjs/testing": "^10.4.22",
-    "@testcontainers/postgresql": "^11.13.0",
+    "@testcontainers/postgresql": "^12.0.3",
     "@types/express": "^5.0.6",
     "@types/ioredis": "^4.28.10",
     "@types/jest": "^30.0.0",

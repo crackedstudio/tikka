@@ -55,6 +55,7 @@ export { UserService } from './modules/user/user.service';
 export type {
   RaffleParams,
   CreateRaffleResult,
+  CreateRaffleEstimate,
   CancelRaffleResult,
   CancelRaffleParams,
 } from './modules/raffle/raffle.types';

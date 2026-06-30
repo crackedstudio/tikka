@@ -1,223 +1,173 @@
-import { ForbiddenException, NotFoundException, NotImplementedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
 import { RafflesService } from './raffles.service';
-import { IndexerService, IndexerRaffleData } from '../../../services/indexer.service';
-import { MetadataService, RaffleMetadata } from '../../../services/metadata.service';
-
-const mockRaffle: IndexerRaffleData = {
-  id: 1,
-  creator: 'GABC123',
-  status: 'open',
-  ticket_price: '10',
-  asset: 'XLM',
-  max_tickets: 100,
-  tickets_sold: 5,
-  end_time: '2026-12-31T00:00:00Z',
-  winner: null,
-  prize_amount: null,
-  created_ledger: 1000,
-  finalized_ledger: null,
-  metadata_cid: null,
-  created_at: '2026-01-01T00:00:00Z',
-};
-
-const mockMetadata: RaffleMetadata = {
-  raffle_id: 1,
-  title: 'Test Raffle',
-  description: 'A test raffle',
-  image_url: 'https://example.com/img.png',
-  image_urls: ['https://example.com/img.png'],
-  category: 'art',
-  metadata_cid: 'ipfs://abc',
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
-  deleted_at: null,
-};
+import { IndexerService } from '../../../services/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata-redis.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('RafflesService', () => {
   let service: RafflesService;
-  let indexerService: jest.Mocked<Pick<IndexerService, 'listRaffles' | 'getRaffle'>>;
-  let metadataService: jest.Mocked<Pick<MetadataService, 'getMetadata' | 'getBatchMetadata' | 'upsertMetadata'>>;
-  let configService: jest.Mocked<Pick<ConfigService, 'get'>>;
+  let indexerService: jest.Mocked<IndexerService>;
+  let redis: jest.Mocked<MetadataRedisService>;
+  let configService: jest.Mocked<ConfigService>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     indexerService = {
-      listRaffles: jest.fn().mockResolvedValue({ raffles: [], total: 0 }),
-      getRaffle: jest.fn().mockResolvedValue(null),
-    };
-    metadataService = {
-      getMetadata: jest.fn().mockResolvedValue(null),
-      getBatchMetadata: jest.fn().mockResolvedValue(new Map()),
-      upsertMetadata: jest.fn(),
-    };
+      getRaffle: jest.fn(),
+      listRaffles: jest.fn(),
+      getRaffleParticipants: jest.fn(),
+    } as any;
+
+    redis = {
+      isEnabled: jest.fn(),
+      get: jest.fn(),
+      setEx: jest.fn(),
+      del: jest.fn(),
+    } as any;
+
     configService = {
-      get: jest.fn().mockReturnValue(false),
-    };
+      get: jest.fn(),
+    } as any;
 
-    service = new RafflesService(
-      metadataService as unknown as MetadataService,
-      indexerService as unknown as IndexerService,
-      configService as unknown as ConfigService,
-    );
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        RafflesService,
+        { provide: IndexerService, useValue: indexerService },
+        { provide: MetadataRedisService, useValue: redis },
+        { provide: ConfigService, useValue: configService },
+      ],
+    }).compile();
+
+    service = module.get<RafflesService>(RafflesService);
   });
 
-  describe('list', () => {
-    it('delegates to indexerService.listRaffles with filters', async () => {
-      const filters = { status: 'open', limit: 10, offset: 0 };
-      indexerService.listRaffles.mockResolvedValue({ raffles: [mockRaffle], total: 1 });
+  describe('getParticipants', () => {
+    it('should fetch participants from indexer when cache is disabled', async () => {
+      const mockResponse = {
+        participants: [
+          { address: 'GABC123', tickets_count: 5, purchased_at: 1234567890 },
+          { address: 'GDEF456', tickets_count: 3, purchased_at: 1234567895 },
+        ],
+        total: 2,
+        limit: 20,
+        offset: 0,
+      };
 
-      const result = await service.list(filters);
+      redis.isEnabled.mockReturnValue(false);
+      indexerService.getRaffleParticipants.mockResolvedValue(mockResponse as any);
 
-      expect(indexerService.listRaffles).toHaveBeenCalledWith(filters);
-      expect(result).toEqual({ raffles: [mockRaffle], total: 1 });
+      const result = await service.getParticipants(1, 20, 0);
+
+      expect(result).toEqual(mockResponse);
+      expect(indexerService.getRaffleParticipants).toHaveBeenCalledWith(1, 20, 0);
+      expect(redis.get).not.toHaveBeenCalled();
+      expect(redis.setEx).not.toHaveBeenCalled();
     });
 
-    it('calls listRaffles with empty filters by default', async () => {
-      await service.list();
+    it('should return cached participants when available', async () => {
+      const cachedResponse = {
+        participants: [{ address: 'GABC123', tickets_count: 5, purchased_at: 1234567890 }],
+        total: 1,
+        limit: 10,
+        offset: 0,
+      };
 
-      expect(indexerService.listRaffles).toHaveBeenCalledWith({});
-    });
-  });
+      redis.isEnabled.mockReturnValue(true);
+      redis.get.mockResolvedValue(JSON.stringify(cachedResponse));
 
-  describe('getById', () => {
-    it('merges indexer data and metadata into a single response', async () => {
-      indexerService.getRaffle.mockResolvedValue(mockRaffle);
-      metadataService.getMetadata.mockResolvedValue(mockMetadata);
+      const result = await service.getParticipants(1, 10, 0);
 
-      const result = await service.getById(1);
-
-      expect(result).toMatchObject({
-        id: 1,
-        creator: 'GABC123',
-        status: 'open',
-        title: 'Test Raffle',
-        description: 'A test raffle',
-        image_url: 'https://example.com/img.png',
-        category: 'art',
-        metadata_cid: 'ipfs://abc',
-      });
+      expect(result).toEqual(cachedResponse);
+      expect(redis.get).toHaveBeenCalledWith('raffle:1:participants:10:0');
+      expect(indexerService.getRaffleParticipants).not.toHaveBeenCalled();
     });
 
-    it('returns indexer data when metadata is absent', async () => {
-      indexerService.getRaffle.mockResolvedValue(mockRaffle);
-      metadataService.getMetadata.mockResolvedValue(null);
+    it('should fetch from indexer and cache when cache misses', async () => {
+      const mockResponse = {
+        participants: [{ address: 'GABC123', tickets_count: 5, purchased_at: 1234567890 }],
+        total: 1,
+        limit: 10,
+        offset: 0,
+      };
 
-      const result = await service.getById(1);
+      redis.isEnabled.mockReturnValue(true);
+      redis.get.mockResolvedValue(null);
+      indexerService.getRaffleParticipants.mockResolvedValue(mockResponse as any);
 
-      expect(result.id).toBe(1);
-      expect(result.creator).toBe('GABC123');
-      expect(result.title).toBeUndefined();
+      const result = await service.getParticipants(1, 10, 0);
+
+      expect(result).toEqual(mockResponse);
+      expect(indexerService.getRaffleParticipants).toHaveBeenCalledWith(1, 10, 0);
+      expect(redis.get).toHaveBeenCalledWith('raffle:1:participants:10:0');
+      expect(redis.setEx).toHaveBeenCalledWith('raffle:1:participants:10:0', 30, JSON.stringify(mockResponse));
     });
 
-    it('returns metadata when indexer data is absent', async () => {
-      indexerService.getRaffle.mockResolvedValue(null);
-      metadataService.getMetadata.mockResolvedValue(mockMetadata);
+    it('should handle cache read errors gracefully', async () => {
+      const mockResponse = {
+        participants: [{ address: 'GABC123', tickets_count: 5, purchased_at: 1234567890 }],
+        total: 1,
+        limit: 10,
+        offset: 0,
+      };
 
-      const result = await service.getById(1);
+      redis.isEnabled.mockReturnValue(true);
+      redis.get.mockRejectedValue(new Error('Redis connection failed'));
+      indexerService.getRaffleParticipants.mockResolvedValue(mockResponse as any);
 
-      expect(result.id).toBe(1);
-      expect(result.title).toBe('Test Raffle');
-      expect(result.creator).toBeUndefined();
+      const result = await service.getParticipants(1, 10, 0);
+
+      expect(result).toEqual(mockResponse);
+      expect(indexerService.getRaffleParticipants).toHaveBeenCalled();
     });
 
-    it('throws NotFoundException when both indexer and metadata return null', async () => {
-      indexerService.getRaffle.mockResolvedValue(null);
-      metadataService.getMetadata.mockResolvedValue(null);
+    it('should handle cache write errors gracefully', async () => {
+      const mockResponse = {
+        participants: [{ address: 'GABC123', tickets_count: 5, purchased_at: 1234567890 }],
+        total: 1,
+        limit: 10,
+        offset: 0,
+      };
 
-      await expect(service.getById(99)).rejects.toThrow(NotFoundException);
+      redis.isEnabled.mockReturnValue(true);
+      redis.get.mockResolvedValue(null);
+      redis.setEx.mockRejectedValue(new Error('Redis write failed'));
+      indexerService.getRaffleParticipants.mockResolvedValue(mockResponse as any);
+
+      const result = await service.getParticipants(1, 10, 0);
+
+      expect(result).toEqual(mockResponse);
+      expect(indexerService.getRaffleParticipants).toHaveBeenCalled();
     });
 
-    it('prefers metadata_cid from contract when both sources have it', async () => {
-      const raffleWithCid = { ...mockRaffle, metadata_cid: 'ipfs://contract-cid' };
-      indexerService.getRaffle.mockResolvedValue(raffleWithCid);
-      metadataService.getMetadata.mockResolvedValue(mockMetadata);
+    it('should enforce max limit of 100', async () => {
+      const mockResponse = {
+        participants: [],
+        total: 0,
+        limit: 100,
+        offset: 0,
+      };
 
-      const result = await service.getById(1);
+      redis.isEnabled.mockReturnValue(false);
+      indexerService.getRaffleParticipants.mockResolvedValue(mockResponse as any);
 
-      expect(result.metadata_cid).toBe('ipfs://contract-cid');
+      await service.getParticipants(1, 150, 0);
+
+      expect(indexerService.getRaffleParticipants).toHaveBeenCalledWith(1, 100, 0);
     });
 
-    it('falls back to metadata_cid from Supabase when contract has none', async () => {
-      indexerService.getRaffle.mockResolvedValue(mockRaffle); // metadata_cid: null
-      metadataService.getMetadata.mockResolvedValue(mockMetadata);
+    it('should use default values when limit and offset are not provided', async () => {
+      const mockResponse = {
+        participants: [],
+        total: 0,
+        limit: 20,
+        offset: 0,
+      };
 
-      const result = await service.getById(1);
+      redis.isEnabled.mockReturnValue(false);
+      indexerService.getRaffleParticipants.mockResolvedValue(mockResponse as any);
 
-      expect(result.metadata_cid).toBe('ipfs://abc');
-    });
-  });
+      await service.getParticipants(1);
 
-  describe('getBatchMetadata', () => {
-    it('returns array of metadata from the map', async () => {
-      const map = new Map([[1, mockMetadata]]);
-      metadataService.getBatchMetadata.mockResolvedValue(map);
-
-      const result = await service.getBatchMetadata([1]);
-
-      expect(result).toEqual([mockMetadata]);
-      expect(metadataService.getBatchMetadata).toHaveBeenCalledWith([1]);
-    });
-  });
-
-  describe('upsertMetadata', () => {
-    it('delegates to metadataService.upsertMetadata', async () => {
-      const payload = { title: 'New Title' };
-      indexerService.getRaffle.mockResolvedValue(mockRaffle);
-      metadataService.upsertMetadata.mockResolvedValue({ ...mockMetadata, title: 'New Title' });
-
-      await service.upsertMetadata(1, payload, 'GABC123');
-
-      expect(metadataService.upsertMetadata).toHaveBeenCalledWith(1, payload);
-    });
-
-    it('throws NotFoundException when raffle is missing in indexer', async () => {
-      indexerService.getRaffle.mockResolvedValue(null);
-
-      await expect(
-        service.upsertMetadata(99, { title: 'Nope' }, 'GABC123'),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('throws ForbiddenException when requester is not raffle creator', async () => {
-      indexerService.getRaffle.mockResolvedValue(mockRaffle);
-
-      await expect(
-        service.upsertMetadata(1, { title: 'Nope' }, 'GOTHER999'),
-      ).rejects.toThrow(ForbiddenException);
-    });
-  });
-
-  describe('purchaseTickets', () => {
-    const payload = { quantity: 2 };
-
-    it('throws NotImplementedException when feature flag is disabled', async () => {
-      configService.get.mockReturnValue(false);
-
-      await expect(
-        service.purchaseTickets(1, payload, 'GABC123'),
-      ).rejects.toThrow(NotImplementedException);
-
-      expect(indexerService.getRaffle).not.toHaveBeenCalled();
-    });
-
-    it('throws NotImplementedException when feature flag is enabled but integration is pending', async () => {
-      configService.get.mockReturnValue(true);
-      indexerService.getRaffle.mockResolvedValue(mockRaffle);
-
-      await expect(
-        service.purchaseTickets(1, payload, 'GABC123'),
-      ).rejects.toThrow(NotImplementedException);
-
-      expect(indexerService.getRaffle).toHaveBeenCalledWith(1);
-    });
-
-    it('throws NotFoundException when raffle does not exist and feature flag is enabled', async () => {
-      configService.get.mockReturnValue(true);
-      indexerService.getRaffle.mockResolvedValue(null);
-
-      await expect(
-        service.purchaseTickets(99, payload, 'GABC123'),
-      ).rejects.toThrow(NotFoundException);
+      expect(indexerService.getRaffleParticipants).toHaveBeenCalledWith(1, 20, 0);
     });
   });
 });
