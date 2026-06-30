@@ -114,24 +114,15 @@ const envSchemaInner = z
     // Throttle — all optional with sensible defaults
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().positive().default(100),
     THROTTLE_DEFAULT_TTL: z.coerce.number().int().positive().default(60),
-    THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
-    THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(60),
-    THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(30),
+    THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(5),
+    THROTTLE_AUTH_TTL: z.coerce.number().int().positive().default(900),
+    THROTTLE_NONCE_LIMIT: z.coerce.number().int().positive().default(10),
     THROTTLE_NONCE_TTL: z.coerce.number().int().positive().default(60),
 
     // Pinata - optional for IPFS metadata pinning
     ENABLE_IPFS_PINNING: z.enum(['true', 'false']).default('false').optional(),
     PINATA_JWT: z.string().optional(),
-    PINATA_API_KEY: z.string().optional(),
-    PINATA_API_SECRET: z.string().optional(),
-    IPFS_GATEWAY_URL: z.string().url().default('https://ipfs.io/ipfs/').optional(),
-    LOG_REDACT_FIELDS: z.string().optional(),
-    // Metadata cache (Redis) — optional; empty REDIS_URL disables cache-aside
-    METADATA_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
-
-    // Feature flags
-    FEATURE_RAFFLE_TICKET_PURCHASE: z.coerce.boolean().default(false),
-
+    METADATA_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
     RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
     RAFFLE_CREATE_RATE_WINDOW_SECONDS: z.coerce
       .number()

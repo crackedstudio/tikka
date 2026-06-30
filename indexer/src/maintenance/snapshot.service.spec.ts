@@ -183,3 +183,91 @@ describe('SnapshotService', () => {
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
   });
 });
+
+import { execSync } from 'child_process';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
+import { RaffleStatus } from '../database/entities/raffle.entity';
+import { startDb, stopDb, DbContainerContext, CONTAINER_STARTUP_MS } from '../test/integration/helpers/db-container';
+
+describe('Snapshot CLI Integration', () => {
+  let ctx: DbContainerContext;
+  let tempDir: string;
+
+  beforeAll(async () => {
+    ctx = await startDb();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tikka-snapshot-test-'));
+  }, CONTAINER_STARTUP_MS);
+
+  afterAll(async () => {
+    await stopDb(ctx);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('should export to temp file, clear db, and import to restore all rows', async () => {
+    const ds = ctx.dataSource;
+    const userRepo = ds.getRepository(UserEntity);
+    const raffleRepo = ds.getRepository(RaffleEntity);
+    const ticketRepo = ds.getRepository(TicketEntity);
+
+    // 1. Seed data
+    await userRepo.save(userRepo.create({ address: 'G_TEST_USER', totalTicketsBought: 10 }));
+    await raffleRepo.save(raffleRepo.create({
+      id: 1,
+      creator: 'G_TEST_USER',
+      status: RaffleStatus.OPEN,
+      ticketPrice: '100',
+      maxTickets: 100,
+      asset: 'XLM',
+      endTime: new Date(),
+      createdLedger: 1000,
+    }));
+    await ticketRepo.save(ticketRepo.create({
+      id: 101,
+      raffleId: 1,
+      owner: 'G_TEST_USER',
+      purchaseTxHash: 'TX123',
+      purchasedAtLedger: 1005,
+    }));
+
+    // Generate env file for CLI scripts
+    const envContent = `
+DATABASE_URL=postgres://${ctx.container.getUsername()}:${ctx.container.getPassword()}@${ctx.container.getHost()}:${ctx.container.getMappedPort(5432)}/${ctx.container.getDatabase()}
+SNAPSHOT_STORAGE_URL=file://${tempDir}
+`;
+    fs.writeFileSync('.env.local', envContent.trim());
+
+    // 2. Export via CLI
+    execSync('npx ts-node src/cli/snapshot-export.ts', { stdio: 'inherit' });
+
+    // Find the exported file
+    const files = fs.readdirSync(tempDir);
+    const snapshotFile = files.find(f => f.startsWith('snapshot-') && f.endsWith('.json.gz'));
+    expect(snapshotFile).toBeDefined();
+
+    // 3. Clear database
+    await ds.query(`SET session_replication_role = 'replica'`);
+    await ds.query(`TRUNCATE TABLE tickets, users, raffles RESTART IDENTITY CASCADE`);
+    await ds.query(`SET session_replication_role = 'DEFAULT'`);
+
+    expect(await userRepo.count()).toBe(0);
+    expect(await raffleRepo.count()).toBe(0);
+    expect(await ticketRepo.count()).toBe(0);
+
+    // 4. Import via CLI
+    execSync(`npx ts-node src/cli/snapshot-import.ts ${snapshotFile}`, { stdio: 'inherit' });
+
+    // 5. Assert all rows are restored
+    expect(await userRepo.count()).toBe(1);
+    expect(await raffleRepo.count()).toBe(1);
+    expect(await ticketRepo.count()).toBe(1);
+
+    const user = await userRepo.findOneBy({ address: 'G_TEST_USER' });
+    expect(user).toBeDefined();
+    expect(user?.totalTicketsBought).toBe(10);
+    
+    // Clean up .env.local to not pollute workspace
+    fs.unlinkSync('.env.local');
+  }, 30000); // give enough time for ts-node
+});

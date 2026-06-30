@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
+import { KeyProviderError } from '../key-provider.error';
 
 /**
  * AWS KMS KeyProvider.
@@ -27,7 +28,7 @@ export class AwsKmsKeyProvider implements KeyProvider {
 
   constructor(region: string, keyId: string) {
     if (!region || !keyId) {
-      throw new Error('AWS region and keyId are required for AwsKmsKeyProvider');
+      throw new KeyProviderError('AWS region and keyId are required for AwsKmsKeyProvider');
     }
 
     this.keyId = keyId;
@@ -37,10 +38,11 @@ export class AwsKmsKeyProvider implements KeyProvider {
       const { KMSClient } = require('@aws-sdk/client-kms');
       this.kmsClient = new KMSClient({ region });
       this.logger.log(`AwsKmsKeyProvider initialized for key: ${keyId}`);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to initialize AWS KMS client: ${error.message}`);
-      throw new Error(
+      throw new KeyProviderError(
         'AWS SDK not installed. Run: npm install @aws-sdk/client-kms',
+        error
       );
     }
   }
@@ -76,9 +78,9 @@ export class AwsKmsKeyProvider implements KeyProvider {
       this.publicKeyString = this.publicKey.toString('hex');
 
       this.logger.log('Public key loaded from AWS KMS');
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to load public key from AWS KMS: ${error.message}`);
-      throw new Error('Failed to retrieve public key from AWS KMS');
+      throw new KeyProviderError('Failed to retrieve public key from AWS KMS', error);
     }
   }
 
@@ -101,9 +103,9 @@ export class AwsKmsKeyProvider implements KeyProvider {
 
       this.logger.debug(`Signed ${data.length} bytes using AWS KMS`);
       return signature;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`AWS KMS signing failed: ${error.message}`);
-      throw new Error('Failed to sign data with AWS KMS');
+      throw new KeyProviderError('Failed to sign data with AWS KMS', error);
     }
   }
 

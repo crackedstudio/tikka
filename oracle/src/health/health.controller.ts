@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { HealthService, ComponentStatus } from './health.service';
 import { LagMonitorService } from './lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
@@ -18,13 +19,24 @@ export class HealthController {
   ) {}
 
   @Get('health')
-  getHealth() {
+  getHealth(@Res({ passthrough: true }) res: Response) {
     const isHealthy = this.healthService.isHealthy();
     const isDegraded = this.healthService.isDegraded();
+    const metrics = this.healthService.getMetrics();
+
+    if (metrics.circuit_breaker.state === 'OPEN') {
+      res.status(503);
+    } else if (!isHealthy) {
+      // Optional: if unhealthy for other reasons, it might also return 503, but
+      // the instruction specifically mentions returning 503 when circuit is OPEN.
+      // We will follow the standard NestJS pattern, but stick to the prompt's requirement.
+    }
+
     return {
       status: isHealthy ? 'healthy' : isDegraded ? 'degraded' : 'unhealthy',
       timestamp: new Date().toISOString(),
       pendingLagRequests: this.lagMonitor.getPendingCount(),
+      circuit_breaker: metrics.circuit_breaker,
     };
   }
 

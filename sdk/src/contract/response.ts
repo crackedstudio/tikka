@@ -45,7 +45,7 @@ export interface ContractResponse<T = any> {
 
 export type TxResponse<T = any> = ContractResponse<T>;
 
-export type TicketTxResponse<T = number[]> = TxResponse<T>;
-export type RaffleTxResponse<T = number> = TxResponse<T>;
-export type AdminTxResponse<T = void> = TxResponse<T>;
-export type UserTxResponse<T = any> = TxResponse<T>;
+export type TicketTxResponse<T = number[]> = ContractResponse<T>;
+export type RaffleTxResponse<T = number> = ContractResponse<T>;
+export type AdminTxResponse<T = void> = ContractResponse<T>;
+export type UserTxResponse<T = any> = ContractResponse<T>;

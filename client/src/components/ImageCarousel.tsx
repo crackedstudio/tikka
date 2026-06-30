@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import LazyImage from "./LazyImage";
 import { generateBlurPlaceholder } from "../utils/imageOptimization";
@@ -11,6 +11,11 @@ interface ImageCarouselProps {
 const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const carouselRef = useRef<HTMLDivElement>(null);
+
+    const minSwipeDistance = 50;
 
     // If only one image, show it without carousel
     if (images.length === 1) {
@@ -51,23 +56,72 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
         setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
     };
 
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            handleNext();
+        } else if (isRightSwipe) {
+            handlePrev();
+        }
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (lightboxOpen) return; // Let Lightbox handle keyboard when open
+            
+            if (e.key === "ArrowLeft") {
+                handlePrev();
+            } else if (e.key === "ArrowRight") {
+                handleNext();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [currentIndex, lightboxOpen]);
+
     return (
         <>
             <div className="w-full">
                 {/* Main Image Display */}
-                <div className="relative rounded-3xl overflow-hidden mb-4">
-                    <LazyImage
-                        src={images[currentIndex]}
-                        alt={`${alt} ${currentIndex + 1}`}
-                        aspectRatio={16/9}
-                        className="w-full h-full object-cover cursor-pointer"
-                        containerClassName="w-full rounded-3xl"
-                        blurUp={true}
-                        onLoad={() => {
-                            // Image loaded successfully
-                        }}
-                        onClick={() => setLightboxOpen(true)}
-                    />
+                <div 
+                    ref={carouselRef}
+                    className="relative rounded-3xl overflow-hidden mb-4 touch-pan-y"
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
+                >
+                    <div 
+                        className="transition-transform duration-300 ease-in-out"
+                        style={{ transform: `translateX(0)` }}
+                    >
+                        <LazyImage
+                            src={images[currentIndex]}
+                            alt={`${alt} ${currentIndex + 1}`}
+                            aspectRatio={16/9}
+                            className="w-full h-full object-cover cursor-pointer"
+                            containerClassName="w-full rounded-3xl"
+                            blurUp={true}
+                            onLoad={() => {
+                                // Image loaded successfully
+                            }}
+                            onClick={() => setLightboxOpen(true)}
+                        />
+                    </div>
                     
                     {/* Navigation Buttons */}
                     <button
@@ -157,6 +211,11 @@ interface LightboxProps {
 }
 
 const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIndexChange }) => {
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+    const minSwipeDistance = 50;
+
     const handlePrev = () => {
         onIndexChange(currentIndex > 0 ? currentIndex - 1 : images.length - 1);
     };
@@ -165,7 +224,30 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
         onIndexChange(currentIndex < images.length - 1 ? currentIndex + 1 : 0);
     };
 
-    React.useEffect(() => {
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            handleNext();
+        } else if (isRightSwipe) {
+            handlePrev();
+        }
+    };
+
+    useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
             if (e.key === "ArrowLeft") handlePrev();
@@ -178,8 +260,11 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
 
     return (
         <div
-            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center touch-pan-y"
             onClick={onClose}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
         >
             {/* Close Button */}
             <button
@@ -215,7 +300,7 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
                 <LazyImage
                     src={images[currentIndex]}
                     alt={`Full size ${currentIndex + 1}`}
-                    className="max-w-full max-h-[90vh] object-contain"
+                    className="max-w-full max-h-[90vh] object-contain transition-transform duration-300 ease-in-out"
                     containerClassName="max-w-full max-h-[90vh]"
                     blurUp={true}
                 />
