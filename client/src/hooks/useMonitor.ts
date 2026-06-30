@@ -7,6 +7,7 @@ import {
   type LatencyPoint,
   type ErrorRecord,
 } from '../services/monitorApi';
+import { getApiErrorMessage } from '../services/apiClient';
 
 interface UseMonitorOptions {
   refreshInterval?: number;
@@ -46,7 +47,7 @@ export function useMonitor({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
+          setError(getApiErrorMessage(err, 'Failed to load stats'));
           setLoading(false);
         }
       }
@@ -69,7 +70,7 @@ export function useMonitor({
         const data = await fetchLatency({ from, to });
         if (!cancelled) setLatencyData(data);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(getApiErrorMessage(err, 'Failed to load stats'));
       }
     }
 
@@ -88,7 +89,7 @@ export function useMonitor({
         const data = await fetchErrors();
         if (!cancelled) setErrors(data);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(getApiErrorMessage(err, 'Failed to load stats'));
       }
     }
 

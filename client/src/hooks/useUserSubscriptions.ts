@@ -11,6 +11,7 @@ import {
   unsubscribeFromRaffle,
   type UserSubscription,
 } from '../../services/notificationService';
+import { getApiErrorMessage } from '../../services/apiClient';
 import { useAuthContext } from '../../providers';
 
 export interface UseUserSubscriptionsReturn {
@@ -47,7 +48,7 @@ export function useUserSubscriptions(): UseUserSubscriptionsReturn {
     } catch (err) {
       if (current === requestId.current) {
         console.error('Error loading subscriptions:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load subscriptions');
+        setError(getApiErrorMessage(err, 'Failed to load subscriptions'));
       }
     } finally {
       if (current === requestId.current) setIsLoading(false);
@@ -69,7 +70,7 @@ export function useUserSubscriptions(): UseUserSubscriptionsReturn {
       } catch (err) {
         if (current === requestId.current) {
           console.error('Error unsubscribing:', err);
-          setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
+          setError(getApiErrorMessage(err, 'Failed to unsubscribe'));
         }
       } finally {
         if (current === requestId.current) setIsLoading(false);

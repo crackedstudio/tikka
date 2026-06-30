@@ -7,7 +7,7 @@
 
 import { useCallback, useRef } from "react";
 import { getNonce, verify } from "../services/authService";
-import { setToken, clearToken } from "../services/apiClient";
+import { setToken, clearToken, getApiErrorMessage } from "../services/apiClient";
 import { getKit } from "../services/walletService";
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -139,10 +139,12 @@ export function useAuth(): UseAuthReturn {
         status: "failed",
         isAuthenticated: false,
       });
-      // We don't have a direct way to set error in setAuthState currently without adding it to the store interface
-      // But we can use setAuthState if we update the interface or just use setWalletState for error.
-      // Actually let's just stick to what store has.
-      throw error;
+      // Normalise to a typed error: authService already throws ApiError on
+      // failure, but getApiErrorMessage guarantees a usable .message string
+      // when callers inspect a foreign non-Error value.
+      throw error instanceof Error
+        ? error
+        : new Error(getApiErrorMessage(error, "Authentication failed"));
     }
   }, [store.login, store.setAuthState]);
 

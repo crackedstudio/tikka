@@ -15,6 +15,7 @@ import type {
     FormattedRaffle,
 } from "../types/types";
 import { queryKeys } from "../utils/queryKeys";
+import { getApiErrorMessage } from "../services/apiClient";
 
 export interface RaffleQueryStatus {
     isLoading: boolean;
@@ -56,7 +57,9 @@ export const useRaffles = (filters?: RaffleListFilters): UseRafflesReturn => {
         raffles,
         total,
         status,
-        error: query.error,
+        error: query.error
+            ? new Error(getApiErrorMessage(query.error, "Failed to load raffles"))
+            : null,
         refetch: query.refetch,
         retry: query.refetch,
     };
@@ -74,7 +77,9 @@ export const useRaffle = (raffleId: number) => {
 
     return {
         raffle: query.data ?? null,
-        error: query.error,
+        error: query.error
+            ? new Error(getApiErrorMessage(query.error, "Failed to load raffle"))
+            : null,
         isLoading: query.isLoading,
         refetch: query.refetch,
     };
@@ -92,7 +97,9 @@ export const useUserProfile = (address: string | null) => {
     return {
         profile: query.data ?? null,
         isLoading: query.isLoading,
-        error: query.error,
+        error: query.error
+            ? new Error(getApiErrorMessage(query.error, "Failed to load profile"))
+            : null,
     };
 };
 
@@ -125,6 +132,8 @@ export const useUserHistory = (address: string | null) => {
         hasNext,
         goToPage,
         isLoading: query.isLoading,
-        error: query.error,
+        error: query.error
+            ? new Error(getApiErrorMessage(query.error, "Failed to load history"))
+            : null,
     };
 };

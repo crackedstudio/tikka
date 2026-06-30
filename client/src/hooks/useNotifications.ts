@@ -3,6 +3,8 @@
  *
  * Custom hook for managing notification subscriptions for a specific raffle.
  * Provides subscribe / unsubscribe actions and tracks loading / error state.
+ * Errors from `notificationService` are typed `ApiError` instances; we use
+ * `getApiErrorMessage` so the UI copy is consistent across the app.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -12,6 +14,7 @@ import {
   getUserSubscriptions,
   type NotificationChannel,
 } from '../services/notificationService';
+import { getApiErrorMessage } from '../services/apiClient';
 import { useAuthContext } from '../providers/AuthProvider';
 
 export interface UseNotificationsReturn {
@@ -50,7 +53,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
       } catch (err) {
         if (current !== requestId.current) return;
         console.error('Error checking subscription:', err);
-        setError(err instanceof Error ? err.message : 'Failed to check subscription');
+        setError(getApiErrorMessage(err, 'Failed to check subscription'));
         setIsSubscribed(false);
       } finally {
         if (current === requestId.current) setIsLoading(false);
@@ -73,7 +76,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
         setIsSubscribed(true);
       } catch (err) {
         console.error('Error subscribing:', err);
-        setError(err instanceof Error ? err.message : 'Failed to subscribe');
+        setError(getApiErrorMessage(err, 'Failed to subscribe'));
         throw err;
       } finally {
         setIsLoading(false);
@@ -96,7 +99,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
         setIsSubscribed(false);
       } catch (err) {
         console.error('Error unsubscribing:', err);
-        setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
+        setError(getApiErrorMessage(err, 'Failed to unsubscribe'));
         throw err;
       } finally {
         setIsLoading(false);

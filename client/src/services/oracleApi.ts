@@ -1,7 +1,17 @@
 /**
  * Oracle API Service
- * Handles oracle-specific operations including randomness jobs and rescue operations
+ *
+ * Handles oracle-specific operations including randomness jobs, rescue
+ * operations, and oracle health. Calls go through `apiRequest` so failures
+ * surface as typed `ApiError` instances; admin endpoints use a static
+ * `X-Admin-Token` in the request headers instead of a JWT.
+ *
+ * Toasts and the session-expired callback are suppressed (`silentErrors`) so
+ * a 401 here (which means bad admin token, not an expired user session)
+ * does not log the user out.
  */
+
+import { api } from './apiClient';
 
 export interface RandomnessJobInfo {
   id: string;
@@ -79,59 +89,58 @@ export interface RescueResponse {
   txHash?: string;
 }
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
-const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN as string;
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN as string | undefined;
 
-function adminHeaders(): HeadersInit {
-  return { 'X-Admin-Token': ADMIN_TOKEN };
+/**
+ * Custom headers for admin endpoints. The X-Admin-Token replaces the usual
+ * bearer JWT — these endpoints are gated by token, not by user session.
+ */
+function adminHeaders(): Record<string, string> {
+  return ADMIN_TOKEN ? { 'X-Admin-Token': ADMIN_TOKEN } : {};
 }
 
-async function get<T>(path: string, params?: Record<string, string>): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`);
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+/**
+ * Build a query string from optional params, merging with any keys the caller
+ * supplies. Empty objects (undefined fields) are skipped.
+ */
+function buildQuery(params?: Record<string, string | number | undefined>): string {
+  if (!params) return '';
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) search.set(k, String(v));
   }
-  const res = await fetch(url.toString(), { headers: adminHeaders() });
-  if (!res.ok) {
-    throw new Error(`Oracle API error ${res.status}: ${res.statusText}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-async function post<T>(path: string, body: Record<string, any>): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...adminHeaders(),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw new Error(`Oracle API error ${res.status}: ${res.statusText}`);
-  }
-  return res.json() as Promise<T>;
+  const q = search.toString();
+  return q ? `?${q}` : '';
 }
 
 /**
  * Fetch all randomness jobs organized by state
  */
 export async function fetchRandomnessJobs(): Promise<JobsByState> {
-  return get<JobsByState>('/rescue/jobs');
+  return api.get<JobsByState>('/rescue/jobs', {
+    headers: adminHeaders(),
+    silentErrors: true,
+  });
 }
 
 /**
  * Fetch stuck draw detection report
  */
 export async function fetchStuckDrawReport(): Promise<StuckDrawReport> {
-  return get<StuckDrawReport>('/rescue/stuck-draws');
+  return api.get<StuckDrawReport>('/rescue/stuck-draws', {
+    headers: adminHeaders(),
+    silentErrors: true,
+  });
 }
 
 /**
  * Fetch oracle status including circuit breaker state
  */
 export async function fetchOracleStatus(): Promise<OracleStatus> {
-  return get<OracleStatus>('/oracle/status');
+  return api.get<OracleStatus>('/oracle/status', {
+    headers: adminHeaders(),
+    silentErrors: true,
+  });
 }
 
 /**
@@ -142,11 +151,14 @@ export async function reEnqueueJob(
   operator: string,
   reason: string,
 ): Promise<RescueResponse> {
-  return post<RescueResponse>('/rescue/re-enqueue', {
-    jobId,
-    operator,
-    reason,
-  });
+  return api.post<RescueResponse>(
+    '/rescue/re-enqueue',
+    { jobId, operator, reason },
+    {
+      headers: adminHeaders(),
+      silentErrors: true,
+    },
+  );
 }
 
 /**
@@ -159,13 +171,14 @@ export async function forceSubmitRandomness(
   reason: string,
   prizeAmount?: number,
 ): Promise<RescueResponse> {
-  return post<RescueResponse>('/rescue/force-submit', {
-    raffleId,
-    requestId,
-    operator,
-    reason,
-    prizeAmount,
-  });
+  return api.post<RescueResponse>(
+    '/rescue/force-submit',
+    { raffleId, requestId, operator, reason, prizeAmount },
+    {
+      headers: adminHeaders(),
+      silentErrors: true,
+    },
+  );
 }
 
 /**
@@ -176,9 +189,12 @@ export async function forceFailJob(
   operator: string,
   reason: string,
 ): Promise<RescueResponse> {
-  return post<RescueResponse>('/rescue/force-fail', {
-    jobId,
-    operator,
-    reason,
-  });
+  return api.post<RescueResponse>(
+    '/rescue/force-fail',
+    { jobId, operator, reason },
+    {
+      headers: adminHeaders(),
+      silentErrors: true,
+    },
+  );
 }

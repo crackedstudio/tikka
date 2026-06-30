@@ -7,6 +7,17 @@ import {
   useLeaderboardPreview,
 } from './useHomePageSections';
 
+// apiRequest (used internally by the hooks) calls sonner toast. Silence it
+// during tests so we don't log real toasts to stdout on every failure path.
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 const mockRaffles = [
   { id: 1, ticket_price: '1000000', asset: 'XLM', status: 'open' },
   { id: 2, ticket_price: '2000000', asset: 'XLM', status: 'open' },
@@ -146,7 +157,7 @@ describe('useHomePageSections - Independent Section Loading', () => {
   });
 
   describe('Error Handling', () => {
-    it('captures HTTP errors', async () => {
+    it('surfaces ApiError-copy for HTTP errors via getApiErrorMessage', async () => {
       (global.fetch as any).mockResolvedValue({
         ok: false,
         status: 404,
@@ -158,11 +169,12 @@ describe('useHomePageSections - Independent Section Loading', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.error).toContain('HTTP');
+      // 404 maps to ApiErrorCode.NOT_FOUND → catalog copy "not found".
+      expect(result.current.error).toMatch(/not found/i);
       expect(result.current.data).toBeNull();
     });
 
-    it('captures network errors', async () => {
+    it('surfaces ApiError-copy for network errors via getApiErrorMessage', async () => {
       (global.fetch as any).mockRejectedValue(new Error('Network timeout'));
 
       const { result } = renderHook(() => useLeaderboardPreview());
@@ -171,7 +183,8 @@ describe('useHomePageSections - Independent Section Loading', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.error).toContain('Network timeout');
+      // Fetch rejection maps to ApiErrorCode.NETWORK_ERROR → catalog copy "network".
+      expect(result.current.error).toMatch(/network/i);
     });
   });
 

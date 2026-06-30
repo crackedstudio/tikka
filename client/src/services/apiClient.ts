@@ -3,12 +3,17 @@
  *
  * Centralized HTTP client with automatic JWT token injection
  * All protected API calls should use this client
+ *
+ * Source order matters: `ApiErrorCode` and `ApiError` are declared BEFORE
+ * the `ERROR_MESSAGES` catalog and the `getApiErrorMessage`/`isApiError`
+ * helpers that reference them. A reverse order would throw at module load
+ * because the enum is in TDZ when the helper is initialized.
  */
 
 import { API_CONFIG } from "../config/api";
 import { toast } from "sonner";
 
-// ─── Typed API Error Types ────────────────────────────────────────────────────────
+// ─── Typed API Error Types ────────────────────────────────────────────────────
 
 /**
  * Error codes for different types of API failures
@@ -41,7 +46,7 @@ export class ApiError extends Error {
     public code: ApiErrorCode,
     message: string,
     public statusCode?: number,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -60,6 +65,50 @@ function mapStatusCodeToErrorCode(status: number): ApiErrorCode {
   if (status >= 500 && status < 600) return ApiErrorCode.SERVER_ERROR;
   return ApiErrorCode.UNKNOWN_ERROR;
 }
+
+// ─── UI message catalog + helpers (depend on types above) ────────────────────
+
+/**
+ * Stable user-facing copy keyed by ApiErrorCode.
+ * Hooks select the right message via `getApiErrorMessage(err)` so the UI never
+ * has to switch on HTTP statuses or string matches.
+ */
+const ERROR_MESSAGES: Record<ApiErrorCode, string> = {
+  [ApiErrorCode.VALIDATION_ERROR]: "Please check your input and try again.",
+  [ApiErrorCode.UNAUTHORIZED]: "Your session has expired. Please sign in again.",
+  [ApiErrorCode.FORBIDDEN]: "You don't have permission to perform this action.",
+  [ApiErrorCode.NOT_FOUND]: "The requested resource was not found.",
+  [ApiErrorCode.RATE_LIMITED]: "Too many requests, please wait a moment and try again.",
+  [ApiErrorCode.SERVER_ERROR]: "Something went wrong on our end. Please try again later.",
+  [ApiErrorCode.NETWORK_ERROR]: "Network error. Please check your connection and try again.",
+  [ApiErrorCode.UNKNOWN_ERROR]: "An unexpected error occurred.",
+};
+
+/**
+ * Map any thrown value to a user-facing string.
+ * - `ApiError` → uses ERROR_MESSAGES for the code, falls back to the server message.
+ * - Other `Error` → its `.message`.
+ * - Anything else (string, object, null) → `fallback`.
+ */
+export function getApiErrorMessage(
+  err: unknown,
+  fallback = "An unexpected error occurred",
+): string {
+  if (err instanceof ApiError) {
+    return ERROR_MESSAGES[err.code] ?? err.message ?? fallback;
+  }
+  if (err instanceof Error) return err.message;
+  return fallback;
+}
+
+/**
+ * Type guard for `ApiError`. Useful when callers need to branch on `err.code`.
+ */
+export function isApiError(err: unknown): err is ApiError {
+  return err instanceof ApiError;
+}
+
+// ─── Token storage ────────────────────────────────────────────────────────────
 
 /**
  * Get the stored JWT token
@@ -106,6 +155,12 @@ export function unregisterExpiredHandler(): void {
 
 export interface RequestOptions extends RequestInit {
   requiresAuth?: boolean;
+  /**
+   * If true, suppresses global toast notifications AND the session-expired
+   * callback. Use for background polling and one-off retries where the caller
+   * handles error UX itself.
+   */
+  silentErrors?: boolean;
 }
 
 /**
@@ -116,7 +171,7 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { requiresAuth = false, headers = {}, ...fetchOptions } = options;
+  const { requiresAuth = false, silentErrors = false, headers = {}, ...fetchOptions } = options;
 
   const url = endpoint.startsWith("http")
     ? endpoint
@@ -134,7 +189,8 @@ export async function apiRequest<T = any>(
   if (token) {
     requestHeaders["Authorization"] = `Bearer ${token}`;
   } else if (requiresAuth) {
-    throw new Error("Authentication required");
+    // Surface a typed ApiError (UNAUTHORIZED) so callers' instanceof checks work.
+    throw new ApiError(ApiErrorCode.UNAUTHORIZED, "Authentication required");
   }
 
   const timeoutMs = typeof API_CONFIG.timeout === 'number' ? API_CONFIG.timeout : 8000;
@@ -149,24 +205,26 @@ export async function apiRequest<T = any>(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Network error occurred";
 
-    // Global Error Toast Notification for Network Failures
-    toast.error("API Connection Failed", {
-      id: "network-error-toast",
-      description: errorMessage,
-      action: {
-        label: "Retry",
-        onClick: () => window.location.reload(),
-      },
-      cancel: {
-        label: "Copy Error",
-        onClick: () => {
-          navigator.clipboard.writeText(
-            JSON.stringify({ endpoint: url, error: errorMessage }, null, 2)
-          );
-          toast.success("Error copied to clipboard", { duration: 2000 });
+    // Global Error Toast Notification for Network Failures (unless silenced)
+    if (!silentErrors) {
+      toast.error("API Connection Failed", {
+        id: "network-error-toast",
+        description: errorMessage,
+        action: {
+          label: "Retry",
+          onClick: () => window.location.reload(),
         },
-      },
-    });
+        cancel: {
+          label: "Copy Error",
+          onClick: () => {
+            navigator.clipboard.writeText(
+              JSON.stringify({ endpoint: url, error: errorMessage }, null, 2)
+            );
+            toast.success("Error copied to clipboard", { duration: 2000 });
+          },
+        },
+      });
+    }
     throw new ApiError(
       ApiErrorCode.NETWORK_ERROR,
       `Network Error: ${errorMessage}`,
@@ -177,62 +235,88 @@ export async function apiRequest<T = any>(
 
   if (!response.ok) {
     const errorCode = mapStatusCodeToErrorCode(response.status);
+    let errorData: { message?: string; status?: number; [key: string]: unknown } = {
+      message: `Request failed with status ${response.status}`,
+      status: response.status,
+    };
 
-    // Handle 401 Unauthorized - clear token, notify auth layer, and throw
+    try {
+      const parsed = await response.json();
+      if (parsed && typeof parsed === "object") {
+        errorData = parsed as { message?: string; status?: number; [key: string]: unknown };
+      }
+    } catch {
+      errorData = {
+        message: `Request failed with status ${response.status}`,
+        status: response.status,
+      };
+    }
+
+    const errorMessage =
+      typeof errorData.message === "string" && errorData.message.trim().length > 0
+        ? errorData.message
+        : "Request failed";
+
+    // Handle 401 Unauthorized - clear token, notify auth layer, and throw.
+    // Skip the side-effects when the caller opted into silentErrors (e.g. the
+    // SIWS flow hitting /auth/* endpoints, where a 401 means a bad nonce, not
+    // an expired session).
     if (response.status === 401) {
-      clearToken();
-      _onExpiredCallback?.();
-      toast.error("Session expired", {
-        description: "Please sign in again to continue.",
-        action: { label: "Sign In", onClick: () => window.location.reload() },
-      });
+      if (!silentErrors) {
+        clearToken();
+        _onExpiredCallback?.();
+        toast.error("Session expired", {
+          description: "Please sign in again to continue.",
+          action: { label: "Sign In", onClick: () => window.location.reload() },
+        });
+      }
       throw new ApiError(
         ApiErrorCode.UNAUTHORIZED,
         "Unauthorized - please sign in again",
-        401
+        401,
+        errorData,
       );
     }
 
-    const errorData = await response.json().catch(() => ({
-      message: `Request failed with status ${response.status}`,
-      status: response.status,
-    }));
-
-    const errorMessage = errorData.message || "Request failed";
-
-    // Global Error Toast Notification with Actions
-    toast.error("API Request Failed", {
-      id: "api-error-toast",
-      description: errorMessage,
-      action: {
-        label: "Retry",
-        onClick: () => window.location.reload(), // Simple retry mechanism
-      },
-      cancel: {
-        label: "Copy Error",
-        onClick: () => {
-          navigator.clipboard.writeText(
-            JSON.stringify(
-              { endpoint: url, status: response.status, error: errorData },
-              null,
-              2
-            )
-          );
-          toast.success("Error copied to clipboard", { duration: 2000 });
+    // Global Error Toast Notification with Actions (unless silenced)
+    if (!silentErrors) {
+      toast.error("API Request Failed", {
+        id: "api-error-toast",
+        description: errorMessage,
+        action: {
+          label: "Retry",
+          onClick: () => window.location.reload(), // Simple retry mechanism
         },
-      },
-    });
+        cancel: {
+          label: "Copy Error",
+          onClick: () => {
+            navigator.clipboard.writeText(
+              JSON.stringify(
+                { endpoint: url, status: response.status, error: errorData },
+                null,
+                2
+              )
+            );
+            toast.success("Error copied to clipboard", { duration: 2000 });
+          },
+        },
+      });
+    }
 
     throw new ApiError(errorCode, errorMessage, response.status, errorData);
   }
 
-  // Handle empty responses
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    return {} as T;
+  // Handle empty responses and JSON parsing defensively.
+  const contentType = response.headers?.get?.("content-type") ?? "";
+  if (contentType.includes("application/json") || typeof response.json === "function") {
+    try {
+      return (await response.json()) as T;
+    } catch {
+      return {} as T;
+    }
   }
 
-  return response.json();
+  return {} as T;
 }
 
 /**

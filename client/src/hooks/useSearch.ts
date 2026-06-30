@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { searchRaffles } from "../services/raffleService";
 import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
+import { getApiErrorMessage } from "../services/apiClient";
 
 export const useSearch = (query: string, categories: string[] = []) => {
     const [results, setResults] = useState<ApiRaffleListItem[]>([]);
@@ -29,7 +30,7 @@ export const useSearch = (query: string, categories: string[] = []) => {
             })
             .catch((err: unknown) => {
                 if (currentRequest !== requestId.current) return;
-                setError(err instanceof Error ? err : new Error("Search failed"));
+                setError(new Error(getApiErrorMessage(err, "Search failed")));
             })
             .finally(() => {
                 if (currentRequest !== requestId.current) return;

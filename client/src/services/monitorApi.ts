@@ -1,3 +1,12 @@
+/**
+ * Monitor API Service
+ *
+ * Endpoint-at-a-glance metrics for the queue (stats, jobs, latency, errors).
+ * Calls go through `apiRequest` so failures surface as typed `ApiError`
+ * instances; admin endpoints use a static `X-Admin-Token` in the request
+ * headers instead of a JWT, and toasts are suppressed with `silentErrors`.
+ */
+
 // Inline type definitions mirroring backend/src/api/rest/monitor/monitor.types.ts
 export type JobStatus = 'pending' | 'completed' | 'failed';
 
@@ -39,27 +48,27 @@ export interface ErrorRecord {
   xdr: string;
 }
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
-const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN as string;
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN as string | undefined;
 
-function adminHeaders(): HeadersInit {
-  return { 'X-Admin-Token': ADMIN_TOKEN };
+function adminHeaders(): Record<string, string> {
+  return ADMIN_TOKEN ? { 'X-Admin-Token': ADMIN_TOKEN } : {};
 }
 
-async function get<T>(path: string, params?: Record<string, string>): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`);
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+function buildQuery(params?: Record<string, string | number | undefined>): string {
+  if (!params) return '';
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) search.set(k, String(v));
   }
-  const res = await fetch(url.toString(), { headers: adminHeaders() });
-  if (!res.ok) {
-    throw new Error(`Monitor API error ${res.status}: ${res.statusText}`);
-  }
-  return res.json() as Promise<T>;
+  const q = search.toString();
+  return q ? `?${q}` : '';
 }
 
 export async function fetchStats(): Promise<QueueStatsResponse> {
-  return get<QueueStatsResponse>('/monitor/stats');
+  return api.get<QueueStatsResponse>('/monitor/stats', {
+    headers: adminHeaders(),
+    silentErrors: true,
+  });
 }
 
 export async function fetchJobs(params?: {
@@ -67,27 +76,27 @@ export async function fetchJobs(params?: {
   limit?: number;
   cursor?: string;
 }): Promise<PaginatedJobsResponse> {
-  const query: Record<string, string> = {};
-  if (params?.status !== undefined) query.status = params.status;
-  if (params?.limit !== undefined) query.limit = String(params.limit);
-  if (params?.cursor !== undefined) query.cursor = params.cursor;
-  return get<PaginatedJobsResponse>('/monitor/jobs', query);
+  return api.get<PaginatedJobsResponse>(`/monitor/jobs${buildQuery(params)}`, {
+    headers: adminHeaders(),
+    silentErrors: true,
+  });
 }
 
 export async function fetchLatency(params?: {
   from?: string;
   to?: string;
 }): Promise<LatencyPoint[]> {
-  const query: Record<string, string> = {};
-  if (params?.from !== undefined) query.from = params.from;
-  if (params?.to !== undefined) query.to = params.to;
-  return get<LatencyPoint[]>('/monitor/latency', query);
+  return api.get<LatencyPoint[]>(`/monitor/latency${buildQuery(params)}`, {
+    headers: adminHeaders(),
+    silentErrors: true,
+  });
 }
 
 export async function fetchErrors(params?: {
   limit?: number;
 }): Promise<ErrorRecord[]> {
-  const query: Record<string, string> = {};
-  if (params?.limit !== undefined) query.limit = String(params.limit);
-  return get<ErrorRecord[]>('/monitor/errors', query);
+  return api.get<ErrorRecord[]>(`/monitor/errors${buildQuery(params)}`, {
+    headers: adminHeaders(),
+    silentErrors: true,
+  });
 }

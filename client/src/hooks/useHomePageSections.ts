@@ -1,11 +1,14 @@
 /**
  * Home Page Section Loaders
- * Isolates each data section (featured, recent, stats, leaderboard) with independent loading/error states
- * Prevents one failed request from blanking the whole page
+ *
+ * Each section has its own loading/error state so a failing subsection doesn't
+ * blank the whole page. All HTTP goes through `apiRequest`, so failures are
+ * typed `ApiError` instances and surfaced via `getApiErrorMessage`.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import type { ApiRaffleListItem } from '../types/types';
+import { api, getApiErrorMessage } from '../services/apiClient';
 
 export interface SectionState<T> {
   data: T | null;
@@ -25,14 +28,15 @@ export function useFeaturedRaffles(): SectionState<ApiRaffleListItem[]> {
   const fetch = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const response = await fetch('/api/raffles/featured?limit=3');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const json = await response.json();
+      const json = await api.get<{ raffles: ApiRaffleListItem[] }>(
+        '/raffles/featured?limit=3',
+        { silentErrors: true },
+      );
       setState(prev => ({ ...prev, data: json.raffles, loading: false }));
     } catch (err) {
       setState(prev => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'Failed to load featured raffles',
+        error: getApiErrorMessage(err, 'Failed to load featured raffles'),
         loading: false,
       }));
     }
@@ -56,14 +60,15 @@ export function useRecentRaffles(): SectionState<ApiRaffleListItem[]> {
   const fetch = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const response = await fetch('/api/raffles?status=open&limit=6&sort=recent');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const json = await response.json();
+      const json = await api.get<{ raffles: ApiRaffleListItem[] }>(
+        '/raffles?status=open&limit=6&sort=recent',
+        { silentErrors: true },
+      );
       setState(prev => ({ ...prev, data: json.raffles, loading: false }));
     } catch (err) {
       setState(prev => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'Failed to load recent raffles',
+        error: getApiErrorMessage(err, 'Failed to load recent raffles'),
         loading: false,
       }));
     }
@@ -84,6 +89,14 @@ export interface PlatformStats {
   prizesDistributedXlm: string;
 }
 
+interface PlatformStatsResponse {
+  total_raffles: number;
+  total_tickets: number;
+  total_volume_xlm: string;
+  unique_participants: number;
+  prizes_distributed_xlm: string;
+}
+
 export function usePlatformStats(): SectionState<PlatformStats> {
   const [state, setState] = useState<SectionState<PlatformStats>>({
     data: null,
@@ -95,9 +108,9 @@ export function usePlatformStats(): SectionState<PlatformStats> {
   const fetch = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const response = await fetch('/api/stats/platform');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const json = await response.json();
+      const json = await api.get<PlatformStatsResponse>('/stats/platform', {
+        silentErrors: true,
+      });
       setState(prev => ({
         ...prev,
         data: {
@@ -112,7 +125,7 @@ export function usePlatformStats(): SectionState<PlatformStats> {
     } catch (err) {
       setState(prev => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'Failed to load platform stats',
+        error: getApiErrorMessage(err, 'Failed to load platform stats'),
         loading: false,
       }));
     }
@@ -133,6 +146,15 @@ export interface LeaderboardEntry {
   rank?: number;
 }
 
+interface LeaderboardPreviewResponse {
+  entries: Array<{
+    address: string;
+    total_tickets?: number;
+    total_wins?: number;
+    total_volume_xlm?: string;
+  }>;
+}
+
 export function useLeaderboardPreview(): SectionState<LeaderboardEntry[]> {
   const [state, setState] = useState<SectionState<LeaderboardEntry[]>>({
     data: null,
@@ -144,12 +166,13 @@ export function useLeaderboardPreview(): SectionState<LeaderboardEntry[]> {
   const fetch = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const response = await fetch('/api/leaderboard?limit=5&by=wins');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const json = await response.json();
+      const json = await api.get<LeaderboardPreviewResponse>(
+        '/leaderboard?limit=5&by=wins',
+        { silentErrors: true },
+      );
       setState(prev => ({
         ...prev,
-        data: json.entries.map((e: any, i: number) => ({
+        data: json.entries.map((e, i: number) => ({
           address: e.address,
           totalTickets: e.total_tickets,
           totalWins: e.total_wins,
@@ -161,7 +184,7 @@ export function useLeaderboardPreview(): SectionState<LeaderboardEntry[]> {
     } catch (err) {
       setState(prev => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'Failed to load leaderboard',
+        error: getApiErrorMessage(err, 'Failed to load leaderboard'),
         loading: false,
       }));
     }
