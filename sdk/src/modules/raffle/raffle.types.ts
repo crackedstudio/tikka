@@ -46,6 +46,14 @@ export interface CreateRaffleResult {
   ledger: number;
 }
 
+/** Pre-confirmation fee preview for raffle creation (no submission). */
+export interface CreateRaffleEstimate {
+  /** Estimated network fee in human-readable XLM (7 decimal places). */
+  xlm: string;
+  /** Estimated network fee in stroops. */
+  stroops: string;
+}
+
 /** On-chain raffle data. */
 export interface RaffleData {
   raffleId: number;
