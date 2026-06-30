@@ -11,6 +11,7 @@ import { LagMonitorService } from '../health/lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { PriorityClassifierService } from './priority-classifier.service';
+import { AuditLogService } from '../audit/audit-log.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
@@ -38,6 +39,7 @@ export class RandomnessWorker {
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
     private readonly configService: ConfigService,
+    private readonly auditLogService: AuditLogService,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -156,6 +158,18 @@ export class RandomnessWorker {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
 
+      // Record audit log immediately after successful submission
+      const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
+      await this.auditLogService.record({
+        raffleId,
+        vrfProof: randomness.proof,
+        txHash: result.txHash,
+        ledger: result.ledger,
+        oracleAddress,
+        timestamp: new Date(),
+        requestId,
+      });
+
       this.processedRequestIds.add(requestId);
 
       this.logger.log(
@@ -225,6 +239,18 @@ export class RandomnessWorker {
       if (!result.success) {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
+
+      // Record audit log immediately after successful submission
+      const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
+      await this.auditLogService.record({
+        raffleId,
+        vrfProof: aggregated.proof,
+        txHash: result.txHash,
+        ledger: result.ledger,
+        oracleAddress,
+        timestamp: new Date(),
+        requestId,
+      });
 
       this.processedRequestIds.add(requestId);
 

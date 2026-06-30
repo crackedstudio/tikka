@@ -49,16 +49,17 @@ export class TransparencyController {
     @Query('limit') limit?: string | number,
     @Query('offset') offset?: string | number,
     @Query('raffle_id') raffleId?: string | number,
+    @Query('tx_hash') txHash?: string,
   ): Promise<TransparencyLogResponseDto> {
     const safeLimit = this.clampNumber(limit, 1, 100, 20);
     const safeOffset = this.clampNumber(offset, 0, 10000, 0);
     const safeRaffleId = raffleId != null ? Number(raffleId) : null;
 
     // Build cache key
-    const cacheKey = `transparency:${safeLimit}:${safeOffset}${safeRaffleId ? `:${safeRaffleId}` : ''}`;
+    const cacheKey = `transparency:${safeLimit}:${safeOffset}${safeRaffleId ? `:${safeRaffleId}` : ''}${txHash ? `:${txHash}` : ''}`;
 
     return this.cacheService.wrap(cacheKey, 60, async () =>
-      this.queryTransparencyLog(safeLimit, safeOffset, safeRaffleId),
+      this.queryTransparencyLog(safeLimit, safeOffset, safeRaffleId, txHash),
     );
   }
 
@@ -70,6 +71,7 @@ export class TransparencyController {
     limit: number,
     offset: number,
     raffleId?: number | null,
+    txHash?: string,
   ): Promise<TransparencyLogResponseDto> {
     try {
       // Build query
@@ -84,6 +86,10 @@ export class TransparencyController {
       // Apply raffle filter if provided
       if (raffleId != null) {
         query = query.eq('raffle_id', raffleId);
+      }
+
+      if (txHash) {
+        query = query.eq('tx_hash', txHash);
       }
 
       // Apply pagination

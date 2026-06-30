@@ -198,3 +198,109 @@ describe('RafflesController — uploadImage', () => {
     );
   });
 });
+
+describe('RafflesController — upsertMetadata idempotency', () => {
+  let controller: RafflesController;
+  let rafflesService: { upsertMetadata: jest.Mock };
+  let idempotencyService: {
+    get: jest.Mock;
+    lock: jest.Mock;
+    resolve: jest.Mock;
+  };
+
+  beforeEach(async () => {
+    rafflesService = {
+      upsertMetadata: jest.fn().mockResolvedValue({
+        raffleId: 42,
+        title: 'Test Raffle',
+        description: 'A test raffle',
+      }),
+    };
+
+    idempotencyService = {
+      get: jest.fn().mockResolvedValue(null),
+      lock: jest.fn().mockResolvedValue(true),
+      resolve: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [RafflesController],
+      providers: [
+        { provide: RafflesService, useValue: rafflesService },
+        { provide: StorageService, useValue: {} },
+        { provide: IdempotencyService, useValue: idempotencyService },
+      ],
+    }).compile();
+
+    controller = module.get<RafflesController>(RafflesController);
+  });
+
+  it('processes the first request and caches the response', async () => {
+    const payload = {
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    const result = await controller.upsertMetadata(42, 'GABC123', payload);
+
+    expect(result).toEqual({
+      raffleId: 42,
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    });
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledWith(42, payload, 'GABC123');
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns cached response for duplicate request with same Idempotency-Key', async () => {
+    const cachedResponse = {
+      raffleId: 42,
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    idempotencyService.get.mockResolvedValueOnce({
+      status: 'done',
+      response: cachedResponse,
+    });
+
+    const payload = {
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    const result = await controller.upsertMetadata(42, 'GABC123', payload);
+
+    expect(result).toEqual(cachedResponse);
+    expect(rafflesService.upsertMetadata).not.toHaveBeenCalled();
+    expect(idempotencyService.lock).not.toHaveBeenCalled();
+  });
+
+  it('does not call service method twice for same Idempotency-Key', async () => {
+    const cachedResponse = {
+      raffleId: 42,
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    // First request: no cache, will call service
+    idempotencyService.get.mockResolvedValueOnce(null);
+    
+    const payload = {
+      title: 'Test Raffle',
+      description: 'A test raffle',
+    };
+
+    await controller.upsertMetadata(42, 'GABC123', payload);
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
+
+    // Second request with same key: cache hit, won't call service
+    idempotencyService.get.mockResolvedValueOnce({
+      status: 'done',
+      response: cachedResponse,
+    });
+
+    await controller.upsertMetadata(42, 'GABC123', payload);
+    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1); // Still only called once
+  });
+});

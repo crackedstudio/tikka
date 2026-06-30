@@ -6,6 +6,7 @@ import {
 } from "@creit.tech/stellar-wallets-kit";
 
 const SELECTED_WALLET_ID = "selectedWalletId";
+const LAST_CONNECTED_WALLET_TYPE = "tikka_last_connected_wallet";
 const TEST_MODE_WALLET_AVAILABLE_KEY = "tikka_test_wallet_available";
 const TEST_MODE_WALLET_CONNECTED_KEY = "tikka_test_wallet_connected";
 const TEST_MODE_WALLET_TYPE_KEY = "tikka_test_wallet_type";
@@ -284,6 +285,7 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
       }
       localStorage.setItem(SELECTED_WALLET_ID, "test-wallet");
       localStorage.setItem(TEST_MODE_WALLET_CONNECTED_KEY, "true");
+      localStorage.setItem(LAST_CONNECTED_WALLET_TYPE, "freighter");
     }
     return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
   }
@@ -295,6 +297,12 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
         try {
           await setWallet(option.id);
           const address = await getAccountAddress();
+          
+          // Store the last connected wallet type
+          if (typeof window !== "undefined" && address) {
+            localStorage.setItem(LAST_CONNECTED_WALLET_TYPE, option.id);
+          }
+          
           resolve(address ? { success: true, address } : { success: false, error: "No address found" });
         } catch (error: any) {
           resolve({ success: false, error: error.message });
@@ -310,7 +318,10 @@ async function setWallet(walletId: string): Promise<void> {
 }
 
 export async function disconnectWallet(): Promise<void> {
-  if (typeof window !== "undefined") localStorage.removeItem(SELECTED_WALLET_ID);
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(SELECTED_WALLET_ID);
+    localStorage.removeItem(LAST_CONNECTED_WALLET_TYPE);
+  }
   getKit().disconnect();
 }
 
@@ -387,6 +398,71 @@ export async function isWalletInstalled(): Promise<boolean> {
     !!(window as any).xBull ||
     !!(window as any).rabet
   );
+}
+
+/**
+ * Attempts to auto-reconnect to a previously connected wallet.
+ * Returns true if reconnection was successful, false otherwise.
+ */
+export async function attemptAutoReconnect(): Promise<{ success: boolean; address?: string }> {
+  if (IS_TEST_MODE) {
+    if (isTestWalletConnected()) {
+      return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
+    }
+    return { success: false };
+  }
+
+  try {
+    // Check if there was a previously connected wallet
+    const lastWalletType = typeof window !== "undefined" 
+      ? localStorage.getItem(LAST_CONNECTED_WALLET_TYPE)
+      : null;
+
+    if (!lastWalletType) {
+      return { success: false };
+    }
+
+    // Currently only Freighter supports auto-reconnect via isConnected API
+    if (lastWalletType.toLowerCase().includes("freighter")) {
+      // Check if Freighter extension is available
+      if (typeof window === "undefined" || !(window as any).freighter) {
+        return { success: false };
+      }
+
+      try {
+        // Try to get freighter API
+        const freighterApi = await import('@stellar/freighter-api');
+        
+        // Check if already connected
+        if (typeof freighterApi.isConnected === 'function') {
+          const connected = await freighterApi.isConnected();
+          
+          if (connected) {
+            // Set the wallet without showing modal
+            const selectedWalletId = getSelectedWalletId();
+            if (!selectedWalletId) {
+              await setWallet(FREIGHTER_ID);
+            }
+            
+            // Get the address
+            const address = await getAccountAddress();
+            
+            if (address) {
+              return { success: true, address };
+            }
+          }
+        }
+      } catch (error) {
+        console.debug("Auto-reconnect failed:", error);
+        return { success: false };
+      }
+    }
+
+    return { success: false };
+  } catch (error) {
+    console.debug("Auto-reconnect error:", error);
+    return { success: false };
+  }
 }
 
 export async function setNetwork(network: string): Promise<void> {

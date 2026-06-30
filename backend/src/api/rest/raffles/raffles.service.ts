@@ -17,7 +17,9 @@ import {
   IndexerRaffleData,
   IndexerListRafflesFilters,
   IndexerListRafflesResponse,
+  IndexerParticipantListResponse,
 } from '../../../services/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata-redis.service';
 import { PurchaseTicketPayload } from './dto';
 
 /** Merged raffle detail: contract data + off-chain metadata */
@@ -54,6 +56,7 @@ export class RafflesService {
     private readonly indexerService: IndexerService,
     private readonly config: ConfigService,
     private readonly pinningService: PinningService,
+    private readonly redis: MetadataRedisService,
   ) {}
 
   /**
@@ -212,6 +215,44 @@ export class RafflesService {
     // For now, return empty array as placeholder
     // This will be populated by the indexer service once ticket purchase events are indexed
     return [];
+  }
+
+  /**
+   * Get paginated list of participants (ticket holders) for a raffle.
+   * Results are cached in Redis for 30 seconds.
+   */
+  async getParticipants(
+    raffleId: number,
+    limit = 20,
+    offset = 0,
+  ): Promise<IndexerParticipantListResponse> {
+    const cacheKey = `raffle:${raffleId}:participants:${limit}:${offset}`;
+
+    // Try cache first
+    if (this.redis.isEnabled()) {
+      try {
+        const cached = await this.redis.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached) as IndexerParticipantListResponse;
+        }
+      } catch {
+        // Cache read failed, continue to fetch from indexer
+      }
+    }
+
+    // Fetch from indexer
+    const result = await this.indexerService.getRaffleParticipants(raffleId, limit, offset);
+
+    // Cache for 30 seconds
+    if (this.redis.isEnabled()) {
+      try {
+        await this.redis.setEx(cacheKey, 30, JSON.stringify(result));
+      } catch {
+        // Cache write failed, continue without caching
+      }
+    }
+
+    return result;
   }
 
   private mergeRaffleDetail(

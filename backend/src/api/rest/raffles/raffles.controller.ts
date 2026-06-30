@@ -16,9 +16,7 @@ import {
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { Observable, fromEvent } from "rxjs";
-import { map } from "rxjs/operators";
-import { SseService } from "../../../services/sse.service";import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
@@ -33,6 +31,9 @@ import {
   type BatchMetadataQueryDto,
   PurchaseTicketSchema,
   PurchaseTicketDto,
+  ParticipantListQuerySchema,
+  ParticipantListQueryDto,
+  ParticipantListResponseDto,
 } from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
@@ -107,39 +108,24 @@ export class RafflesController {
   }
 
   /**
-   * GET /raffles/:id/events — SSE stream for real-time ticket count updates.
-   * Streams `ticket_count_updated` events whenever the indexer processes a ticket_purchased event.
-   */
-  @Public()
-  @Sse(":id/events")
-  @ApiOperation({ summary: "SSE stream for real-time ticket count updates" })
-  @ApiParam({ name: "id", description: "Internal raffle ID" })
-  ticketCountEvents(
-    @Param("id", ParseIntPipe) id: number,
-  ): Observable<MessageEvent> {
-    const subject = this.sseService.subscribe(id);
-    return subject.pipe(
-      map((data) => ({
-        type: "ticket_count_updated",
-        data: JSON.stringify({ raffleId: data.raffleId, ticketsSold: data.ticketsSold }),
-      } as MessageEvent)),
-    );
-  }
-  /**
-   * GET /raffles/:id/participants?since= — Get recent participants for a raffle.
-   * Optional query param 'since' (unix timestamp in ms) to get participants since that time.
+   * GET /raffles/:id/participants?limit=&offset= — List ticket holders for a raffle.
+   * Returns paginated list of participants with ticket counts.
+   * limit: max 100, default 20
+   * offset: default 0
    */
   @Public()
   @Get(":id/participants")
-  @ApiOperation({ summary: "Get recent participants for a raffle" })
+  @ApiOperation({ summary: "List participants (ticket holders) for a raffle" })
   @ApiParam({ name: "id", description: "Internal raffle ID" })
-  @ApiResponse({ status: 200, description: "Recent participants retrieved successfully" })
+  @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 100, default 20" })
+  @ApiQuery({ name: "offset", required: false, type: Number, description: "Offset for pagination, default 0" })
+  @ApiResponse({ status: 200, description: "Participants list retrieved successfully", type: ParticipantListResponseDto })
+  @UsePipes(new (createZodPipe(ParticipantListQuerySchema))())
   async getParticipants(
     @Param("id", ParseIntPipe) id: number,
-    @Query("since") since?: string,
+    @Query() query: ParticipantListQueryDto,
   ) {
-    const sinceTimestamp = since ? parseInt(since, 10) : 0;
-    return this.rafflesService.getRecentParticipants(id, sinceTimestamp);
+    return this.rafflesService.getParticipants(id, query.limit, query.offset);
   }
 
   /**
@@ -174,7 +160,10 @@ export class RafflesController {
   @Post(":raffleId/metadata")
   @ApiOperation({ summary: "Create or update raffle metadata" })
   @ApiParam({ name: "raffleId", description: "Internal raffle ID" })
+  @ApiHeader({ name: "Idempotency-Key", description: "Client-generated UUID for safe retries. Prevents duplicate metadata writes if request is retried within 24 hours.", required: false })
   @ApiResponse({ status: 201, description: "Metadata created/updated successfully" })
+  @ApiResponse({ status: 409, description: "Conflict — request with this Idempotency-Key is already in progress" })
+  @UseInterceptors(IdempotencyInterceptor)
   async upsertMetadata(
     @Param("raffleId", ParseIntPipe) raffleId: number,
     @CurrentUser("address") address: string,

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { StatsService } from './stats.service';
@@ -33,5 +33,11 @@ export class StatsController {
     @Body('seed') seed: string,
   ) {
     return this.statsService.verifyDraw(oraclePublicKey, requestId, proof, seed);
+  }
+
+  /** GET /stats/verify?txHash=:hash — Verify a VRF draw result by its transaction hash. */
+  @Get('verify')
+  async verifyDrawByTxHash(@Query('txHash') txHash: string) {
+    return this.statsService.verifyByTxHash(txHash);
   }
 }
