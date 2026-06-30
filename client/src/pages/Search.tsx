@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useSearch } from "../hooks/useSearch";
+import { useSearch, type SortOption } from "../hooks/useSearch";
 import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import RaffleCard from "../components/cards/RaffleCard";
 import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
@@ -19,7 +19,14 @@ const SearchPage: React.FC = () => {
             : [],
         [categoriesParam]
     );
-    const { results, isLoading, error } = useSearch(query, selectedCategories);
+    const sortParam = (searchParams.get("sort") as SortOption) || "relevance";
+    const { results, isLoading, error } = useSearch(query, selectedCategories, sortParam);
+
+    const handleSortChange = useCallback((newSort: SortOption) => {
+        const params = new URLSearchParams(searchParams);
+        params.set("sort", newSort);
+        setSearchParams(params, { replace: true });
+    }, [searchParams, setSearchParams]);
     const navigate = useNavigate();
 
     const toggleCategory = useCallback((category: string) => {
@@ -52,6 +59,31 @@ const SearchPage: React.FC = () => {
                 {query ? `Search results for "${query}"` : "Search Raffles"}
             </h1>
 
+            <div className="flex items-center gap-3 mb-4">
+                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Sort by</span>
+                {(
+                    [
+                        { value: "relevance", label: "Relevance" },
+                        { value: "ending_soon", label: "Ending Soon" },
+                        { value: "price_asc", label: "Price: Low–High" },
+                        { value: "most_tickets", label: "Most Tickets" },
+                    ] as { value: SortOption; label: string }[]
+                ).map(({ value, label }) => (
+                    <button
+                        key={value}
+                        onClick={() => handleSortChange(value)}
+                        className={`
+                            px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap
+                            ${sortParam === value
+                                ? "bg-[#FE3796] text-white shadow-lg shadow-[#FE3796]/20"
+                                : "bg-white dark:bg-[#11172E] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:border-[#FE3796]/50"
+                            }
+                        `}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
             <div className="mb-6 overflow-x-auto scrollbar-hide">
                 <div className="flex gap-2 min-w-max pb-2">
                     {CATEGORIES.map((category) => {

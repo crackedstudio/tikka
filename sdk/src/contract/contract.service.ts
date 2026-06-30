@@ -94,6 +94,20 @@ export class ContractService {
     this.lifecycle.setWallet(adapter);
   }
 
+  /**
+   * Returns the public key of the currently connected wallet.
+   * @throws TikkaSdkError(WalletNotConnected) if no wallet is connected
+   */
+  async getPublicKey(): Promise<string> {
+    if (!this.wallet) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.WalletNotConnected,
+        'No wallet connected',
+      );
+    }
+    return this.wallet.getPublicKey();
+  }
+
   /* ---------------- STAGE METHODS (fine-grained pipeline) ---------------- */
 
   /**
