@@ -21,6 +21,7 @@ export const API_CONFIG = {
     raffles: {
       list: '/raffles',
       detail: (id: string) => `/raffles/${id}`,
+      events: (id: string) => `/raffles/${id}/events`,
       metadata: '/raffles/metadata',
       uploadImage: '/raffles/upload-image',
     },

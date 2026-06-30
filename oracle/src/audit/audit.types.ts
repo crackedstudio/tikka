@@ -14,6 +14,7 @@ export interface VrfAuditRecord {
   revealed_at: string | null; // ISO 8601
   ledger_sequence: number | null;
   chain_hash: string;
+  tx_hash: string | null;
 }
 
 export interface CreateCommitParams {
@@ -32,4 +33,14 @@ export interface UpdateRevealParams {
   proof: string;
   revealedAt: Date;
   ledgerSequence: number;
+}
+
+export interface RecordSubmissionParams {
+  raffleId: number;
+  vrfProof: string;
+  txHash: string;
+  ledger: number;
+  oracleAddress: string;
+  timestamp: Date;
+  requestId?: string;
 }

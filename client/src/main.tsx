@@ -21,6 +21,14 @@ if (
   document.documentElement.classList.remove("dark");
 }
 
+// Initialize RTL direction for Arabic locale
+const savedLocale = localStorage.getItem("tikka-locale");
+if (savedLocale === "ar") {
+  document.documentElement.setAttribute("dir", "rtl");
+} else {
+  document.documentElement.setAttribute("dir", "ltr");
+}
+
 // Load Vercel observability only in production builds, not in test or dev.
 // import.meta.env.PROD is false during `vite dev` and vitest runs.
 const isProd = import.meta.env.PROD && import.meta.env.MODE !== 'test';

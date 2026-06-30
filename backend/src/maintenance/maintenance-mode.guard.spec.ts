@@ -2,6 +2,7 @@ import { ExecutionContext, ServiceUnavailableException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { MaintenanceModeGuard } from './maintenance-mode.guard';
 import { MaintenanceModeService } from './maintenance-mode.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('MaintenanceModeGuard', () => {
   const reflector = {
@@ -13,12 +14,16 @@ describe('MaintenanceModeGuard', () => {
     isScopeActive: jest.fn(),
   } as unknown as MaintenanceModeService;
 
-  const createContext = (method = 'GET') =>
+  const configService = {
+    get: jest.fn(),
+  } as unknown as ConfigService;
+
+  const createContext = (method = 'GET', headers: Record<string, string> = {}) =>
     ({
       getHandler: jest.fn(),
       getClass: jest.fn(),
       switchToHttp: jest.fn(() => ({
-        getRequest: jest.fn(() => ({ method })),
+        getRequest: jest.fn(() => ({ method, headers })),
       })),
     }) as unknown as ExecutionContext;
 
@@ -32,6 +37,7 @@ describe('MaintenanceModeGuard', () => {
     const guard = new MaintenanceModeGuard(
       reflector,
       maintenanceModeService,
+      configService,
     );
 
     expect(guard.canActivate(createContext())).toBe(true);
@@ -44,6 +50,7 @@ describe('MaintenanceModeGuard', () => {
     const guard = new MaintenanceModeGuard(
       reflector,
       maintenanceModeService,
+      configService,
     );
 
     expect(guard.canActivate(createContext())).toBe(true);
@@ -57,6 +64,7 @@ describe('MaintenanceModeGuard', () => {
     const guard = new MaintenanceModeGuard(
       reflector,
       maintenanceModeService,
+      configService,
     );
 
     expect(guard.canActivate(createContext('GET'))).toBe(true);
@@ -70,6 +78,7 @@ describe('MaintenanceModeGuard', () => {
     const guard = new MaintenanceModeGuard(
       reflector,
       maintenanceModeService,
+      configService,
     );
 
     expect(() =>
@@ -85,10 +94,27 @@ describe('MaintenanceModeGuard', () => {
     const guard = new MaintenanceModeGuard(
       reflector,
       maintenanceModeService,
+      configService,
     );
 
     expect(() =>
       guard.canActivate(createContext('GET')),
     ).toThrow(ServiceUnavailableException);
+  });
+
+  it('allows request when valid bypass token is provided', () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue(false);
+    (maintenanceModeService.isEnabled as jest.Mock).mockReturnValue(true);
+    (maintenanceModeService.isScopeActive as jest.Mock).mockReturnValue(true);
+    (configService.get as jest.Mock).mockReturnValue('secret-token');
+
+    const guard = new MaintenanceModeGuard(
+      reflector,
+      maintenanceModeService,
+      configService,
+    );
+
+    const context = createContext('GET', { authorization: 'Bearer secret-token' });
+    expect(guard.canActivate(context)).toBe(true);
   });
 });

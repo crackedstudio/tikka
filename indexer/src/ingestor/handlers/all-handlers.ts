@@ -8,6 +8,7 @@ import { xdr } from "@stellar/stellar-sdk";
 import { BaseEventHandler } from "./base-event.handler";
 import { DomainEvent } from "../event.types";
 import { RawSorobanEvent } from "../event-parser.interface";
+import { RaffleCancelledHandler } from "./raffle-cancelled.handler";
 
 @Injectable()
 export class DrawTriggeredHandler extends BaseEventHandler {
@@ -80,31 +81,6 @@ export class RandomnessReceivedHandler extends BaseEventHandler {
       };
     } catch (error) {
       this.logger.error(`Error parsing RandomnessReceived: ${error.message}`);
-      return null;
-    }
-  }
-}
-
-@Injectable()
-export class RaffleCancelledHandler extends BaseEventHandler {
-  constructor() {
-    super("RaffleCancelled");
-  }
-
-  parse(topics: xdr.ScVal[], value: xdr.ScVal): DomainEvent | null {
-    try {
-      const raffleId = this.toNumber(topics[1]);
-      const data = this.toNative(value);
-
-      if (raffleId === null || !data) return null;
-
-      return {
-        type: "RaffleCancelled",
-        raffle_id: raffleId,
-        reason: data.reason,
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing RaffleCancelled: ${error.message}`);
       return null;
     }
   }

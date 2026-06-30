@@ -3,10 +3,12 @@ import RaffleEndedEmail, {
   type RaffleEndedEmailProps,
 } from "./RaffleEndedEmail";
 import WinnerEmail, { type WinnerEmailProps } from "./WinnerEmail";
+import RaffleCancelledEmail, { type RaffleCancelledEmailProps } from "./RaffleCancelledEmail";
 
 export interface EmailTemplateRegistry {
   Winner: WinnerEmailProps;
   RaffleEnded: RaffleEndedEmailProps;
+  RaffleCancelled: RaffleCancelledEmailProps;
 }
 
 const templateFactories: {
@@ -16,6 +18,7 @@ const templateFactories: {
 } = {
   Winner: (props) => createElement(WinnerEmail, props),
   RaffleEnded: (props) => createElement(RaffleEndedEmail, props),
+  RaffleCancelled: (props) => createElement(RaffleCancelledEmail, props),
 };
 
 export type EmailTemplateName = keyof EmailTemplateRegistry;
