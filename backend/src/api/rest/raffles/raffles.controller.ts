@@ -15,7 +15,7 @@ import {
   UseInterceptors,
   UsePipes,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { FastifyRequest } from "fastify";
 import { MultipartFile } from "@fastify/multipart";
 import { Public } from "../../../auth/decorators/public.decorator";
@@ -30,6 +30,9 @@ import {
   type BatchMetadataQueryDto,
   PurchaseTicketSchema,
   PurchaseTicketDto,
+  ParticipantListQuerySchema,
+  ParticipantListQueryDto,
+  ParticipantListResponseDto,
 } from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
@@ -103,20 +106,24 @@ export class RafflesController {
   }
 
   /**
-   * GET /raffles/:id/participants?since= — Get recent participants for a raffle.
-   * Optional query param 'since' (unix timestamp in ms) to get participants since that time.
+   * GET /raffles/:id/participants?limit=&offset= — List ticket holders for a raffle.
+   * Returns paginated list of participants with ticket counts.
+   * limit: max 100, default 20
+   * offset: default 0
    */
   @Public()
   @Get(":id/participants")
-  @ApiOperation({ summary: "Get recent participants for a raffle" })
+  @ApiOperation({ summary: "List participants (ticket holders) for a raffle" })
   @ApiParam({ name: "id", description: "Internal raffle ID" })
-  @ApiResponse({ status: 200, description: "Recent participants retrieved successfully" })
+  @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 100, default 20" })
+  @ApiQuery({ name: "offset", required: false, type: Number, description: "Offset for pagination, default 0" })
+  @ApiResponse({ status: 200, description: "Participants list retrieved successfully", type: ParticipantListResponseDto })
+  @UsePipes(new (createZodPipe(ParticipantListQuerySchema))())
   async getParticipants(
     @Param("id", ParseIntPipe) id: number,
-    @Query("since") since?: string,
+    @Query() query: ParticipantListQueryDto,
   ) {
-    const sinceTimestamp = since ? parseInt(since, 10) : 0;
-    return this.rafflesService.getRecentParticipants(id, sinceTimestamp);
+    return this.rafflesService.getParticipants(id, query.limit, query.offset);
   }
 
   /**

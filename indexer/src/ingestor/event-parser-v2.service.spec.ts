@@ -248,6 +248,7 @@ describe("EventParserV2Service", () => {
     expect(parsed.type).toBe("RaffleCancelled");
     expect(parsed.raffle_id).toBe(9);
     expect(parsed.reason).toBe("not enough participants");
+    expect(parsed.schemaVersion).toBe(1);
   });
 
   it("parses TicketRefunded with all fields", () => {
