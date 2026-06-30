@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import { KeyService } from '../keys/key.service';

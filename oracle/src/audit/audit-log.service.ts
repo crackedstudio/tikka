@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -6,9 +7,10 @@ import { SUPABASE_CLIENT } from './supabase.provider';
 
 @Injectable()
 export class AuditLogService {
-  private readonly logger = new Logger(AuditLogService.name);
+  
 
   constructor(
+    private readonly logger: OracleLoggerService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
   ) {}
 

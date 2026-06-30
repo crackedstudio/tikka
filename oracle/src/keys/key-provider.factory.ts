@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KeyProvider, KeyProviderConfig } from './key-provider.interface';
@@ -9,7 +10,8 @@ import { GcpKmsKeyProvider } from './providers/gcp-kms-key.provider';
  * Factory for creating KeyProvider instances based on configuration.
  */
 export class KeyProviderFactory {
-  private static readonly logger = new Logger(KeyProviderFactory.name);
+  private static readonly logger = new OracleLoggerService();
+  
 
   /**
    * Creates a KeyProvider based on the configuration.

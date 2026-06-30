@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
 import { KeyProviderError } from '../key-provider.error';
@@ -20,13 +21,13 @@ import { KeyProviderError } from '../key-provider.error';
  */
 @Injectable()
 export class AwsKmsKeyProvider implements KeyProvider {
-  private readonly logger = new Logger(AwsKmsKeyProvider.name);
+  
   private kmsClient: any;
   private keyId: string;
   private publicKey: Buffer | null = null;
   private publicKeyString: string | null = null;
 
-  constructor(region: string, keyId: string) {
+  constructor(private readonly logger: OracleLoggerService, region: string, keyId: string) {
     if (!region || !keyId) {
       throw new KeyProviderError('AWS region and keyId are required for AwsKmsKeyProvider');
     }

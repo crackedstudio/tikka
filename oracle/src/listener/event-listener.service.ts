@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OracleLogFields } from '../logger/oracle-logger';
@@ -15,7 +16,7 @@ type PriorityClassifierService = any;
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
-    private readonly logger = new Logger(EventListenerService.name);
+    
     private horizonServer: StellarSdk.Horizon.Server;
     private readonly raffleContractId: string;
     private readonly networkPassphrase: string;
@@ -32,6 +33,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     private currentQueueDepth = 0;
 
     constructor(
+    private readonly logger: OracleLoggerService,
         private readonly configService: ConfigService,
         private readonly healthService: HealthService,
         private readonly lagMonitor: LagMonitorService,

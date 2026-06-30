@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
@@ -112,7 +113,7 @@ export interface RandomnessSubmissionPreview {
 
 @Injectable()
 export class TxSubmitterService {
-  private readonly logger = new Logger(TxSubmitterService.name);
+  
   private readonly rpcUrls: string[];
   private currentRpcIndex = 0;
   private rpcServer: any;
@@ -127,6 +128,7 @@ export class TxSubmitterService {
   private readonly alertWebhookUrl?: string;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly feeEstimator: FeeEstimatorService,
     private readonly keyService: KeyService,

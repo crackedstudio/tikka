@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
 
@@ -17,13 +18,14 @@ import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
  */
 @Injectable()
 export class GcpKmsKeyProvider implements KeyProvider {
-  private readonly logger = new Logger(GcpKmsKeyProvider.name);
+  
   private kmsClient: any;
   private keyVersionName: string;
   private publicKey: Buffer | null = null;
   private publicKeyString: string | null = null;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     projectId: string,
     keyPath: string,
   ) {
