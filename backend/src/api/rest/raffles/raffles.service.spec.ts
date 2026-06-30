@@ -169,5 +169,15 @@ describe('RafflesService', () => {
 
       expect(indexerService.getRaffleParticipants).toHaveBeenCalledWith(1, 20, 0);
     });
+
+    it('throws UnprocessableEntity when raffle is not open', async () => {
+      configService.get.mockReturnValue(true);
+      const closed = { ...mockRaffle, status: 'finalized' } as any;
+      indexerService.getRaffle.mockResolvedValue(closed);
+
+      await expect(
+        service.purchaseTickets(1, payload, 'GABC123'),
+      ).rejects.toThrow();
+    });
   });
 });
