@@ -123,6 +123,21 @@ export class StatsService {
     return result;
   }
 
+  async verifyByTxHash(txHash: string): Promise<{ verified: boolean; proof: string }> {
+    const log = await this.indexerService.getTransparencyLog(1, 0, undefined, txHash);
+    const entry = log.entries[0];
+    if (!entry) {
+      return { verified: false, proof: '' };
+    }
+    const result = this.performVerification(
+      this.config.get<string>('ORACLE_PUBLIC_KEY', ''),
+      entry.request_id,
+      entry.proof,
+      entry.seed,
+    );
+    return { verified: result.valid, proof: entry.proof };
+  }
+
   /**
    * Performs the actual VRF verification logic.
    */
