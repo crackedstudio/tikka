@@ -40,11 +40,37 @@ export async function fetchRaffleDetail(id: number): Promise<ApiRaffleDetail> {
 }
 
 export async function searchRaffles(
-  query: string,
+    query: string,
+    categories?: string[],
+    sort?: string,
 ): Promise<ApiRaffleListResponse> {
-  const trimmedQuery = query.trim();
-  const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}`;
-  return api.get<ApiRaffleListResponse>(endpoint);
+    const trimmedQuery = query.trim();
+    const sortParam = sort && sort !== 'relevance' ? `&sort=${encodeURIComponent(sort)}` : '';
+
+    if (!categories || categories.length === 0) {
+        const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}${sortParam}`;
+        return api.get<ApiRaffleListResponse>(endpoint);
+    }
+
+    const promises = categories.map((cat) => {
+        const endpoint = `${API_CONFIG.endpoints.search}?q=${encodeURIComponent(trimmedQuery)}&category=${encodeURIComponent(cat)}`;
+        return api.get<ApiRaffleListResponse>(endpoint);
+    });
+
+    const responses = await Promise.all(promises);
+
+    const seen = new Set<number>();
+    const merged: ApiRaffleListItem[] = [];
+    for (const response of responses) {
+        for (const raffle of response.raffles) {
+            if (!seen.has(raffle.id)) {
+                seen.add(raffle.id);
+                merged.push(raffle);
+            }
+        }
+    }
+
+    return { raffles: merged, total: merged.length };
 }
 export async function fetchUserProfile(
   address: string,
@@ -125,47 +151,47 @@ export function mapDetailToFormattedRaffle(
     detail.prizeClaimed,
   );
 
-  return {
-    id: detail.id,
-    creator: detail.creator,
-    status: detail.status,
-    description: detail.title || `Raffle #${detail.id}`,
-    endTime: endTimeUnix,
-    maxTickets: detail.max_tickets,
-    allowMultipleTickets: true,
-    ticketPrice: detail.ticket_price,
-    ticketToken: detail.asset || undefined,
-    totalTicketsSold: detail.tickets_sold,
-    winner: detail.winner,
-    winningTicketId: 0,
-    isActive,
-    isFinalized: !isActive,
-    winningsWithdrawn,
-    countdown: {
-      days: days.toString().padStart(2, "0"),
-      hours: hours.toString().padStart(2, "0"),
-      minutes: minutes.toString().padStart(2, "0"),
-      seconds: seconds.toString().padStart(2, "0"),
-    },
-    progress: Math.min(progress, 100),
-    entries: detail.tickets_sold,
-    ticketPriceFormatted: `${ticketPrice.toFixed(3)} ${detail.asset || "XLM"}`,
-    prizeValue: detail.prize_amount || "0",
-    prizeCurrency: detail.asset || "XLM",
-    buttonText: isActive ? "Enter Raffle" : "Ended",
-    image: detail.image_url || "",
-    metadata: {
-      title: detail.title || `Raffle #${detail.id}`,
-      description: detail.description || "",
-      image: detail.image_url || "",
-      prizeName: detail.title || `Raffle #${detail.id}`,
-      prizeValue: detail.prize_amount || "0",
-      prizeCurrency: detail.asset || "XLM",
-      category: detail.category || "General",
-      tags: detail.category ? [detail.category] : [],
-      createdBy: detail.creator,
-      createdAt: new Date(detail.created_at).getTime(),
-      updatedAt: new Date(detail.created_at).getTime(),
-    },
-  };
+    return {
+        id: detail.id,
+        creator: detail.creator,
+        status: detail.status,
+        description: detail.title || `Raffle #${detail.id}`,
+        endTime: endTimeUnix,
+        maxTickets: detail.max_tickets,
+        allowMultipleTickets: true,
+        ticketPrice: detail.ticket_price,
+        ticketToken: detail.asset || undefined,
+        totalTicketsSold: detail.tickets_sold,
+        winner: detail.winner,
+        winningTicketId: 0,
+        isActive,
+        isFinalized: !isActive,
+        winningsWithdrawn: false,
+        countdown: {
+            days: days.toString().padStart(2, "0"),
+            hours: hours.toString().padStart(2, "0"),
+            minutes: minutes.toString().padStart(2, "0"),
+            seconds: seconds.toString().padStart(2, "0"),
+        },
+        progress: Math.min(progress, 100),
+        entries: detail.tickets_sold,
+        ticketPriceFormatted: `${ticketPrice.toFixed(3)} ${detail.asset || "XLM"}`,
+        prizeValue: detail.prize_amount || "0",
+        prizeCurrency: detail.asset || "XLM",
+        buttonText: isActive ? "Enter Raffle" : "Ended",
+        image: detail.image_url || "",
+        metadata: {
+            title: detail.title || `Raffle #${detail.id}`,
+            description: detail.description || "",
+            image: detail.image_url || "",
+            prizeName: detail.title || `Raffle #${detail.id}`,
+            prizeValue: detail.prize_amount || "0",
+            prizeCurrency: detail.asset || "XLM",
+            category: detail.category || "General",
+            tags: detail.category ? [detail.category] : [],
+            createdBy: detail.creator,
+            createdAt: new Date(detail.created_at).getTime(),
+            updatedAt: new Date(detail.created_at).getTime(),
+        },
+    };
 }

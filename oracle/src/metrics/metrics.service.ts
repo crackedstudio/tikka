@@ -13,6 +13,10 @@ export class MetricsService implements OnModuleInit {
   private actualFeeCounter: Counter;
   private submissionOutcomeCounter: Counter;
 
+  // VRF metrics
+  private vrfFailuresCounter: Counter;
+  private vrfProofsCounter: Counter;
+
   constructor() {
     this.exporter = new PrometheusExporter({
       preventServerStart: true,
@@ -37,6 +41,16 @@ export class MetricsService implements OnModuleInit {
     // Submission outcomes (success, failure, retry)
     this.submissionOutcomeCounter = this.meter.createCounter('tikka_oracle_submission_outcome_total', {
       description: 'Total number of submissions by outcome',
+    });
+
+    // VRF failures with reason label
+    this.vrfFailuresCounter = this.meter.createCounter('oracle_vrf_failures_total', {
+      description: 'Total number of VRF proof generation failures',
+    });
+
+    // VRF successful proofs
+    this.vrfProofsCounter = this.meter.createCounter('oracle_vrf_proofs_total', {
+      description: 'Total number of successful VRF proof generations',
     });
 
     // Standard metrics
@@ -64,6 +78,14 @@ export class MetricsService implements OnModuleInit {
 
   recordSubmissionOutcome(outcome: 'success' | 'failure' | 'retry', network: string, method: string) {
     this.submissionOutcomeCounter.add(1, { outcome, network, method });
+  }
+
+  recordVrfFailure(reason: string) {
+    this.vrfFailuresCounter.add(1, { reason });
+  }
+
+  recordVrfProofSuccess() {
+    this.vrfProofsCounter.add(1);
   }
 
   /**

@@ -38,10 +38,10 @@ describe("TikkaThrottlerGuard", () => {
     expect(tracker).toBe("GABC123");
   });
 
-  it("falls back to IP tracker for non-raffle routes", async () => {
+  it("uses x-forwarded-for client IP for non-raffle routes", async () => {
     const tracker = await (guard as any).getTracker(
       {
-        headers: { "x-forwarded-for": "9.9.9.9" },
+        headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.1" },
         ip: "1.1.1.1",
       } as unknown as Parameters<TikkaThrottlerGuard["getTracker"]>[0],
       createHttpContext({
@@ -52,5 +52,59 @@ describe("TikkaThrottlerGuard", () => {
     );
 
     expect(tracker).toBe("9.9.9.9");
+  });
+
+  it("falls back to request IP when x-forwarded-for is absent", async () => {
+    const tracker = await (guard as any).getTracker(
+      {
+        headers: {},
+        ip: "1.1.1.1",
+      } as unknown as Parameters<TikkaThrottlerGuard["getTracker"]>[0],
+      createHttpContext({
+        method: "GET",
+        url: "/auth/nonce",
+      }),
+    );
+
+    expect(tracker).toBe("1.1.1.1");
+  });
+
+  it("throws 429 with Retry-After header when limit is exceeded", async () => {
+    const detail = {
+      ttl: 60000,
+      limit: 10,
+      key: "nonce",
+      tracker: "9.9.9.9",
+      totalHits: 11,
+      timeToExpire: 42,
+      isBlocked: true,
+      timeToBlockExpire: 42,
+    };
+    const context = createHttpContext({ method: "GET", url: "/auth/nonce" });
+    const header = jest.fn();
+    const guardWithResponse = Object.assign(
+      Object.create(TikkaThrottlerGuard.prototype),
+      {
+        getRequestResponse: () => ({
+          req: {},
+          res: { header },
+        }),
+      },
+    ) as TikkaThrottlerGuard;
+
+    try {
+      await (guardWithResponse as any).throwThrottlingException(context, detail);
+      fail("expected throwThrottlingException to throw");
+    } catch (error) {
+      expect(error).toMatchObject({
+        status: 429,
+        response: {
+          statusCode: 429,
+          retryAfter: 42,
+        },
+      });
+    }
+
+    expect(header).toHaveBeenCalledWith("Retry-After", 42);
   });
 });

@@ -12,6 +12,8 @@ const RaffleCardSkeleton: React.FC<RaffleCardSkeletonProps> = ({
     return (
         <div
             className={`w-full ${bgColor} p-4 ${rounded} flex flex-col space-y-4 animate-pulse`}
+            aria-busy="true"
+            aria-label="Loading raffle"
         >
             {/* Image */}
             <div className="w-full h-48 bg-gray-700 rounded-3xl" />

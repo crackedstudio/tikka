@@ -35,7 +35,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
                   />
                 ))}
                 {formData.images.length > 4 && (
-                  <div className="w-16 h-16 bg-gray-700 rounded flex items-center justify-center text-white text-xs">
+                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center text-gray-700 dark:text-white text-xs">
                     +{formData.images.length - 4}
                   </div>
                 )}
@@ -43,7 +43,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formData }) => {
             )}
           </div>
         ) : (
-          <div className="w-full h-48 bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-500">
+          <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-400 dark:border-gray-500">
             <svg
               className="w-12 h-12 text-gray-400"
               fill="currentColor"

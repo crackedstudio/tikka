@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { CircuitState } from '../listener/circuit-breaker.types';
 import { PriorityTier } from '../queue/priority-classifier.service';
+import { CircuitBreakerService } from '../listener/circuit-breaker.service';
 
 export { CircuitState };
 
@@ -21,6 +22,12 @@ export interface ComponentHealthStatus {
   submitter: ComponentHealth;
 }
 
+export interface CircuitBreakerHealth {
+  state: string;
+  failureCount: number;
+  lastFailureAt: string | null;
+}
+
 export interface HealthMetrics {
   queueDepth: number;
   lastProcessedAt: Date | null;
@@ -34,6 +41,7 @@ export interface HealthMetrics {
   lastStreamError?: string;
   multiOracle?: MultiOracleHealthStatus;
   circuitState: CircuitState;
+  circuit_breaker: CircuitBreakerHealth;
   queueDepthByTier: {
     high: number;
     medium: number;
@@ -65,7 +73,8 @@ export interface ErrorRecord {
 
 @Injectable()
 export class HealthService {
-  private readonly logger = new Logger(HealthService.name);
+  constructor(private readonly logger: OracleLoggerService) {}
+
   private readonly startTime = Date.now();
   private queueDepth = 0;
   private lastProcessedAt: Date | null = null;
@@ -77,8 +86,12 @@ export class HealthService {
   private streamStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   private streamStartedAt: number | null = null;
   private lastStreamError?: string;
-  private circuitState: CircuitState = 'closed';
   private tierCounts: Record<PriorityTier, number> = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+
+  constructor(
+    @Inject(forwardRef(() => CircuitBreakerService))
+    private readonly circuitBreakerService: CircuitBreakerService,
+  ) {}
 
   // Component health tracking
   private componentHealth: ComponentHealthStatus = {
@@ -163,7 +176,7 @@ export class HealthService {
   }
 
   updateCircuitState(state: CircuitState): void {
-    this.circuitState = state;
+    // Legacy support, circuit state now read directly from CircuitBreakerService
   }
 
   incrementTierCount(tier: PriorityTier): void {
@@ -183,6 +196,9 @@ export class HealthService {
   }
 
   getMetrics(): HealthMetrics {
+    const cbState = this.circuitBreakerService.getState();
+    const lastFailureAt = this.circuitBreakerService.getLastFailureAt();
+
     return {
       queueDepth: this.queueDepth,
       lastProcessedAt: this.lastProcessedAt,
@@ -194,13 +210,22 @@ export class HealthService {
       streamStatus: this.streamStatus,
       streamUptimeMs: this.streamStartedAt ? Date.now() - this.streamStartedAt : 0,
       lastStreamError: this.lastStreamError,
-      circuitState: this.circuitState,
+      circuitState: cbState,
+      circuit_breaker: {
+        state: cbState.toUpperCase(),
+        failureCount: this.circuitBreakerService.getFailureCount(),
+        lastFailureAt: lastFailureAt ? new Date(lastFailureAt).toISOString() : null,
+      },
       queueDepthByTier: this.getQueueDepthByTier(),
       components: this.getComponentHealth(),
     };
   }
 
   isHealthy(): boolean {
+    if (this.circuitBreakerService.getState() === 'open') {
+      return false;
+    }
+
     // Check if any critical component is unhealthy
     const components = this.getComponentHealth();
     if (components.listener.status === 'unhealthy') return false;

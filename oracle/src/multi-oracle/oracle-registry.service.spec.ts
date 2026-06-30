@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { OracleRegistryService } from './oracle-registry.service';
 import { KeyService } from '../keys/key.service';
-import { MultiOracleMode, OracleConfig, PeerOracleEndpoint } from './multi-oracle.types';
+import {
+  OracleAuditEntry,
+  OracleConfig,
+  PeerOracleEndpoint,
+} from './multi-oracle.types';
 import { Keypair } from '@stellar/stellar-sdk';
 
 // ---------------------------------------------------------------------------

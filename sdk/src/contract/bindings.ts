@@ -15,20 +15,21 @@
 /** Contract function names — must exactly match the Rust `pub fn` names. */
 export const ContractFn = {
   // Lifecycle
-  CREATE_RAFFLE: "create_raffle",
-  BUY_TICKET: "buy_ticket",
-  TRIGGER_DRAW: "trigger_draw",
-  RECEIVE_RANDOMNESS: "receive_randomness",
-  CANCEL_RAFFLE: "cancel_raffle",
-  REFUND_TICKET: "refund_ticket",
-  CLAIM_PRIZE: "claim_prize",
+  CREATE_RAFFLE: 'create_raffle',
+  BUY_TICKET: 'buy_ticket',
+  BUY_TICKETS_BATCH: 'buy_tickets_batch',
+  TRIGGER_DRAW: 'trigger_draw',
+  RECEIVE_RANDOMNESS: 'receive_randomness',
+  CANCEL_RAFFLE: 'cancel_raffle',
+  REFUND_TICKET: 'refund_ticket',
 
   // Queries
-  GET_RAFFLE_DATA: "get_raffle_data",
-  GET_ACTIVE_RAFFLE_IDS: "get_active_raffle_ids",
-  GET_ALL_RAFFLE_IDS: "get_all_raffle_ids",
-  GET_USER_TICKETS: "get_user_tickets",
-  GET_USER_PARTICIPATION: "get_user_participation",
+  GET_RAFFLE_DATA: 'get_raffle_data',
+  GET_ACTIVE_RAFFLE_IDS: 'get_active_raffle_ids',
+  GET_ALL_RAFFLE_IDS: 'get_all_raffle_ids',
+  GET_USER_TICKETS: 'get_user_tickets',
+  GET_USER_PARTICIPATION: 'get_user_participation',
+  GET_RAFFLE_STATE: 'get_raffle_data',
 
   // Admin
   SET_ORACLE_ADDRESS: "set_oracle_address",

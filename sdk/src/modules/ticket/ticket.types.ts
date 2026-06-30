@@ -26,6 +26,22 @@ export interface BuyTicketParams {
 }
 
 /**
+ * Parameters for purchasing multiple tickets in a batch.
+ */
+export interface BuyTicketsParams {
+  /** Raffle ID (must be positive integer) */
+  raffleId: number;
+  /** Number of tickets to purchase (1-1000) */
+  count: number;
+  /** Maximum acceptable price per ticket in stroops */
+  maxPricePerTicket: string;
+  /**
+   * Optional transaction memo for tracking or external integrations.
+   */
+  memo?: TxMemo;
+}
+
+/**
  * Result of a ticket purchase.
  * Provides transaction confirmation and purchased ticket IDs.
  */

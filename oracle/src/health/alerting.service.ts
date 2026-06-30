@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 
 export type AlertSeverity = 'warning' | 'critical';
@@ -22,7 +23,7 @@ type AlertingProvider = 'pagerduty' | 'opsgenie' | 'none';
  */
 @Injectable()
 export class AlertingService {
-  private readonly logger = new Logger(AlertingService.name);
+  
   private readonly provider: AlertingProvider;
 
   // PagerDuty
@@ -33,7 +34,7 @@ export class AlertingService {
   private readonly opsgenieApiKey: string;
   private readonly opsgenieApiUrl = 'https://api.opsgenie.com/v2/alerts';
 
-  constructor() {
+  constructor(private readonly logger: OracleLoggerService) {
     const raw = (process.env.ALERTING_PROVIDER ?? 'none').toLowerCase();
     if (raw === 'pagerduty' || raw === 'opsgenie') {
       this.provider = raw;

@@ -1,24 +1,20 @@
-/**
- * Leaderboard DTOs — cursor-based pagination with mode-based ranking.
- * Hide internal fields like firstSeenLedger (storage-only).
- * Hide raw cursor implementation - nextCursor is opaque to clients.
- */
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export type LeaderboardMode = "wins" | "volume" | "tickets";
+export type LeaderboardMode = 'wins' | 'volume' | 'tickets';
 
-export interface LeaderboardEntryDto {
-  rank: number | null;
-  address: string;
-  totalTicketsBought: number;
-  totalRafflesWon: number;
-  totalPrizeXlm: string;
+export class LeaderboardEntryDto {
+  @ApiPropertyOptional({ nullable: true }) rank: number | null;
+  @ApiProperty() address: string;
+  @ApiProperty() totalTicketsBought: number;
+  @ApiProperty() totalRafflesWon: number;
+  @ApiProperty() totalPrizeXlm: string;
 }
 
-export interface LeaderboardResponseDto {
-  by: LeaderboardMode;
-  limit: number;
-  offset: number | null;
-  ranking: string[];
-  entries: LeaderboardEntryDto[];
-  nextCursor: string | null;
+export class LeaderboardResponseDto {
+  @ApiProperty({ enum: ['wins', 'volume', 'tickets'] }) by: LeaderboardMode;
+  @ApiProperty() limit: number;
+  @ApiPropertyOptional({ nullable: true }) offset: number | null;
+  @ApiProperty({ type: [String] }) ranking: string[];
+  @ApiProperty({ type: [LeaderboardEntryDto] }) entries: LeaderboardEntryDto[];
+  @ApiPropertyOptional({ nullable: true }) nextCursor: string | null;
 }
