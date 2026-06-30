@@ -36,7 +36,7 @@ const Footer = () => {
 
                         <p className="text-sm">Join our community</p>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 rtl:flex-row-reverse">
                             <a href="#" aria-label="Discord">
                                 <img
                                     src={DiscordLogo}

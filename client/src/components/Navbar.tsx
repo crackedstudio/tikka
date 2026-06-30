@@ -116,7 +116,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                                 />
                                 <Search
                                     size={18}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-900 dark:text-white"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 rtl:right-auto rtl:left-4 text-gray-900 dark:text-white"
                                 />
                             </div>
 
@@ -142,7 +142,7 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                         })}
 
                         {isConnected && (
-                            <div className="flex items-center gap-2 mr-2">
+                            <div className="flex items-center gap-2 mr-2 rtl:mr-0 rtl:ml-2">
                                 {isWrongNetwork ? (
                                     <button
                                         onClick={() => switchNetwork()}
@@ -177,6 +177,14 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
                                 className={`px-2 py-1 text-xs font-medium rounded ${i18n.language === "es" ? "bg-[#FE3796] text-white" : "text-gray-500 hover:text-gray-900 dark:text-white/60"}`}
                             >
                                 ES
+                            </button>
+                            <button
+                                onClick={() => i18n.changeLanguage("ar")}
+                                aria-label="Switch to Arabic"
+                                aria-pressed={i18n.language === "ar"}
+                                className={`px-2 py-1 text-xs font-medium rounded ${i18n.language === "ar" ? "bg-[#FE3796] text-white" : "text-gray-500 hover:text-gray-900 dark:text-white/60"}`}
+                            >
+                                AR
                             </button>
                         </div>
 
