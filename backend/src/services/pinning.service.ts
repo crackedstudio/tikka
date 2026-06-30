@@ -2,21 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { env } from '../config/env.config';
 import type { RaffleMetadata } from './metadata.service';
 
+export class PinningError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly statusCode?: number,
+    public readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'PinningError';
+  }
+}
+
 @Injectable()
 export class PinningService {
   private readonly logger = new Logger(PinningService.name);
-
-  class PinningError extends Error {
-    constructor(
-      message: string,
-      public readonly code: string,
-      public readonly statusCode?: number,
-      public readonly cause?: unknown,
-    ) {
-      super(message);
-      this.name = 'PinningError';
-    }
-  }
 
   /**
    * Pins JSON metadata to IPFS using Pinata API.
