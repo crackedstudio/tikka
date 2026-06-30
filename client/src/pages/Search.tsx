@@ -141,28 +141,30 @@ const SearchPage: React.FC = () => {
                         Try a different keyword or category.
                     </p>
 
-                    <button
-                        onClick={() => navigate("/home")}
-                        className="px-8 py-3 rounded-xl bg-[#FE3796] hover:brightness-110 transition-all font-medium text-sm shadow-lg shadow-[#FE3796]/20"
-                    >
-                        Go Back
-                    </button>
-                </div>
-            )}
+      {error && !isLoading && (
+        <ErrorMessage title="Search failed" message={error.message} />
+      )}
 
-            {!isLoading && !error && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {results.map((raffle) => (
-                        <RaffleCard
-                            key={raffle.id}
-                            viewModel={toRaffleCardViewModel(raffle)}
-                        />
-                    ))}
-                </div>
-            )}
+      {!isLoading && !error && results.length === 0 && query && (
+        <div className="flex items-center justify-center py-20 animate-in fade-in duration-300">
+          <p className="text-center text-lg text-gray-600 dark:text-gray-300">
+            No raffles match "{query}". Try different keywords.
+          </p>
         </div>
-    );
+      )}
+
+      {!isLoading && !error && results.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {results.map((raffle) => (
+            <RaffleCard
+              key={raffle.id}
+              viewModel={toRaffleCardViewModel(raffle)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default SearchPage;
-

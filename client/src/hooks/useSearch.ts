@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { searchRaffles } from "../services/raffleService";
 import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
 
@@ -19,9 +19,24 @@ export const useSearch = (
     useEffect(() => {
         const currentRequest = ++requestId.current;
 
-        if (!query.trim()) {
-            setResults([]);
-            setIsLoading(false);
+    if (!trimmedQuery) {
+      setResults([]);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsLoading(true);
+    setError(null);
+
+    const timeoutId = window.setTimeout(() => {
+      searchRaffles(trimmedQuery, controller.signal)
+        .then((response: ApiRaffleListResponse) => {
+          setResults(response.raffles);
+        })
+        .catch((err: unknown) => {
+          if (err instanceof Error && err.name === "AbortError") {
             return;
         }
 
