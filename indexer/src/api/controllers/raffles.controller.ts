@@ -19,6 +19,10 @@ import {
   RaffleDetailDto,
   RaffleListResponseDto,
 } from "./dto/raffle.dto";
+import {
+  ParticipantDto,
+  ParticipantListResponseDto,
+} from "./dto/participant.dto";
 
 export interface RaffleListQuery {
   status?: string;
@@ -136,6 +140,65 @@ export class RafflesController {
 
     await this.cacheService.setRaffleDetail(String(id), result);
     return result;
+  }
+
+  /**
+   * GET /raffles/:id/participants
+   * List ticket holders for a raffle with pagination.
+   * Aggregates tickets by owner to get tickets_count and first purchase time.
+   */
+  @ApiOperation({ summary: 'List participants for a raffle', description: 'Returns paginated list of ticket holders with ticket counts.' })
+  @ApiParam({ name: 'id', type: Number, description: 'Raffle ID' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max 100' })
+  @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Offset for pagination' })
+  @ApiResponse({ status: 200, type: ParticipantListResponseDto })
+  @ApiResponse({ status: 404, description: 'Raffle not found' })
+  @Get(":id/participants")
+  async getParticipants(
+    @Param("id", ParseIntPipe) id: number,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ): Promise<ParticipantListResponseDto> {
+    const raffle = await this.raffleRepo.findOne({ where: { id } });
+    if (!raffle) throw new NotFoundException(`Raffle ${id} not found`);
+
+    const parsedLimit = Math.min(parseInt(limit ?? "20", 10), 100);
+    const parsedOffset = parseInt(offset ?? "0", 10);
+
+    // Aggregate tickets by owner: count tickets and get MIN(purchased_at_ledger) as purchased_at
+    const qb = this.ticketRepo
+      .createQueryBuilder("t")
+      .select("t.owner", "address")
+      .addSelect("COUNT(*)", "tickets_count")
+      .addSelect("MIN(t.purchasedAtLedger)", "purchased_at")
+      .where("t.raffleId = :raffleId", { raffleId: id })
+      .groupBy("t.owner")
+      .orderBy("purchased_at", "ASC")
+      .limit(parsedLimit)
+      .offset(parsedOffset);
+
+    const rawResults = await qb.getRawMany();
+
+    // Get total count of unique participants
+    const totalResult = await this.ticketRepo
+      .createQueryBuilder("t")
+      .select("COUNT(DISTINCT t.owner)", "total")
+      .where("t.raffleId = :raffleId", { raffleId: id });
+    const totalRow = await totalResult.getRawOne();
+    const total = parseInt(totalRow?.total ?? "0", 10);
+
+    const participants: ParticipantDto[] = rawResults.map((row: { address: string; tickets_count: string; purchased_at: string }) => ({
+      address: row.address,
+      tickets_count: parseInt(row.tickets_count, 10),
+      purchased_at: parseInt(row.purchased_at, 10),
+    }));
+
+    return {
+      participants,
+      total,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    };
   }
 
   private formatRaffle(r: RaffleEntity): RaffleListItemDto {
