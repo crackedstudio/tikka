@@ -30,7 +30,12 @@ function buildService() {
     simulateReadOnly: jest.fn(),
   } as unknown as jest.Mocked<ContractService>;
 
-  const service = new RaffleService(contractService as any);
+  const feeEstimator = {
+    estimateFee: jest.fn(),
+    estimateFromResourceFee: jest.fn(),
+  } as any;
+
+  const service = new RaffleService(contractService as any, feeEstimator);
   return { service, contractService };
 }
 

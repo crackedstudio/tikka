@@ -22,22 +22,30 @@
  * ```
  */
 export interface ContractResponse<T = any> {
-  /** Whether the operation succeeded */
-  success: boolean;
+  /** Legacy boolean success flag used by parts of the SDK. */
+  success?: boolean;
+  /** Legacy string status used by parts of the SDK. */
+  status?: "SUCCESS" | "ERROR";
   /** The result value on success (undefined if failed) */
   value?: T;
   /** Error message describing what went wrong (undefined if succeeded) */
   error?: string;
   /** Transaction hash if this was a write operation */
   transactionHash?: string;
+  /** Legacy transaction hash alias used by write flows. */
+  txHash?: string;
   /** Ledger number where transaction was confirmed if applicable */
   ledger?: number;
+  /** Fee aliases used by different SDK modules. */
   feeCharged?: string;
+  feePaid?: string;
   resultXdr?: string;
   warnings?: string[];
 }
 
-export type TicketTxResponse<T = number[]> = TxResponse<T>;
-export type RaffleTxResponse<T = number> = TxResponse<T>;
-export type AdminTxResponse<T = void> = TxResponse<T>;
-export type UserTxResponse<T = any> = TxResponse<T>;
+export type TxResponse<T = any> = ContractResponse<T>;
+
+export type TicketTxResponse<T = number[]> = ContractResponse<T>;
+export type RaffleTxResponse<T = number> = ContractResponse<T>;
+export type AdminTxResponse<T = void> = ContractResponse<T>;
+export type UserTxResponse<T = any> = ContractResponse<T>;
