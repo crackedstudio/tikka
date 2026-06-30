@@ -8,7 +8,11 @@ import { DlqService } from "../ingestor/dlq.service";
 import {
   PipelineStateMachine,
   PipelineStateSnapshot,
-} from "../ingestor/pipeline-state";
+} from '../ingestor/pipeline-state';
+import {
+  ArchiveIntegrityStatusService,
+  ArchiveIntegrityStatusSnapshot,
+} from './archive-integrity-status.service';
 
 export const LAG_THRESHOLD_DEFAULT = 100;
 export const LAG_ALERT_THRESHOLD_DEFAULT = 50;
@@ -26,6 +30,7 @@ export interface HealthResult {
   dlq_size: number;
   dlqPressure: "ok" | "high";
   pipeline?: PipelineStateSnapshot | null;
+  archive_integrity?: ArchiveIntegrityStatusSnapshot;
 }
 
 @Injectable()
@@ -44,6 +49,8 @@ export class HealthService {
     private readonly cursorManagerService: CursorManagerService,
     @Optional() private readonly dlqService?: DlqService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
+    @Optional()
+    private readonly archiveIntegrityStatusService?: ArchiveIntegrityStatusService,
   ) {
     this.horizonUrl = this.configService
       .get<string>("HORIZON_URL", "https://horizon.stellar.org")
@@ -64,13 +71,16 @@ export class HealthService {
   }
 
   async getHealth(): Promise<HealthResult> {
-    const [dbOk, redisLatency, latestLedger, cursor, dlq_size] =
+    const [dbOk, redisLatency, latestLedger, cursor, dlq_size, archiveIntegrity] =
       await Promise.all([
         this.checkDb(),
         this.cacheService.latency(),
         this.fetchLatestLedger(),
         this.cursorManagerService.getCursor(),
         this.dlqService ? this.dlqService.count() : Promise.resolve(0),
+        this.archiveIntegrityStatusService
+          ? this.archiveIntegrityStatusService.getStatus()
+          : Promise.resolve(undefined),
       ]);
 
     const db: "ok" | "error" = dbOk ? "ok" : "error";
@@ -111,13 +121,16 @@ export class HealthService {
       lag_ledgers != null && lag_ledgers > this.lagThreshold;
     const degradedByDlq = dlqPressure === "high";
     const degradedByCursorIntegrity = cursor_integrity === "error";
+    const degradedByArchiveIntegrity =
+      archiveIntegrity?.archive_integrity === "failed";
     const status: "ok" | "degraded" =
       db === "error" ||
       redis === "error" ||
       cursor_status === "error" ||
       degradedByCursorIntegrity ||
       degradedByLag ||
-      degradedByDlq
+      degradedByDlq ||
+      degradedByArchiveIntegrity
         ? "degraded"
         : "ok";
 
@@ -135,6 +148,7 @@ export class HealthService {
       dlq_size,
       dlqPressure,
       pipeline,
+      archive_integrity: archiveIntegrity,
     };
   }
 

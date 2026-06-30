@@ -80,6 +80,7 @@ export class SearchService {
     const raffles = this.sortResults(filtered, sort);
 
     return { raffles, total: status ? raffles.length : total };
+  }
 
   private async mergeWithIndexer(meta: RaffleMetadata): Promise<SearchResult> {
     const result: SearchResult = {

@@ -118,8 +118,10 @@ export interface GetUserActivityParams {
    * (refunds, purchase timestamps). Requires `indexerUrl` to be configured.
    * Defaults to false.
    */
+  includeIndexerData?: boolean;
+}
 
-  /** A claimable prize entry returned by UserService.getWinnings. */
+/** A claimable prize entry returned by UserService.getWinnings. */
 export interface WinningEntry {
   /** The raffle ID this prize belongs to. */
   raffleId: number;
@@ -129,6 +131,4 @@ export interface WinningEntry {
   prizeAsset: string;
   /** Whether this prize has already been claimed on-chain. */
   claimed: boolean;
-}
-  includeIndexerData?: boolean;
 }

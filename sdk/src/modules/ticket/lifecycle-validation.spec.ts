@@ -46,7 +46,9 @@ function makeContractService(stateValue: number) {
 // ── TicketService.buy() ───────────────────────────────────────────────────────
 
 describe('TicketService.buy() — lifecycle validation', () => {
-  const params: BuyTicketParams = {onst cs = makeContractService(RaffleStatus.Drawing);
+  it('throws RaffleEnded when raffle is DRAWING', async () => {
+    const params: BuyTicketParams = {};
+    const cs = makeContractService(RaffleStatus.Drawing);
     const service = new TicketService(cs);
 
     await expect(service.buy(params)).rejects.toThrow(TikkaSdkError);
@@ -130,7 +132,7 @@ describe('AdminService.finalizeRaffle() — lifecycle validation', () => {
 
     await service.finalizeRaffle(RAFFLE_ID);
 
-    expect(cs.invoke).toHa  );
+    expect(cs.invoke).toHaveBeenCalled();
   });
 });
 
@@ -157,7 +159,10 @@ describe('AdminService.cancelRaffle() — lifecycle validation', () => {
     expect(cs.invoke).toHaveBeenCalledWith(
       ContractFn.CANCEL_RAFFLE,
       [RAFFLE_ID],
-      exp────────────────
+      expect.anything(),
+    );
+  });
+});
 
 describe('validateLifecycleTransition', () => {
   it('throws RaffleEnded for buy_ticket on DRAWING state', () => {
