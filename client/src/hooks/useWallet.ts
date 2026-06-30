@@ -1,10 +1,10 @@
 /**
  * useWallet Hook
  * 
- * Thin wrapper over useAuthStore.
+ * Thin wrapper over useAuthStore with auto-reconnect support.
  */
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import {
     connectWallet,
     disconnectWallet,
@@ -17,6 +17,7 @@ import {
     signTransaction,
     getWalletCapabilities,
     normalizeNetworkName,
+    attemptAutoReconnect,
     type WalletCapabilities,
 } from "../services/walletService";
 import { useAuthStore } from "../store/useAuthStore";
@@ -43,6 +44,7 @@ export interface UseWalletReturn extends WalletState {
 
 export function useWallet(): UseWalletReturn {
     const store = useAuthStore();
+    const autoReconnectAttempted = useRef(false);
 
     // The network the app expects from .env (e.g., "testnet" or "mainnet")
     const APP_REQUIRED_NETWORK = normalizeNetworkName(import.meta.env.VITE_STELLAR_NETWORK || "testnet");
@@ -141,7 +143,24 @@ export function useWallet(): UseWalletReturn {
     }, [store.isConnected, store.isWrongNetwork, APP_REQUIRED_NETWORK, store.capabilities]);
 
     useEffect(() => {
-        refresh();
+        // Attempt auto-reconnect once on mount
+        const initializeWallet = async () => {
+            if (!autoReconnectAttempted.current) {
+                autoReconnectAttempted.current = true;
+                
+                const result = await attemptAutoReconnect();
+                if (result.success) {
+                    // Auto-reconnect successful, refresh state
+                    await refresh();
+                } else {
+                    // No auto-reconnect, just refresh normally
+                    await refresh();
+                }
+            }
+        };
+
+        initializeWallet();
+        
         const interval = setInterval(refresh, 5000);
         return () => clearInterval(interval);
     }, [refresh]);

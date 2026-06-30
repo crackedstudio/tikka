@@ -5,7 +5,7 @@ import { validateLifecycleTransition } from '../../contract/lifecycle';
 import { assertNonEmpty } from '../../utils/validation';
 import { AdminWriteOptions } from './admin.types';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
-import { AdminTxResponse, TxResponse } from '../../contract/response';
+import { AdminTxResponse, TxResponse, ContractResponse } from '../../contract/response';
 
 /**
  * @category Admin
@@ -193,22 +193,44 @@ export class AdminService {
 
   /**
    * Cancels a raffle.
-   * Validates the raffle is in OPEN state before proceeding.
+   * Validates the raffle is in OPEN state and that the caller is the raffle creator
+   * or an admin before proceeding.
    *
    * @param raffleId - The raffle to cancel
    * @param options - Optional transaction configuration
    * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+   * @throws {UnauthorizedError} if the caller is not the raffle creator or admin
    */
   async cancelRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
-    const stateResp = await this.contract.simulateReadOnly<{ status: number }>(
-      ContractFn.GET_RAFFLE_STATE,
+    const stateResp = await this.contract.simulateReadOnly<any>(
+      ContractFn.GET_RAFFLE_DATA,
       [raffleId],
     );
+    if (!stateResp.success) {
+      return stateResp as ContractResponse<void>;
+    }
+
+    const raffleData = stateResp.value;
+    const currentStatus = raffleData.status ?? raffleData.Status ?? -1;
     validateLifecycleTransition(
       ContractFn.CANCEL_RAFFLE,
-      stateResp.value?.status ?? stateResp.value ?? -1,
+      currentStatus,
       raffleId,
     );
+
+    const callerAddress = await this.contract.getPublicKey();
+    const creatorAddress = raffleData.creator ?? raffleData.Creator ?? '';
+
+    if (callerAddress !== creatorAddress) {
+      const adminResp = await this.contract.simulateReadOnly<string>(ContractFn.GET_ADMIN, []);
+      if (!adminResp.success || adminResp.value !== callerAddress) {
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.Unauthorized,
+          `Caller ${callerAddress} is not authorized to cancel raffle ${raffleId}. Only the creator (${creatorAddress}) or admin can cancel.`,
+        );
+      }
+    }
+
     return this.contract.invoke<void>(ContractFn.CANCEL_RAFFLE, [raffleId], { memo: options.memo });
   }
 

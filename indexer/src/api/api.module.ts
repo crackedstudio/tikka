@@ -11,6 +11,7 @@ import { RaffleEntity } from "../database/entities/raffle.entity";
 import { TicketEntity } from "../database/entities/ticket.entity";
 import { UserEntity } from "../database/entities/user.entity";
 import { PlatformStatEntity } from "../database/entities/platform-stat.entity";
+import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
 import { CacheModule } from "../cache/cache.module";
 import { MaintenanceModule } from "../maintenance/maintenance.module";
 import { supabaseProvider } from "./supabase.provider";
@@ -22,9 +23,11 @@ import { supabaseProvider } from "./supabase.provider";
       TicketEntity,
       UserEntity,
       PlatformStatEntity,
+      DeadLetterEventEntity,
     ]),
     CacheModule,
     MaintenanceModule,
+    IngestorModule,
   ],
   controllers: [
     RafflesController,

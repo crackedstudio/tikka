@@ -93,6 +93,7 @@ export const useUserProfile = (address: string | null) => {
         profile: query.data ?? null,
         isLoading: query.isLoading,
         error: query.error,
+        refetch: query.refetch,
     };
 };
 
