@@ -27,6 +27,7 @@ import {
   Bell,
 } from "lucide-react";
 import AddToCalendar from "../components/ui/AddToCalendar";
+import Skeleton from "../components/ui/Skeleton";
 import Line from "../assets/svg/Line";
 import detailimage from "../assets/detailimage.png";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
