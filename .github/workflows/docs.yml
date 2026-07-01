@@ -23,11 +23,11 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: sdk/package-lock.json
+          cache-dependency-path: sdk/package.json
 
       - name: Install SDK dependencies
         working-directory: sdk
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Generate docs
         working-directory: sdk
