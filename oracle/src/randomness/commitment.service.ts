@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 
@@ -11,8 +12,9 @@ export interface Commitment {
 
 @Injectable()
 export class CommitmentService {
-  private readonly logger = new Logger(CommitmentService.name);
+  constructor(private readonly logger: OracleLoggerService) {}
   private readonly commitments = new Map<number, Commitment>();
+
 
   /**
    * Commit phase: Generate secret, nonce, and commitment hash

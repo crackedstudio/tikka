@@ -1,9 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ServiceUnavailableException } from '@nestjs/common';
-import { HealthController } from './health.controller';
-import { HealthService, HealthResult } from './health.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ServiceUnavailableException } from "@nestjs/common";
+import { HealthController } from "./health.controller";
+import { HealthService, HealthResult } from "./health.service";
 
-describe('HealthController', () => {
+describe("HealthController", () => {
   let controller: HealthController;
   let healthService: { getHealth: jest.Mock };
 
@@ -18,19 +18,22 @@ describe('HealthController', () => {
     controller = module.get<HealthController>(HealthController);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(controller).toBeDefined();
   });
 
-  it('should return the health result when status is ok (HTTP 200)', async () => {
+  it("should return the health result when status is ok (HTTP 200)", async () => {
     const okResult: HealthResult = {
-      status: 'ok',
+      status: "ok",
       lag_ledgers: 5,
-      lagStatus: 'healthy',
-      db: 'ok',
-      redis: 'ok',
+      lagStatus: "healthy",
+      db: "ok",
+      redis: "ok",
       redis_latency_ms: 0,
+      cursor: "ok",
+      cursor_integrity: "ok",
       dlq_size: 0,
+      dlqPressure: "ok",
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
@@ -38,15 +41,18 @@ describe('HealthController', () => {
     expect(result).toEqual(okResult);
   });
 
-  it('should throw ServiceUnavailableException when status is degraded (HTTP 503)', async () => {
+  it("should throw ServiceUnavailableException when status is degraded (HTTP 503)", async () => {
     const degradedResult: HealthResult = {
-      status: 'degraded',
+      status: "degraded",
       lag_ledgers: 250,
-      lagStatus: 'critical',
-      db: 'ok',
-      redis: 'ok',
+      lagStatus: "critical",
+      db: "ok",
+      redis: "ok",
       redis_latency_ms: 0,
+      cursor: "ok",
+      cursor_integrity: "ok",
       dlq_size: 0,
+      dlqPressure: "ok",
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -55,15 +61,18 @@ describe('HealthController', () => {
     );
   });
 
-  it('should embed the HealthResult body inside the ServiceUnavailableException', async () => {
+  it("should embed the HealthResult body inside the ServiceUnavailableException", async () => {
     const degradedResult: HealthResult = {
-      status: 'degraded',
+      status: "degraded",
       lag_ledgers: 150,
-      lagStatus: 'degraded',
-      db: 'error',
-      redis: 'ok',
+      lagStatus: "degraded",
+      db: "error",
+      redis: "ok",
       redis_latency_ms: 0,
+      cursor: "ok",
+      cursor_integrity: "ok",
       dlq_size: 0,
+      dlqPressure: "ok",
     };
     healthService.getHealth.mockResolvedValue(degradedResult);
 
@@ -78,15 +87,18 @@ describe('HealthController', () => {
     expect(thrown!.getResponse()).toMatchObject(degradedResult);
   });
 
-  it('should call healthService.getHealth exactly once per request', async () => {
+  it("should call healthService.getHealth exactly once per request", async () => {
     const okResult: HealthResult = {
-      status: 'ok',
+      status: "ok",
       lag_ledgers: 0,
-      lagStatus: 'healthy',
-      db: 'ok',
-      redis: 'ok',
+      lagStatus: "healthy",
+      db: "ok",
+      redis: "ok",
       redis_latency_ms: 0,
+      cursor: "ok",
+      cursor_integrity: "ok",
       dlq_size: 0,
+      dlqPressure: "ok",
     };
     healthService.getHealth.mockResolvedValue(okResult);
 
@@ -94,15 +106,18 @@ describe('HealthController', () => {
     expect(healthService.getHealth).toHaveBeenCalledTimes(1);
   });
 
-  it('should include lagStatus field in health response', async () => {
+  it("should include lagStatus field in health response", async () => {
     const criticalResult: HealthResult = {
-      status: 'degraded',
+      status: "degraded",
       lag_ledgers: 75,
-      lagStatus: 'critical',
-      db: 'ok',
-      redis: 'ok',
+      lagStatus: "critical",
+      db: "ok",
+      redis: "ok",
       redis_latency_ms: 10,
+      cursor: "ok",
+      cursor_integrity: "ok",
       dlq_size: 0,
+      dlqPressure: "ok",
     };
     healthService.getHealth.mockResolvedValue(criticalResult);
 
@@ -110,8 +125,8 @@ describe('HealthController', () => {
       ServiceUnavailableException,
     );
 
-    const thrown = await controller.getHealth().catch(e => e);
+    const thrown = await controller.getHealth().catch((e) => e);
     expect(thrown.getResponse()).toMatchObject(criticalResult);
-    expect(criticalResult.lagStatus).toBe('critical');
+    expect(criticalResult.lagStatus).toBe("critical");
   });
 });

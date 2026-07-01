@@ -1,17 +1,21 @@
 import {
+  Inject,
   Injectable,
   Logger,
+  Optional,
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Horizon } from "@stellar/stellar-sdk";
 import { CursorManagerService } from "./cursor-manager.service";
-import { EventParserV2Service } from "./event-parser-v2.service";
+import { EVENT_PARSER, IEventParser } from "./event-parser.interface";
 import { DryRunService } from "./dry-run.service";
 import { IngestionDispatcherService } from "./ingestion-dispatcher.service";
+import { DomainEvent } from "./event.types";
 import { MetricsService } from "../metrics/metrics.service";
 import { ReorgRollbackService } from "./reorg-rollback.service";
+import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 
 @Injectable()
 export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
@@ -25,7 +29,6 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private readonly batchSize: number;
   private eventBuffer: Array<{ parsed: DomainEvent; raw: Record<string, unknown> }> =
     [];
-  /** Serializes ingestion so batches commit in order. */
   private chain: Promise<void> = Promise.resolve();
 
   private retryAttempt = 0;
@@ -36,11 +39,12 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private configService: ConfigService,
     private cursorManager: CursorManagerService,
-    private eventParser: EventParserV2Service,
+    @Inject(EVENT_PARSER) private eventParser: IEventParser,
     private dryRun: DryRunService,
     private dispatcher: IngestionDispatcherService,
     private metrics: MetricsService,
     private reorgRollback: ReorgRollbackService,
+    @Optional() private pipeline?: PipelineStateMachine,
   ) {
     const horizonUrl =
       this.configService.get<string>("HORIZON_URL") ||
@@ -53,6 +57,7 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       .map((id) => id.trim())
       .filter((id) => id.length > 0);
 
+    this.batchSize = this.configService.get<number>("INGESTION_BATCH_SIZE", 25);
     this.safetyDepth = this.configService.get<number>("REORG_SAFETY_DEPTH", 5);
   }
 
@@ -63,16 +68,30 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       );
       return;
     }
+
+    // Load cursor first so validateOnLoad() runs and mode is set before we start.
+    await this.cursorManager.getCursor();
+    const { mode } = this.cursorManager.getStatus();
+    if (mode === 'DEGRADED') {
+      this.logger.error(
+        'Cursor integrity violation detected on startup — ingestion will not start. ' +
+        'Inspect the violation via the status command and reset the cursor to recover.',
+      );
+      return;
+    }
+
     this.logger.log(
       `Starting Ledger Poller for contracts: ${this.contractIds.join(", ")} (batch size ${this.batchSize})`,
     );
     this.isRunning = true;
+    this.pipeline?.apply(PipelineTransition.START);
     this.startIngestion();
   }
 
   async onModuleDestroy() {
     this.logger.log("Stopping Ledger Poller...");
     this.isRunning = false;
+    this.pipeline?.apply(PipelineTransition.SHUTDOWN);
     this.stopIngestion();
     try {
       await this.chain;
@@ -81,6 +100,8 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(
         `Error while flushing ingestion buffer on shutdown: ${error instanceof Error ? error.message : String(error)}`,
       );
+    } finally {
+      this.pipeline?.apply(PipelineTransition.STOP);
     }
   }
 
@@ -137,9 +158,6 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Queue a Horizon event for sequential decode + batched dispatch.
-   */
   private enqueueRawEvent(rawEvent: unknown): void {
     const ev = rawEvent as Record<string, unknown>;
     const eventContractId =
@@ -168,43 +186,48 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       });
   }
 
-  /**
-   * Decodes, parses, and dispatches the event, then updates the cursor atomically.
-   * Checks for ledger reorgs before processing and enforces safety depth.
-   */
-  private async processEvent(rawEvent: any): Promise<void> {
-    try {
-      const ledger = Number(rawEvent.ledger);
-      const ledgerHash: string = rawEvent.ledger_hash || rawEvent.ledgerHash || '';
+  private async ingestRawEvent(rawEvent: Record<string, unknown>): Promise<void> {
+    const ledger = Number(rawEvent.ledger);
+    const ledgerHash = String(rawEvent.ledger_hash || rawEvent.ledgerHash || "");
 
-      // --- Reorg detection ---
-      if (ledgerHash) {
-        const reorgAt = await this.cursorManager.checkForReorg(ledger, ledgerHash);
-        if (reorgAt !== null) {
-          this.logger.error(`Reorg detected at ledger ${reorgAt} — rolling back`);
-          this.metrics.incrementReorgDetected();
-          await this.reorgRollback.rollback(reorgAt);
-          return;
-        }
-      }
-
-      // --- Safety depth: skip events from ledgers not yet confirmed ---
-      const cursor = await this.cursorManager.getCursor();
-      const networkLedger = ledger; // the event's ledger is the "tip"
-      if (cursor && networkLedger - cursor.lastLedger < this.safetyDepth) {
-        this.logger.debug(
-          `Skipping ledger ${ledger}: within safety depth (${this.safetyDepth})`,
-        );
+    if (ledgerHash) {
+      const reorgAt = await this.cursorManager.checkForReorg(ledger, ledgerHash);
+      if (reorgAt !== null) {
+        this.logger.error(`Reorg detected at ledger ${reorgAt} - rolling back`);
+        this.metrics.incrementReorgDetected();
+        this.pipeline?.apply(PipelineTransition.REORG_DETECTED);
+        await this.reorgRollback.rollback(reorgAt);
+        this.pipeline?.apply(PipelineTransition.ROLLBACK_COMPLETE);
         return;
       }
+    }
 
-      // Map Horizon event fields to the format expected by EventParserService
-      const rawSorobanEvent = {
-        type: rawEvent.type || "contract",
-        topics: rawEvent.topic || rawEvent.topics || [],
-        value: rawEvent.value || "",
-        contractId: rawEvent.contract_id || rawEvent.contractId || rawEvent.address,
-      };
+    const cursor = await this.cursorManager.getCursor();
+    if (cursor && ledger - cursor.lastLedger < this.safetyDepth) {
+      this.logger.debug(
+        `Skipping ledger ${ledger}: within safety depth (${this.safetyDepth})`,
+      );
+      return;
+    }
+
+    const rawSorobanEvent = {
+      type: (rawEvent.type as string) || "contract",
+      topics: (rawEvent.topic as string[]) || (rawEvent.topics as string[]) || [],
+      value: (rawEvent.value as string) || "",
+      contractId:
+        (rawEvent.contract_id as string) ||
+        (rawEvent.contractId as string) ||
+        (rawEvent.address as string),
+    };
+
+    const parsed = this.eventParser.parse(rawSorobanEvent as never);
+    if (!parsed) {
+      // Unparseable event: model the parser-failure path and resume polling.
+      this.pipeline?.apply(PipelineTransition.EVENTS_RECEIVED);
+      this.pipeline?.apply(PipelineTransition.PARSE_FAILURE);
+      this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
+      return;
+    }
 
     this.eventBuffer.push({ parsed, raw: rawEvent });
 
@@ -229,38 +252,57 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Do not process new events while in DEGRADED mode.
+    if (this.cursorManager.getStatus().mode === 'DEGRADED') {
+      this.logger.error(
+        'Ingestion is DEGRADED — skipping batch. Operator action required.',
+      );
+      return;
+    }
+
     const lastRaw = batch[batch.length - 1].raw;
     const lastId = lastRaw.id as string | undefined;
 
+    // Drive the success path for this batch: parsed events are dispatched and
+    // the cursor advanced. Per-event handler failures are reported by the
+    // dispatcher itself (HANDLER_FAILURE → DLQ_ENQUEUED).
+    this.pipeline?.apply(PipelineTransition.EVENTS_RECEIVED);
+    this.pipeline?.apply(PipelineTransition.PARSE_SUCCESS);
+
     try {
-      const queryRunner = await this.dispatcher.dispatchBatch(
+      const results = await this.dispatcher.dispatchBatch(
         batch.map((b) => ({ event: b.parsed, raw: b.raw })),
       );
+      this.pipeline?.apply(PipelineTransition.DISPATCH_SUCCESS);
 
       const nextToken = (lastRaw.paging_token as string | undefined) || lastId;
       const ledger = Number(lastRaw.ledger);
+      const ledgerHash = String(lastRaw.ledger_hash || lastRaw.ledgerHash || "");
 
       if (this.dryRun.enabled) {
         this.logger.log(
           `[DRY-RUN] Would save cursor: ledger=${ledger} token=${nextToken}`,
         );
-        if (queryRunner) {
-          await queryRunner.rollbackTransaction();
-          await queryRunner.release();
+        this.metrics.incrementEventsProcessed('batch', batch.length);
+        for (const item of batch) {
+          this.metrics.incrementEventsProcessed(item.parsed.type);
         }
-        this.metrics.incrementEventsProcessed(batch.length);
+        this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
         return;
       }
 
-      await this.cursorManager.saveCursor(ledger, ledgerHash, nextToken, queryRunner ?? undefined);
-
-      if (queryRunner) {
-        await queryRunner.commitTransaction();
-        await queryRunner.release();
-      }
+      const currentCount = this.cursorManager.getStatus().lastCheckpoint?.processedEventCount ?? 0;
+      await this.cursorManager.saveCursor(ledger, ledgerHash, nextToken, currentCount + batch.length);
 
       for (const item of batch) {
         this.metrics.incrementEventsProcessed(item.parsed.type);
+      }
+
+      const failed = results.filter((result) => result.outcome === "failed");
+      if (failed.length > 0) {
+        this.logger.warn(
+          `Processed batch ending ${lastId ?? "?"} with ${failed.length} failed event(s) sent to DLQ`,
+        );
       }
     } catch (error) {
       this.metrics.incrementErrors(1);
@@ -308,7 +350,6 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         await this.flushRemainder();
       }
 
-      // Update lag metric
       try {
         const latestLedgers = await this.horizonServer.ledgers().order("desc").limit(1).call();
         const latestLedger = latestLedgers.records[0]?.sequence;
@@ -316,11 +357,12 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
           const lag = Math.max(0, latestLedger - cursor.lastLedger);
           this.metrics.setLagLedgers(lag);
         }
-      } catch (e) {
-        this.logger.warn(`Failed to fetch latest ledger for lag metric: ${e.message}`);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch latest ledger for lag metric: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
 
-      // Reset retry attempt on any successful communication
       this.retryAttempt = 0;
 
       const nextDelay = records.length === 100 ? 500 : 5000;

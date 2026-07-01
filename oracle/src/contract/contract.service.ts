@@ -1,6 +1,8 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
+import { ContractBuilders } from './contract.builders';
 
 export interface RaffleData {
   raffleId: number;
@@ -10,12 +12,12 @@ export interface RaffleData {
 
 @Injectable()
 export class ContractService {
-  private readonly logger = new Logger(ContractService.name);
+  
   private readonly rpcServer: StellarSdk.rpc.Server;
   private readonly contractId: string;
   private readonly networkPassphrase: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly logger: OracleLoggerService, private readonly configService: ConfigService) {
     const rpcUrl = this.configService.get<string>('SOROBAN_RPC_URL', 'https://soroban-testnet.stellar.org');
     this.networkPassphrase = this.configService.get<string>('NETWORK_PASSPHRASE', StellarSdk.Networks.TESTNET);
     this.contractId = this.configService.get<string>('RAFFLE_CONTRACT_ID', '');
@@ -44,11 +46,12 @@ export class ContractService {
       const sourceAccount = new StellarSdk.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
       const contract = new StellarSdk.Contract(this.contractId);
 
+      const invocation = ContractBuilders.buildGetRaffleData(raffleId);
       const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
         fee: '100',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call('get_raffle_data', StellarSdk.xdr.ScVal.scvU32(raffleId >>> 0)))
+        .addOperation(contract.call(invocation.method, ...invocation.args))
         .setTimeout(30)
         .build();
 

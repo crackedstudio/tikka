@@ -1,8 +1,32 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { CircuitState } from '../listener/circuit-breaker.types';
 import { PriorityTier } from '../queue/priority-classifier.service';
+import { CircuitBreakerService } from '../listener/circuit-breaker.service';
 
 export { CircuitState };
+
+export type ComponentStatus = 'healthy' | 'degraded' | 'unhealthy';
+
+export interface ComponentHealth {
+  status: ComponentStatus;
+  message: string;
+  lastCheckAt: Date;
+}
+
+export interface ComponentHealthStatus {
+  listener: ComponentHealth;
+  queue: ComponentHealth;
+  keyProvider: ComponentHealth;
+  randomnessProvider: ComponentHealth;
+  network: ComponentHealth;
+  submitter: ComponentHealth;
+}
+
+export interface CircuitBreakerHealth {
+  state: string;
+  failureCount: number;
+  lastFailureAt: string | null;
+}
 
 export interface HealthMetrics {
   queueDepth: number;
@@ -17,11 +41,13 @@ export interface HealthMetrics {
   lastStreamError?: string;
   multiOracle?: MultiOracleHealthStatus;
   circuitState: CircuitState;
+  circuit_breaker: CircuitBreakerHealth;
   queueDepthByTier: {
     high: number;
     medium: number;
     low: number;
   };
+  components: ComponentHealthStatus;
 }
 
 export interface MultiOracleHealthStatus {
@@ -47,7 +73,8 @@ export interface ErrorRecord {
 
 @Injectable()
 export class HealthService {
-  private readonly logger = new Logger(HealthService.name);
+  constructor(private readonly logger: OracleLoggerService) {}
+
   private readonly startTime = Date.now();
   private queueDepth = 0;
   private lastProcessedAt: Date | null = null;
@@ -59,8 +86,25 @@ export class HealthService {
   private streamStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   private streamStartedAt: number | null = null;
   private lastStreamError?: string;
-  private circuitState: CircuitState = 'closed';
   private tierCounts: Record<PriorityTier, number> = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+
+  constructor(
+    @Inject(forwardRef(() => CircuitBreakerService))
+    private readonly circuitBreakerService: CircuitBreakerService,
+  ) {}
+
+  // Component health tracking
+  private componentHealth: ComponentHealthStatus = {
+    listener: { status: 'unhealthy', message: 'Not initialized', lastCheckAt: new Date() },
+    queue: { status: 'healthy', message: 'Queue initialized', lastCheckAt: new Date() },
+    keyProvider: { status: 'unhealthy', message: 'Not initialized', lastCheckAt: new Date() },
+    randomnessProvider: { status: 'unhealthy', message: 'Not initialized', lastCheckAt: new Date() },
+    network: { status: 'unhealthy', message: 'Not initialized', lastCheckAt: new Date() },
+    submitter: { status: 'healthy', message: 'Submitter initialized', lastCheckAt: new Date() },
+  };
+
+  private readonly QUEUE_DEPTH_THRESHOLD = 50;
+  private readonly QUEUE_DEPTH_DEGRADED_THRESHOLD = 20;
 
   recordSuccess(requestId: string): void {
     this.lastProcessedAt = new Date();
@@ -68,16 +112,30 @@ export class HealthService {
     this.totalProcessed++;
   }
 
-  recordFailure(requestId: string, raffleId: number, error: string): void {
-    this.totalFailed++;
-    this.recentErrors.unshift({ requestId, raffleId, error, timestamp: new Date() });
-    if (this.recentErrors.length > this.MAX_ERROR_HISTORY) {
-      this.recentErrors = this.recentErrors.slice(0, this.MAX_ERROR_HISTORY);
-    }
-  }
-
   updateQueueDepth(depth: number): void {
     this.queueDepth = depth;
+    
+    // Update queue component health
+    if (depth > this.QUEUE_DEPTH_THRESHOLD) {
+      this.componentHealth.queue = {
+        status: 'unhealthy',
+        message: `Queue depth critically high: ${depth} items`,
+        lastCheckAt: new Date(),
+      };
+    } else if (depth > this.QUEUE_DEPTH_DEGRADED_THRESHOLD) {
+      this.componentHealth.queue = {
+        status: 'degraded',
+        message: `Queue depth elevated: ${depth} items`,
+        lastCheckAt: new Date(),
+      };
+    } else {
+      this.componentHealth.queue = {
+        status: 'healthy',
+        message: `Queue depth normal: ${depth} items`,
+        lastCheckAt: new Date(),
+      };
+    }
+
     if (depth > 10) {
       this.logger.warn(`High queue depth: ${depth}`);
     }
@@ -85,19 +143,40 @@ export class HealthService {
 
   updateStreamStatus(status: 'connected' | 'disconnected' | 'reconnecting', error?: string): void {
     this.streamStatus = status;
-    if (status === 'connected') {
-      this.streamStartedAt = Date.now();
-      this.lastStreamError = undefined;
-    } else if (status === 'disconnected') {
-      this.streamStartedAt = null;
-      if (error) this.lastStreamError = error;
-    } else {
-      if (error) this.lastStreamError = error;
+    
+    // Update listener component health
+    switch (status) {
+      case 'connected':
+        this.streamStartedAt = Date.now();
+        this.lastStreamError = undefined;
+        this.componentHealth.listener = {
+          status: 'healthy',
+          message: 'Listener connected and receiving events',
+          lastCheckAt: new Date(),
+        };
+        break;
+      case 'disconnected':
+        this.streamStartedAt = null;
+        if (error) this.lastStreamError = error;
+        this.componentHealth.listener = {
+          status: 'unhealthy',
+          message: `Listener disconnected: ${error || 'Unknown error'}`,
+          lastCheckAt: new Date(),
+        };
+        break;
+      case 'reconnecting':
+        if (error) this.lastStreamError = error;
+        this.componentHealth.listener = {
+          status: 'degraded',
+          message: `Listener reconnecting: ${error || 'Connection lost'}`,
+          lastCheckAt: new Date(),
+        };
+        break;
     }
   }
 
   updateCircuitState(state: CircuitState): void {
-    this.circuitState = state;
+    // Legacy support, circuit state now read directly from CircuitBreakerService
   }
 
   incrementTierCount(tier: PriorityTier): void {
@@ -117,6 +196,9 @@ export class HealthService {
   }
 
   getMetrics(): HealthMetrics {
+    const cbState = this.circuitBreakerService.getState();
+    const lastFailureAt = this.circuitBreakerService.getLastFailureAt();
+
     return {
       queueDepth: this.queueDepth,
       lastProcessedAt: this.lastProcessedAt,
@@ -128,12 +210,30 @@ export class HealthService {
       streamStatus: this.streamStatus,
       streamUptimeMs: this.streamStartedAt ? Date.now() - this.streamStartedAt : 0,
       lastStreamError: this.lastStreamError,
-      circuitState: this.circuitState,
+      circuitState: cbState,
+      circuit_breaker: {
+        state: cbState.toUpperCase(),
+        failureCount: this.circuitBreakerService.getFailureCount(),
+        lastFailureAt: lastFailureAt ? new Date(lastFailureAt).toISOString() : null,
+      },
       queueDepthByTier: this.getQueueDepthByTier(),
+      components: this.getComponentHealth(),
     };
   }
 
   isHealthy(): boolean {
+    if (this.circuitBreakerService.getState() === 'open') {
+      return false;
+    }
+
+    // Check if any critical component is unhealthy
+    const components = this.getComponentHealth();
+    if (components.listener.status === 'unhealthy') return false;
+    if (components.queue.status === 'unhealthy') return false;
+    if (components.keyProvider.status === 'unhealthy') return false;
+    if (components.network.status === 'unhealthy') return false;
+
+    // Legacy checks
     if (this.streamStatus === 'disconnected') return false;
     if (this.queueDepth > 0 && this.lastProcessedAt) {
       const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
@@ -141,5 +241,78 @@ export class HealthService {
     }
     if (this.queueDepth > 50) return false;
     return true;
+  }
+
+  isDegraded(): boolean {
+    const components = this.getComponentHealth();
+    return Object.values(components).some(c => c.status === 'degraded');
+  }
+
+  // Component health tracking methods
+
+  getComponentHealth(): ComponentHealthStatus {
+    return { ...this.componentHealth };
+  }
+
+  updateKeyProviderStatus(status: ComponentStatus, message?: string): void {
+    this.componentHealth.keyProvider = {
+      status,
+      message: message || (status === 'healthy' ? 'Key provider ready' : 'Key provider unavailable'),
+      lastCheckAt: new Date(),
+    };
+    this.logger.log(`Key provider status: ${status} - ${message || ''}`);
+  }
+
+  updateRandomnessProviderStatus(status: ComponentStatus, message?: string): void {
+    this.componentHealth.randomnessProvider = {
+      status,
+      message: message || (status === 'healthy' ? 'Randomness provider ready' : 'Randomness provider unavailable'),
+      lastCheckAt: new Date(),
+    };
+    this.logger.log(`Randomness provider status: ${status} - ${message || ''}`);
+  }
+
+  updateNetworkStatus(status: ComponentStatus, message?: string): void {
+    this.componentHealth.network = {
+      status,
+      message: message || (status === 'healthy' ? 'Network connectivity healthy' : 'Network issues detected'),
+      lastCheckAt: new Date(),
+    };
+    this.logger.log(`Network status: ${status} - ${message || ''}`);
+  }
+
+  updateSubmitterStatus(status: ComponentStatus, message?: string): void {
+    this.componentHealth.submitter = {
+      status,
+      message: message || (status === 'healthy' ? 'Submitter ready' : 'Submitter degraded'),
+      lastCheckAt: new Date(),
+    };
+    this.logger.log(`Submitter status: ${status} - ${message || ''}`);
+  }
+
+  recordFailure(requestId: string, raffleId: number, error: string): void {
+    this.totalFailed++;
+    this.recentErrors.unshift({ requestId, raffleId, error, timestamp: new Date() });
+    if (this.recentErrors.length > this.MAX_ERROR_HISTORY) {
+      this.recentErrors = this.recentErrors.slice(0, this.MAX_ERROR_HISTORY);
+    }
+
+    // Update submitter status if failure rate is high
+    this.updateSubmitterHealthBasedOnStats();
+  }
+
+  private updateSubmitterHealthBasedOnStats(): void {
+    const total = this.totalProcessed + this.totalFailed;
+    if (total === 0) return;
+
+    const failureRate = this.totalFailed / total;
+    
+    if (failureRate > 0.5) {
+      this.updateSubmitterStatus('unhealthy', `High failure rate: ${(failureRate * 100).toFixed(1)}%`);
+    } else if (failureRate > 0.1) {
+      this.updateSubmitterStatus('degraded', `Elevated failure rate: ${(failureRate * 100).toFixed(1)}%`);
+    } else {
+      this.updateSubmitterStatus('healthy', `Failure rate: ${(failureRate * 100).toFixed(1)}%`);
+    }
   }
 }

@@ -38,17 +38,26 @@ export interface RpcConfig {
   maxRetryDelayMs?: number;
   /** HTTP status codes that should trigger retry */
   retryableStatusCodes?: (number | string)[];
+  /** Consecutive failures to trip the circuit breaker (default: 5) */
+  circuitBreakerFailureThreshold?: number;
+  /** Cooldown time in ms before transitioning from open to half-open (default: 10_000) */
+  circuitBreakerResetTimeoutMs?: number;
 }
+
+export const SOROBAN_RPC_MAX_RETRIES = 3;
+export const SOROBAN_RPC_BASE_DELAY_MS = 300;
 
 export const DEFAULT_RPC_CONFIG: RpcConfig = {
   headers: {},
   failoverEndpoints: [],
   timeoutMs: 30_000,
   enableRetries: true,
-  maxRetryAttempts: 3,
-  retryBaseDelayMs: 300,
+  maxRetryAttempts: SOROBAN_RPC_MAX_RETRIES,
+  retryBaseDelayMs: SOROBAN_RPC_BASE_DELAY_MS,
   retryBackoffFactor: 2,
-  retryableStatusCodes: [429, 500, 502, 503, 504],
+  retryableStatusCodes: [429, 500, 502, 503, 504, 'RATE_LIMIT', 'UNAVAILABLE', 'TIMEOUT', 'ECONNRESET'],
+  circuitBreakerFailureThreshold: 5,
+  circuitBreakerResetTimeoutMs: 10_000,
 };
 
 const NETWORK_CONFIGS: Record<TikkaNetwork, NetworkConfig> = {

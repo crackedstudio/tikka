@@ -18,6 +18,7 @@ export function buildSiwsMessage(
   return [
     `${domain} wants you to sign in`,
     `Address: ${address}`,
+    `Network: ${env.stellar.network}`,
     `Nonce: ${nonce}`,
     `Issued At: ${issuedAt}`,
   ].join('\n');

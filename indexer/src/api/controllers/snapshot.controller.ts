@@ -1,7 +1,14 @@
 import { Controller, Post, Body, UseGuards, Logger, HttpException, HttpStatus } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity } from "@nestjs/swagger";
 import { SnapshotService } from "../../maintenance/snapshot.service";
 import { ApiKeyGuard } from "../api-key.guard";
+import {
+  SnapshotExportResponseDto,
+  SnapshotImportResponseDto,
+} from "./dto/snapshot.dto";
 
+@ApiTags('admin')
+@ApiSecurity('api-key')
 @Controller("admin/snapshot")
 @UseGuards(ApiKeyGuard)
 export class SnapshotController {
@@ -9,8 +16,10 @@ export class SnapshotController {
 
   constructor(private readonly snapshotService: SnapshotService) {}
 
+  @ApiOperation({ summary: 'Export snapshot' })
+  @ApiResponse({ status: 201, type: SnapshotExportResponseDto })
   @Post("export")
-  async export() {
+  async export(): Promise<SnapshotExportResponseDto> {
     try {
       const filename = await this.snapshotService.exportSnapshot();
       return {
@@ -26,8 +35,11 @@ export class SnapshotController {
     }
   }
 
+  @ApiOperation({ summary: 'Import snapshot' })
+  @ApiBody({ schema: { properties: { filename: { type: 'string' } } } })
+  @ApiResponse({ status: 201, type: SnapshotImportResponseDto })
   @Post("import")
-  async import(@Body("filename") filename: string) {
+  async import(@Body("filename") filename: string): Promise<SnapshotImportResponseDto> {
     if (!filename) {
       throw new HttpException("Filename is required", HttpStatus.BAD_REQUEST);
     }

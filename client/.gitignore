@@ -4,3 +4,6 @@ dist/
 dist-ssr/
 *.local
 # ... rest of file ...
+
+# Lighthouse CI
+.lighthouseci/

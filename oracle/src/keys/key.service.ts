@@ -1,6 +1,7 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { KeyProvider } from './key-provider.interface';
+import { KeyProvider, KeyProviderHealth } from './key-provider.interface';
 import { KeyProviderFactory } from './key-provider.factory';
 import { EnvKeyProvider } from './providers/env-key.provider';
 import * as StellarSdk from '@stellar/stellar-sdk';
@@ -21,10 +22,10 @@ import * as StellarSdk from '@stellar/stellar-sdk';
  */
 @Injectable()
 export class KeyService implements OnModuleInit {
-  private readonly logger = new Logger(KeyService.name);
+  
   private provider: KeyProvider;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly logger: OracleLoggerService, private readonly configService: ConfigService) {}
 
   async onModuleInit() {
     await this.initializeProvider();

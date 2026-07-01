@@ -14,11 +14,30 @@ import {
  * is a no-op.
  *
  * Columns map to the `raffle_events` table in ARCHITECTURE.md.
+ *
+ * ## Field Ownership
+ * - **Raw chain state**: raffleId, eventType, schemaVersion, ledger, txHash, payloadJson, contractAddress
+ * - **Derived**: id (UUID), indexedAt (indexer timestamp)
+ *
+ * ## Updater Handlers
+ * - All processors insert events idempotently via orIgnore() on unique txHash constraint
+ *
+ * ## Recalculation Safety
+ * - ❌ Unsafe: All fields are source-of-truth from chain events
+ * - This table is APPEND-ONLY — no updates or deletes (except archiving)
+ *
+ * ## Archiving
+ * - Old events can be safely archived after retention period (default: 30 days)
+ * - See: `src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md`
+ *
+ * See: `ENTITY_OWNERSHIP.md` for full documentation
  */
 @Entity("raffle_events")
 @Index("idx_raffle_events_raffle_id", ["raffleId"])
 @Index("idx_raffle_events_event_type", ["eventType"])
 @Index("idx_raffle_events_tx_hash", ["txHash"], { unique: true })
+@Index("idx_raffle_events_contract_address", ["contractAddress"])
+@Index("idx_raffle_events_contract_ledger", ["contractAddress", "ledger"])
 export class RaffleEventEntity {
   @PrimaryGeneratedColumn("uuid", { name: "id" })
   id!: string;
@@ -34,6 +53,10 @@ export class RaffleEventEntity {
    */
   @Column({ type: "varchar", length: 64, name: "event_type" })
   eventType!: string;
+
+  /** The contract address emitting this event */
+  @Column({ type: "varchar", length: 64, name: "contract_address", nullable: true })
+  contractAddress!: string;
 
   /** Event schema version for forward-compatible parsing/routing. */
   @Column({ type: "integer", name: "schema_version", default: 1 })
