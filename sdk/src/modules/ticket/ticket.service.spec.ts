@@ -3,6 +3,7 @@ import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import { BuyTicketParams, RefundTicketParams, BuyBatchParams, BuyTicketsParams, TICKET_CONSTRAINTS } from './ticket.types';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+import { RaffleStatus } from '../../contract/bindings';
 
 describe('TicketService', () => {
   let service: TicketService;
@@ -16,7 +17,10 @@ describe('TicketService', () => {
 
     contractService = {
       invoke: jest.fn(),
-      simulateReadOnly: jest.fn(),
+      simulateReadOnly: jest.fn().mockResolvedValue({
+        success: true,
+        value: { status: RaffleStatus.Open },
+      }),
       wallet: mockWallet,
     } as any;
 

@@ -185,7 +185,7 @@ export class AdminService {
     );
     validateLifecycleTransition(
       ContractFn.TRIGGER_DRAW,
-      stateResp.value?.status ?? stateResp.value ?? -1,
+      stateResp.value?.status ?? -1,
       raffleId,
     );
     return this.contract.invoke<void>(ContractFn.TRIGGER_DRAW, [raffleId], { memo: options.memo });
