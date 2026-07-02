@@ -15,6 +15,25 @@ vi.mock('../services/walletService', () => ({
   signTransaction: vi.fn(),
 }));
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, string>) => {
+      const map: Record<string, string> = {
+        'navbar.discover': 'Discover Raffles',
+        'navbar.create': 'Create',
+        'navbar.myRaffles': 'My Raffles',
+        'navbar.leaderboard': 'Leaderboard',
+        'navbar.settings': 'Settings',
+        'navbar.searchPlaceholder': 'Search raffles...',
+        'navbar.getStarted': 'Get Started',
+        'navbar.switchTo': `Switch to ${opts?.network ?? ''}`,
+      };
+      return map[key] ?? key;
+    },
+    i18n: { language: 'en', changeLanguage: vi.fn() },
+  }),
+}));
+
 vi.mock('../providers/WalletProvider', () => ({
   useWalletContext: () => ({
     isConnected: true,
@@ -23,8 +42,24 @@ vi.mock('../providers/WalletProvider', () => ({
   }),
 }));
 
+vi.mock('../providers/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  useAuthContext: () => ({ isAuthenticated: false, address: null }),
+}));
+
 vi.mock('./WalletButton', () => ({ default: () => <button data-testid="wallet-btn">Wallet</button> }));
 vi.mock('./SignInButton', () => ({ default: () => <button data-testid="signin-btn">Sign In</button> }));
+vi.mock('./ThemeToggle', () => ({
+  default: () => <button aria-label="Switch to dark theme">Toggle theme</button>,
+}));
+
+function renderNavbar(path = '/home') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Navbar />
+    </MemoryRouter>,
+  );
+}
 
 function renderNavbar(path = '/home') {
   return render(
@@ -115,5 +150,31 @@ describe('Navbar component', () => {
     fireEvent.click(hamburger);
     expect(screen.getByRole('button', { name: /close navigation menu/i }))
       .toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('hamburger has aria-controls pointing to the mobile panel id', () => {
+    renderNavbar();
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+    expect(hamburger).toHaveAttribute('aria-controls', 'mobile-nav-panel');
+  });
+
+  test('language buttons have descriptive aria-labels', () => {
+    renderNavbar();
+    expect(screen.getByRole('button', { name: 'Switch to English' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Switch to Spanish' })).toBeInTheDocument();
+  });
+
+  test('active language button has aria-pressed="true"', () => {
+    renderNavbar();
+    // Default language is "en" in tests; the EN button should be pressed
+    const enButton = screen.getByRole('button', { name: 'Switch to English' });
+    expect(enButton).toHaveAttribute('aria-pressed', 'true');
+    const esButton = screen.getByRole('button', { name: 'Switch to Spanish' });
+    expect(esButton).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('ThemeToggle has an accessible label', () => {
+    renderNavbar();
+    expect(screen.getByRole('button', { name: /switch to (dark|light) theme/i })).toBeInTheDocument();
   });
 });

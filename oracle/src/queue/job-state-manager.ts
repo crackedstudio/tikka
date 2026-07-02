@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -15,12 +16,12 @@ import {
  */
 @Injectable()
 export class JobStateManager {
-  private readonly logger = new Logger(JobStateManager.name);
+  
   private readonly jobMetadata = new Map<string, JobMetadata>();
   private readonly config: QueueConfig;
   private activeProcessingCount = 0;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly logger: OracleLoggerService, private readonly configService: ConfigService) {
     this.config = {
       maxRetries: this.configService.get<number>('QUEUE_MAX_RETRIES', DEFAULT_QUEUE_CONFIG.maxRetries),
       initialBackoffMs: this.configService.get<number>('QUEUE_INITIAL_BACKOFF_MS', DEFAULT_QUEUE_CONFIG.initialBackoffMs),

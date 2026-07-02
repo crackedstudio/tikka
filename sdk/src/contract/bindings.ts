@@ -17,6 +17,7 @@ export const ContractFn = {
   // Lifecycle
   CREATE_RAFFLE: 'create_raffle',
   BUY_TICKET: 'buy_ticket',
+  BUY_TICKETS_BATCH: 'buy_tickets_batch',
   TRIGGER_DRAW: 'trigger_draw',
   RECEIVE_RANDOMNESS: 'receive_randomness',
   CANCEL_RAFFLE: 'cancel_raffle',
@@ -28,17 +29,18 @@ export const ContractFn = {
   GET_ALL_RAFFLE_IDS: 'get_all_raffle_ids',
   GET_USER_TICKETS: 'get_user_tickets',
   GET_USER_PARTICIPATION: 'get_user_participation',
+  GET_RAFFLE_STATE: 'get_raffle_data',
 
   // Admin
-  SET_ORACLE_ADDRESS: 'set_oracle_address',
-  SET_PROTOCOL_FEE: 'set_protocol_fee',
-  WITHDRAW_FEES: 'withdraw_fees',
-  PAUSE: 'pause',
-  UNPAUSE: 'unpause',
-  TRANSFER_ADMIN: 'transfer_admin',
-  ACCEPT_ADMIN: 'accept_admin',
-  GET_ADMIN: 'get_admin',
-  IS_PAUSED: 'is_paused',
+  SET_ORACLE_ADDRESS: "set_oracle_address",
+  SET_PROTOCOL_FEE: "set_protocol_fee",
+  WITHDRAW_FEES: "withdraw_fees",
+  PAUSE: "pause",
+  UNPAUSE: "unpause",
+  TRANSFER_ADMIN: "transfer_admin",
+  ACCEPT_ADMIN: "accept_admin",
+  GET_ADMIN: "get_admin",
+  IS_PAUSED: "is_paused",
 } as const;
 
 export type ContractFnName = (typeof ContractFn)[keyof typeof ContractFn];

@@ -120,3 +120,15 @@ export interface GetUserActivityParams {
    */
   includeIndexerData?: boolean;
 }
+
+/** A claimable prize entry returned by UserService.getWinnings. */
+export interface WinningEntry {
+  /** The raffle ID this prize belongs to. */
+  raffleId: number;
+  /** Prize amount as a string (e.g. "500"). */
+  prizeAmount: string;
+  /** Asset symbol for the prize (e.g. "XLM"). */
+  prizeAsset: string;
+  /** Whether this prize has already been claimed on-chain. */
+  claimed: boolean;
+}

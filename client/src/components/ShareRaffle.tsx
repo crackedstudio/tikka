@@ -89,17 +89,38 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
     const canWebShare =
         typeof navigator !== "undefined" &&
         typeof navigator.share === "function";
-
     const handleNativeShare = useCallback(async () => {
-        if (!canWebShare) return;
-        try {
-            await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
-        } catch (err) {
-            const name = err instanceof DOMException ? err.name : "";
-            if (name === "AbortError") return;
-            toast.error("Sharing was cancelled or failed.");
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+            try {
+                await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
+                return;
+            } catch (err) {
+                const name = err instanceof DOMException ? err.name : "";
+                if (name === "AbortError") return;
+                toast.error("Sharing was cancelled or failed.");
+                return;
+            }
         }
-    }, [canWebShare, nativeShareUrl, shareBlurb, title]);
+        try {
+            await navigator.clipboard.writeText(nativeShareUrl);
+            toast.success("Link copied!");
+        } catch {
+            const ta = document.createElement("textarea");
+            ta.value = nativeShareUrl;
+            ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand("copy");
+                toast.success("Link copied!");
+            } catch {
+                toast.error("Could not copy link");
+            } finally {
+                document.body.removeChild(ta);
+            }
+        }
+    }, [nativeShareUrl, shareBlurb, title]);
 
     const handleCopyLink = useCallback(async () => {
         let success = false;
@@ -116,12 +137,39 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
         }
         if (success) {
             setCopied(true);
-            toast.success("Link copied to clipboard");
+            toast.success("Link copied!");
             window.setTimeout(() => setCopied(false), 2000);
         } else {
             toast.error("Could not copy link");
         }
     }, [copyHref]);
+
+    const handleNativeShare = useCallback(async () => {
+        if (canWebShare) {
+            try {
+                await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
+                return;
+            } catch (err) {
+                const name = err instanceof DOMException ? err.name : "";
+            // Three outcomes when navigator.share is available:
+            //  1. AbortError      → user dismissed the sheet; no error toast.
+            //  2. Any other error → surface to the user and STOP. We
+            //                       intentionally do not fall through to
+            //                       the clipboard fallback, which would
+            //                       hide a real failure from the user.
+            //  3. Success         → control returns via the early `return`
+            //                       inside the `try`.
+            // (When navigator.share is unavailable the `if (canWebShare)`
+            //  above is false and execution falls through to the
+            //  `await handleCopyLink()` call at the bottom.)
+            if (name === "AbortError") return;
+            toast.error("Sharing was cancelled or failed.");
+            return;
+            }
+        }
+        // Fall back to clipboard when Web Share API is not available
+        await handleCopyLink();
+    }, [canWebShare, nativeShareUrl, shareBlurb, title, handleCopyLink]);
 
     const handleDownloadQr = useCallback(() => {
         const svg = qrRef.current;
@@ -167,17 +215,16 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
                 </p>
 
                 <div className="mt-5 flex flex-wrap items-center gap-3">
-                    {canWebShare ? (
-                        <button
-                            type="button"
-                            className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
-                            onClick={handleNativeShare}
-                            aria-label="Share using your device"
-                        >
-                            <Share2 className="h-5 w-5 shrink-0" />
-                            <span className="text-gray-100">Share</span>
-                        </button>
-                    ) : null}
+                    <button
+                        type="button"
+                        className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
+                        onClick={handleNativeShare}
+                        aria-label="Share"
+                        aria-label="Share using your device"
+                    >
+                        <Share2 className="h-5 w-5 shrink-0" />
+                        <span className="text-gray-100">Share</span>
+                    </button>
 
                     <a
                         href={twitterHref}

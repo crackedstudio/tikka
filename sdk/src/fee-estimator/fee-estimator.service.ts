@@ -8,6 +8,7 @@ import {
   rpc,
   xdr,
 } from '@stellar/stellar-sdk';
+import type { Transaction } from '@stellar/stellar-sdk';
 import BigNumber from 'bignumber.js';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -123,19 +124,63 @@ export class FeeEstimatorService {
 
     const tx = await this.buildTransaction(params.method, params.params, sourceKey);
 
+    return this.estimate(tx);
+  }
+
+  /**
+   * Estimates the transaction fee by simulating a pre-built unsigned transaction.
+   *
+   * Call after assembling contract params when the caller owns transaction construction.
+   * Used by write flows that simulate first, then surface the fee before signing.
+   */
+  async estimate(tx: Transaction): Promise<FeeEstimateResult> {
     const simResponse = await this.rpcService.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
       const errMsg = (simResponse as any).error ?? 'unknown error';
       throw new TikkaSdkError(
         TikkaSdkErrorCode.SimulationFailed,
-        `Fee estimation simulation failed for "${params.method}": ${errMsg}`,
+        `Fee estimation simulation failed: ${errMsg}`,
       );
     }
 
     const successSim = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
 
     return this.parseFeeResult(successSim);
+  }
+
+  /**
+   * Derives a fee estimate from an already-completed simulation response.
+   * Avoids a second RPC round-trip when the caller has just simulated the tx.
+   */
+  estimateFromSimulation(
+    sim: rpc.Api.SimulateTransactionSuccessResponse,
+  ): FeeEstimateResult {
+    return this.parseFeeResult(sim);
+  }
+
+  /**
+   * Derives a fee estimate from a simulation's `minResourceFee` stroops value.
+   * Used after {@link ContractService.simulate} when the raw RPC response is unavailable.
+   */
+  estimateFromResourceFee(minResourceFee: string): FeeEstimateResult {
+    const totalStroops = new BigNumber(BASE_FEE_STROOPS)
+      .plus(minResourceFee)
+      .toFixed(0);
+
+    return {
+      xlm: stroopsToXlm(totalStroops),
+      stroops: totalStroops,
+      resources: {
+        baseFeeStroops: String(BASE_FEE_STROOPS),
+        resourceFeeStroops: minResourceFee,
+        cpuInstructions: 0,
+        diskReadBytes: 0,
+        writeBytes: 0,
+        readOnlyEntries: 0,
+        readWriteEntries: 0,
+      },
+    };
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

@@ -14,3 +14,11 @@ export {
   type PurchaseTicketPayload,
 } from './purchase-ticket.dto';
 
+export {
+  ParticipantListQuerySchema,
+  ParticipantListQueryDto,
+  ParticipantDto,
+  ParticipantListResponseDto,
+  MAX_PARTICIPANTS_LIMIT,
+} from './participant-list.dto';
+

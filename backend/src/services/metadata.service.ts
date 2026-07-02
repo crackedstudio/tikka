@@ -2,7 +2,6 @@ import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
-import { PinningService } from './pinning.service';
 import { MetadataRedisService } from './metadata-redis.service';
 import { MetadataCacheMetricsService } from './metadata-cache-metrics.service';
 
@@ -52,7 +51,6 @@ function cacheKeyForRaffle(raffleId: number): string {
 export class MetadataService {
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
-    private readonly pinningService: PinningService,
     private readonly config: ConfigService,
     private readonly metadataRedis: MetadataRedisService,
     private readonly metadataCacheMetrics: MetadataCacheMetricsService,
@@ -63,8 +61,49 @@ export class MetadataService {
   }
 
   private validateMetadata(payload: UpsertMetadataPayload): void {
-    if (payload.title !== undefined && payload.title.trim().length === 0) {
-      throw new BadRequestException('Title cannot be empty');
+    const ALLOWED_CATEGORIES = new Set(['art', 'seasonal', 'collectibles']);
+
+    if (payload.title !== undefined) {
+      let title = payload.title.trim();
+      title = title.replace(/<[^>]*>/g, '');
+      if (title.length === 0) {
+        throw new BadRequestException('Title cannot be empty');
+      }
+      if (title.length > 200) {
+        throw new BadRequestException('Title must not exceed 200 characters');
+      }
+      payload.title = title;
+    }
+
+    if (payload.description !== undefined) {
+      let description = payload.description.trim();
+      description = description.replace(/<[^>]*>/g, '');
+      if (description.length > 2000) {
+        throw new BadRequestException('Description must not exceed 2000 characters');
+      }
+      payload.description = description;
+    }
+
+    if (payload.category !== undefined && payload.category !== null) {
+      let category = payload.category.trim();
+      category = category.replace(/<[^>]*>/g, '');
+      if (category.length === 0) {
+        payload.category = null;
+      } else if (category.length > 100) {
+        throw new BadRequestException('Category must not exceed 100 characters');
+      } else if (!ALLOWED_CATEGORIES.has(category.toLowerCase())) {
+        throw new BadRequestException('Category is not allowed');
+      } else {
+        payload.category = category;
+      }
+    }
+
+    if (payload.metadata_cid !== undefined && payload.metadata_cid !== null) {
+      let cid = payload.metadata_cid.trim();
+      if (cid.length > 128) {
+        throw new BadRequestException('metadata_cid must not exceed 128 characters');
+      }
+      payload.metadata_cid = cid;
     }
   }
 
@@ -212,21 +251,19 @@ export class MetadataService {
       ?.map((url) => url?.trim())
       .filter((url): url is string => Boolean(url));
 
-
-    const metadataCid = await this.pinningService.pin({
-      raffle_id: raffleId,
-      ...payload,
-    });
+    const existing = await this.getMetadata(raffleId);
 
     const row = {
       raffle_id: raffleId,
-      ...payload,
-      metadata_cid: metadataCid || payload.metadata_cid,
+      title: payload.title !== undefined ? payload.title : (existing?.title ?? ''),
+      description: payload.description !== undefined ? payload.description : (existing?.description ?? ''),
+      image_url: payload.image_url !== undefined ? payload.image_url : (existing?.image_url ?? null),
       image_urls:
-        normalizedImageUrls && normalizedImageUrls.length > 0
-          ? normalizedImageUrls
-          : null,
-      category: payload.category?.trim() || null,
+        payload.image_urls !== undefined
+          ? (normalizedImageUrls && normalizedImageUrls.length > 0 ? normalizedImageUrls : null)
+          : (existing?.image_urls ?? null),
+      category: payload.category !== undefined ? (payload.category?.trim() || null) : (existing?.category ?? null),
+      metadata_cid: payload.metadata_cid !== undefined ? payload.metadata_cid : (existing?.metadata_cid ?? null),
       updated_at: new Date().toISOString(),
     };
 
@@ -246,6 +283,26 @@ export class MetadataService {
     const saved = data as RaffleMetadata;
     await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
 
+    return saved;
+  }
+
+  /**
+   * Update the metadata_cid field for a raffle metadata record and invalidate its cache.
+   */
+  async updateMetadataCid(raffleId: number, metadataCid: string): Promise<RaffleMetadata> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .update({ metadata_cid: metadataCid, updated_at: new Date().toISOString() })
+      .eq('raffle_id', raffleId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update metadata CID for raffle ${raffleId}: ${error.message}`);
+    }
+
+    const saved = data as RaffleMetadata;
+    await this.metadataRedis.del(cacheKeyForRaffle(raffleId));
     return saved;
   }
 

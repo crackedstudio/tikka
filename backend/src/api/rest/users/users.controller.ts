@@ -1,10 +1,10 @@
-import { Controller, Get, Param, Query, Res, UsePipes } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { FastifyReply } from 'fastify';
 import { Public } from '../../../auth/decorators/public.decorator';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { UsersService } from './users.service';
-import { UserHistoryQuerySchema, UserHistoryQueryDto } from './dto/user-history-query.dto';
-import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
+import { UserHistoryQueryDto } from './dto/user-history-query.dto';
 import { Throttle } from '../../../middleware/throttle.decorator';
 
 @ApiTags('Users')
@@ -35,7 +35,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get user raffle participation history' })
   @ApiParam({ name: 'address', description: 'Stellar address of the user' })
   @ApiResponse({ status: 200, description: 'User history retrieved successfully' })
-  @UsePipes(new (createZodPipe(UserHistoryQuerySchema))())
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async getHistory(
     @Param('address') address: string,
     @Query() query: UserHistoryQueryDto,
@@ -59,14 +59,18 @@ export class UsersController {
   @ApiResponse({ status: 429, description: 'Rate limit exceeded — 1 export per minute' })
   async exportHistory(
     @Param('address') address: string,
+    @CurrentUser('address') currentUserAddress: string,
     @Res() reply: FastifyReply,
   ) {
-    const csv = await this.usersService.getHistoryAsCsv(address);
-    const filename = `tikka-history-${address}.csv`;
+    if (currentUserAddress !== address) {
+      throw new UnauthorizedException('You can only export your own history');
+    }
+
+    const stream = await this.usersService.getHistoryAsCsvStream(address);
 
     reply
-      .header('Content-Type', 'text/csv; charset=utf-8')
-      .header('Content-Disposition', `attachment; filename="${filename}"`)
-      .send(csv);
+      .header('Content-Type', 'text/csv')
+      .header('Content-Disposition', `attachment; filename="history.csv"`)
+      .send(stream);
   }
 }

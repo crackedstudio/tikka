@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/workspaces/tikka/oracle/logs/.dc78f156614fea3ded71a01d6026991f84d8ae9f-audit.json",
+    "files": [
+        {
+            "date": 1782610603954,
+            "name": "/workspaces/tikka/oracle/logs/oracle-2026-06-28.log",
+            "hash": "9a864591c46b0471c072ba531c914c1628cf99b2b78eb6ff532580e306cd3228"
+        }
+    ],
+    "hashType": "sha256"
+}
