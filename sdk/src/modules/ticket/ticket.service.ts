@@ -12,12 +12,12 @@ import {
   BatchPurchaseResult,
   TICKET_CONSTRAINTS,
   BuyTicketResult,
-  RefundTicketResult,
-  BuyBatchResult,
+  ClaimPrizeParams,
+  ClaimPrizeResult,
 } from './ticket.types';
 import { ContractResponse } from '../../contract/response';
 import { assertPositiveInt } from '../../utils/validation';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+import { TikkaSdkError, TikkaSdkErrorCode, toTypedSdkError } from '../../utils/errors';
 import { validateLifecycleTransition } from '../../contract/lifecycle';
 
 @Injectable()
@@ -85,14 +85,35 @@ export class TicketService {
   }
 
   /**
+   * Fetches current raffle state and throws RaffleEnded if the given
+   * operation is not permitted in that state. Called before any
+   * simulation/submission so invalid purchases never reach the network.
+   */
+  private async assertRaffleOpenFor(
+    operation: string,
+    raffleId: number,
+  ): Promise<void> {
+    const stateResp = await this.contractService.simulateReadOnly<{ status: number } | number>(
+      ContractFn.GET_RAFFLE_STATE,
+      [raffleId],
+    );
+    const currentStatus =
+      (stateResp.value as any)?.status ?? (stateResp.value as any) ?? -1;
+    validateLifecycleTransition(operation, currentStatus as number, raffleId);
+  }
+
+  /**
    * Purchases tickets for a raffle.
    * Requires wallet signature and submission.
+   *
+   * Validates the raffle is in OPEN state before simulating/submitting —
+   * see issue #929.
    *
    * Token transfer failures (e.g. malicious SEP-41 token rejecting the call)
    * are surfaced as `ExternalContractError` so callers can handle them
    * separately from generic network/contract errors.
    *
-   * @throws TikkaSdkError if validation fails or submission is duplicate
+   * @throws TikkaSdkError if validation fails, raffle is not OPEN, or submission is duplicate
    */
   async buy(
     params: BuyTicketParams,
@@ -100,6 +121,9 @@ export class TicketService {
     const { raffleId, quantity } = params;
     assertPositiveInt(raffleId, "raffleId");
     this.validateQuantity(quantity);
+
+    // Fetch current raffle state and validate before simulating/submitting.
+    await this.assertRaffleOpenFor(ContractFn.BUY_TICKET, raffleId);
 
     const publicKey = await this.contractService["wallet"]?.getPublicKey();
     if (!publicKey) {
@@ -151,12 +175,18 @@ export class TicketService {
    * Purchases multiple tickets for a raffle in a single transaction.
    * Uses the batch purchase contract entry point.
    *
-   * @throws TikkaSdkError if validation fails or submission is duplicate
+   * Validates the raffle is in OPEN state before simulating/submitting —
+   * see issue #929.
+   *
+   * @throws TikkaSdkError if validation fails, raffle is not OPEN, or submission is duplicate
    */
   async buyTickets(params: BuyTicketsParams): Promise<ContractResponse<BuyTicketResult>> {
     const { raffleId, count, maxPricePerTicket } = params;
     assertPositiveInt(raffleId, 'raffleId');
     this.validateQuantity(count, 'count');
+
+    // Fetch current raffle state and validate before simulating/submitting.
+    await this.assertRaffleOpenFor(ContractFn.BUY_TICKET, raffleId);
 
     const publicKey = await this.contractService['wallet']?.getPublicKey();
     if (!publicKey) {

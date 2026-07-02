@@ -3,8 +3,8 @@
  * Issue: #929
  *
  * Covers:
- *  1. buyTickets on DRAWING raffle throws RaffleEnded without submitting
- *  2. buyTickets on OPEN raffle proceeds normally
+ *  1. buy() on DRAWING raffle throws RaffleEnded without submitting
+ *  2. buy() on OPEN raffle proceeds normally
  *  3. finalizeRaffle on DRAWING raffle throws RaffleEnded
  *  4. finalizeRaffle on OPEN raffle proceeds normally
  *  5. cancelRaffle on FINALIZED raffle throws RaffleEnded
@@ -24,6 +24,10 @@ import { BuyTicketParams } from '../ticket/ticket.types';
 const RAFFLE_ID = 42;
 const PUBLIC_KEY = 'GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ234567890ABCDEF';
 
+function makeParams(): BuyTicketParams {
+  return { raffleId: RAFFLE_ID, quantity: 1 };
+}
+
 function makeContractService(stateValue: number) {
   const mockWallet = { getPublicKey: jest.fn().mockResolvedValue(PUBLIC_KEY) };
   const cs = {
@@ -35,9 +39,11 @@ function makeContractService(stateValue: number) {
       feePaid: '100',
     }),
     simulateReadOnly: jest.fn().mockResolvedValue({
+      success: true,
       status: 'SUCCESS',
-      value: { status: stateValue },
+      value: { status: stateValue, creator: PUBLIC_KEY },
     }),
+    getPublicKey: jest.fn().mockResolvedValue(PUBLIC_KEY),
     wallet: mockWallet,
   } as unknown as jest.Mocked<ContractService>;
   return cs;
@@ -47,7 +53,7 @@ function makeContractService(stateValue: number) {
 
 describe('TicketService.buy() — lifecycle validation', () => {
   it('throws RaffleEnded when raffle is DRAWING', async () => {
-    const params: BuyTicketParams = {};
+    const params = makeParams();
     const cs = makeContractService(RaffleStatus.Drawing);
     const service = new TicketService(cs);
 
@@ -59,6 +65,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
   });
 
   it('throws RaffleEnded when raffle is FINALIZED', async () => {
+    const params = makeParams();
     const cs = makeContractService(RaffleStatus.Finalized);
     const service = new TicketService(cs);
 
@@ -69,6 +76,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
   });
 
   it('throws RaffleEnded when raffle is CANCELLED', async () => {
+    const params = makeParams();
     const cs = makeContractService(RaffleStatus.Cancelled);
     const service = new TicketService(cs);
 
@@ -79,6 +87,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
   });
 
   it('proceeds and calls invoke when raffle is OPEN', async () => {
+    const params = makeParams();
     const cs = makeContractService(RaffleStatus.Open);
     const service = new TicketService(cs);
 
@@ -93,6 +102,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
   });
 
   it('fetches state before any RPC transaction call', async () => {
+    const params = makeParams();
     const cs = makeContractService(RaffleStatus.Open);
     const callOrder: string[] = [];
     cs.simulateReadOnly.mockImplementation(async () => {
@@ -171,22 +181,22 @@ describe('validateLifecycleTransition', () => {
     ).toThrow(TikkaSdkError);
     expect(() =>
       validateLifecycleTransition('buy_ticket', RaffleStatus.Drawing, RAFFLE_ID)
-    ).toThrowError(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
+    ).toThrow(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
   });
 
   it('throws RaffleEnded for buy_ticket on FINALIZED state', () => {
     expect(() =>
       validateLifecycleTransition('buy_ticket', RaffleStatus.Finalized, RAFFLE_ID)
-    ).toThrowError(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
+    ).toThrow(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
   });
 
   it('throws RaffleEnded for buy_ticket on CANCELLED state', () => {
     expect(() =>
       validateLifecycleTransition('buy_ticket', RaffleStatus.Cancelled, RAFFLE_ID)
-    ).toThrowError(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
+    ).toThrow(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
   });
 
-  it('does NOTate', () => {
+  it('does NOT throw for buy_ticket on OPEN state', () => {
     expect(() =>
       validateLifecycleTransition('buy_ticket', RaffleStatus.Open, RAFFLE_ID)
     ).not.toThrow();
