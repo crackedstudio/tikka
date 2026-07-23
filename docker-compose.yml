@@ -29,8 +29,21 @@ services:
   redis:
     image: redis:7-alpine
     profiles: [deps, backend, indexer, oracle, full, client]
+    # See redis/README.md for the rationale behind these settings.
+    # noeviction is REQUIRED for BullMQ (queues); AOF persistence keeps
+    # in-flight jobs alive across restarts.
+    command:
+      - redis-server
+      - --maxmemory-policy
+      - noeviction
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -122,3 +135,4 @@ networks:
 
 volumes:
   postgres-data:
+  redis-data:
