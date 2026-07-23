@@ -17,7 +17,7 @@ jobs:
       run:
         working-directory: ./client
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -65,7 +65,7 @@ jobs:
       run:
         working-directory: ./sdk
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -113,7 +113,7 @@ jobs:
       run:
         working-directory: ./backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -159,7 +159,7 @@ jobs:
       run:
         working-directory: ./indexer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -205,7 +205,7 @@ jobs:
       run:
         working-directory: ./oracle
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -250,7 +250,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -273,7 +273,7 @@ jobs:
       run:
         working-directory: ./client
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
