@@ -13,7 +13,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "generate:openapi": "ts-node scripts/generate-openapi.ts",
     "validate:openapi": "pnpm run generate:openapi && npx swagger-cli validate openapi.json",
-    "migrations:check": "ts-node scripts/check-migrations.ts"
+    "migrations:check": "ts-node scripts/check-migrations.ts",
+    "storage:cleanup-orphans": "ts-node scripts/cleanup-orphan-images.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.2",
