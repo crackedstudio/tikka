@@ -60,7 +60,7 @@
     "@opentelemetry/sdk-metrics": "^2.9.0",
     "@stellar/stellar-sdk": "^14.5.0",
     "@supabase/supabase-js": "^2.45.0",
-    "bullmq": "^5.76.1",
+    "bullmq": "^5.81.0",
     "ioredis": "^5.9.3",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.0",
