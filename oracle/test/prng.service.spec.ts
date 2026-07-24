@@ -1,11 +1,12 @@
 import { PrngService } from '../src/randomness/prng.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
 import * as crypto from 'crypto';
 
 describe('PrngService', () => {
   let service: PrngService;
 
   beforeEach(() => {
-    service = new PrngService();
+    service = new PrngService({ log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService);
   });
 
   describe('output format', () => {

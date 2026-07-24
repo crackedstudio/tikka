@@ -1,9 +1,11 @@
 import { HealthService, ComponentStatus } from './health.service';
 import { CircuitBreakerService } from '../listener/circuit-breaker.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 describe('HealthService', () => {
   let service: HealthService;
   let circuitBreakerServiceMock: any;
+  let loggerMock: jest.Mocked<OracleLoggerService>;
 
   beforeEach(() => {
     circuitBreakerServiceMock = {
@@ -11,7 +13,8 @@ describe('HealthService', () => {
       getFailureCount: jest.fn().mockReturnValue(0),
       getLastFailureAt: jest.fn().mockReturnValue(null),
     };
-    service = new HealthService(circuitBreakerServiceMock as unknown as CircuitBreakerService);
+    loggerMock = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as jest.Mocked<OracleLoggerService>;
+    service = new HealthService(loggerMock, circuitBreakerServiceMock as unknown as CircuitBreakerService);
   });
 
   describe('circuitState', () => {

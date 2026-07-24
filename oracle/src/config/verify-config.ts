@@ -109,6 +109,7 @@ try {
   } else if (config.alerting.provider === 'opsgenie') {
     console.log(`  Opsgenie API Key: [REDACTED]`);
   }
+  console.log(`  Alert Webhook: ${config.alerting.webhookUrl ? 'Configured' : 'Not configured'}`);
   
   console.log('\n💓 Heartbeat:');
   console.log(`  Interval: ${config.heartbeat.intervalMs}ms`);

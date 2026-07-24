@@ -168,7 +168,7 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
     let count = 0;
 
     try {
-      let page: Horizon.Server.CollectionPage<Horizon.HorizonApi.TransactionResponse> =
+      let page: Horizon.ServerApi.CollectionPage<Horizon.ServerApi.TransactionRecord> =
         await this.horizonServer
           .transactions()
           .cursor(fromCursor)

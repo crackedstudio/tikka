@@ -8,6 +8,7 @@ import { PrngService } from '../randomness/prng.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { HealthService } from '../health/health.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 describe('RescueService', () => {
   let service: RescueService;
@@ -81,6 +82,7 @@ describe('RescueService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RescueService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         {
           provide: getQueueToken(RANDOMNESS_QUEUE),
           useValue: mockQueue,

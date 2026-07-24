@@ -10,6 +10,7 @@ import { LagMonitorService } from '../src/health/lag-monitor.service';
 import { CommitRevealWorker } from '../src/queue/commit-reveal.worker';
 import { DrawRequestLedgerService } from '../src/listener/draw-request-ledger.service';
 import { CircuitBreakerService } from '../src/listener/circuit-breaker.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const RAFFLE_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
@@ -181,6 +182,7 @@ describe('EventListenerService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 EventListenerService,
+                { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
                 { provide: ConfigService, useValue: mockConfigService },
                 { provide: RandomnessWorker, useValue: mockRandomnessWorker },
                 { provide: CommitRevealWorker, useValue: mockCommitRevealWorker },

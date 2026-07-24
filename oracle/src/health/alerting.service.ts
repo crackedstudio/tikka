@@ -9,6 +9,8 @@ export interface AlertPayload {
   details?: string;
   /** Stable key used to de-duplicate and auto-resolve the same alert. */
   dedupKey: string;
+  /** Diagnostic context (e.g. oracle_id, raffle_id) included in outbound alert payloads. */
+  context?: Record<string, unknown>;
 }
 
 type AlertingProvider = 'pagerduty' | 'opsgenie' | 'none';
@@ -34,6 +36,9 @@ export class AlertingService {
   private readonly opsgenieApiKey: string;
   private readonly opsgenieApiUrl = 'https://api.opsgenie.com/v2/alerts';
 
+  // Generic webhook (Slack-compatible)
+  private readonly webhookUrl: string;
+
   constructor(private readonly logger: OracleLoggerService) {
     const raw = (process.env.ALERTING_PROVIDER ?? 'none').toLowerCase();
     if (raw === 'pagerduty' || raw === 'opsgenie') {
@@ -44,39 +49,59 @@ export class AlertingService {
 
     this.pdRoutingKey = process.env.PAGERDUTY_ROUTING_KEY ?? '';
     this.opsgenieApiKey = process.env.OPSGENIE_API_KEY ?? '';
+    this.webhookUrl = process.env.ALERT_WEBHOOK_URL ?? '';
 
     if (this.provider !== 'none') {
       this.logger.log(`Alerting provider: ${this.provider}`);
     }
-  }
-
-  /** Fire (trigger) an alert. No-op when provider is "none". */
-  async fire(payload: AlertPayload): Promise<void> {
-    if (this.provider === 'none') return;
-
-    try {
-      if (this.provider === 'pagerduty') {
-        await this.pagerdutyTrigger(payload);
-      } else {
-        await this.opsgenieTrigger(payload);
-      }
-    } catch (err) {
-      this.logger.error(`Failed to fire alert "${payload.dedupKey}": ${(err as Error).message}`);
+    if (this.webhookUrl) {
+      this.logger.log('Alert webhook configured');
     }
   }
 
-  /** Resolve a previously fired alert. No-op when provider is "none". */
-  async resolve(dedupKey: string): Promise<void> {
-    if (this.provider === 'none') return;
-
-    try {
-      if (this.provider === 'pagerduty') {
-        await this.pagerdutyResolve(dedupKey);
-      } else {
-        await this.opsgenieResolve(dedupKey);
+  /** Fire (trigger) an alert. Dispatches to the configured provider and/or webhook. */
+  async fire(payload: AlertPayload): Promise<void> {
+    if (this.provider !== 'none') {
+      try {
+        if (this.provider === 'pagerduty') {
+          await this.pagerdutyTrigger(payload);
+        } else {
+          await this.opsgenieTrigger(payload);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to fire alert "${payload.dedupKey}": ${(err as Error).message}`);
       }
-    } catch (err) {
-      this.logger.error(`Failed to resolve alert "${dedupKey}": ${(err as Error).message}`);
+    }
+
+    if (this.webhookUrl) {
+      try {
+        await this.webhookTrigger(payload);
+      } catch (err) {
+        this.logger.error(`Failed to POST alert webhook "${payload.dedupKey}": ${(err as Error).message}`);
+      }
+    }
+  }
+
+  /** Resolve a previously fired alert. Dispatches to the configured provider and/or webhook. */
+  async resolve(dedupKey: string): Promise<void> {
+    if (this.provider !== 'none') {
+      try {
+        if (this.provider === 'pagerduty') {
+          await this.pagerdutyResolve(dedupKey);
+        } else {
+          await this.opsgenieResolve(dedupKey);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to resolve alert "${dedupKey}": ${(err as Error).message}`);
+      }
+    }
+
+    if (this.webhookUrl) {
+      try {
+        await this.webhookResolve(dedupKey);
+      } catch (err) {
+        this.logger.error(`Failed to POST alert-resolved webhook "${dedupKey}": ${(err as Error).message}`);
+      }
     }
   }
 
@@ -91,7 +116,10 @@ export class AlertingService {
         summary: payload.summary,
         severity: payload.severity === 'critical' ? 'critical' : 'warning',
         source: 'tikka-oracle',
-        custom_details: payload.details ? { details: payload.details } : undefined,
+        custom_details:
+          payload.details || payload.context
+            ? { details: payload.details, ...payload.context }
+            : undefined,
       },
     };
 
@@ -175,5 +203,67 @@ export class AlertingService {
     }
 
     this.logger.log(`Opsgenie alert resolved: ${dedupKey}`);
+  }
+
+  // ── Generic webhook (Slack-compatible) ──────────────────────────────────────
+
+  private async webhookTrigger(payload: AlertPayload): Promise<void> {
+    const fields = Object.entries(payload.context ?? {}).map(([title, value]) => ({
+      title,
+      value: String(value),
+      short: true,
+    }));
+
+    const body = {
+      text: `[${payload.severity.toUpperCase()}] ${payload.summary}`,
+      attachments: [
+        {
+          color: payload.severity === 'critical' ? '#e01e5a' : '#ecb22e',
+          fields,
+          text: payload.details,
+          footer: 'tikka-oracle',
+          ts: Math.floor(Date.now() / 1000),
+        },
+      ],
+    };
+
+    const res = await fetch(this.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Alert webhook POST failed (${res.status}): ${text}`);
+    }
+
+    this.logger.warn(`Alert webhook posted: ${payload.dedupKey}`);
+  }
+
+  private async webhookResolve(dedupKey: string): Promise<void> {
+    const body = {
+      text: `[RESOLVED] ${dedupKey}`,
+      attachments: [
+        {
+          color: '#2eb886',
+          footer: 'tikka-oracle',
+          ts: Math.floor(Date.now() / 1000),
+        },
+      ],
+    };
+
+    const res = await fetch(this.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Alert-resolved webhook POST failed (${res.status}): ${text}`);
+    }
+
+    this.logger.log(`Alert-resolved webhook posted: ${dedupKey}`);
   }
 }

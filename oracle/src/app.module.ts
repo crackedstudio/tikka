@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { LoggerModule } from './logger/logger.module';
 import { OracleConfigModule } from './config';
 import { QueueModule } from './queue/queue.module';
 import { HealthModule } from './health/health.module';
@@ -13,6 +14,7 @@ import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
+    LoggerModule,
     OracleConfigModule.forRoot(),
     KeysModule,
     QueueModule,

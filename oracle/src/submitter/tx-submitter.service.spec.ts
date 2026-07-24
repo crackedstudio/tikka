@@ -2,7 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { TxSubmitterService, TransactionOutcome, TransactionState } from './tx-submitter.service';
 import { FeeEstimatorService } from './fee-estimator.service';
+import { CostEstimatorService } from './cost-estimator.service';
 import { KeyService } from '../keys/key.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 describe('TxSubmitterService', () => {
   let service: TxSubmitterService;
@@ -55,9 +57,18 @@ describe('TxSubmitterService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TxSubmitterService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: FeeEstimatorService, useValue: mockFeeEstimator },
         { provide: KeyService, useValue: mockKeyService },
+        {
+          provide: CostEstimatorService,
+          useValue: {
+            recordRevealCost: jest.fn(),
+            recordSubmissionRetry: jest.fn(),
+            recordSubmissionFailure: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -90,8 +101,10 @@ describe('TxSubmitterService', () => {
       const outcome = await service.submitRandomnessTyped(100, 'req-1', randomness);
 
       expect(outcome.status).toBe('SUCCESS');
-      expect(outcome.txHash).toBe(txHash);
-      expect(outcome.ledger).toBe(ledger);
+      if (outcome.status === 'SUCCESS') {
+        expect(outcome.txHash).toBe(txHash);
+        expect(outcome.ledger).toBe(ledger);
+      }
       expect(outcome.retriable).toBe(false);
       expect(mockRpcServer.sendTransaction).toHaveBeenCalledTimes(1);
       expect(mockRpcServer.getTransaction).toHaveBeenCalled();
@@ -138,8 +151,10 @@ describe('TxSubmitterService', () => {
       const outcome = await service.submitRandomnessTyped(102, 'req-3', randomness);
 
       expect(outcome.status).toBe('SUCCESS');
-      expect(outcome.txHash).toBe(txHash);
-      expect(outcome.ledger).toBe(ledger);
+      if (outcome.status === 'SUCCESS') {
+        expect(outcome.txHash).toBe(txHash);
+        expect(outcome.ledger).toBe(ledger);
+      }
       expect(mockRpcServer.getTransaction).toHaveBeenCalledWith(txHash);
       expect(mockRpcServer.getTransaction).toHaveBeenCalledTimes(3);
     });
@@ -434,7 +449,7 @@ describe('TxSubmitterService', () => {
 
       const logCalls = logSpy.mock.calls;
       const finalLog = logCalls[logCalls.length - 1][0];
-      const logEntry = JSON.parse(finalLog);
+      const logEntry = JSON.parse(finalLog as string);
 
       expect(logEntry).toHaveProperty('txHash');
       expect(logEntry).toHaveProperty('raffleId', 119);

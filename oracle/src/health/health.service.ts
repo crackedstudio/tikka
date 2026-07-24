@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { CircuitState } from '../listener/circuit-breaker.types';
 import { PriorityTier } from '../queue/priority-classifier.service';
 import { CircuitBreakerService } from '../listener/circuit-breaker.service';
@@ -73,8 +74,6 @@ export interface ErrorRecord {
 
 @Injectable()
 export class HealthService {
-  constructor(private readonly logger: OracleLoggerService) {}
-
   private readonly startTime = Date.now();
   private queueDepth = 0;
   private lastProcessedAt: Date | null = null;
@@ -89,6 +88,7 @@ export class HealthService {
   private tierCounts: Record<PriorityTier, number> = { HIGH: 0, MEDIUM: 0, LOW: 0 };
 
   constructor(
+    private readonly logger: OracleLoggerService,
     @Inject(forwardRef(() => CircuitBreakerService))
     private readonly circuitBreakerService: CircuitBreakerService,
   ) {}
