@@ -434,6 +434,20 @@ This document describes all environment variables used by the Tikka Oracle servi
 - **Description**: Opsgenie API key
 - **Example**: `OPSGENIE_API_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 
+### `ALERT_WEBHOOK_URL`
+- **Type**: String (URL)
+- **Default**: None
+- **Required**: No
+- **Description**: Slack-compatible webhook URL. When set, alerts are POSTed here in addition to (or instead of) `ALERTING_PROVIDER`. Fires on circuit breaker OPEN, dead-letter queue depth exceeding `DLQ_DEPTH_ALERT_THRESHOLD`, and VRF signing key unavailability. Each payload includes `oracle_id`, `raffle_id` (when applicable), and severity.
+- **Example**: `ALERT_WEBHOOK_URL=https://hooks.slack.com/services/T00/B00/XXXX`
+
+### `DLQ_DEPTH_ALERT_THRESHOLD`
+- **Type**: Integer
+- **Default**: `5`
+- **Required**: No
+- **Description**: Number of dead-lettered jobs that triggers a critical alert
+- **Example**: `DLQ_DEPTH_ALERT_THRESHOLD=10`
+
 ---
 
 ## Heartbeat Configuration
@@ -556,6 +570,8 @@ REDIS_PORT=6379
 # Alerting
 ALERTING_PROVIDER=pagerduty
 PAGERDUTY_ROUTING_KEY=R0XXXXXXXXXXXXXXXXXXXXXXXXXX
+ALERT_WEBHOOK_URL=https://hooks.slack.com/services/T00/B00/XXXX
+DLQ_DEPTH_ALERT_THRESHOLD=10
 
 # Logging
 LOG_LEVEL=info

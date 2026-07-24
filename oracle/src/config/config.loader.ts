@@ -165,6 +165,7 @@ export function loadOracleConfig(): OracleConfig {
       provider: (process.env.ALERTING_PROVIDER || 'none') as 'none' | 'pagerduty' | 'opsgenie',
       pagerdutyRoutingKey: process.env.PAGERDUTY_ROUTING_KEY,
       opsgenieApiKey: process.env.OPSGENIE_API_KEY,
+      webhookUrl: process.env.ALERT_WEBHOOK_URL,
     },
     heartbeat: {
       intervalMs: parseInteger(process.env.HEARTBEAT_INTERVAL_MS, 3600000),

@@ -8,6 +8,9 @@ import * as crypto from 'crypto';
 import { IVrfProvider, VrfAlgorithm } from './vrf.interface';
 import { Ed25519Sha256VrfProvider } from './ed25519-sha256.vrf-provider';
 import { MetricsService } from '../metrics/metrics.service';
+import { AlertingService } from '../health/alerting.service';
+
+const VRF_KEY_UNAVAILABLE_ALERT_DEDUP_KEY = 'vrf-key-unavailable';
 
 /**
  * VrfService — Verifiable Random Function computation for high-stakes raffles.
@@ -32,6 +35,7 @@ export class VrfService {
     private readonly keyService: KeyService,
     private readonly oracleRegistry: OracleRegistryService,
     private readonly metricsService: MetricsService,
+    private readonly alertingService: AlertingService,
   ) {
     this.ed25519Provider = new Ed25519Sha256VrfProvider(keyService, metricsService);
   }
@@ -44,7 +48,24 @@ export class VrfService {
    *                   with the same requestId still produce distinct seeds.
    */
   async compute(requestId: string, raffleId?: number): Promise<RandomnessResult> {
-    return this.ed25519Provider.compute(requestId, raffleId);
+    try {
+      const result = await this.ed25519Provider.compute(requestId, raffleId);
+      void this.alertingService.resolve(VRF_KEY_UNAVAILABLE_ALERT_DEDUP_KEY);
+      return result;
+    } catch (error: any) {
+      void this.alertingService.fire({
+        severity: 'critical',
+        summary: 'VRF signing key unavailable',
+        details: error?.message || String(error),
+        dedupKey: VRF_KEY_UNAVAILABLE_ALERT_DEDUP_KEY,
+        context: {
+          oracle_id: process.env.LOCAL_ORACLE_ID || 'oracle-001',
+          raffle_id: raffleId,
+          request_id: requestId,
+        },
+      });
+      throw error;
+    }
   }
 
   /**
