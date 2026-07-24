@@ -6,7 +6,7 @@ import { LagMonitorService } from '../health/lag-monitor.service';
 import { RandomnessWorker } from '../queue/randomness.worker';
 import { CommitRevealWorker } from '../queue/commit-reveal.worker';
 import { CircuitBreakerService } from './circuit-breaker.service';
-import { Logger } from '@nestjs/common';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 // Compatibility Rules Documented Here:
 // 1. Versioning: Event payloads without a 'version' key or with 'version: 1' are considered supported.
@@ -25,7 +25,16 @@ describe('EventListenerService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EventListenerService,
-        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('test') } },
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, defaultValue?: string) => {
+              if (key === 'HORIZON_URL') return 'https://horizon-testnet.stellar.org';
+              return defaultValue ?? 'test';
+            }),
+          },
+        },
         { provide: HealthService, useValue: { updateStreamStatus: jest.fn(), updateQueueDepth: jest.fn() } },
         { provide: LagMonitorService, useValue: { updateCurrentLedger: jest.fn(), trackRequest: jest.fn() } },
         { 
@@ -139,6 +148,8 @@ describe('EventListenerService', () => {
         expect(randomnessWorker.processRequest).toHaveBeenCalledWith({
           raffleId: 123,
           requestId: 'req_123',
+          stableRequestId: 'ledger:0:tx:unknown:event:0:raffle:123',
+          replayOverride: false,
           prizeAmount: 50, // 500000000 / 10_000_000
           priority: 1
         });

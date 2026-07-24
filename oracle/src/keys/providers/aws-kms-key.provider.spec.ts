@@ -2,6 +2,9 @@ import { AwsKmsKeyProvider } from './aws-kms-key.provider';
 import { KeyProviderError } from '../key-provider.error';
 import { ConfigService } from '@nestjs/config';
 import { KeyProviderFactory } from '../key-provider.factory';
+import { OracleLoggerService } from '../../logger/oracle-logger';
+
+const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
 
 // Mock the AWS KMS client constructor and its commands
 jest.mock('@aws-sdk/client-kms', () => {
@@ -29,13 +32,13 @@ describe('AwsKmsKeyProvider', () => {
     jest.clearAllMocks();
     const awsKmsMock = require('@aws-sdk/client-kms');
     mockSend = awsKmsMock.__mockSend;
-    provider = new AwsKmsKeyProvider(mockRegion, mockKeyId);
+    provider = new AwsKmsKeyProvider(mockLogger, mockRegion, mockKeyId);
   });
 
   describe('constructor and config', () => {
     it('throws KeyProviderError if region or keyId is missing', () => {
-      expect(() => new AwsKmsKeyProvider('', mockKeyId)).toThrow(KeyProviderError);
-      expect(() => new AwsKmsKeyProvider(mockRegion, '')).toThrow(KeyProviderError);
+      expect(() => new AwsKmsKeyProvider(mockLogger, '', mockKeyId)).toThrow(KeyProviderError);
+      expect(() => new AwsKmsKeyProvider(mockLogger, mockRegion, '')).toThrow(KeyProviderError);
     });
 
     it('reads the correct AWS_KMS_KEY_ID from the config via KeyProviderFactory', () => {

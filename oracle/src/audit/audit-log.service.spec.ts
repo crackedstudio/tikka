@@ -1,14 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Logger } from '@nestjs/common';
 import { AuditLogService } from './audit-log.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { SUPABASE_CLIENT } from './supabase.provider';
 import { RecordSubmissionParams } from './audit.types';
 
 describe('AuditLogService - record()', () => {
   let service: AuditLogService;
   let supabaseClient: any;
+  let loggerMock: { log: jest.Mock; warn: jest.Mock; error: jest.Mock; debug: jest.Mock };
 
   beforeEach(async () => {
+    loggerMock = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
     const mockSupabase = {
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
@@ -26,6 +28,10 @@ describe('AuditLogService - record()', () => {
       providers: [
         AuditLogService,
         {
+          provide: OracleLoggerService,
+          useValue: loggerMock,
+        },
+        {
           provide: SUPABASE_CLIENT,
           useValue: mockSupabase,
         },
@@ -34,11 +40,6 @@ describe('AuditLogService - record()', () => {
 
     service = module.get<AuditLogService>(AuditLogService);
     supabaseClient = module.get(SUPABASE_CLIENT);
-
-    // Mock logger to avoid console output during tests
-    jest.spyOn(Logger.prototype, 'log').mockImplementation();
-    jest.spyOn(Logger.prototype, 'error').mockImplementation();
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
   });
 
   afterEach(() => {
@@ -131,7 +132,7 @@ describe('AuditLogService - record()', () => {
 
       // Should not throw, just log error
       await expect(service.record(mockParams)).resolves.not.toThrow();
-      expect(Logger.prototype.error).toHaveBeenCalled();
+      expect(loggerMock.error).toHaveBeenCalled();
     });
 
     it('should handle missing requestId gracefully', async () => {
@@ -174,7 +175,7 @@ describe('AuditLogService - record()', () => {
 
       await service.record(mockParams);
 
-      expect(Logger.prototype.log).toHaveBeenCalledWith(
+      expect(loggerMock.log).toHaveBeenCalledWith(
         expect.stringContaining('Audit record saved for raffle 123'),
       );
     });

@@ -8,6 +8,7 @@ import { CommitRevealWorker } from '../queue/commit-reveal.worker';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
+import { DrawRequestLedgerService, DrawRequestIdentity } from './draw-request-ledger.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
@@ -164,7 +165,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
             }
 
         } catch (e: any) {
-            this.logger.error(`Error processing event: ${e.message}`, { event: eventResponse });
+            this.logger.error(`Error processing event: ${e.message}`, JSON.stringify({ event: eventResponse }));
         }
     }
 

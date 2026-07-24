@@ -5,6 +5,7 @@ import {
   DrawRequestIdentity,
   DrawRequestClaimResult,
 } from "../src/listener/draw-request-ledger.service";
+import { OracleLoggerService } from "../src/logger/oracle-logger";
 
 /**
  * Unit tests for DrawRequestLedgerService
@@ -49,6 +50,7 @@ describe("DrawRequestLedgerService", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DrawRequestLedgerService,
+          { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
           { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
@@ -172,6 +174,7 @@ describe("DrawRequestLedgerService", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DrawRequestLedgerService,
+          { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
           { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
@@ -200,6 +203,7 @@ describe("DrawRequestLedgerService", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DrawRequestLedgerService,
+          { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
           { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
@@ -259,6 +263,7 @@ describe("DrawRequestLedgerService", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DrawRequestLedgerService,
+          { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
           { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();

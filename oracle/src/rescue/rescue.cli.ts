@@ -15,7 +15,6 @@
  *   npm run oracle:rescue logs [--raffle <raffleId>] [--limit <n>]
  */
 
-import { fileURLToPath, pathToFileURL } from 'url';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { RescueService } from './rescue.service';
@@ -209,7 +208,7 @@ function printStuckDrawReport(report: StuckDrawReport, jsonMode: boolean): void 
 }
 
 async function main() {
-  const { command, args, options } = parseArgs();
+  const { command, args, options } = parseArgs(process.argv.slice(2));
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printUsage();
@@ -262,9 +261,9 @@ export async function executeRescueCommand(
 
       console.log('DRY RUN: Re-enqueue operation will not be applied unless --execute is provided.');
       console.log('Action: Re-enqueue job');
-      console.log(`Target Job ID: ${preview.preview.jobId}`);
-      console.log(`Target Raffle ID: ${preview.preview.raffleId}`);
-      console.log(`Target Request ID: ${preview.preview.requestId}`);
+      console.log(`Target Job ID: ${preview.preview!.jobId}`);
+      console.log(`Target Raffle ID: ${preview.preview!.raffleId}`);
+      console.log(`Target Request ID: ${preview.preview!.requestId}`);
       console.log(`Operator: ${operator}`);
       console.log(`Reason: ${reason}`);
 
@@ -281,37 +280,21 @@ export async function executeRescueCommand(
         return 0;
       }
 
-      case 'list-stuck': {
-        const jsonMode = options.json === 'true';
-        if (!jsonMode) {
-          console.log('Building stuck draw report...\n');
-        }
-        const report = await rescueService.getStuckDrawReport();
-        printStuckDrawReport(report, jsonMode);
-        if (report.summary.stuck > 0 && !jsonMode) {
-          process.exitCode = 2;
-        }
-        break;
-      }
+      console.error(`✗ Failed: ${result.message}`);
+      return 1;
+    }
 
-      case 'list-all': {
-        console.log('Fetching all jobs...\n');
-        const allJobs = await rescueService.getAllJobs();
-        
-        console.log(`Waiting: ${allJobs.waiting.length}`);
-        console.log(`Active: ${allJobs.active.length}`);
-        console.log(`Completed: ${allJobs.completed.length}`);
-        console.log(`Failed: ${allJobs.failed.length}`);
-        console.log(`Delayed: ${allJobs.delayed.length}`);
-        console.log('');
+    case 'force-submit': {
+      const raffleId = parseInt(args[0], 10);
+      const requestId = args[1];
+      const operator = options.operator;
+      const reason = options.reason;
+      const prizeAmount = options.prize ? parseFloat(options.prize) : undefined;
 
-        if (allJobs.failed.length > 0) {
-          console.log('Failed Jobs:');
-          allJobs.failed.forEach((job) => {
-            console.log(`  ${job.id} - Raffle ${job.raffleId} - ${job.failedReason || 'Unknown error'}`);
-          });
-        }
-        break;
+      if (!raffleId || !requestId || !operator || !reason) {
+        console.error('Error: Missing required arguments');
+        console.error('Usage: npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason <reason> [--prize <amount>]');
+        return 1;
       }
 
       const preview = await rescueService.getForceSubmitPreview(
@@ -326,18 +309,18 @@ export async function executeRescueCommand(
 
       console.log('DRY RUN: Force-submit operation will not be applied unless --execute is provided.');
       console.log('Action: Force submit randomness');
-      console.log(`Target Raffle ID: ${preview.preview.raffleId}`);
-      console.log(`Target Request ID: ${preview.preview.requestId}`);
-      console.log(`Network: ${getNetworkName(preview.preview.network)}`);
-      console.log(`Source Account: ${preview.preview.sourceAccount}`);
-      console.log(`Randomness Method: ${preview.preview.method}`);
+      console.log(`Target Raffle ID: ${preview.preview!.raffleId}`);
+      console.log(`Target Request ID: ${preview.preview!.requestId}`);
+      console.log(`Network: ${getNetworkName(preview.preview!.network)}`);
+      console.log(`Source Account: ${preview.preview!.sourceAccount}`);
+      console.log(`Randomness Method: ${preview.preview!.method}`);
       console.log(
-        `Estimated Fee: ${preview.preview.feeEstimate.cappedFee} stroops (${formatStroopsAsXlm(
-          preview.preview.feeEstimate.cappedFee,
+        `Estimated Fee: ${preview.preview!.feeEstimate.cappedFee} stroops (${formatStroopsAsXlm(
+          preview.preview!.feeEstimate.cappedFee,
         )})`,
       );
-      console.log(`Prize Amount: ${preview.preview.prizeAmount} XLM`);
-      console.log(`RPC Endpoint: ${preview.preview.rpcUrl}`);
+      console.log(`Prize Amount: ${preview.preview!.prizeAmount} XLM`);
+      console.log(`RPC Endpoint: ${preview.preview!.rpcUrl}`);
       console.log(`Operator: ${operator}`);
       console.log(`Reason: ${reason}`);
 
@@ -383,9 +366,9 @@ export async function executeRescueCommand(
 
       console.log('DRY RUN: Force-fail operation will not be applied unless --execute is provided.');
       console.log('Action: Force fail job');
-      console.log(`Target Job ID: ${preview.preview.jobId}`);
-      console.log(`Target Raffle ID: ${preview.preview.raffleId}`);
-      console.log(`Target Request ID: ${preview.preview.requestId}`);
+      console.log(`Target Job ID: ${preview.preview!.jobId}`);
+      console.log(`Target Raffle ID: ${preview.preview!.raffleId}`);
+      console.log(`Target Request ID: ${preview.preview!.requestId}`);
       console.log(`Operator: ${operator}`);
       console.log(`Reason: ${reason}`);
 
@@ -446,6 +429,19 @@ export async function executeRescueCommand(
       return 0;
     }
 
+    case 'list-stuck': {
+      const jsonMode = options.json === 'true';
+      if (!jsonMode) {
+        console.log('Building stuck draw report...\n');
+      }
+      const report = await rescueService.getStuckDrawReport();
+      printStuckDrawReport(report, jsonMode);
+      if (report.summary.stuck > 0 && !jsonMode) {
+        process.exitCode = 2;
+      }
+      return 0;
+    }
+
     case 'logs': {
       const raffleId = options.raffle ? parseInt(options.raffle, 10) : null;
       const limit = options.limit ? parseInt(options.limit, 10) : 100;
@@ -480,9 +476,6 @@ export async function executeRescueCommand(
   }
 }
 
-const isDirectExecution =
-  process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
-
-if (isDirectExecution) {
-  runRescueCli(process.argv.slice(2)).then((code) => process.exit(code));
+if (require.main === module) {
+  main().then((code) => process.exit(code));
 }

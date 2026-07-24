@@ -1,6 +1,11 @@
 import { StellarSubscriberService } from './stellar-subscriber.service';
 import { ConfigService } from '@nestjs/config';
 import { HealthService } from '../health/health.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
+
+function makeLogger(): OracleLoggerService {
+  return { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,7 +28,7 @@ function makeConfigService(url = 'https://horizon-testnet.stellar.org'): ConfigS
 function buildService(horizonOverride?: any) {
   const health = makeHealthService();
   const config = makeConfigService();
-  const service = new StellarSubscriberService(config, health);
+  const service = new StellarSubscriberService(makeLogger(), config, health);
 
   if (horizonOverride) {
     (service as any).horizonServer = horizonOverride;

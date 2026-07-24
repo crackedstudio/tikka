@@ -90,6 +90,8 @@ export class HealthController {
       },
       overallStatus: this.healthService.isHealthy() ? 'healthy' : this.healthService.isDegraded() ? 'degraded' : 'unhealthy',
     };
+  }
+
   @Get('metrics')
   async getMetrics() {
     return this.metricsService.getMetrics();

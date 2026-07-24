@@ -1,4 +1,4 @@
-import { OracleLoggerService } from '../logger/oracle-logger';
+import { OracleLoggerService, OracleLogFields } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue, Job } from 'bull';

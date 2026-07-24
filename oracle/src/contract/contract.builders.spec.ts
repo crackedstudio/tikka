@@ -27,7 +27,7 @@ describe('ContractBuilders', () => {
   });
 
   it('should build receive_randomness invocation', () => {
-    const inv = ContractBuilders.buildReceiveRandomness(123, { seed: 'seed', proof: 'proof', result: 'result' });
+    const inv = ContractBuilders.buildReceiveRandomness(123, { seed: 'seed', proof: 'proof' });
     expect(inv.method).toEqual('receive_randomness');
     expect(inv.args).toHaveLength(3);
     expect(inv.args[0].u32()).toEqual(123);
