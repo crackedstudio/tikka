@@ -6,6 +6,18 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 
 **Consumers:** Frontend (client), third-party developers.
 
+## Light vs full build
+
+Choose the full SDK when you need NestJS modules, dependency injection, wallet services, or the higher-level contract helpers that assume the framework runtime. Choose the light build when you need a browser-friendly entry point for low-level RPC access and lightweight types without the NestJS overhead.
+
+| Build | Import path | Includes | Excludes | Measured size |
+| --- | --- | --- | --- | --- |
+| Full | `@tikka/sdk` | all runtime modules, wallet adapters, contract services, and CLI helpers | — | build output is available from the package entry point |
+| Read-only | `@tikka/sdk/read` | the read-oriented helpers and types used by the CLI and lightweight consumers | write/create helpers | currently measured at 219 bytes gzipped in the workspace build output |
+| Light | `@tikka/sdk/dist/light/index.light` | lightweight RPC client, raffle/network types, and shared helpers | NestJS modules, decorators, DI providers, and high-level services | currently measured at 183 bytes gzipped in the workspace build output |
+
+The light bundle is intended for browser and mobile integrations where bundle size matters most. Services must be instantiated manually, and NestJS module wiring is not available in this entry point.
+
 ## Core Features
 
 - **Customizable RpcService**: Support for custom fetch clients, headers, and automatic failover across multiple nodes.

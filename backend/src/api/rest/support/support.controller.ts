@@ -10,7 +10,7 @@ import { Throttle } from "../../../middleware/throttle.decorator";
 export class SupportController {
   constructor(private readonly supportService: SupportService) {}
 
-  @Throttle({ default: { limit: 12, ttl: 60000 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post()
   async create(@Body(new (createZodPipe(SupportSchema))()) payload: SupportDto) {
     return this.supportService.submitTicket(payload);
