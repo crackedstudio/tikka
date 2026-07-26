@@ -16,7 +16,7 @@ export const REDACTED_FIELDS = [
   'authorization',
   'token',
   'signature',
-  'mnemonic', 
+  'mnemonic',
   'seed',
   'password',
   'privatekey',
@@ -26,7 +26,17 @@ export const REDACTED_FIELDS = [
   'session',
   'jwt',
   'bearer',
+  'email',
+  'emailaddress',
+  'user_email',
+  'useremail',
 ] as const;
+
+/** Regex matching Stellar public keys (G…) or secret seeds (S…), 56 base32 chars. */
+const STELLAR_ADDRESS_RE = /\b[GS][A-Z2-7]{55}\b/g;
+
+/** Non-global variant for single-match testing without mutating lastIndex. */
+const STELLAR_ADDRESS_TEST = /\b[GS][A-Z2-7]{55}\b/;
 
 /**
  * Recursively redact sensitive fields from an object or array.
@@ -85,6 +95,94 @@ export function hashWallet(address: string | null | undefined): string | null {
   return hash.substring(0, 16);
 }
 
+/**
+ * Replace Stellar wallet addresses (G…/S…, 56 base32 chars) found in a string
+ * with their hashed representation via `hashWallet`.
+ */
+export function redactWalletAddresses(value: string): string {
+  return value.replace(STELLAR_ADDRESS_RE, (match) => hashWallet(match) ?? match);
+}
+
+/**
+ * Recursively walk an object/array, redacting sensitive field values and
+ * hashing any Stellar wallet address strings found.
+ * Returns a new structure without mutating the original.
+ */
+export function scrubPii(input: unknown, depth = 0): unknown {
+  if (depth >= 10) {
+    return '[DEPTH_LIMIT]';
+  }
+
+  if (input === null || input === undefined) {
+    return input;
+  }
+
+  if (typeof input === 'string') {
+    return typeof input === 'string' && STELLAR_ADDRESS_TEST.test(input)
+      ? redactWalletAddresses(input)
+      : input;
+  }
+
+  if (Array.isArray(input)) {
+    return input.map((item) => scrubPii(item, depth + 1));
+  }
+
+  if (typeof input === 'object') {
+    const redactSet = new Set(REDACTED_FIELDS.map((f) => f.toLowerCase()));
+    const result: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      if (redactSet.has(key.toLowerCase())) {
+        result[key] = '[REDACTED]';
+      } else {
+        result[key] = scrubPii(value, depth + 1);
+      }
+    }
+    return result;
+  }
+
+  return input;
+}
+
+/**
+ * Walk a Sentry event and redact PII:
+ *  - sensitive fields (authorization, cookies, emails, …) → [REDACTED]
+ *  - Stellar wallet addresses → first 16 hex chars of SHA-256
+ */
+export function scrubSentryEvent(event: Sentry.Event): Sentry.Event {
+  const e = { ...event };
+
+  if (e.request?.headers) {
+    e.request = { ...e.request, headers: scrubPii(e.request.headers) as Record<string, string> };
+  }
+  if (e.request?.query_string) {
+    e.request = {
+      ...e.request,
+      query_string: scrubPii(e.request.query_string) as string | Record<string, string>,
+    };
+  }
+  // Drop request body — may contain signatures, tokens, or PII
+  if (e.request?.data !== undefined) {
+    const { data: _, ...rest } = e.request;
+    e.request = rest;
+  }
+
+  if (e.user) {
+    e.user = scrubPii(e.user) as Sentry.Event['user'];
+  }
+  if (e.tags) {
+    e.tags = scrubPii(e.tags) as Sentry.Event['tags'];
+  }
+  if (e.contexts) {
+    e.contexts = scrubPii(e.contexts) as Sentry.Event['contexts'];
+  }
+  if (e.extra) {
+    e.extra = scrubPii(e.extra) as Sentry.Event['extra'];
+  }
+
+  return e;
+}
+
 export interface IngestionErrorContext {
   /** Stellar ledger sequence number. Omitted from tags if undefined. */
   ledger?: number;
@@ -127,21 +225,7 @@ export function buildSentryOptions(envInput: {
      * This is a defence-in-depth measure on top of per-scope redaction.
      */
     beforeSend(event) {
-      // Redact request headers
-      if (event.request?.headers) {
-        event.request.headers = redactSensitive(event.request.headers) as Record<string, string>;
-      }
-      // Drop request body entirely — may contain signatures, tokens, or PII
-      if (event.request) {
-        delete event.request.data;
-      }
-      // Redact query string params
-      if (event.request?.query_string) {
-        event.request.query_string = redactSensitive(event.request.query_string) as
-          | string
-          | Record<string, string>;
-      }
-      return event;
+      return scrubSentryEvent(event);
     },
   };
 }

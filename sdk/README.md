@@ -6,6 +6,18 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 
 **Consumers:** Frontend (client), third-party developers.
 
+## Light vs full build
+
+Choose the full SDK when you need NestJS modules, dependency injection, wallet services, or the higher-level contract helpers that assume the framework runtime. Choose the light build when you need a browser-friendly entry point for low-level RPC access and lightweight types without the NestJS overhead.
+
+| Build | Import path | Includes | Excludes | Measured size |
+| --- | --- | --- | --- | --- |
+| Full | `@tikka/sdk` | all runtime modules, wallet adapters, contract services, and CLI helpers | — | build output is available from the package entry point |
+| Read-only | `@tikka/sdk/read` | the read-oriented helpers and types used by the CLI and lightweight consumers | write/create helpers | currently measured at 219 bytes gzipped in the workspace build output |
+| Light | `@tikka/sdk/dist/light/index.light` | lightweight RPC client, raffle/network types, and shared helpers | NestJS modules, decorators, DI providers, and high-level services | currently measured at 183 bytes gzipped in the workspace build output |
+
+The light bundle is intended for browser and mobile integrations where bundle size matters most. Services must be instantiated manually, and NestJS module wiring is not available in this entry point.
+
 ## Core Features
 
 - **Customizable RpcService**: Support for custom fetch clients, headers, and automatic failover across multiple nodes.
@@ -14,6 +26,64 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 - **Wallet Integration**: Unified `WalletAdapter` interface supporting Freighter, xBull, and Albedo.
 - **Local Mocking Utilities**: `MockWalletAdapter` and `MockRpcService` for Storybook, UI tests, and offline development.
 - **Modular Design**: Domain-specific modules for Raffles, Tickets, and Users.
+
+## Read-Only Entry Point (`@tikka/sdk/read`)
+
+Consumers that only need to **query** raffle data (public dashboards, SSR pages, analytics) can import from the read-only sub-path. This avoids bundling wallet adapters and signing code, producing a significantly smaller bundle.
+
+```ts
+import { ReadOnlyRaffleService, ReadOnlyUserService, RpcService, resolveNetworkConfig } from '@tikka/sdk/read';
+
+const networkConfig = resolveNetworkConfig('mainnet');
+const rpcService = new RpcService(networkConfig);
+
+const raffleService = new ReadOnlyRaffleService(rpcService, networkConfig);
+const userService = new ReadOnlyUserService(rpcService, networkConfig);
+
+// List all raffle IDs
+const { value: allIds } = await raffleService.getAll();
+
+// Fetch a single raffle
+const { value: raffle } = await raffleService.getById(42);
+
+// User participation profile
+const { value: profile } = await userService.getProfile('GBIQ4VH3...');
+
+// User raffle ID history
+const { value: history } = await userService.getHistory('GBIQ4VH3...');
+```
+
+### What is included
+
+| Export | Description |
+|--------|-------------|
+| `ReadOnlyRaffleService` | `getAll()` — all raffle IDs; `getById(id)` — single raffle data |
+| `ReadOnlyUserService` | `getProfile(addr)` — participation stats; `getHistory(addr)` — raffle IDs |
+| `RpcService` | Soroban RPC client (simulate, getLedger) |
+| `HorizonService` | Horizon account/fee queries |
+| `resolveNetworkConfig`, `NetworkConfig` | Network configuration helpers |
+| `ContractFn`, `RaffleStatus` | Contract constants |
+| `ContractResponse` | Shared response envelope type |
+| Read-only types | `RaffleData`, `UserParticipation`, `AssetDescriptor`, etc. |
+| Utils | Formatting, validation, errors, retry, BigNumber |
+
+### What is excluded
+
+The read-only bundle intentionally excludes all signing-related code:
+- `ContractService` (requires wallet + TransactionBuilder)
+- `TransactionLifecycle` (requires wallet + signing)
+- All wallet adapters (Freighter, xBull, Albedo, LOBSTR, Rabet)
+- `FeeEstimatorService`
+- `sep10` auth helpers
+- Write-side service classes (`RaffleService`, `TicketService`)
+- NestJS modules
+
+### Building the read-only bundle
+
+```bash
+cd sdk
+pnpm run build:read   # outputs to dist/read/
+```
 
 ## Project Structure
 

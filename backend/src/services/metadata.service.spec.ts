@@ -24,7 +24,6 @@ describe('MetadataService', () => {
   >;
   let metrics: MetadataCacheMetricsService;
   let config: { get: jest.Mock };
-  let pinningService: { pin: jest.Mock };
 
   beforeEach(() => {
     queryBuilder = {
@@ -51,9 +50,7 @@ describe('MetadataService', () => {
       del: jest.fn().mockResolvedValue(undefined),
     };
 
-    pinningService = {
-      pin: jest.fn().mockResolvedValue(null),
-    };
+
 
     metrics = new MetadataCacheMetricsService();
 
@@ -63,7 +60,6 @@ describe('MetadataService', () => {
 
     service = new MetadataService(
       client as any,
-      pinningService as any,
       config as any,
       redis as unknown as MetadataRedisService,
       metrics,
@@ -195,6 +191,29 @@ describe('MetadataService', () => {
 
     await service.upsertMetadata(9, { title: 'x' });
 
+    expect(redis.del).toHaveBeenCalledWith('tikka:raffle_metadata:9');
+  });
+
+  it('updates metadata_cid and invalidates cache key', async () => {
+    redis.isEnabled.mockReturnValue(true);
+    const selectBuilder = {
+      single: jest.fn().mockResolvedValue({
+        data: { raffle_id: 9, metadata_cid: 'QmNewCid' },
+        error: null,
+      }),
+    };
+    const updateBuilder = {
+      eq: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnValue(selectBuilder),
+    };
+    const localQueryBuilder = {
+      update: jest.fn().mockReturnValue(updateBuilder),
+    };
+    jest.spyOn(client, 'from').mockReturnValue(localQueryBuilder as any);
+
+    const result = await service.updateMetadataCid(9, 'QmNewCid');
+
+    expect(result.metadata_cid).toBe('QmNewCid');
     expect(redis.del).toHaveBeenCalledWith('tikka:raffle_metadata:9');
   });
 });

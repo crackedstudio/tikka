@@ -99,6 +99,7 @@ export async function fetchStatus(): Promise<StatusResult> {
   let lastProcessedAt: string | null = null;
   let pool: DbPoolStats | null = null;
   let checkpoint: CheckpointInfo | null = null;
+  let dlqTotal = 0;
 
   try {
     await ds.initialize();

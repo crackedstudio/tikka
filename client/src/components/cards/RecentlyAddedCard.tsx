@@ -43,7 +43,7 @@ const RecentlyAddedCard: React.FC<RecentlyAddedCardProps> = ({ viewModel }) => {
             <div className="relative w-full">
                 <img
                     src={imageUrl}
-                    alt="Raffle"
+                    alt={title || "Raffle prize image"}
                     className="w-full object-cover rounded-3xl"
                 />
                 <span

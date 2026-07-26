@@ -4,6 +4,7 @@ import { TicketEntity } from "../database/entities/ticket.entity";
 import { RaffleEntity } from "../database/entities/raffle.entity";
 import { CacheService } from "../cache/cache.service";
 import { UserProcessor } from "./user.processor";
+import { WebhookService } from "../webhooks/webhook.service";
 
 @Injectable()
 export class TicketProcessor {
@@ -12,6 +13,7 @@ export class TicketProcessor {
   constructor(
     private cacheService: CacheService,
     private userProcessor: UserProcessor,
+    private webhookService: WebhookService,
   ) {}
 
   /**
@@ -44,7 +46,7 @@ export class TicketProcessor {
           purchaseTxHash: txHash,
           refunded: false,
         })
-        .orIgnore()
+        .onConflict(`("purchase_tx_hash", "raffle_id") DO NOTHING`)
         .execute();
     }
 
@@ -69,6 +71,11 @@ export class TicketProcessor {
 
     await this.cacheService.invalidateRaffleDetail(raffleId.toString());
     await this.cacheService.invalidateUserProfile(buyer);
+
+    await this.webhookService.dispatch(
+      "TicketPurchased",
+      { raffleId, buyer, ticketIds, totalCost, timestamp: new Date() }
+    );
   }
 
   /**

@@ -121,6 +121,33 @@ done
 
 ---
 
+## Database migrations
+
+The backend includes a migration validator that helps catch schema drift before deployment. Run it after adding or changing SQL migrations and before opening a pull request:
+
+```bash
+npm run migrations:check
+```
+
+What `migrations:check` verifies:
+- every migration file uses the `NNN_name.sql` naming pattern
+- sequence numbers are zero-padded to three digits
+- the sequence list is contiguous with no gaps
+- the name portion is valid `snake_case`
+
+When to run it:
+- after creating a new migration
+- after renaming or reordering migration files
+- before merging backend changes that touch the database schema
+
+How to create a migration correctly:
+1. add a new SQL file under `database/migrations/`
+2. use the next sequential number and a descriptive `snake_case` name, for example `database/migrations/023_add_support_feedback.sql`
+3. keep the filename format exactly `NNN_name.sql`
+4. run `npm run migrations:check` to confirm the numbering and naming are valid
+
+This prevents common failure modes such as skipped numbering, duplicate sequence values, invalid filenames, and drift between local migrations and deploy-time expectations.
+
 ## Health Check
 
 ### GET /health

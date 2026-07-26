@@ -19,6 +19,13 @@ function colorDbStatus(s: 'ok' | 'error'): string {
   return s === 'ok' ? `${GREEN}ok${RESET}` : `${RED}error${RESET}`;
 }
 
+function colorDlq(total: number): string {
+  if (total === 0) return `${DIM}0${RESET}`;
+  if (total < 100) return `${GREEN}${total}${RESET}`;
+  if (total < 1000) return `${YELLOW}${total}${RESET}`;
+  return `${RED}${total}${RESET}`;
+}
+
 function colorMode(mode: 'RUNNING' | 'DEGRADED' | 'STOPPED' | null): string {
   if (mode === null)       return `${DIM}n/a${RESET}`;
   if (mode === 'RUNNING')  return `${GREEN}RUNNING${RESET}`;
@@ -72,7 +79,7 @@ export function renderTable(result: StatusResult): string {
   lines.push('');
 
   lines.push(`${BOLD}Cache${RESET}`);
-  lines.push(`  ${pad('Status', 26)} ${colorCacheStatus(result.cache.status)}`);
+  lines.push(`  ${pad('Status', 26)} ${colorDbStatus(result.cache.status)}`);
   lines.push(`  ${pad('Latency', 26)} ${result.cache.latency_ms != null ? `${result.cache.latency_ms} ms` : `${DIM}n/a${RESET}`}`);
 
   lines.push('');

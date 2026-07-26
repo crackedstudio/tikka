@@ -15,15 +15,17 @@ import { ConfigService } from '@nestjs/config';
 import { CostEstimatorService } from './cost-estimator.service';
 import { FeeEstimatorService } from './fee-estimator.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 async function main() {
   console.log('🔮 Oracle Cost Estimator Example\n');
 
   // Initialize services
+  const logger = new OracleLoggerService();
   const configService = new ConfigService();
-  const feeEstimator = new FeeEstimatorService(configService);
+  const feeEstimator = new FeeEstimatorService(logger, configService);
   const metricsService = new MetricsService();
-  const costEstimator = new CostEstimatorService(configService, feeEstimator, metricsService);
+  const costEstimator = new CostEstimatorService(logger, configService, feeEstimator, metricsService);
 
   // Example 1: Estimate monthly costs for different volumes
   console.log('📊 Example 1: Monthly Cost Estimates\n');

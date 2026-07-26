@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RandomnessWorker } from './randomness.worker';
+import { OracleLoggerService } from '../logger/oracle-logger';
+import { JobStateManager } from './job-state-manager';
+import { RandomnessProcessorService } from './randomness-processor.service';
+import { AuditLogService } from '../audit/audit-log.service';
+import { AlertingService } from '../health/alerting.service';
 import { ContractService } from '../contract/contract.service';
 import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
@@ -21,11 +26,30 @@ describe('RandomnessWorker', () => {
   let lagMonitor: jest.Mocked<LagMonitorService>;
   let oracleRegistry: jest.Mocked<OracleRegistryService>;
   let multiOracleCoordinator: jest.Mocked<MultiOracleCoordinatorService>;
+  let stateManager: { incrementAttempt: jest.Mock; transitionState: jest.Mock; getConfig: jest.Mock; getMetrics: jest.Mock; calculateBackoff: jest.Mock; getJobMetadata: jest.Mock };
+  let processor: { processRequest: jest.Mock };
+  let alertingService: { fire: jest.Mock; resolve: jest.Mock };
 
   beforeEach(async () => {
+    stateManager = {
+      incrementAttempt: jest.fn().mockReturnValue(false),
+      transitionState: jest.fn(),
+      getConfig: jest.fn().mockReturnValue({ maxRetries: 5 }),
+      getMetrics: jest.fn().mockReturnValue({ deadLetteredCount: 0 }),
+      calculateBackoff: jest.fn().mockReturnValue(0),
+      getJobMetadata: jest.fn().mockReturnValue({ attemptCount: 1 }),
+    };
+    processor = { processRequest: jest.fn() };
+    alertingService = { fire: jest.fn().mockResolvedValue(undefined), resolve: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RandomnessWorker,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
+        { provide: JobStateManager, useValue: stateManager },
+        { provide: RandomnessProcessorService, useValue: processor },
+        { provide: AuditLogService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
+        { provide: AlertingService, useValue: alertingService },
         {
           provide: ContractService,
           useValue: {
@@ -50,6 +74,7 @@ describe('RandomnessWorker', () => {
           provide: TxSubmitterService,
           useValue: {
             submitRandomness: jest.fn(),
+            keyService: { getPublicKey: jest.fn().mockResolvedValue('GORACLETESTADDRESS') },
           },
         },
         {
@@ -197,6 +222,42 @@ describe('RandomnessWorker', () => {
       expect(contractService.getRaffleData).toHaveBeenCalledWith(42);
       expect(vrfService.compute).toHaveBeenCalledWith('req-400-enqueued', 42);
       expect(prngService.compute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleRandomnessJob - DLQ depth alerting', () => {
+    const makeJob = (raffleId: number, requestId: string) => ({
+      id: `job-${requestId}`,
+      data: { raffleId, requestId, stableRequestId: `s-${requestId}`, replayOverride: false },
+      opts: {},
+    } as any);
+
+    beforeEach(() => {
+      processor.processRequest.mockResolvedValue({ success: false, shouldRetry: true, error: 'boom' });
+      stateManager.incrementAttempt.mockReturnValue(true); // always dead-letters
+    });
+
+    it('fires a critical alert once dead-lettered count reaches the threshold', async () => {
+      stateManager.getMetrics.mockReturnValue({ deadLetteredCount: 5 });
+
+      await expect(worker.handleRandomnessJob(makeJob(1, 'req-dlq-1'))).rejects.toThrow('Dead-lettered');
+
+      expect(alertingService.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: 'critical',
+          summary: expect.stringContaining('Dead-letter queue depth'),
+          dedupKey: 'dlq-depth-threshold',
+          context: expect.objectContaining({ raffle_id: 1 }),
+        }),
+      );
+    });
+
+    it('does not fire an alert while dead-lettered count is below the threshold', async () => {
+      stateManager.getMetrics.mockReturnValue({ deadLetteredCount: 1 });
+
+      await expect(worker.handleRandomnessJob(makeJob(2, 'req-dlq-2'))).rejects.toThrow('Dead-lettered');
+
+      expect(alertingService.fire).not.toHaveBeenCalled();
     });
   });
 });

@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { VrfService } from '../src/randomness/vrf.service';
 import { KeyService } from '../src/keys/key.service';
 import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
+import { MetricsService } from '../src/metrics/metrics.service';
+import { AlertingService } from '../src/health/alerting.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
 import { ConfigService } from '@nestjs/config';
 import { Keypair } from '@stellar/stellar-sdk';
 import { ed25519 } from '@noble/curves/ed25519';
@@ -11,12 +14,14 @@ describe('VrfService', () => {
   let service: VrfService;
   let keyService: KeyService;
   let oracleRegistry: OracleRegistryService;
+  let alertingService: jest.Mocked<AlertingService>;
   const mockSecret = Keypair.random().secret();
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 VrfService,
+                { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
                 {
                     provide: ConfigService,
                     useValue: {
@@ -32,12 +37,15 @@ describe('VrfService', () => {
                         getLocalOracleId: jest.fn().mockReturnValue('oracle-001'),
                     },
                 },
+                { provide: MetricsService, useValue: { recordVrfProofSuccess: jest.fn(), recordVrfFailure: jest.fn() } },
+                { provide: AlertingService, useValue: { fire: jest.fn().mockResolvedValue(undefined), resolve: jest.fn().mockResolvedValue(undefined) } },
             ],
         }).compile();
 
     service = module.get<VrfService>(VrfService);
     keyService = module.get<KeyService>(KeyService);
     oracleRegistry = module.get<OracleRegistryService>(OracleRegistryService);
+    alertingService = module.get(AlertingService);
     await keyService.onModuleInit();
   });
 
@@ -311,6 +319,29 @@ describe('VrfService', () => {
       await expect(service.computeForOracle(requestId, oracleId)).rejects.toThrow(
         `Oracle not found: ${oracleId}`,
       );
+    });
+  });
+
+  describe('VRF key unavailable alerting', () => {
+    it('fires a critical alert when the signing key is unavailable', async () => {
+      jest.spyOn(keyService, 'sign').mockRejectedValueOnce(new Error('KMS access denied'));
+
+      await expect(service.compute('req-alert', 5)).rejects.toThrow('KMS access denied');
+
+      expect(alertingService.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: 'critical',
+          summary: expect.stringContaining('VRF signing key unavailable'),
+          dedupKey: 'vrf-key-unavailable',
+          context: expect.objectContaining({ raffle_id: 5, request_id: 'req-alert' }),
+        }),
+      );
+    });
+
+    it('resolves the alert after a subsequent successful computation', async () => {
+      await service.compute('req-ok');
+
+      expect(alertingService.resolve).toHaveBeenCalledWith('vrf-key-unavailable');
     });
   });
 

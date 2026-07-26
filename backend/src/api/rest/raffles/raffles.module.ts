@@ -5,6 +5,7 @@ import { OgRenderController } from './og-render.controller';
 import { AdminRafflesController } from './admin-raffles.controller';
 import { RafflesService } from './raffles.service';
 import { MetadataModule } from '../../../services/metadata.module';
+import { MetadataService } from '../../../services/metadata.service';
 import { IndexerModule } from '../../../services/indexer.module';
 import { SupabaseModule } from '../../../services/supabase.module';
 import { StorageService } from '../../../services/storage.service';
@@ -14,11 +15,12 @@ import { IdempotencyService } from '../../../common/idempotency/idempotency.serv
 import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
 import { AdminGuard } from '../monitor/admin.guard';
 import { MonitorService } from '../monitor/monitor.service';
+import { SseService } from '../../../services/sse.service';
 
 @Module({
   imports: [IndexerModule, MetadataModule, SupabaseModule, ConfigModule],
   controllers: [RafflesController, OgRenderController, AdminRafflesController],
-  providers: [
+providers: [
     RafflesService,
     StorageService,
     ImageOptimizerService,
@@ -27,6 +29,7 @@ import { MonitorService } from '../monitor/monitor.service';
     IdempotencyInterceptor,
     AdminGuard,
     MonitorService,
+    SseService,
   ],
   exports: [RafflesService],
 })

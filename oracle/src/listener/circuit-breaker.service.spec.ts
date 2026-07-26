@@ -1,11 +1,16 @@
-import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { HealthService } from '../health/health.service';
+import { AlertingService } from '../health/alerting.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeLogger(): OracleLoggerService {
+  return { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
+}
 
 function makeConfigService(overrides: Record<string, string | undefined> = {}): ConfigService {
   return {
@@ -19,15 +24,29 @@ function makeHealthService(): jest.Mocked<HealthService> {
   } as unknown as jest.Mocked<HealthService>;
 }
 
+function makeAlertingService(): jest.Mocked<AlertingService> {
+  return {
+    fire: jest.fn().mockResolvedValue(undefined),
+    resolve: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<AlertingService>;
+}
+
 /** Build a CircuitBreakerService with a controllable clock. */
 function makeService(
   configOverrides: Record<string, string | undefined> = {},
   nowFn?: () => number,
-): { svc: CircuitBreakerService; health: jest.Mocked<HealthService> } {
+): {
+  svc: CircuitBreakerService;
+  health: jest.Mocked<HealthService>;
+  logger: jest.Mocked<OracleLoggerService>;
+  alerting: jest.Mocked<AlertingService>;
+} {
   const health = makeHealthService();
   const config = makeConfigService(configOverrides);
-  const svc = new CircuitBreakerService(config, health, nowFn);
-  return { svc, health };
+  const logger = makeLogger() as jest.Mocked<OracleLoggerService>;
+  const alerting = makeAlertingService();
+  const svc = new CircuitBreakerService(logger, config, health, alerting, nowFn);
+  return { svc, health, logger, alerting };
 }
 
 /** Drive the circuit from closed → open by recording N failures. */
@@ -41,9 +60,15 @@ function driveToOpen(svc: CircuitBreakerService, threshold: number): void {
 function driveToHalfOpen(
   threshold: number,
   resetTimeoutMs: number,
-): { svc: CircuitBreakerService; health: jest.Mocked<HealthService>; now: { value: number } } {
+): {
+  svc: CircuitBreakerService;
+  health: jest.Mocked<HealthService>;
+  now: { value: number };
+  logger: jest.Mocked<OracleLoggerService>;
+  alerting: jest.Mocked<AlertingService>;
+} {
   const now = { value: 0 };
-  const { svc, health } = makeService(
+  const { svc, health, logger, alerting } = makeService(
     {
       ORACLE_CB_FAILURE_THRESHOLD: String(threshold),
       ORACLE_CB_RESET_TIMEOUT_MS: String(resetTimeoutMs),
@@ -56,7 +81,7 @@ function driveToHalfOpen(
   const allowed = svc.canAttempt(); // triggers open → half-open transition
   expect(allowed).toBe(true);
   expect(svc.getState()).toBe('half-open');
-  return { svc, health, now };
+  return { svc, health, now, logger, alerting };
 }
 
 // ---------------------------------------------------------------------------
@@ -386,108 +411,94 @@ describe('CircuitBreakerService — config parsing', () => {
 // ---------------------------------------------------------------------------
 
 describe('CircuitBreakerService — logging', () => {
-  let warnSpy: jest.SpyInstance;
-  let logSpy: jest.SpyInstance;
-  let debugSpy: jest.SpyInstance;
-
-  beforeEach(() => {
-    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
-    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
-    debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   it('emits warn log when closed → open', () => {
-    const { svc } = makeService({ ORACLE_CB_FAILURE_THRESHOLD: '2' });
+    const { svc, logger } = makeService({ ORACLE_CB_FAILURE_THRESHOLD: '2' });
     driveToOpen(svc, 2);
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0][0]).toMatch(/closed.*open|open.*closed/i);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect((logger.warn as jest.Mock).mock.calls[0][0]).toMatch(/closed.*open|open.*closed/i);
   });
 
   it('warn log for closed → open includes threshold and resetTimeout', () => {
-    const { svc } = makeService({
+    const { svc, logger } = makeService({
       ORACLE_CB_FAILURE_THRESHOLD: '3',
       ORACLE_CB_RESET_TIMEOUT_MS: '30000',
     });
     driveToOpen(svc, 3);
-    const msg: string = warnSpy.mock.calls[0][0];
+    const msg: string = (logger.warn as jest.Mock).mock.calls[0][0];
     expect(msg).toContain('3');
     expect(msg).toContain('30000');
   });
 
   it('emits log (info) when open → half-open', () => {
     const now = { value: 0 };
-    const { svc } = makeService(
+    const { svc, logger } = makeService(
       { ORACLE_CB_FAILURE_THRESHOLD: '2', ORACLE_CB_RESET_TIMEOUT_MS: '1000' },
       () => now.value,
     );
     driveToOpen(svc, 2);
     now.value = 1000;
     svc.canAttempt();
-    expect(logSpy).toHaveBeenCalled();
-    const calls: string[] = logSpy.mock.calls.map((c) => c[0]);
+    expect(logger.log).toHaveBeenCalled();
+    const calls: string[] = (logger.log as jest.Mock).mock.calls.map((c) => c[0]);
     expect(calls.some((m) => /half.?open/i.test(m))).toBe(true);
   });
 
   it('emits log (info) when half-open → closed', () => {
-    const { svc } = driveToHalfOpen(2, 1000);
-    logSpy.mockClear();
+    const { svc, logger } = driveToHalfOpen(2, 1000);
+    (logger.log as jest.Mock).mockClear();
     svc.recordSuccess();
-    expect(logSpy).toHaveBeenCalled();
-    const calls: string[] = logSpy.mock.calls.map((c) => c[0]);
+    expect(logger.log).toHaveBeenCalled();
+    const calls: string[] = (logger.log as jest.Mock).mock.calls.map((c) => c[0]);
     expect(calls.some((m) => /closed|recover/i.test(m))).toBe(true);
   });
 
   it('emits warn log when half-open → open', () => {
-    const { svc } = driveToHalfOpen(2, 1000);
-    warnSpy.mockClear();
+    const { svc, logger } = driveToHalfOpen(2, 1000);
+    (logger.warn as jest.Mock).mockClear();
     svc.recordFailure();
-    expect(warnSpy).toHaveBeenCalled();
-    const calls: string[] = warnSpy.mock.calls.map((c) => c[0]);
+    expect(logger.warn).toHaveBeenCalled();
+    const calls: string[] = (logger.warn as jest.Mock).mock.calls.map((c) => c[0]);
     expect(calls.some((m) => /half.?open.*open|re.?open|probe.*fail/i.test(m))).toBe(true);
   });
 
   it('emits debug log when attempt is suppressed while open', () => {
     const now = { value: 0 };
-    const { svc } = makeService(
+    const { svc, logger } = makeService(
       { ORACLE_CB_FAILURE_THRESHOLD: '2', ORACLE_CB_RESET_TIMEOUT_MS: '60000' },
       () => now.value,
     );
     driveToOpen(svc, 2);
     now.value = 1000; // still within timeout
     svc.canAttempt();
-    expect(debugSpy).toHaveBeenCalled();
-    const calls: string[] = debugSpy.mock.calls.map((c) => c[0]);
+    expect(logger.debug).toHaveBeenCalled();
+    const calls: string[] = (logger.debug as jest.Mock).mock.calls.map((c) => c[0]);
     expect(calls.some((m) => /suppress|skip|open/i.test(m))).toBe(true);
   });
 
   it('debug log for suppressed attempt includes remaining cooldown', () => {
     const now = { value: 0 };
-    const { svc } = makeService(
+    const { svc, logger } = makeService(
       { ORACLE_CB_FAILURE_THRESHOLD: '2', ORACLE_CB_RESET_TIMEOUT_MS: '60000' },
       () => now.value,
     );
     driveToOpen(svc, 2);
     now.value = 10_000;
     svc.canAttempt();
-    const calls: string[] = debugSpy.mock.calls.map((c) => c[0]);
+    const calls: string[] = (logger.debug as jest.Mock).mock.calls.map((c) => c[0]);
     expect(calls.some((m) => m.includes('50000'))).toBe(true);
   });
 
   it('emits warn log for invalid ORACLE_CB_FAILURE_THRESHOLD', () => {
-    makeService({ ORACLE_CB_FAILURE_THRESHOLD: 'bad' });
-    expect(warnSpy).toHaveBeenCalled();
-    const calls: string[] = warnSpy.mock.calls.map((c) => c[0]);
+    const { logger } = makeService({ ORACLE_CB_FAILURE_THRESHOLD: 'bad' });
+    expect(logger.warn).toHaveBeenCalled();
+    const calls: string[] = (logger.warn as jest.Mock).mock.calls.map((c) => c[0]);
     expect(calls.some((m) => /ORACLE_CB_FAILURE_THRESHOLD/i.test(m))).toBe(true);
   });
 
   it('emits warn log for invalid ORACLE_CB_RESET_TIMEOUT_MS', () => {
-    makeService({ ORACLE_CB_RESET_TIMEOUT_MS: '0' });
-    expect(warnSpy).toHaveBeenCalled();
-    const calls: string[] = warnSpy.mock.calls.map((c) => c[0]);
+    const { logger } = makeService({ ORACLE_CB_RESET_TIMEOUT_MS: '0' });
+    expect(logger.warn).toHaveBeenCalled();
+    const calls: string[] = (logger.warn as jest.Mock).mock.calls.map((c) => c[0]);
     expect(calls.some((m) => /ORACLE_CB_RESET_TIMEOUT_MS/i.test(m))).toBe(true);
   });
 });
@@ -533,5 +544,57 @@ describe('CircuitBreakerService — getState() and getRemainingCooldownMs()', ()
     svc.recordFailure();
     now.value = 3_000;
     expect(svc.getRemainingCooldownMs()).toBe(7_000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Alerting — circuit breaker OPEN
+// ---------------------------------------------------------------------------
+
+describe('CircuitBreakerService — alerting', () => {
+  it('fires a critical alert when closed → open', () => {
+    const { svc, alerting } = makeService({ ORACLE_CB_FAILURE_THRESHOLD: '2' });
+    driveToOpen(svc, 2);
+
+    expect(alerting.fire).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: 'critical',
+        summary: expect.stringContaining('Circuit breaker OPEN'),
+        dedupKey: 'circuit-breaker-open',
+        context: expect.objectContaining({ oracle_id: expect.any(String) }),
+      }),
+    );
+  });
+
+  it('fires a critical alert when half-open → open', () => {
+    const { svc, alerting } = driveToHalfOpen(2, 1000);
+    alerting.fire.mockClear();
+
+    svc.recordFailure();
+
+    expect(alerting.fire).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: 'critical',
+        summary: expect.stringContaining('re-OPENED'),
+        dedupKey: 'circuit-breaker-open',
+      }),
+    );
+  });
+
+  it('does not fire an alert while below threshold', () => {
+    const { svc, alerting } = makeService({ ORACLE_CB_FAILURE_THRESHOLD: '5' });
+    svc.recordFailure();
+    svc.recordFailure();
+
+    expect(alerting.fire).not.toHaveBeenCalled();
+  });
+
+  it('resolves the alert when half-open → closed', () => {
+    const { svc, alerting } = driveToHalfOpen(2, 1000);
+    alerting.resolve.mockClear();
+
+    svc.recordSuccess();
+
+    expect(alerting.resolve).toHaveBeenCalledWith('circuit-breaker-open');
   });
 });

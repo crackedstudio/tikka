@@ -68,6 +68,12 @@ export abstract class WalletAdapter {
   abstract isAvailable(): boolean;
 
   /**
+   * Establishes connection to the wallet (optional).
+   * Some wallets require explicit connection, others connect implicitly on first use.
+   */
+  async connect?(): Promise<void>;
+
+  /**
    * Retrieves the user's public key from the wallet.
    * May prompt the user for permission.
    */
@@ -105,4 +111,10 @@ export abstract class WalletAdapter {
    * Allows UI to adapt dynamically based on wallet features.
    */
   abstract getCapabilities(): WalletCapabilities;
+
+  /**
+   * Disconnects the wallet and clears any cached state.
+   * Optional - adapters can override if they need cleanup.
+   */
+  disconnect?(): void;
 }

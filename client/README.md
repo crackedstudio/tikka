@@ -498,6 +498,28 @@ soroban test
 -   **Bundle Analysis**: Regular bundle size monitoring
 -   **Caching**: Intelligent data caching strategies
 
+### **Bundle Size Budget** (Issue #1056)
+
+| Metric | Target | Enforcement |
+|---|---|---|
+| Initial JS (gzip) | ≤ 120 KB | `pnpm analyze`; manual PR review |
+| Initial JS (uncompressed) | ≤ 400 KB | `pnpm analyze`; manual PR review |
+| Total JS (gzip, all routes) | ≤ 300 KB | `pnpm analyze`; manual PR review |
+| Page-level chunk (gzip) | ≤ 50 KB each | code review; dynamic `lazy()` required for all route components |
+
+**Guidelines:**
+- All route-level components **must** use `React.lazy()` — already enforced across all pages.
+- Large libraries (`@stellar/stellar-sdk`, `@creit.tech/stellar-wallets-kit`) **must** be dynamically imported — currently deferred via Proxy/lazy getters in `rpcService.ts` and `walletService.ts`.
+- Adding a new dependency ≥ 50 KB gzip requires team discussion.
+- Run `pnpm analyze` before merging to verify budget compliance.
+
+**Current major contributors (estimated gzip):**
+- `@stellar/stellar-sdk` ~50 KB (deferred to first RPC call)
+- `@creit.tech/stellar-wallets-kit` ~30 KB (deferred to first wallet interaction)
+- `@tanstack/react-query` ~11 KB (initial)
+- `i18next` + `react-i18next` ~10 KB (initial)
+- `react-router-dom` ~7 KB (initial)
+
 ### **Blockchain Optimizations**
 
 -   **Fee Efficiency**: Optimized contract functions

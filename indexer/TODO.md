@@ -1,27 +1,40 @@
-# Webhook Support Implementation TODO
+# TODO - DLQ Prometheus Metrics + Grafana
 
-## Approved Plan Summary
+## Step 1 (done)
+Edit `indexer/src/metrics/metrics.service.ts` to add:
+- `indexer_dlq_depth` Gauge (label: `contract_address`)
+- `indexer_dlq_events_total` Counter (labels: `reason`, `event_type`)
+- helper methods for updating/incrementing metrics.
 
-- WebhookEntity (DB table for URLs, events)
-- WebhookService (BullMQ queue for async dispatch + retries)
-- Dispatch RaffleCreated/RaffleFinalized from RaffleProcessor post-DB
-- Bull retries for slow/failed HTTP POSTs
 
-## Steps (mark [x] when done):
 
-1. [ ] Install deps (@nestjs/bullmq bullmq) - pnpm add executed, verify package.json
-2. [x] Create database/entities/webhook.entity.ts
-3. [x] Update database/database.module.ts (forFeature)
-4. [x] Update src/data-source.ts (entities)
-5. [ ] Run migration (npm run migration:run)
-6. [x] Create webhooks/webhooks.module.ts
-7. [x] Create webhooks/webhook.service.ts (queue, dispatch)
-8. [x] Update processors/processors.module.ts (import WebhooksModule)
-9. [x] Update processors/raffle.processor.ts (inject, call dispatch)
-10. [x] Update app.module.ts (import WebhooksModule)
-11. [x] Extend types/webhook-events.ts (WebhookPayload type)
-12. [ ] Add integration test
-13. [ ] Run migration: npm run migration:run
-14. [x] DONE - attempt_completion
+## Step 2 (done)
+Edit `indexer/src/ingestor/dead-letter-queue.service.ts` (in-memory DLQ) to:
+- increment `indexer_dlq_events_total` on enqueue
+- update `indexer_dlq_depth` on enqueue/clear
 
-Current: Steps 3-5 (updates + migration created).
+
+## Step 3 (done)
+Edit `indexer/src/ingestor/dlq.service.ts` (DB DLQ) to:
+- increment `indexer_dlq_events_total` on insert
+- update `indexer_dlq_depth` appropriately when replay is performed (gauge decremented when entries successfully replayed; incremented when added)
+
+
+
+
+## Step 4 (done)
+Update Grafana dashboards:
+- `indexer/grafana/dashboard.json`
+- `indexer/grafana/indexer-dashboard.json`
+
+Add a panel visualizing DLQ depth (`indexer_dlq_depth`).
+
+
+
+## Step 5 (pending)
+Verify acceptance criteria:
+- `GET /metrics` includes both new metrics
+- Grafana JSON contains DLQ depth panel
+
+
+

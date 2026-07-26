@@ -8,6 +8,7 @@ import {
   UserRaffleActivity,
   UserTicket,
   GetUserActivityParams,
+  WinningEntry,
 } from './user.types';
 import { assertValidPublicKey } from '../../utils/validation';
 import { ContractResponse } from '../../contract/response';
@@ -223,5 +224,50 @@ export class UserService {
     };
 
     return { success: true, value: summary };
+  }
+ /**
+   * Returns claimable prize entries for a given address.
+   *
+   * Filters the user's activity summary for won raffles, then checks
+   * on-chain raffle data to determine whether each prize has been claimed.
+   *
+   * A prize is considered unclaimed when the raffle is Finalized and the
+   * winner field still matches the address (the contract clears this on claim).
+   *
+   * @param address - The winner's Stellar public key
+   * @returns Array of WinningEntry objects, one per won raffle
+   */
+  async getWinnings(address: string): Promise {
+    assertValidPublicKey(address);
+
+    const activityResult = await this.getActivitySummary({ address });
+    if (!activityResult.success) {
+      return { success: false, error: activityResult.error };
+    }
+
+    const wonRaffles = activityResult.value!.raffles.filter((r) => r.isWinner);
+
+    const winnings: WinningEntry[] = [];
+
+    for (const raffle of wonRaffles) {
+      const raffleRes = await this.contractService.simulateReadOnly<any>(
+        ContractFn.GET_RAFFLE_DATA,
+        [raffle.raffleId],
+      );
+
+      const raffleData = raffleRes.success ? raffleRes.value : null;
+
+      // A prize is claimed when the on-chain winner field no longer matches.
+      const claimed = raffleData ? raffleData.winner !== address : false;
+
+      winnings.push({
+        raffleId: raffle.raffleId,
+        prizeAmount: raffle.prizeAmount ?? '0',
+        prizeAsset: raffleData?.asset ?? 'XLM',
+        claimed,
+      });
+    }
+
+    return { success: true, value: winnings };
   }
 }
