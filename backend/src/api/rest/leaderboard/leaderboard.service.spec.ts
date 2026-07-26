@@ -6,6 +6,15 @@ const mockData: IndexerLeaderboardResponse = {
   entries: [{ address: 'GABC', total_wins: 5, total_volume_xlm: '100', total_tickets: 10 }],
 };
 
+const tiedMockData: IndexerLeaderboardResponse = {
+  entries: [
+    { address: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', total_wins: 3, total_volume_xlm: '150', total_tickets: 8 },
+    { address: 'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', total_wins: 3, total_volume_xlm: '150', total_tickets: 8 },
+    { address: 'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC', total_wins: 3, total_volume_xlm: '150', total_tickets: 8 },
+  ],
+  nextCursor: null,
+};
+
 describe('LeaderboardService', () => {
   let service: LeaderboardService;
   let indexer: jest.Mocked<Pick<IndexerService, 'getLeaderboard'>>;
@@ -73,6 +82,48 @@ describe('LeaderboardService', () => {
       // Only the index key itself is deleted; no data key deletions
       expect(redis.del).toHaveBeenCalledTimes(1);
       expect(redis.del).toHaveBeenCalledWith('leaderboard:__keys__');
+    });
+  });
+
+  describe('deterministic ordering contract', () => {
+    it('preserves indexer entry ordering without re-sorting', async () => {
+      const result = await service.getLeaderboard({ by: 'wins', limit: 3 });
+
+      expect(result.data.entries.map((e) => e.address)).toEqual([
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+        'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+      ]);
+    });
+
+    it('returns identical cached results across repeated calls', async () => {
+      const first = await service.getLeaderboard({ by: 'wins', limit: 3 });
+      expect(first.cacheHit).toBe(false);
+
+      const second = await service.getLeaderboard({ by: 'wins', limit: 3 });
+      expect(second.cacheHit).toBe(true);
+      expect(second.data).toEqual(first.data);
+      expect(second.data.entries.map((e) => e.address)).toEqual(
+        first.data.entries.map((e) => e.address),
+      );
+    });
+
+    it('serves tied-user ordering identically after cache invalidation', async () => {
+      indexer.getLeaderboard.mockResolvedValue(tiedMockData);
+
+      const page1 = await service.getLeaderboard({ by: 'wins', limit: 3 });
+      expect(page1.data.entries.map((e) => e.address)).toEqual([
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+        'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+      ]);
+
+      await service.invalidateAll();
+
+      const page2 = await service.getLeaderboard({ by: 'wins', limit: 3 });
+      expect(page2.data.entries.map((e) => e.address)).toEqual(
+        page1.data.entries.map((e) => e.address),
+      );
     });
   });
 });

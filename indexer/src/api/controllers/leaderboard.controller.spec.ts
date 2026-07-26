@@ -134,6 +134,76 @@ describe('LeaderboardController', () => {
     }
   });
 
+  it('returns identical ordering across repeated calls with tied users', async () => {
+    const tiedUsers = [
+      makeUser('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 5, 10, '200', 100),
+      makeUser('GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', 5, 10, '200', 100),
+      makeUser('GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC', 5, 10, '200', 100),
+      makeUser('GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD', 5, 10, '200', 100),
+      makeUser('GEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE', 5, 10, '200', 100),
+    ];
+
+    const results: string[][] = [];
+    for (let i = 0; i < 5; i++) {
+      setupQueryBuilder(tiedUsers);
+      const page = await controller.getLeaderboard('wins', 5, undefined, 0);
+      results.push(page.entries.map((e) => e.address));
+    }
+
+    for (const result of results) {
+      expect(result).toEqual(results[0]);
+    }
+
+    expect(results[0]).toEqual([
+      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+      'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+      'GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',
+      'GEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE',
+    ]);
+  });
+
+  it('maintains stable ordering across cursor pages with tied users', async () => {
+    const allTied = [
+      makeUser('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 3, 8, '150', 50),
+      makeUser('GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', 3, 8, '150', 50),
+      makeUser('GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC', 3, 8, '150', 50),
+      makeUser('GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD', 3, 8, '150', 50),
+    ];
+
+    setupQueryBuilder(allTied);
+    const page1 = await controller.getLeaderboard('wins', 2);
+    expect(page1.entries).toHaveLength(2);
+    expect(page1.nextCursor).toBeTruthy();
+
+    const page1Addresses = page1.entries.map((e) => e.address);
+    expect(page1Addresses).toEqual([
+      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+    ]);
+
+    const remaining = allTied.slice(2);
+    setupQueryBuilder(remaining);
+    const page2 = await controller.getLeaderboard(
+      'wins',
+      2,
+      page1.nextCursor ?? undefined,
+    );
+
+    expect(page2.entries).toHaveLength(2);
+    expect(page2.nextCursor).toBeNull();
+
+    const page2Addresses = page2.entries.map((e) => e.address);
+    expect(page2Addresses).toEqual([
+      'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+      'GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',
+    ]);
+
+    const allAddresses = [...page1Addresses, ...page2Addresses];
+    expect(new Set(allAddresses).size).toBe(4);
+    expect(allAddresses).toEqual(allTied.map((u) => u.address));
+  });
+
   it('hides internal fields like firstSeenLedger from DTO responses', async () => {
     const rows = [
       makeUser('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 2, 5, '100', 10),
