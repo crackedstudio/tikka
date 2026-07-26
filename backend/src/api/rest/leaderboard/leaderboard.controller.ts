@@ -19,6 +19,10 @@ export class LeaderboardController {
    *   limit — Number of entries: 1–100 (default: 20)
    *   cursor — Opaque cursor token for stable pagination
    *   offset — Deprecated offset pagination fallback
+   *
+   * Ordering is deterministic: users with equal scores are ordered by
+   * totalPrizeXlm, totalTicketsBought, totalRafflesWon, firstSeenLedger,
+   * then address. See indexer leaderboard-ranking.md for the full cascade.
    */
   @Get()
   @ApiOperation({ summary: 'Get top participants leaderboard' })
