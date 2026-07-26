@@ -176,7 +176,18 @@ export class AdminService {
    *
    * @param raffleId - The raffle to finalize
    * @param options - Optional transaction configuration
+   * @returns Promise containing the transaction result
    * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+   *
+   * @example
+   * ```ts
+   * const result = await adminService.finalizeRaffle(42, {
+   *   memo: 'Draw completed'
+   * });
+   * if (result.success) {
+   *   console.log('Raffle finalized at block:', result.ledger);
+   * }
+   * ```
    */
   async finalizeRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     const stateResp = await this.contract.simulateReadOnly<{ status: number }>(
@@ -198,8 +209,22 @@ export class AdminService {
    *
    * @param raffleId - The raffle to cancel
    * @param options - Optional transaction configuration
+   * @returns Promise containing the transaction result
    * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
    * @throws {UnauthorizedError} if the caller is not the raffle creator or admin
+   *
+   * @example
+   * ```ts
+   * // As raffle creator
+   * const result = await adminService.cancelRaffle(42, {
+   *   memo: 'Cancelled by creator'
+   * });
+   *
+   * // As admin (cancelling someone else's raffle)
+   * const adminResult = await adminService.cancelRaffle(99, {
+   *   memo: 'Admin cancellation'
+   * });
+   * ```
    */
   async cancelRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     const stateResp = await this.contract.simulateReadOnly<any>(
