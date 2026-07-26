@@ -4,6 +4,7 @@ import { useWallet } from "../hooks/useWallet";
 import { useUserProfile, useUserHistory } from "../hooks/useRaffles";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
+import EmptyState from "../components/ui/EmptyState";
 import type { ApiUserHistoryItem } from "../types/types";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ const Pagination: React.FC<{
         <button
             onClick={onPrev}
             disabled={!hasPrev}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-[#2A264A] text-gray-900 dark:text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-[#3A365A] transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-[#2A264A] text-gray-900 dark:text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-[#3A365A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E]"
         >
             ← Previous
         </button>
@@ -85,7 +86,7 @@ const Pagination: React.FC<{
         <button
             onClick={onNext}
             disabled={!hasNext}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-[#2A264A] text-gray-900 dark:text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-[#3A365A] transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-[#2A264A] text-gray-900 dark:text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-[#3A365A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E]"
         >
             Next →
         </button>
@@ -153,7 +154,7 @@ const MyRaffles: React.FC = () => {
                         <button
                             onClick={connect}
                             disabled={isConnecting}
-                            className="bg-[#FF389C] hover:bg-[#FF389C]/90 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-medium transition-colors"
+                            className="bg-[#FF389C] hover:bg-[#FF389C]/90 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E]"
                         >
                             {isConnecting ? "Connecting…" : "Connect Wallet"}
                         </button>
@@ -182,7 +183,7 @@ const MyRaffles: React.FC = () => {
                     </p>
                     <Link
                         to={`/search?creator=${encodeURIComponent(address)}`}
-                        className="inline-block bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+                        className="inline-block bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E]"
                     >
                         View My Created Raffles
                     </Link>
@@ -213,30 +214,28 @@ const MyRaffles: React.FC = () => {
         }
 
         if (displayItems.length === 0) {
-            return (
-                <div className="text-center py-16">
-                    <div className="w-16 h-16 bg-gray-100 dark:bg-[#2A264A] rounded-full flex items-center justify-center mx-auto mb-4">
+            return activeTab === "won" ? (
+                <EmptyState
+                    icon={
                         <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd"
-                                d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                                clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                         </svg>
-                    </div>
-                    <h3 className="text-gray-900 dark:text-white font-semibold mb-2">
-                        {activeTab === "won" ? "No wins yet" : "No history yet"}
-                    </h3>
-                    <p className="text-gray-400 text-sm mb-6">
-                        {activeTab === "won"
-                            ? "Keep entering raffles — your first win could be next!"
-                            : "You haven't entered any raffles yet."}
-                    </p>
-                    <Link
-                        to="/home"
-                        className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-white px-6 py-3 rounded-xl font-medium transition-colors"
-                    >
-                        Browse Raffles
-                    </Link>
-                </div>
+                    }
+                    title="No wins yet"
+                    hint="Keep entering raffles — your first win could be next!"
+                    action={{ label: "Browse Raffles", href: "/home" }}
+                />
+            ) : (
+                <EmptyState
+                    icon={
+                        <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                    }
+                    title="No history yet"
+                    hint="You haven't entered any raffles yet."
+                    action={{ label: "Browse Raffles", href: "/home" }}
+                />
             );
         }
 
@@ -297,7 +296,7 @@ const MyRaffles: React.FC = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E] ${
                                 activeTab === tab.id
                                     ? "bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white"
                                     : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
