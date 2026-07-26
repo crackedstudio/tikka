@@ -6,7 +6,7 @@ export class SupportService {
   private readonly logger = new Logger(SupportService.name);
   private readonly recentSubmissions = new Map<string, number>();
 
-  async submitTicket(payload: SupportDto): Promise<{ success: true }> {
+  async createTicket(payload: SupportDto, userAddress: string): Promise<{ success: true }> {
     const duplicateKey = this.getDuplicateKey(payload);
     const now = Date.now();
     const previousSubmissionAt = this.recentSubmissions.get(duplicateKey);
@@ -18,9 +18,13 @@ export class SupportService {
     }
 
     this.recentSubmissions.set(duplicateKey, now);
-    this.logger.log("Received support ticket", payload);
+    this.logger.log(`Received support ticket for ${userAddress}`, payload);
     // TODO: Integrate with real email or ticketing system (SendGrid / SES / Zendesk)
     return { success: true };
+  }
+
+  async submitTicket(payload: SupportDto): Promise<{ success: true }> {
+    return this.createTicket(payload, "unknown");
   }
 
   private getDuplicateKey(payload: SupportDto): string {

@@ -1,4 +1,5 @@
 import { Body, Controller, Post } from "@nestjs/common";
+import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { SupportService } from "./support.service";
 import { SupportDto, SupportSchema } from "./dto/support.dto";
@@ -12,7 +13,10 @@ export class SupportController {
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post()
-  async create(@Body(new (createZodPipe(SupportSchema))()) payload: SupportDto) {
-    return this.supportService.submitTicket(payload);
+  async create(
+    @CurrentUser("address") userAddress: string,
+    @Body(new (createZodPipe(SupportSchema))()) payload: SupportDto,
+  ) {
+    return this.supportService.createTicket(payload, userAddress);
   }
 }
