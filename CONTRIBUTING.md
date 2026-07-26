@@ -91,6 +91,8 @@ A future issue will convert them to use a real Soroban testnet endpoint.
 ## Pull request checklist
 
 - [ ] `pnpm test` passes with no new failures.
+- [ ] New client UI strings are added to every supported locale and
+  `pnpm --filter client check:locales` passes with zero missing or orphaned keys.
 - [ ] New public APIs include JSDoc.
 - [ ] Integration tests (if added) are gated behind `TEST_INTEGRATION=true`.
 - [ ] `CONTRIBUTING.md` is updated if new integration test setup is required.

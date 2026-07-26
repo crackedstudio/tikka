@@ -4,6 +4,7 @@ import {
   NotFoundException,
   NotImplementedException,
   Logger,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {

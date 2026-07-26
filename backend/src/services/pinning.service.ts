@@ -59,7 +59,7 @@ export class PinningService {
 
       this.logger.debug(
         'Attempting to pin metadata to Pinata IPFS',
-        `raffle-${payload.raffle_id || 'metadata'}-${Date.now()}`,
+        `raffle-${metadata.raffle_id || 'metadata'}-${Date.now()}`,
       );
 
       const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
