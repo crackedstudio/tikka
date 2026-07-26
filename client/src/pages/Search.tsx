@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "../hooks/useSearch";
 import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import RaffleCard from "../components/cards/RaffleCard";
-import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
+import RaffleCardSkeleton from "../components/cards/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 

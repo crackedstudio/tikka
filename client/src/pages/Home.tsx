@@ -9,7 +9,6 @@ import { useRaffles } from "../hooks/useRaffles";
 import { fetchRaffles } from "../services/raffleService";
 import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
 import type { ApiRaffleListItem } from "../types/types";
-import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { useTranslation } from "react-i18next";
 
