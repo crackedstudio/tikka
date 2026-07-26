@@ -270,6 +270,87 @@ describe('buildSentryOptions — unit tests', () => {
   });
 });
 
+describe('beforeSend — PII scrubbing', () => {
+  const VALID_WALLET = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R8S9T0U1V2W3X4';
+
+  function getBeforeSend() {
+    const opts = buildSentryOptions({
+      SENTRY_DSN: 'https://abc@sentry.io/123',
+      NODE_ENV: 'test',
+    });
+    return (opts as any).beforeSend as (event: any) => any;
+  }
+
+  it('redacts authorization header', () => {
+    const beforeSend = getBeforeSend();
+    const event = { request: { headers: { authorization: 'Bearer sk-secret' } } };
+    const result = beforeSend(event);
+    expect(result.request.headers.authorization).toBe('[REDACTED]');
+  });
+
+  it('redacts cookie header', () => {
+    const beforeSend = getBeforeSend();
+    const event = { request: { headers: { cookie: 'session=abc123' } } };
+    const result = beforeSend(event);
+    expect(result.request.headers.cookie).toBe('[REDACTED]');
+  });
+
+  it('redacts email fields in user object', () => {
+    const beforeSend = getBeforeSend();
+    const event = { user: { email: 'alice@corp.com', id: '42' } };
+    const result = beforeSend(event);
+    expect(result.user.email).toBe('[REDACTED]');
+    expect(result.user.id).toBe('42');
+  });
+
+  it('deletes request body (data)', () => {
+    const beforeSend = getBeforeSend();
+    const event = { request: { method: 'POST', data: { password: 'hunter2' } } };
+    const result = beforeSend(event);
+    expect(result.request.data).toBeUndefined();
+    expect(result.request.method).toBe('POST');
+  });
+
+  it('redacts query string containing sensitive fields', () => {
+    const beforeSend = getBeforeSend();
+    const event = { request: { query_string: { token: 'abc', q: 'search' } } };
+    const result = beforeSend(event);
+    expect(result.request.query_string).toEqual({ token: '[REDACTED]', q: 'search' });
+  });
+
+  it('hashes wallet addresses in tags', () => {
+    const beforeSend = getBeforeSend();
+    const event = { tags: { wallet: VALID_WALLET } };
+    const result = beforeSend(event);
+    expect(result.tags.wallet).not.toBe(VALID_WALLET);
+    expect(result.tags.wallet).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('handles a complete event with all PII vectors', () => {
+    const beforeSend = getBeforeSend();
+    const event = {
+      request: {
+        method: 'POST',
+        headers: { authorization: 'Bearer token', cookie: 'sid=xyz' },
+        query_string: { email: 'bob@test.com' },
+        data: { secret: 'private' },
+      },
+      user: { email: 'bob@test.com' },
+      tags: { wallet: VALID_WALLET },
+      extra: { debug: true },
+    };
+    const result = beforeSend(event);
+
+    expect(result.request.headers.authorization).toBe('[REDACTED]');
+    expect(result.request.headers.cookie).toBe('[REDACTED]');
+    expect(result.request.query_string.email).toBe('[REDACTED]');
+    expect(result.request.data).toBeUndefined();
+    expect(result.user.email).toBe('[REDACTED]');
+    expect(result.tags.wallet).toMatch(/^[0-9a-f]{16}$/);
+    expect(result.extra.debug).toBe(true);
+  });
+});
+
 describe('initSentry — unit tests', () => {
   let warnMock: jest.Mock;
   let logMock: jest.Mock;
