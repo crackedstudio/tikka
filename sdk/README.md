@@ -85,6 +85,25 @@ cd sdk
 pnpm run build:read   # outputs to dist/read/
 ```
 
+## Testnet smoke test (opt-in)
+
+Unit tests use mocks and cannot catch Soroban protocol drift. A small live smoke test against testnet is available but **skipped by default** so `pnpm test` stays fast and offline-friendly.
+
+```bash
+cd sdk
+
+# Run only the smoke suite against live testnet
+pnpm run test:testnet
+
+# Or set the flag manually (Unix/macOS)
+TIKKA_TESTNET_TESTS=1 pnpm test -- testnet-smoke
+
+# Windows (PowerShell)
+$env:TIKKA_TESTNET_TESTS=1; pnpm test -- testnet-smoke
+```
+
+When enabled, the suite resolves testnet network config, fetches the latest ledger via `RpcService`, and simulates a read-only contract call through `ContractService`. Requires network access to `soroban-testnet.stellar.org`. The suite is skipped whenever `TIKKA_TESTNET_TESTS` is unset or not `1`.
+
 ## Project Structure
 
 - `src/network/` — Customizable Soroban RPC and Horizon services.
