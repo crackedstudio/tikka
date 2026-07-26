@@ -43,6 +43,7 @@
     "example:buy-tickets": "ts-node examples/buy-tickets.ts",
     "example:listen-events": "ts-node examples/listen-events.ts",
     "example:offline-signing": "ts-node examples/offline-signing.ts",
+    "example:custom-wallet": "ts-node examples/custom-wallet.ts",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
