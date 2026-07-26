@@ -74,13 +74,17 @@ export class TikkaThrottlerGuard extends ThrottlerGuard {
       timeToBlockExpire: number;
     },
   ): Promise<void> {
+    const response = _context.switchToHttp().getResponse<import("fastify").FastifyReply>();
+    const retryAfter = Math.ceil(_throttlerLimitDetail.timeToExpire / 1000);
+    response.header("Retry-After", retryAfter);
+
     throw Object.assign(
       new (require("@nestjs/common").HttpException)(
         {
           statusCode: 429,
           error: "Too Many Requests",
           message: "Rate limit exceeded. Please slow down and try again.",
-          retryAfter: Math.ceil(_throttlerLimitDetail.timeToExpire / 1000),
+          retryAfter,
         },
         429,
         {
