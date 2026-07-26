@@ -51,6 +51,8 @@ import {
 import { Throttle } from "@nestjs/throttler";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
 import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
+import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
+import { SetMetadata } from "@nestjs/common";
 import * as fileType from "file-type";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
@@ -78,6 +80,8 @@ export class RafflesController {
   @Get()
   @ApiOperation({ summary: "List raffles with optional filters and pagination" })
   @ApiResponse({ status: 200, description: "Raffles list retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 10)
   @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
   async list(@Query() filters: ListRafflesQueryDto) {
     return this.rafflesService.list(filters);
@@ -92,6 +96,8 @@ export class RafflesController {
   @Get('metadata')
   @ApiOperation({ summary: "Batch fetch off-chain metadata for up to 100 raffle IDs" })
   @ApiResponse({ status: 200, description: "Batch metadata retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 15)
   @UsePipes(new (createZodPipe(BatchMetadataQuerySchema))())
   async getBatchMetadata(@Query() query: BatchMetadataQueryDto) {
     return this.rafflesService.getBatchMetadata(query.ids);
@@ -105,6 +111,8 @@ export class RafflesController {
   @ApiOperation({ summary: "Get raffle detail by ID" })
   @ApiParam({ name: "id", description: "Internal raffle ID" })
   @ApiResponse({ status: 200, description: "Raffle details retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 30)
   async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
   }
@@ -122,6 +130,8 @@ export class RafflesController {
   @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 100, default 20" })
   @ApiQuery({ name: "offset", required: false, type: Number, description: "Offset for pagination, default 0" })
   @ApiResponse({ status: 200, description: "Participants list retrieved successfully", type: ParticipantListResponseDto })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 30)
   @UsePipes(new (createZodPipe(ParticipantListQuerySchema))())
   async getParticipants(
     @Param("id", ParseIntPipe) id: number,
