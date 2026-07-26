@@ -66,7 +66,7 @@ export class KeyProviderFactory {
       'For production, use AWS KMS or GCP KMS.',
     );
 
-    return new EnvKeyProvider(privateKey);
+    return new EnvKeyProvider(this.logger, privateKey);
   }
 
   private static createAwsKmsProvider(configService: ConfigService): AwsKmsKeyProvider {
@@ -80,7 +80,7 @@ export class KeyProviderFactory {
     }
 
     this.logger.log('Using AWS KMS for secure key management');
-    return new AwsKmsKeyProvider(region, keyId);
+    return new AwsKmsKeyProvider(this.logger, region, keyId);
   }
 
   private static createGcpKmsProvider(configService: ConfigService): GcpKmsKeyProvider {
@@ -94,6 +94,6 @@ export class KeyProviderFactory {
     }
 
     this.logger.log('Using Google Cloud KMS for secure key management');
-    return new GcpKmsKeyProvider(projectId, keyPath);
+    return new GcpKmsKeyProvider(this.logger, projectId, keyPath);
   }
 }

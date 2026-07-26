@@ -1,5 +1,7 @@
 import { GcpKmsKeyProvider } from './gcp-kms-key.provider';
+import { OracleLoggerService } from '../../logger/oracle-logger';
 
+const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
 const mockGetPublicKey = jest.fn();
 const mockAsymmetricSign = jest.fn();
 const mockGetCryptoKeyVersion = jest.fn();
@@ -22,13 +24,13 @@ describe('GcpKmsKeyProvider', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    provider = new GcpKmsKeyProvider('test-project', testKeyPath);
+    provider = new GcpKmsKeyProvider(mockLogger, 'test-project', testKeyPath);
   });
 
   describe('initialization', () => {
     it('throws error if project ID or key path are missing', () => {
-      expect(() => new GcpKmsKeyProvider('', 'key-path')).toThrow();
-      expect(() => new GcpKmsKeyProvider('project', '')).toThrow();
+      expect(() => new GcpKmsKeyProvider(mockLogger, '', 'key-path')).toThrow();
+      expect(() => new GcpKmsKeyProvider(mockLogger, 'project', '')).toThrow();
     });
   });
 

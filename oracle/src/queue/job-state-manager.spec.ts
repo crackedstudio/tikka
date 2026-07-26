@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JobStateManager } from './job-state-manager';
 import { JobState, DEFAULT_QUEUE_CONFIG } from './job-state.types';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 describe('JobStateManager', () => {
   let manager: JobStateManager;
@@ -10,6 +11,7 @@ describe('JobStateManager', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         JobStateManager,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         {
           provide: ConfigService,
           useValue: {
