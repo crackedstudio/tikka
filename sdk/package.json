@@ -53,7 +53,29 @@
       "name": "@tikka/sdk/read",
       "path": "dist/read/index.read.js",
       "limit": "50 kB",
-      "gzip": true
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
+    },
+    {
+      "name": "@tikka/sdk light",
+      "path": "dist/light/index.light.js",
+      "limit": "25 kB",
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
     }
   ],
   "dependencies": {
