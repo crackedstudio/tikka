@@ -7,14 +7,27 @@ import { RafflesController } from './raffles.controller';
 import { RafflesService } from './raffles.service';
 import { StorageService } from '../../../services/storage.service';
 import { IdempotencyService } from '../../../common/idempotency/idempotency.service';
-import { MAX_UPLOAD_BYTES } from '../../../config/upload.config';
+import { MetadataRedisService } from '../../../services/metadata-redis.service';
+import { SseService } from '../../../services/sse.service';
+import {
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_IMAGE_HEIGHT,
+  MAX_UPLOAD_IMAGE_WIDTH,
+} from '../../../config/upload.config';
 import * as fileType from 'file-type';
+import sharp from 'sharp';
 
 jest.mock('file-type', () => ({
   fromBuffer: jest.fn(),
 }));
 
+jest.mock('sharp', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
 const mockFileTypeFromBuffer = fileType.fromBuffer as jest.MockedFunction<typeof fileType.fromBuffer>;
+const mockSharp = sharp as unknown as jest.Mock;
 
 function createMockFile(
   overrides: {
@@ -41,6 +54,9 @@ describe('RafflesController — uploadImage', () => {
 
   beforeEach(async () => {
     mockFileTypeFromBuffer.mockResolvedValue({ mime: 'image/png', ext: 'png' } as any);
+    mockSharp.mockReturnValue({
+      metadata: jest.fn().mockResolvedValue({ width: 1200, height: 800 }),
+    });
     storageService = {
       uploadRaffleImage: jest.fn().mockResolvedValue({
         url: 'https://cdn.example.com/42/addr/uuid.webp',
@@ -59,6 +75,8 @@ describe('RafflesController — uploadImage', () => {
         { provide: RafflesService, useValue: {} },
         { provide: StorageService, useValue: storageService },
         { provide: IdempotencyService, useValue: { get: jest.fn(), lock: jest.fn(), resolve: jest.fn() } },
+        { provide: SseService, useValue: {} },
+        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false), get: jest.fn(), setEx: jest.fn() } },
       ],
     }).compile();
 
@@ -196,6 +214,52 @@ describe('RafflesController — uploadImage', () => {
     await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
       PayloadTooLargeException,
     );
+    expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
+  });
+
+  it('throws PayloadTooLargeException when multipart rejects an oversized file', async () => {
+    const request = {
+      file: jest.fn().mockRejectedValue(
+        Object.assign(new Error('request file too large'), {
+          code: 'FST_REQ_FILE_TOO_LARGE',
+          statusCode: 413,
+        }),
+      ),
+    } as any;
+
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+      PayloadTooLargeException,
+    );
+    expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestException when image dimensions exceed max limits', async () => {
+    mockSharp.mockReturnValueOnce({
+      metadata: jest.fn().mockResolvedValue({
+        width: MAX_UPLOAD_IMAGE_WIDTH + 1,
+        height: MAX_UPLOAD_IMAGE_HEIGHT,
+      }),
+    });
+    const file = createMockFile();
+    const request = createMockRequest(file);
+
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestException when image metadata cannot be read', async () => {
+    mockSharp.mockReturnValueOnce({
+      metadata: jest.fn().mockRejectedValue(new Error('bad image')),
+    });
+    const file = createMockFile();
+    const request = createMockRequest(file);
+
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
   });
 });
 
@@ -229,6 +293,8 @@ describe('RafflesController — upsertMetadata idempotency', () => {
         { provide: RafflesService, useValue: rafflesService },
         { provide: StorageService, useValue: {} },
         { provide: IdempotencyService, useValue: idempotencyService },
+        { provide: SseService, useValue: {} },
+        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false), get: jest.fn(), setEx: jest.fn() } },
       ],
     }).compile();
 
