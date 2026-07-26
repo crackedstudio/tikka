@@ -1,0 +1,1406 @@
+
+> tikka-backend@0.1.0 test
+> jest --coverage
+
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/api/rest/monitor/[22m[1maudit-log.interceptor.spec.ts[22m ([0m[1m[41m8.115 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/services/[22m[1mbackfill.cli.spec.ts[22m ([0m[1m[41m8.159 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/middleware/[22m[1mrequest-logging.interceptor.spec.ts[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/common/idempotency/[22m[1midempotency.interceptor.spec.ts[22m ([0m[1m[41m8.252 s[49m[22m[0m)
+[31m[Nest] 22271  - [39m06/01/2026, 2:06:10 PM [31m  ERROR[39m [38;5;3m[StorageService] [39m[31mImageOptimizerService failed, falling back to original buffer: Sharp native binding failed[39m
+[31m[Nest] 22271  - [39m06/01/2026, 2:06:10 PM [31m  ERROR[39m [38;5;3m[StorageService] [39m[31mVariant upload failed for path=42/GABC123/5c1f183d-be98-4f4d-8a55-0b8449408e96-400w.webp: Variant upload failed[39m
+[31m[Nest] 22271  - [39m06/01/2026, 2:06:10 PM [31m  ERROR[39m [38;5;3m[StorageService] [39m[31mUpload failed for path=42/GABC123/7d0b3a51-8890-42de-be2a-fe2bffd4c90e.webp: Bucket not found[39m
+[31m[Nest] 22271  - [39m06/01/2026, 2:06:10 PM [31m  ERROR[39m [38;5;3m[StorageService] [39m[31mDelete failed for path=42/GABC123/some-uuid.png: Not found[39m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/services/[22m[1mstorage.service.spec.ts[22m ([0m[1m[41m8.523 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/health/[22m[1mhealth.service.spec.ts[22m
+[31m[Nest] 22297  - [39m06/01/2026, 2:06:10 PM [31m  ERROR[39m [38;5;3m[EmailTemplateService] [39m[31mTemplate not found at path: /home/awointa/Documents/drips/tikka/backend/assets/templates/non-existent.hbs[39m
+[31m[Nest] 22297  - [39m06/01/2026, 2:06:10 PM [31m  ERROR[39m [38;5;3m[EmailTemplateService] [39m[31mError rendering template non-existent:[39m
+InternalServerErrorException: Email template non-existent not found
+    at EmailTemplateService.render (/home/awointa/Documents/drips/tikka/backend/src/services/email-template.service.ts:24:15)
+    at /home/awointa/Documents/drips/tikka/backend/src/services/email-template.service.spec.ts:51:17
+    at Object.<anonymous> (/home/awointa/Documents/drips/tikka/backend/node_modules/expect/build/toThrowMatchers.js:74:11)
+    at Object.throwingMatcher [as toThrow] (/home/awointa/Documents/drips/tikka/backend/node_modules/expect/build/index.js:320:21)
+    at Object.<anonymous> (/home/awointa/Documents/drips/tikka/backend/src/services/email-template.service.spec.ts:52:10)
+    at Promise.then.completed (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _runTest (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-runner/build/testWorker.js:106:12)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/auth/guards/[22m[1mjwt-auth.guard.spec.ts[22m
+[31m[Nest] 22297  - [39m06/01/2026, 2:06:10 PM [31m  ERROR[39m [38;5;3m[EmailTemplateService] [39m[31mError rendering template broken-template:[39m
+Error: Parse error on line 1:
+Hello {{username
+--------^
+Expecting 'ID', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', got 'INVALID'
+    at Parser.parseError (/home/awointa/Documents/drips/tikka/backend/node_modules/handlebars/lib/handlebars/compiler/parser.js:199:11)
+    at Parser.parse (/home/awointa/Documents/drips/tikka/backend/node_modules/handlebars/lib/handlebars/compiler/parser.js:251:22)
+    at parseWithoutProcessing (/home/awointa/Documents/drips/tikka/backend/node_modules/handlebars/lib/handlebars/compiler/base.js:28:20)
+    at HandlebarsEnvironment.parse (/home/awointa/Documents/drips/tikka/backend/node_modules/handlebars/lib/handlebars/compiler/base.js:34:13)
+    at compileInput (/home/awointa/Documents/drips/tikka/backend/node_modules/handlebars/lib/handlebars/compiler/compiler.js:532:19)
+    at ret (/home/awointa/Documents/drips/tikka/backend/node_modules/handlebars/lib/handlebars/compiler/compiler.js:546:18)
+    at EmailTemplateService.template [as render] (/home/awointa/Documents/drips/tikka/backend/src/services/email-template.service.ts:33:14)
+    at /home/awointa/Documents/drips/tikka/backend/src/services/email-template.service.spec.ts:60:17
+    at Object.<anonymous> (/home/awointa/Documents/drips/tikka/backend/node_modules/expect/build/toThrowMatchers.js:74:11)
+    at Object.throwingMatcher [as toThrow] (/home/awointa/Documents/drips/tikka/backend/node_modules/expect/build/index.js:320:21)
+    at Object.<anonymous> (/home/awointa/Documents/drips/tikka/backend/src/services/email-template.service.spec.ts:61:10)
+    at Promise.then.completed (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _runTest (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/home/awointa/Documents/drips/tikka/backend/node_modules/jest-runner/build/testWorker.js:106:12)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/services/[22m[1memail-template.service.spec.ts[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/middleware/[22m[1mthrottler.guard.spec.ts[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/maintenance/[22m[1mmaintenance-mode.guard.spec.ts[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/services/[22m[1mpush-notification.service.spec.ts[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/services/[22m[1mhorizon-client.service.spec.ts[22m ([0m[1m[41m9.195 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/auth/[22m[1mjwt.strategy.spec.ts[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/health/[22m[1mmetrics.controller.spec.ts[22m
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/services/[22m[1mmetadata.service.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/services/metadata.service.spec.ts[0m:[93m54[0m:[93m15[0m - [91merror[0m[90m TS2554: [0mExpected 5 arguments, but got 4.
+
+    [7m 54[0m     service = new MetadataService(
+    [7m   [0m [91m              ~~~~~~~~~~~~~~~~~~~~[0m
+    [7m 55[0m       client as any,
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~[0m
+    [7m...[0m 
+    [7m 58[0m       metrics,
+    [7m   [0m [91m~~~~~~~~~~~~~~[0m
+    [7m 59[0m     );
+    [7m   [0m [91m~~~~~[0m
+
+      [96msrc/services/metadata.service.ts[0m:[93m57[0m:[93m5[0m
+        [7m57[0m     private readonly metadataCacheMetrics: MetadataCacheMetricsService,
+        [7m  [0m [96m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        An argument for 'metadataCacheMetrics' was not provided.
+
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/sentry/[22m[1mredaction.utils.spec.ts[22m ([0m[1m[41m9.952 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/sentry/[22m[1mcontext.utils.spec.ts[22m ([0m[1m[41m10.328 s[49m[22m[0m)
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/api/rest/raffles/[22m[1mraffles.controller.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m111[0m:[93m64[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Res'.
+
+    [7m111[0m   async redirectToIpfs(@Param("id", ParseIntPipe) id: number, @Res() res: any) {
+    [7m   [0m [91m                                                               ~~~[0m
+    [96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m125[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Throttle'.
+
+    [7m125[0m   @Throttle({
+    [7m   [0m [91m   ~~~~~~~~[0m
+    [96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m153[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'ApiHeader'.
+
+    [7m153[0m   @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+    [7m   [0m [91m   ~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/middleware/[22m[1mgeo.middleware.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m34[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m34[0m         socket: {
+    [7m  [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m52[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m52[0m       expect(mockRequest.headers['x-country-code']).toBe('US');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m62[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m62[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m72[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m72[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m82[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m82[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m100[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m100[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m   [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m142[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m142[0m       mockRequest.ip = '203.0.113.3';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m152[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m152[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m154[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m154[0m         socket: {
+    [7m   [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m167[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m167[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m168[0m:[93m7[0m - [91merror[0m[90m TS2740: [0mType '{}' is missing the following properties from type 'IncomingMessage': aborted, httpVersion, httpVersionMajor, httpVersionMinor, and 66 more.
+
+    [7m168[0m       mockRequest.raw = {};
+    [7m   [0m [91m      ~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m178[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m178[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m292[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m292[0m       mockRequest.ip = '::1';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m299[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m299[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m   [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m303[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m303[0m       mockRequest.ip = '::ffff:192.168.1.1';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m310[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m310[0m       expect(mockRequest.headers['x-country-code']).toBe('US');
+    [7m   [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m328[0m:[93m9[0m - [91merror[0m[90m TS2322: [0mType 'null' is not assignable to type 'string | string[] | undefined'.
+
+    [7m328[0m         'x-forwarded-for': null,
+    [7m   [0m [91m        ~~~~~~~~~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/middleware/[22m[1mgeo-blocking.middleware.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m38[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m38[0m         socket: {
+    [7m  [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m290[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m290[0m       mockRequest.ip = '203.0.113.3';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m307[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m307[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m309[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m309[0m         socket: {
+    [7m   [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m329[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m329[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m330[0m:[93m7[0m - [91merror[0m[90m TS2740: [0mType '{}' is missing the following properties from type 'IncomingMessage': aborted, httpVersion, httpVersionMajor, httpVersionMinor, and 66 more.
+
+    [7m330[0m       mockRequest.raw = {};
+    [7m   [0m [91m      ~~~~~~~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/sentry/[22m[1msentry.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/sentry/sentry.spec.ts[0m:[93m101[0m:[93m1[0m - [91merror[0m[90m TS2304: [0mCannot find name 'n'.
+
+    [7m101[0m n(Sentry, 'captureException').mockImplementation(() => '');
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m165[0m:[93m9[0m - [91merror[0m[90m TS2304: [0mCannot find name 'ledgerPayload'.
+
+    [7m165[0m         ledgerPayload: fc.oneof(fc.anything(), fc.constant(undefined as undefined)),
+    [7m   [0m [91m        ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m165[0m:[93m24[0m - [91merror[0m[90m TS2554: [0mExpected 1 arguments, but got 2.
+
+    [7m165[0m         ledgerPayload: fc.oneof(fc.anything(), fc.constant(undefined as undefined)),
+    [7m   [0m [91m                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m9[0m - [91merror[0m[90m TS2304: [0mCannot find name 'ontextKeys'.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m        ~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m21[0m - [91merror[0m[90m TS2339: [0mProperty 'not' does not exist on type 'IPropertyWithHooks<[context: IngestionErrorContext]>'.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m                    ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m192[0m:[93m11[0m - [91merror[0m[90m TS2345: [0mArgument of type 'typeof jest' is not assignable to parameter of type 'number'.
+
+    [7m192[0m           jest.restoreAllMocks();
+    [7m   [0m [91m          ~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m289[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'request' does not exist on type 'ErrorEvent | PromiseLike<ErrorEvent | null>'.
+      Property 'request' does not exist on type 'PromiseLike<ErrorEvent | null>'.
+
+    [7m289[0m       expect(result!.request!.headers!['authorization']).toBe('[REDACTED]');
+    [7m   [0m [91m                     ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m295[0m:[93m6[0m - [91merror[0m[90m TS2304: [0mCannot find name 'st'.
+
+    [7m295[0m      st result = beforeSend(event, {});
+    [7m   [0m [91m     ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m295[0m:[93m9[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m295[0m      st result = beforeSend(event, {});
+    [7m   [0m [91m        ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m296[0m:[93m14[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m296[0m       expect(result!.request!.headers!['x-admin-token']).toBe('[REDACTED]');
+    [7m   [0m [91m             ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m303[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'request' does not exist on type 'ErrorEvent | PromiseLike<ErrorEvent | null>'.
+      Property 'request' does not exist on type 'PromiseLike<ErrorEvent | null>'.
+
+    [7m303[0m       expect(result!.request!.data).toBeUndefined();
+    [7m   [0m [91m                     ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m308[0m:[93m11[0m - [91merror[0m[90m TS2693: [0m'any' only refers to a type, but is being used as a value here.
+
+    [7m308[0m      ent: any = {
+    [7m   [0m [91m          ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m1[0m - [91merror[0m[90m TS18004: [0mNo value exists in scope for the shorthand property 's'. Either declare one or provide an initializer.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m5[0m - [91merror[0m[90m TS2339: [0mProperty 'toHaveLength' does not exist on type 'void'.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m    ~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m314[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m314[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m2[0m - [91merror[0m[90m TS2448: [0mBlock-scoped variable 'address' used before its declaration.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m ~~~~~~~[0m
+
+      [96msrc/sentry/sentry.spec.ts[0m:[93m321[0m:[93m11[0m
+        [7m321[0m     const address = 'GADDRESSWALLET';
+        [7m   [0m [96m          ~~~~~~~[0m
+        'address' is declared here.
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m2[0m - [91merror[0m[90m TS2454: [0mVariable 'address' is used before being assigned.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m11[0m - [91merror[0m[90m TS2304: [0mCannot find name 'when'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m          ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'walletAddress'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m               ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m30[0m - [91merror[0m[90m TS2304: [0mCannot find name 'is'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                             ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m33[0m - [91merror[0m[90m TS2304: [0mCannot find name 'present'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                                ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m320[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m320[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m329[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m329[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m331[0m:[93m24[0m - [91merror[0m[90m TS2304: [0mCannot find name 'tag'.
+
+    [7m331[0m     expect(Object.keys(tag
+    [7m   [0m [91m                       ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m332[0m:[93m5[0m - [91merror[0m[90m TS2554: [0mExpected 1 arguments, but got 2.
+
+    [7m332[0m     expect(tags['request_id']).toBe('req-abc');
+    [7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m336[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m336[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m342[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m342[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m350[0m:[93m1[0m - [91merror[0m[90m TS2345: [0mArgument of type 'void' is not assignable to parameter of type 'ProvidesCallback | undefined'.
+
+    [7m350[0m describe('setSentryRequestContext — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m351[0m   function makeScope() {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m...[0m 
+    [7m374[0m   });
+    [7m   [0m [91m~~~~~[0m
+    [7m375[0m });
+    [7m   [0m [91m~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m361[0m:[93m62[0m - [91merror[0m[90m TS2304: [0mCannot find name 'atch'.
+
+    [7m361[0m     setSentryRequestContext(scope, { requestId: 'req-abc' });atch(/^[0-9a-f]{16}$/);
+    [7m   [0m [91m                                                             ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m394[0m:[93m11[0m - [91merror[0m[90m TS2451: [0mCannot redeclare block-scoped variable 'result'.
+
+    [7m394[0m     const result = hashWallet('GADDRESS123');
+    [7m   [0m [91m          ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m20[0m - [91merror[0m[90m TS2339: [0mProperty 'toMto' does not exist on type 'JestMatchers<string | null>'.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                   ~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m26[0m - [91merror[0m[90m TS2304: [0mCannot find name 'arrays'.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                         ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m396[0m:[93m11[0m - [91merror[0m[90m TS2451: [0mCannot redeclare block-scoped variable 'result'.
+
+    [7m396[0m     const result = redactSensitive([{ token: 'abc' }]) as any[];
+    [7m   [0m [91m          ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m397[0m:[93m12[0m - [91merror[0m[90m TS18047: [0m'result' is possibly 'null'.
+
+    [7m397[0m     expect(result[0].token).toBe('[REDACTED]');
+    [7m   [0m [91m           ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m397[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'token' does not exist on type 'string'.
+
+    [7m397[0m     expect(result[0].token).toBe('[REDACTED]');
+    [7m   [0m [91m                     ~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m411[0m:[93m12[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m411[0m     expect(result['Authorization']).toBe('[REDACTED]');
+    [7m   [0m [91m           ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m426[0m:[93m1[0m - [91merror[0m[90m TS2345: [0mArgument of type 'void' is not assignable to parameter of type 'ProvidesCallback | undefined'.
+
+    [7m426[0m describe('redactSensitive — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m427[0m   it('redacts every field in REDACTED_FIELDS', () => {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m...[0m 
+    [7m446[0m   });
+    [7m   [0m [91m~~~~~[0m
+    [7m447[0m });
+    [7m   [0m [91m~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m436[0m:[93m70[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Rs'.
+
+    [7m436[0m     const result = redactSensitive({ Authorization: 'Bearer x' }) as Rs://abc@sentry.io/123';
+    [7m   [0m [91m                                                                     ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m5[0m - [91merror[0m[90m TS7005: [0mVariable 'process' implicitly has an 'any' type.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m    ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m13[0m - [91merror[0m[90m TS7005: [0mVariable 'env' implicitly has an 'any' type.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m            ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m440[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logger'.
+
+    [7m440[0m     initSentry(logger);
+    [7m   [0m [91m               ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m445[0m:[93m12[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logMock'.
+
+    [7m445[0m     expect(logMock).toHaveBeenCalledWith(expect.stringContaining('Sentry initialized'));
+    [7m   [0m [91m           ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m455[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logger'.
+
+    [7m455[0m     initSentry(logger);
+    [7m   [0m [91m               ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m456[0m:[93m12[0m - [91merror[0m[90m TS2304: [0mCannot find name 'warnMock'.
+
+    [7m456[0m     expect(warnMock).toHaveBeenCalledWith('SENTRY_DSN not set — Sentry is disabled');
+    [7m   [0m [91m           ~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m461[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logger'.
+
+    [7m461[0m     initSentry(logger);
+    [7m   [0m [91m               ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m467[0m:[93m14[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m467[0m       expect(result).toEqual({ message: 'no request' });
+    [7m   [0m [91m             ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m488[0m:[93m22[0m - [91merror[0m[90m TS2304: [0mCannot find name 'beforeSend'.
+
+    [7m488[0m       const result = beforeSend(event, {});
+    [7m   [0m [91m                     ~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m494[0m:[93m26[0m - [91merror[0m[90m TS2304: [0mCannot find name 'getBeforeSend'.
+
+    [7m494[0m       const beforeSend = getBeforeSend();
+    [7m   [0m [91m                         ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m165[0m:[93m22[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m165[0m         ledgerPayload: fc.oneof(fc.anything(), fc.constant(undefined as undefined)),
+    [7m   [0m [91m                     ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m166[0m:[93m7[0m - [91merror[0m[90m TS1135: [0mArgument expression expected.
+
+    [7m166[0m       }) as fc.Arbitrary<IngestionErrorContext>;
+    [7m   [0m [91m      ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m9[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m        ~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m19[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m                  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m52[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m                                                   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m192[0m:[93m11[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m192[0m           jest.restoreAllMocks();
+    [7m   [0m [91m          ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m192[0m:[93m33[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m192[0m           jest.restoreAllMocks();
+    [7m   [0m [91m                                ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m194[0m:[93m7[0m - [91merror[0m[90m TS1109: [0mExpression expected.
+
+    [7m194[0m       );
+    [7m   [0m [91m      ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m195[0m:[93m5[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m195[0m     });
+    [7m   [0m [91m    ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m195[0m:[93m6[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m195[0m     });
+    [7m   [0m [91m     ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m196[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m196[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m196[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m196[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m217[0m:[93m1[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m217[0m });
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m217[0m:[93m2[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m217[0m });
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m295[0m:[93m6[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m295[0m      st result = beforeSend(event, {});
+    [7m   [0m [91m     ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m2[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m3[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m318[0m:[93m1[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m318[0m });
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m318[0m:[93m2[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m318[0m });
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m2[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m9[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m        ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m11[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m          ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m16[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m               ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m30[0m - [91merror[0m[90m TS1228: [0mA type predicate is only allowed in return type position for functions and methods.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                             ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m33[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                                ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m50[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                                                 [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m326[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m326[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m326[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m326[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m332[0m:[93m5[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m332[0m     expect(tags['request_id']).toBe('req-abc');
+    [7m   [0m [91m    ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m332[0m:[93m47[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m332[0m     expect(tags['request_id']).toBe('req-abc');
+    [7m   [0m [91m                                              ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m347[0m:[93m60[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m347[0m   it('attaches wallet_hash (not rawuestContext — unit tests
+    [7m   [0m [91m                                                           [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m350[0m:[93m1[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m350[0m describe('setSentryRequestContext — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m375[0m:[93m3[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m375[0m });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m26[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                         ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m26[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                         ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m42[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                                         [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m412[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m412[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m412[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m412[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m424[0m:[93m80[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m424[0m   it('recurses in--------------------------------------------------------------
+    [7m   [0m [91m                                                                               [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m426[0m:[93m1[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m426[0m describe('redactSensitive — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m436[0m:[93m72[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m436[0m     const result = redactSensitive({ Authorization: 'Bearer x' }) as Rs://abc@sentry.io/123';
+    [7m   [0m [91m                                                                       ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m12[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m           ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m16[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m               ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m447[0m:[93m3[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m447[0m });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m452[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m452[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m452[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m452[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m466[0m:[93m46[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m466[0m     process.env.SENTRY_DSN = 'httpevent, {});
+    [7m   [0m [91m                                             [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m469[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m469[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m469[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m469[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m470[0m:[93m1[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m470[0m });
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m470[0m:[93m2[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m470[0m });
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m487[0m:[93m34[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m487[0m     delete process.env.SEN      };
+    [7m   [0m [91m                                 ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m496[0m:[93m33[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m496[0m       const result = beforeSend(
+    [7m   [0m [91m                                [0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/config/[22m[1menv.schema.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/config/env.schema.ts[0m:[93m124[0m:[93m5[0m - [91merror[0m[90m TS2740: [0mType '{ string: (params?: ({ errorMap?: ZodErrorMap | undefined; invalid_type_error?: string | undefined; required_error?: string | undefined; message?: string | undefined; description?: string | undefined; } & { ...; }) | undefined) => ZodString; number: (params?: ({ ...; } & { ...; }) | undefined) => ZodNumber; boolean:...' is missing the following properties from type 'ZodType<any, any, any>': _type, _output, _input, _def, and 34 more.
+
+    [7m124[0m     METADATA_CACHE_TTL_SECONDS: z.coerce
+    [7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+      [96mnode_modules/zod/v3/types.d.cts[0m:[93m14[0m:[93m5[0m
+        [7m14[0m     [k: string]: ZodTypeAny;
+        [7m  [0m [96m    ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        The expected type comes from this index signature.
+    [96msrc/config/env.schema.ts[0m:[93m125[0m:[93m5[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m125[0m     RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+    [7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/auth/[22m[1mauth.service.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/auth/auth.service.ts[0m:[93m65[0m:[93m20[0m - [91merror[0m[90m TS2304: [0mCannot find name 'nonces'.
+
+    [7m65[0m     const stored = nonces.get(address);
+    [7m  [0m [91m                   ~~~~~~[0m
+
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/services/[22m[1mindexer-backfill.service.spec.ts[22m
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/services/[22m[1msearch.service.spec.ts[22m
+[1m[31m  [1m● [22m[1mSearchService › passes limit and offset to metadata search and returns paginated results with total[39m[22m
+
+    [2mexpect([22m[31mjest.fn()[39m[2m).[22mtoHaveBeenCalledWith[2m([22m[32m...expected[39m[2m)[22m
+
+    Expected: [32m"summer"[39m, [32m5[39m, [32m10[39m
+    Received: [31m{"category": undefined, "limit": 20, "offset": 0, "query": undefined}[39m
+
+    Number of calls: [31m1[39m
+[2m[22m
+[2m    [0m [90m 40 |[39m     })[33m;[39m[22m
+[2m     [90m 41 |[39m[22m
+[2m    [31m[1m>[22m[2m[39m[90m 42 |[39m     expect(metadataService[33m.[39msearchMetadata)[33m.[39mtoHaveBeenCalledWith([32m'summer'[39m[33m,[39m [35m5[39m[33m,[39m [35m10[39m)[33m;[39m[22m
+[2m     [90m    |[39m                                            [31m[1m^[22m[2m[39m[22m
+[2m     [90m 43 |[39m   })[33m;[39m[22m
+[2m     [90m 44 |[39m })[33m;[39m[22m
+[2m     [90m 45 |[39m[0m[22m
+[2m[22m
+[2m      [2mat Object.<anonymous> ([22m[2m[0m[36mservices/search.service.spec.ts[39m[0m[2m:42:44)[22m[2m[22m
+
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/api/rest/raffles/[22m[1mraffles.service.spec.ts[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/services/[22m[1mindexer.service.spec.ts[22m
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/api/rest/search/[22m[1msearch.controller.spec.ts[22m
+[1m[31m  [1m● [22m[1mSearchController › forwards q, limit, and offset and returns the service result[39m[22m
+
+    [2mexpect([22m[31mjest.fn()[39m[2m).[22mtoHaveBeenCalledWith[2m([22m[32m...expected[39m[2m)[22m
+
+    Expected: [32m"rare"[39m, [32m1[39m, [32m5[39m
+    Received: [31m{"category": undefined, "limit": 1, "offset": 5, "query": "rare", "status": undefined}[39m
+
+    Number of calls: [31m1[39m
+[2m[22m
+[2m    [0m [90m 36 |[39m     })[33m;[39m[22m
+[2m     [90m 37 |[39m[22m
+[2m    [31m[1m>[22m[2m[39m[90m 38 |[39m     expect(searchService[33m.[39msearch)[33m.[39mtoHaveBeenCalledWith([32m'rare'[39m[33m,[39m [35m1[39m[33m,[39m [35m5[39m)[33m;[39m[22m
+[2m     [90m    |[39m                                  [31m[1m^[22m[2m[39m[22m
+[2m     [90m 39 |[39m   })[33m;[39m[22m
+[2m     [90m 40 |[39m[22m
+[2m     [90m 41 |[39m   it([32m'returns empty result when query is too short'[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m[22m
+[2m[22m
+[2m      [2mat Object.<anonymous> ([22m[2m[0m[36mapi/rest/search/search.controller.spec.ts[39m[0m[2m:38:34)[22m[2m[22m
+
+------------------------------------|---------|----------|---------|---------|------------------------------------------------------
+File                                | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                    
+------------------------------------|---------|----------|---------|---------|------------------------------------------------------
+[33;1mAll files                          [0m | [33;1m  61.44[0m | [31;1m   40.96[0m | [33;1m  53.51[0m | [33;1m  60.54[0m | [31;1m                                                    [0m 
+[31;1m api/rest/monitor                  [0m | [31;1m   23.2[0m | [31;1m   12.79[0m | [31;1m  38.88[0m | [31;1m     24[0m | [31;1m                                                    [0m 
+[32;1m  audit-log.interceptor.ts         [0m | [32;1m    100[0m | [33;1m   57.89[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m29-67                                               [0m 
+[31;1m  monitor.service.ts               [0m | [31;1m   5.88[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m      5[0m | [31;1m32-229                                              [0m 
+[32;1m api/rest/raffles                  [0m | [32;1m  91.83[0m | [32;1m   93.75[0m | [32;1m  85.71[0m | [32;1m  91.48[0m | [31;1m                                                    [0m 
+[32;1m  raffles.service.ts               [0m | [32;1m  91.83[0m | [32;1m   93.75[0m | [32;1m  85.71[0m | [32;1m  91.48[0m | [31;1m111-117                                             [0m 
+[31;1m api/rest/raffles/pipes            [0m | [31;1m  30.76[0m | [31;1m       0[0m | [31;1m     20[0m | [31;1m  33.33[0m | [31;1m                                                    [0m 
+[31;1m  zod-validation.pipe.ts           [0m | [31;1m  30.76[0m | [31;1m       0[0m | [31;1m     20[0m | [31;1m  33.33[0m | [31;1m33-41,51-54                                         [0m 
+[32;1m api/rest/search                   [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  search.controller.ts             [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m api/rest/search/dto               [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  search-query.dto.ts              [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m auth                              [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  jwt.strategy.ts                  [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m auth/decorators                   [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  public.decorator.ts              [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m auth/guards                       [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  jwt-auth.guard.ts                [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[33;1m common/idempotency                [0m | [33;1m   72.5[0m | [32;1m   85.71[0m | [31;1m  41.66[0m | [33;1m  71.42[0m | [31;1m                                                    [0m 
+[32;1m  idempotency.interceptor.ts       [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[31;1m  idempotency.service.ts           [0m | [31;1m  38.88[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m  33.33[0m | [31;1m15-67                                               [0m 
+[31;1m config                            [0m | [31;1m  42.85[0m | [31;1m   30.55[0m | [31;1m  26.31[0m | [31;1m     48[0m | [31;1m                                                    [0m 
+[31;1m  env.config.ts                    [0m | [31;1m  28.57[0m | [31;1m   30.76[0m | [31;1m  22.22[0m | [31;1m  28.57[0m | [31;1m19,30-54,67-78                                      [0m 
+[31;1m  stellar.constants.ts             [0m | [31;1m  43.58[0m | [31;1m      30[0m | [31;1m     30[0m | [33;1m  51.51[0m | [31;1m21-25,35,82-85,100-103,109-110                      [0m 
+[32;1m  upload.config.ts                 [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m health                            [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  health.service.ts                [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  metrics.controller.ts            [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m maintenance                       [0m | [32;1m  82.75[0m | [32;1m     100[0m | [31;1m  33.33[0m | [32;1m   82.6[0m | [31;1m                                                    [0m 
+[32;1m  maintenance-mode.guard.ts        [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[33;1m  maintenance-mode.service.ts      [0m | [33;1m  55.55[0m | [32;1m     100[0m | [31;1m      0[0m | [31;1m  42.85[0m | [31;1m8-17                                                [0m 
+[32;1m  skip-maintenance.decorator.ts    [0m | [32;1m     80[0m | [32;1m     100[0m | [31;1m      0[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m middleware                        [0m | [32;1m  94.02[0m | [33;1m   72.97[0m | [32;1m  84.61[0m | [32;1m   93.1[0m | [31;1m                                                    [0m 
+[32;1m  request-logging.interceptor.ts   [0m | [32;1m  97.56[0m | [33;1m   78.94[0m | [32;1m    100[0m | [32;1m  97.22[0m | [31;1m91                                                  [0m 
+[32;1m  throttle.decorator.ts            [0m | [32;1m    100[0m | [32;1m     100[0m | [33;1m     50[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  throttler.guard.ts               [0m | [32;1m  86.95[0m | [33;1m   66.66[0m | [33;1m  66.66[0m | [32;1m  85.71[0m | [31;1m36,41,77                                            [0m 
+[33;1m sentry                            [0m | [33;1m  54.65[0m | [31;1m   41.46[0m | [31;1m  45.45[0m | [33;1m     50[0m | [31;1m                                                    [0m 
+[32;1m  context.utils.ts                 [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[31;1m  sentry.ts                        [0m | [31;1m  37.09[0m | [31;1m      25[0m | [31;1m     25[0m | [31;1m  35.59[0m | [31;1m95-128,138-144,171-182,201-217                      [0m 
+[33;1m services                          [0m | [33;1m  59.29[0m | [31;1m   38.02[0m | [33;1m  53.75[0m | [33;1m  57.37[0m | [31;1m                                                    [0m 
+[32;1m  backfill-lock.ts                 [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  email-template.service.ts        [0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[32;1m  horizon-client.service.ts        [0m | [32;1m  97.36[0m | [32;1m   93.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m82                                                  [0m 
+[31;1m  image-optimizer.service.ts       [0m | [31;1m  21.87[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m  16.66[0m | [31;1m26-104                                              [0m 
+[32;1m  indexer-backfill.service.ts      [0m | [32;1m    100[0m | [32;1m   94.11[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m94                                                  [0m 
+[33;1m  indexer.service.ts               [0m | [33;1m  68.04[0m | [33;1m   57.89[0m | [33;1m  57.14[0m | [33;1m  68.35[0m | [31;1m153-157,187,198-200,209,236-254,282-304             [0m 
+[32;1m  metadata-cache-metrics.service.ts[0m | [32;1m    100[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                                                    [0m 
+[31;1m  metadata-redis.service.ts        [0m | [31;1m  13.63[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m   9.52[0m | [31;1m16-95                                               [0m 
+[31;1m  metadata.service.ts              [0m | [31;1m  14.66[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m  12.67[0m | [31;1m47,53-235                                           [0m 
+[31;1m  pinning.service.ts               [0m | [31;1m  13.33[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m   7.14[0m | [31;1m5-61                                                [0m 
+[31;1m  push-notification.service.ts     [0m | [31;1m  47.88[0m | [31;1m   35.71[0m | [33;1m  53.84[0m | [31;1m  45.58[0m | [31;1m36,44-64,73,90-91,99,109-110,121-122,129-134,149-185[0m 
+[33;1m  search.service.ts                [0m | [33;1m  58.33[0m | [33;1m      50[0m | [32;1m     80[0m | [33;1m  55.88[0m | [31;1m60,70,93-105                                        [0m 
+[32;1m  storage.service.ts               [0m | [32;1m  98.21[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m  98.14[0m | [31;1m96                                                  [0m 
+[31;1m  supabase.provider.ts             [0m | [31;1m  44.44[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m  44.44[0m | [31;1m12-20                                               [0m 
+------------------------------------|---------|----------|---------|---------|------------------------------------------------------
+[1mSummary of all failing tests[22m
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mservices/[22m[1mmetadata.service.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/services/metadata.service.spec.ts[0m:[93m54[0m:[93m15[0m - [91merror[0m[90m TS2554: [0mExpected 5 arguments, but got 4.
+
+    [7m 54[0m     service = new MetadataService(
+    [7m   [0m [91m              ~~~~~~~~~~~~~~~~~~~~[0m
+    [7m 55[0m       client as any,
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~[0m
+    [7m...[0m 
+    [7m 58[0m       metrics,
+    [7m   [0m [91m~~~~~~~~~~~~~~[0m
+    [7m 59[0m     );
+    [7m   [0m [91m~~~~~[0m
+
+      [96msrc/services/metadata.service.ts[0m:[93m57[0m:[93m5[0m
+        [7m57[0m     private readonly metadataCacheMetrics: MetadataCacheMetricsService,
+        [7m  [0m [96m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        An argument for 'metadataCacheMetrics' was not provided.
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mapi/rest/raffles/[22m[1mraffles.controller.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m111[0m:[93m64[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Res'.
+
+    [7m111[0m   async redirectToIpfs(@Param("id", ParseIntPipe) id: number, @Res() res: any) {
+    [7m   [0m [91m                                                               ~~~[0m
+    [96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m125[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Throttle'.
+
+    [7m125[0m   @Throttle({
+    [7m   [0m [91m   ~~~~~~~~[0m
+    [96msrc/api/rest/raffles/raffles.controller.ts[0m:[93m153[0m:[93m4[0m - [91merror[0m[90m TS2304: [0mCannot find name 'ApiHeader'.
+
+    [7m153[0m   @ApiHeader({ name: "Idempotency-Key", description: "Client-generated unique key for safe retries", required: false })
+    [7m   [0m [91m   ~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mmiddleware/[22m[1mgeo.middleware.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m34[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m34[0m         socket: {
+    [7m  [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m52[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m52[0m       expect(mockRequest.headers['x-country-code']).toBe('US');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m62[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m62[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m72[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m72[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m82[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m82[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m  [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m100[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m100[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m   [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m142[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m142[0m       mockRequest.ip = '203.0.113.3';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m152[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m152[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m154[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m154[0m         socket: {
+    [7m   [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m167[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m167[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m168[0m:[93m7[0m - [91merror[0m[90m TS2740: [0mType '{}' is missing the following properties from type 'IncomingMessage': aborted, httpVersion, httpVersionMajor, httpVersionMinor, and 66 more.
+
+    [7m168[0m       mockRequest.raw = {};
+    [7m   [0m [91m      ~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m178[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m178[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m292[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m292[0m       mockRequest.ip = '::1';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m299[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m299[0m       expect(mockRequest.headers['x-country-code']).toBe('');
+    [7m   [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m303[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m303[0m       mockRequest.ip = '::ffff:192.168.1.1';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m310[0m:[93m14[0m - [91merror[0m[90m TS18048: [0m'mockRequest.headers' is possibly 'undefined'.
+
+    [7m310[0m       expect(mockRequest.headers['x-country-code']).toBe('US');
+    [7m   [0m [91m             ~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo.middleware.spec.ts[0m:[93m328[0m:[93m9[0m - [91merror[0m[90m TS2322: [0mType 'null' is not assignable to type 'string | string[] | undefined'.
+
+    [7m328[0m         'x-forwarded-for': null,
+    [7m   [0m [91m        ~~~~~~~~~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mmiddleware/[22m[1mgeo-blocking.middleware.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m38[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m38[0m         socket: {
+    [7m  [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m290[0m:[93m19[0m - [91merror[0m[90m TS2540: [0mCannot assign to 'ip' because it is a read-only property.
+
+    [7m290[0m       mockRequest.ip = '203.0.113.3';
+    [7m   [0m [91m                  ~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m307[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m307[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m309[0m:[93m9[0m - [91merror[0m[90m TS2740: [0mType '{ remoteAddress: string; }' is missing the following properties from type 'Socket': destroySoon, write, connect, setEncoding, and 87 more.
+
+    [7m309[0m         socket: {
+    [7m   [0m [91m        ~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m329[0m:[93m14[0m - [91merror[0m[90m TS2704: [0mThe operand of a 'delete' operator cannot be a read-only property.
+
+    [7m329[0m       delete mockRequest.ip;
+    [7m   [0m [91m             ~~~~~~~~~~~~~~[0m
+    [96msrc/middleware/geo-blocking.middleware.spec.ts[0m:[93m330[0m:[93m7[0m - [91merror[0m[90m TS2740: [0mType '{}' is missing the following properties from type 'IncomingMessage': aborted, httpVersion, httpVersionMajor, httpVersionMinor, and 66 more.
+
+    [7m330[0m       mockRequest.raw = {};
+    [7m   [0m [91m      ~~~~~~~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msentry/[22m[1msentry.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/sentry/sentry.spec.ts[0m:[93m101[0m:[93m1[0m - [91merror[0m[90m TS2304: [0mCannot find name 'n'.
+
+    [7m101[0m n(Sentry, 'captureException').mockImplementation(() => '');
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m165[0m:[93m9[0m - [91merror[0m[90m TS2304: [0mCannot find name 'ledgerPayload'.
+
+    [7m165[0m         ledgerPayload: fc.oneof(fc.anything(), fc.constant(undefined as undefined)),
+    [7m   [0m [91m        ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m165[0m:[93m24[0m - [91merror[0m[90m TS2554: [0mExpected 1 arguments, but got 2.
+
+    [7m165[0m         ledgerPayload: fc.oneof(fc.anything(), fc.constant(undefined as undefined)),
+    [7m   [0m [91m                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m9[0m - [91merror[0m[90m TS2304: [0mCannot find name 'ontextKeys'.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m        ~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m21[0m - [91merror[0m[90m TS2339: [0mProperty 'not' does not exist on type 'IPropertyWithHooks<[context: IngestionErrorContext]>'.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m                    ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m192[0m:[93m11[0m - [91merror[0m[90m TS2345: [0mArgument of type 'typeof jest' is not assignable to parameter of type 'number'.
+
+    [7m192[0m           jest.restoreAllMocks();
+    [7m   [0m [91m          ~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m289[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'request' does not exist on type 'ErrorEvent | PromiseLike<ErrorEvent | null>'.
+      Property 'request' does not exist on type 'PromiseLike<ErrorEvent | null>'.
+
+    [7m289[0m       expect(result!.request!.headers!['authorization']).toBe('[REDACTED]');
+    [7m   [0m [91m                     ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m295[0m:[93m6[0m - [91merror[0m[90m TS2304: [0mCannot find name 'st'.
+
+    [7m295[0m      st result = beforeSend(event, {});
+    [7m   [0m [91m     ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m295[0m:[93m9[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m295[0m      st result = beforeSend(event, {});
+    [7m   [0m [91m        ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m296[0m:[93m14[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m296[0m       expect(result!.request!.headers!['x-admin-token']).toBe('[REDACTED]');
+    [7m   [0m [91m             ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m303[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'request' does not exist on type 'ErrorEvent | PromiseLike<ErrorEvent | null>'.
+      Property 'request' does not exist on type 'PromiseLike<ErrorEvent | null>'.
+
+    [7m303[0m       expect(result!.request!.data).toBeUndefined();
+    [7m   [0m [91m                     ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m308[0m:[93m11[0m - [91merror[0m[90m TS2693: [0m'any' only refers to a type, but is being used as a value here.
+
+    [7m308[0m      ent: any = {
+    [7m   [0m [91m          ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m1[0m - [91merror[0m[90m TS18004: [0mNo value exists in scope for the shorthand property 's'. Either declare one or provide an initializer.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m5[0m - [91merror[0m[90m TS2339: [0mProperty 'toHaveLength' does not exist on type 'void'.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m    ~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m314[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m314[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m2[0m - [91merror[0m[90m TS2448: [0mBlock-scoped variable 'address' used before its declaration.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m ~~~~~~~[0m
+
+      [96msrc/sentry/sentry.spec.ts[0m:[93m321[0m:[93m11[0m
+        [7m321[0m     const address = 'GADDRESSWALLET';
+        [7m   [0m [96m          ~~~~~~~[0m
+        'address' is declared here.
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m2[0m - [91merror[0m[90m TS2454: [0mVariable 'address' is used before being assigned.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m11[0m - [91merror[0m[90m TS2304: [0mCannot find name 'when'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m          ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'walletAddress'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m               ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m30[0m - [91merror[0m[90m TS2304: [0mCannot find name 'is'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                             ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m33[0m - [91merror[0m[90m TS2304: [0mCannot find name 'present'.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                                ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m320[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m320[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m329[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m329[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m331[0m:[93m24[0m - [91merror[0m[90m TS2304: [0mCannot find name 'tag'.
+
+    [7m331[0m     expect(Object.keys(tag
+    [7m   [0m [91m                       ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m332[0m:[93m5[0m - [91merror[0m[90m TS2554: [0mExpected 1 arguments, but got 2.
+
+    [7m332[0m     expect(tags['request_id']).toBe('req-abc');
+    [7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m336[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m336[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m342[0m:[93m29[0m - [91merror[0m[90m TS2304: [0mCannot find name 'makeScope'.
+
+    [7m342[0m     const { scope, tags } = makeScope();
+    [7m   [0m [91m                            ~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m350[0m:[93m1[0m - [91merror[0m[90m TS2345: [0mArgument of type 'void' is not assignable to parameter of type 'ProvidesCallback | undefined'.
+
+    [7m350[0m describe('setSentryRequestContext — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m351[0m   function makeScope() {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m...[0m 
+    [7m374[0m   });
+    [7m   [0m [91m~~~~~[0m
+    [7m375[0m });
+    [7m   [0m [91m~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m361[0m:[93m62[0m - [91merror[0m[90m TS2304: [0mCannot find name 'atch'.
+
+    [7m361[0m     setSentryRequestContext(scope, { requestId: 'req-abc' });atch(/^[0-9a-f]{16}$/);
+    [7m   [0m [91m                                                             ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m394[0m:[93m11[0m - [91merror[0m[90m TS2451: [0mCannot redeclare block-scoped variable 'result'.
+
+    [7m394[0m     const result = hashWallet('GADDRESS123');
+    [7m   [0m [91m          ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m20[0m - [91merror[0m[90m TS2339: [0mProperty 'toMto' does not exist on type 'JestMatchers<string | null>'.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                   ~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m26[0m - [91merror[0m[90m TS2304: [0mCannot find name 'arrays'.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                         ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m396[0m:[93m11[0m - [91merror[0m[90m TS2451: [0mCannot redeclare block-scoped variable 'result'.
+
+    [7m396[0m     const result = redactSensitive([{ token: 'abc' }]) as any[];
+    [7m   [0m [91m          ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m397[0m:[93m12[0m - [91merror[0m[90m TS18047: [0m'result' is possibly 'null'.
+
+    [7m397[0m     expect(result[0].token).toBe('[REDACTED]');
+    [7m   [0m [91m           ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m397[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'token' does not exist on type 'string'.
+
+    [7m397[0m     expect(result[0].token).toBe('[REDACTED]');
+    [7m   [0m [91m                     ~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m411[0m:[93m12[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m411[0m     expect(result['Authorization']).toBe('[REDACTED]');
+    [7m   [0m [91m           ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m426[0m:[93m1[0m - [91merror[0m[90m TS2345: [0mArgument of type 'void' is not assignable to parameter of type 'ProvidesCallback | undefined'.
+
+    [7m426[0m describe('redactSensitive — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m427[0m   it('redacts every field in REDACTED_FIELDS', () => {
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m...[0m 
+    [7m446[0m   });
+    [7m   [0m [91m~~~~~[0m
+    [7m447[0m });
+    [7m   [0m [91m~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m436[0m:[93m70[0m - [91merror[0m[90m TS2304: [0mCannot find name 'Rs'.
+
+    [7m436[0m     const result = redactSensitive({ Authorization: 'Bearer x' }) as Rs://abc@sentry.io/123';
+    [7m   [0m [91m                                                                     ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m5[0m - [91merror[0m[90m TS7005: [0mVariable 'process' implicitly has an 'any' type.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m    ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m13[0m - [91merror[0m[90m TS7005: [0mVariable 'env' implicitly has an 'any' type.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m            ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m440[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logger'.
+
+    [7m440[0m     initSentry(logger);
+    [7m   [0m [91m               ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m445[0m:[93m12[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logMock'.
+
+    [7m445[0m     expect(logMock).toHaveBeenCalledWith(expect.stringContaining('Sentry initialized'));
+    [7m   [0m [91m           ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m455[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logger'.
+
+    [7m455[0m     initSentry(logger);
+    [7m   [0m [91m               ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m456[0m:[93m12[0m - [91merror[0m[90m TS2304: [0mCannot find name 'warnMock'.
+
+    [7m456[0m     expect(warnMock).toHaveBeenCalledWith('SENTRY_DSN not set — Sentry is disabled');
+    [7m   [0m [91m           ~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m461[0m:[93m16[0m - [91merror[0m[90m TS2304: [0mCannot find name 'logger'.
+
+    [7m461[0m     initSentry(logger);
+    [7m   [0m [91m               ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m467[0m:[93m14[0m - [91merror[0m[90m TS2304: [0mCannot find name 'result'.
+
+    [7m467[0m       expect(result).toEqual({ message: 'no request' });
+    [7m   [0m [91m             ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m488[0m:[93m22[0m - [91merror[0m[90m TS2304: [0mCannot find name 'beforeSend'.
+
+    [7m488[0m       const result = beforeSend(event, {});
+    [7m   [0m [91m                     ~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m494[0m:[93m26[0m - [91merror[0m[90m TS2304: [0mCannot find name 'getBeforeSend'.
+
+    [7m494[0m       const beforeSend = getBeforeSend();
+    [7m   [0m [91m                         ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m165[0m:[93m22[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m165[0m         ledgerPayload: fc.oneof(fc.anything(), fc.constant(undefined as undefined)),
+    [7m   [0m [91m                     ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m166[0m:[93m7[0m - [91merror[0m[90m TS1135: [0mArgument expression expected.
+
+    [7m166[0m       }) as fc.Arbitrary<IngestionErrorContext>;
+    [7m   [0m [91m      ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m9[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m        ~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m19[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m                  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m189[0m:[93m52[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m189[0m         ontextKeys).not.toContain('ledger_payload');
+    [7m   [0m [91m                                                   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m192[0m:[93m11[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m192[0m           jest.restoreAllMocks();
+    [7m   [0m [91m          ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m192[0m:[93m33[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m192[0m           jest.restoreAllMocks();
+    [7m   [0m [91m                                ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m194[0m:[93m7[0m - [91merror[0m[90m TS1109: [0mExpression expected.
+
+    [7m194[0m       );
+    [7m   [0m [91m      ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m195[0m:[93m5[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m195[0m     });
+    [7m   [0m [91m    ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m195[0m:[93m6[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m195[0m     });
+    [7m   [0m [91m     ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m196[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m196[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m196[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m196[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m217[0m:[93m1[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m217[0m });
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m217[0m:[93m2[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m217[0m });
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m295[0m:[93m6[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m295[0m      st result = beforeSend(event, {});
+    [7m   [0m [91m     ~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m2[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m310[0m:[93m3[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+    [7m310[0m s)).toHaveLength(0);
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m318[0m:[93m1[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m318[0m });
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m318[0m:[93m2[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m318[0m });
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m2[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m9[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m        ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m11[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m          ~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m16[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m               ~~~~~~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m30[0m - [91merror[0m[90m TS1228: [0mA type predicate is only allowed in return type position for functions and methods.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                             ~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m33[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                                ~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m319[0m:[93m50[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m319[0m  address) when walletAddress is present', () => {
+    [7m   [0m [91m                                                 [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m326[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m326[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m326[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m326[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m332[0m:[93m5[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m332[0m     expect(tags['request_id']).toBe('req-abc');
+    [7m   [0m [91m    ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m332[0m:[93m47[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m332[0m     expect(tags['request_id']).toBe('req-abc');
+    [7m   [0m [91m                                              ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m347[0m:[93m60[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m347[0m   it('attaches wallet_hash (not rawuestContext — unit tests
+    [7m   [0m [91m                                                           [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m350[0m:[93m1[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m350[0m describe('setSentryRequestContext — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m375[0m:[93m3[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m375[0m });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m26[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                         ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m26[0m - [91merror[0m[90m TS1434: [0mUnexpected keyword or identifier.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                         ~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m395[0m:[93m42[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m395[0m     expect(result).toMto arrays', () => {
+    [7m   [0m [91m                                         [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m412[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m412[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m412[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m412[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m424[0m:[93m80[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m424[0m   it('recurses in--------------------------------------------------------------
+    [7m   [0m [91m                                                                               [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m426[0m:[93m1[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m426[0m describe('redactSensitive — unit tests', () => {
+    [7m   [0m [91m~~~~~~~~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m436[0m:[93m72[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m436[0m     const result = redactSensitive({ Authorization: 'Bearer x' }) as Rs://abc@sentry.io/123';
+    [7m   [0m [91m                                                                       ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m12[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m           ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m437[0m:[93m16[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m437[0m     process.env.NODE_ENV = 'test';
+    [7m   [0m [91m               ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m447[0m:[93m3[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m447[0m });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m452[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m452[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m452[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m452[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m466[0m:[93m46[0m - [91merror[0m[90m TS1002: [0mUnterminated string literal.
+
+    [7m466[0m     process.env.SENTRY_DSN = 'httpevent, {});
+    [7m   [0m [91m                                             [0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m469[0m:[93m3[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m469[0m   });
+    [7m   [0m [91m  ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m469[0m:[93m4[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m469[0m   });
+    [7m   [0m [91m   ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m470[0m:[93m1[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m470[0m });
+    [7m   [0m [91m~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m470[0m:[93m2[0m - [91merror[0m[90m TS1128: [0mDeclaration or statement expected.
+
+    [7m470[0m });
+    [7m   [0m [91m ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m487[0m:[93m34[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m487[0m     delete process.env.SEN      };
+    [7m   [0m [91m                                 ~[0m
+    [96msrc/sentry/sentry.spec.ts[0m:[93m496[0m:[93m33[0m - [91merror[0m[90m TS1005: [0m')' expected.
+
+    [7m496[0m       const result = beforeSend(
+    [7m   [0m [91m                                [0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mconfig/[22m[1menv.schema.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/config/env.schema.ts[0m:[93m124[0m:[93m5[0m - [91merror[0m[90m TS2740: [0mType '{ string: (params?: ({ errorMap?: ZodErrorMap | undefined; invalid_type_error?: string | undefined; required_error?: string | undefined; message?: string | undefined; description?: string | undefined; } & { ...; }) | undefined) => ZodString; number: (params?: ({ ...; } & { ...; }) | undefined) => ZodNumber; boolean:...' is missing the following properties from type 'ZodType<any, any, any>': _type, _output, _input, _def, and 34 more.
+
+    [7m124[0m     METADATA_CACHE_TTL_SECONDS: z.coerce
+    [7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+      [96mnode_modules/zod/v3/types.d.cts[0m:[93m14[0m:[93m5[0m
+        [7m14[0m     [k: string]: ZodTypeAny;
+        [7m  [0m [96m    ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        The expected type comes from this index signature.
+    [96msrc/config/env.schema.ts[0m:[93m125[0m:[93m5[0m - [91merror[0m[90m TS1005: [0m',' expected.
+
+    [7m125[0m     RAFFLE_CREATE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+    [7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mauth/[22m[1mauth.service.spec.ts[22m
+  [1m● [22mTest suite failed to run
+
+    [96msrc/auth/auth.service.ts[0m:[93m65[0m:[93m20[0m - [91merror[0m[90m TS2304: [0mCannot find name 'nonces'.
+
+    [7m65[0m     const stored = nonces.get(address);
+    [7m  [0m [91m                   ~~~~~~[0m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mservices/[22m[1msearch.service.spec.ts[22m
+[1m[31m  [1m● [22m[1mSearchService › passes limit and offset to metadata search and returns paginated results with total[39m[22m
+
+    [2mexpect([22m[31mjest.fn()[39m[2m).[22mtoHaveBeenCalledWith[2m([22m[32m...expected[39m[2m)[22m
+
+    Expected: [32m"summer"[39m, [32m5[39m, [32m10[39m
+    Received: [31m{"category": undefined, "limit": 20, "offset": 0, "query": undefined}[39m
+
+    Number of calls: [31m1[39m
+[2m[22m
+[2m    [0m [90m 40 |[39m     })[33m;[39m[22m
+[2m     [90m 41 |[39m[22m
+[2m    [31m[1m>[22m[2m[39m[90m 42 |[39m     expect(metadataService[33m.[39msearchMetadata)[33m.[39mtoHaveBeenCalledWith([32m'summer'[39m[33m,[39m [35m5[39m[33m,[39m [35m10[39m)[33m;[39m[22m
+[2m     [90m    |[39m                                            [31m[1m^[22m[2m[39m[22m
+[2m     [90m 43 |[39m   })[33m;[39m[22m
+[2m     [90m 44 |[39m })[33m;[39m[22m
+[2m     [90m 45 |[39m[0m[22m
+[2m[22m
+[2m      [2mat Object.<anonymous> ([22m[2m[0m[36mservices/search.service.spec.ts[39m[0m[2m:42:44)[22m[2m[22m
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mapi/rest/search/[22m[1msearch.controller.spec.ts[22m
+[1m[31m  [1m● [22m[1mSearchController › forwards q, limit, and offset and returns the service result[39m[22m
+
+    [2mexpect([22m[31mjest.fn()[39m[2m).[22mtoHaveBeenCalledWith[2m([22m[32m...expected[39m[2m)[22m
+
+    Expected: [32m"rare"[39m, [32m1[39m, [32m5[39m
+    Received: [31m{"category": undefined, "limit": 1, "offset": 5, "query": "rare", "status": undefined}[39m
+
+    Number of calls: [31m1[39m
+[2m[22m
+[2m    [0m [90m 36 |[39m     })[33m;[39m[22m
+[2m     [90m 37 |[39m[22m
+[2m    [31m[1m>[22m[2m[39m[90m 38 |[39m     expect(searchService[33m.[39msearch)[33m.[39mtoHaveBeenCalledWith([32m'rare'[39m[33m,[39m [35m1[39m[33m,[39m [35m5[39m)[33m;[39m[22m
+[2m     [90m    |[39m                                  [31m[1m^[22m[2m[39m[22m
+[2m     [90m 39 |[39m   })[33m;[39m[22m
+[2m     [90m 40 |[39m[22m
+[2m     [90m 41 |[39m   it([32m'returns empty result when query is too short'[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m[22m
+[2m[22m
+[2m      [2mat Object.<anonymous> ([22m[2m[0m[36mapi/rest/search/search.controller.spec.ts[39m[0m[2m:38:34)[22m[2m[22m
+
+
+[1mTest Suites: [22m[1m[31m9 failed[39m[22m, [1m[32m19 passed[39m[22m, 28 total
+[1mTests:       [22m[1m[31m2 failed[39m[22m, [1m[32m151 passed[39m[22m, 153 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        [1m[33m13.315 s[39m[22m
+[2mRan all test suites[22m[2m.[22m

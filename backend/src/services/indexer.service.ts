@@ -40,6 +40,59 @@ export interface IndexerListRafflesResponse {
   total?: number;
 }
 
+/** Freshness metadata for raffle data integration */
+export interface RaffleFreshness {
+  /** ISO timestamp when raffle was last indexed from blockchain */
+  indexedAt: string | null;
+  
+  /** ISO timestamp when data source was last updated */
+  sourceUpdatedAt: string;
+  
+  /** Ledger height at which raffle state was confirmed */
+  ledger?: number;
+  
+  /** If metadata is newer than indexed state, flag for client */
+  staleness?: {
+    metadataNewer: boolean;
+    minutesOld: number;
+  };
+  
+  /** Conflict resolution log (only if conflicts detected) */
+  conflict?: {
+    field: string;
+    metadataValue: any;
+    indexerValue: any;
+    resolution: 'indexer_authoritative' | 'metadata_authoritative' | 'merged';
+  };
+  
+  /** Warning message for clients */
+  warning?: string;
+}
+
+/** Supabase raffle metadata */
+export interface RaffleMetadata {
+  raffle_id: number;
+  title: string;
+  description: string;
+  image_url: string | null;
+  image_urls: string[] | null;
+  category: string | null;
+  metadata_cid: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+/** Combined raffle response with freshness context */
+export interface RaffleWithFreshness extends IndexerRaffleData {
+  freshness: RaffleFreshness;
+  title?: string;
+  description?: string;
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  category?: string | null;
+}
+
 export interface IndexerUserData {
   address: string;
   total_tickets_bought: number;
@@ -117,6 +170,19 @@ export interface IndexerTransparencyEntry {
 export interface IndexerTransparencyLog {
   entries: IndexerTransparencyEntry[];
   total: number;
+}
+
+export interface IndexerParticipant {
+  address: string;
+  tickets_count: number;
+  purchased_at: number;
+}
+
+export interface IndexerParticipantListResponse {
+  participants: IndexerParticipant[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export class IndexerError extends Error {
@@ -278,13 +344,28 @@ export class IndexerService {
     limit = 10,
     offset = 0,
     raffleId?: number,
+    txHash?: string,
   ): Promise<IndexerTransparencyLog> {
     const params = new URLSearchParams({
       limit: String(limit),
       offset: String(offset),
     });
     if (raffleId != null) params.set('raffle_id', String(raffleId));
+    if (txHash) params.set('tx_hash', txHash);
     return this.fetch<IndexerTransparencyLog>(`/transparency?${params}`);
+  }
+
+  /** Get paginated list of participants (ticket holders) for a raffle. */
+  async getRaffleParticipants(
+    raffleId: number,
+    limit = 20,
+    offset = 0,
+  ): Promise<IndexerParticipantListResponse> {
+    const params = new URLSearchParams({
+      limit: String(Math.min(limit, 100)),
+      offset: String(offset),
+    });
+    return this.fetch<IndexerParticipantListResponse>(`/raffles/${raffleId}/participants?${params}`);
   }
 
   /** Submit a ledger and its transactions for re-indexing (backfill). */

@@ -1,29 +1,16 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { UserEntity } from '../../database/entities/user.entity';
 import { CacheService } from '../../cache/cache.service';
+import {
+  LeaderboardMode,
+  LeaderboardResponseDto,
+  LeaderboardEntryDto,
+} from './dto/leaderboard.dto';
 
-type LeaderboardMode = 'wins' | 'volume' | 'tickets';
-
-type LeaderboardEntry = {
-  rank: number | null;
-  address: string;
-  totalTicketsBought: number;
-  totalRafflesWon: number;
-  totalPrizeXlm: string;
-  firstSeenLedger: number;
-};
-
-type LeaderboardResponse = {
-  by: LeaderboardMode;
-  limit: number;
-  offset: number | null;
-  ranking: string[];
-  entries: LeaderboardEntry[];
-  nextCursor: string | null;
-};
-
+@ApiTags('leaderboard')
 @Controller('leaderboard')
 export class LeaderboardController {
   constructor(
@@ -32,13 +19,19 @@ export class LeaderboardController {
     private readonly cacheService: CacheService,
   ) {}
 
+  @ApiOperation({ summary: 'Cursor-paginated leaderboard', description: 'Returns users ranked by wins, volume, or ticket count.' })
+  @ApiQuery({ name: 'by', required: false, enum: ['wins', 'volume', 'tickets'] })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'cursor', required: false })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: LeaderboardResponseDto })
   @Get()
   async getLeaderboard(
     @Query('by') by: LeaderboardMode = 'wins',
     @Query('limit') limit: number = 50,
     @Query('cursor') cursor?: string,
     @Query('offset') offset?: number,
-  ): Promise<LeaderboardResponse> {
+  ): Promise<LeaderboardResponseDto> {
     const mode = this.normalizeMode(by);
     const safeLimit = this.clampNumber(limit, 1, 100, 50);
     const safeOffset =
@@ -109,7 +102,7 @@ export class LeaderboardController {
     limit: number,
     cursor?: string,
     offset?: number,
-  ): Promise<LeaderboardResponse> {
+  ): Promise<LeaderboardResponseDto> {
     const query = this.userRepo.createQueryBuilder('user');
     const primarySort = this.primarySortExpression(mode);
 
@@ -160,13 +153,12 @@ export class LeaderboardController {
       limit,
       offset: effectiveOffset,
       ranking: this.rankingSemantics(mode),
-      entries: entries.map((entry, index) => ({
+      entries: entries.map((entry, index): LeaderboardEntryDto => ({
         rank: effectiveOffset == null ? null : effectiveOffset + index + 1,
         address: entry.address,
         totalTicketsBought: entry.totalTicketsBought,
         totalRafflesWon: entry.totalRafflesWon,
         totalPrizeXlm: entry.totalPrizeXlm,
-        firstSeenLedger: entry.firstSeenLedger,
       })),
       nextCursor: hasMore && last ? this.encodeCursor(mode, last) : null,
     };

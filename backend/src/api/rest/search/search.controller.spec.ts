@@ -21,7 +21,7 @@ describe('SearchController', () => {
     const controller = new SearchController(searchService as unknown as SearchService);
 
     await expect(
-      (controller as any).search({ q: 'rare', limit: 1, offset: 5 }),
+      controller.search({ q: 'rare', limit: 1, offset: 5 }),
     ).resolves.toEqual({
       raffles: [
         {
@@ -35,16 +35,23 @@ describe('SearchController', () => {
       total: 13,
     });
 
-    expect(searchService.search).toHaveBeenCalledWith('rare', 1, 5);
+    expect(searchService.search).toHaveBeenCalledWith({
+      query: 'rare',
+      limit: 1,
+      offset: 5,
+      category: undefined,
+      status: undefined,
+    });
   });
 
   it('returns empty result when query is too short', async () => {
     const searchService = { search: jest.fn() };
     const controller = new SearchController(searchService as unknown as SearchService);
 
-    await expect(
-      (controller as any).search({ q: 'a' }),
-    ).resolves.toEqual({ raffles: [], total: 0 });
+    await expect(controller.search({ q: 'a' })).resolves.toEqual({
+      raffles: [],
+      total: 0,
+    });
 
     expect(searchService.search).not.toHaveBeenCalled();
   });

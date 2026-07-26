@@ -3,15 +3,20 @@ import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RandomnessWorker } from './randomness.worker';
 import { CommitRevealWorker } from './commit-reveal.worker';
+import { JobStateManager } from './job-state-manager';
+import { RandomnessProcessorService } from './randomness-processor.service';
+import { QueueHealthController } from './queue-health.controller';
 import { ContractService } from '../contract/contract.service';
 import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
 import { CommitmentService } from '../randomness/commitment.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { FeeEstimatorService } from '../submitter/fee-estimator.service';
+import { CostEstimatorService } from '../submitter/cost-estimator.service';
 import { HealthModule } from '../health/health.module';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
+import { MetricsModule } from '../metrics/metrics.module';
 import { RANDOMNESS_QUEUE } from './randomness.queue';
 import { AuditLogModule } from '../audit/audit.module';
 import { PriorityClassifierService } from './priority-classifier.service';
@@ -19,6 +24,7 @@ import { PriorityClassifierService } from './priority-classifier.service';
 @Module({
   imports: [
     HealthModule,
+    MetricsModule,
     AuditLogModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -41,18 +47,30 @@ import { PriorityClassifierService } from './priority-classifier.service';
     }),
   ],
   providers: [
+    JobStateManager,
+    RandomnessProcessorService,
     RandomnessWorker,
     CommitRevealWorker,
+    QueueHealthController,
     ContractService,
     VrfService,
     PrngService,
     CommitmentService,
     TxSubmitterService,
     FeeEstimatorService,
+    CostEstimatorService,
     HealthService,
     LagMonitorService,
     PriorityClassifierService,
   ],
-  exports: [RandomnessWorker, CommitRevealWorker, BullModule.registerQueue({ name: RANDOMNESS_QUEUE }), PriorityClassifierService],
+  controllers: [QueueHealthController],
+  exports: [
+    JobStateManager,
+    RandomnessProcessorService,
+    RandomnessWorker,
+    CommitRevealWorker,
+    BullModule.registerQueue({ name: RANDOMNESS_QUEUE }),
+    PriorityClassifierService,
+  ],
 })
 export class QueueModule { }

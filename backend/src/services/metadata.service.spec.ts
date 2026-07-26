@@ -9,11 +9,13 @@ describe('MetadataService', () => {
     textSearch: jest.Mock;
     range: jest.Mock;
     eq: jest.Mock;
+    is: jest.Mock;
+    order: jest.Mock;
     maybeSingle: jest.Mock;
     upsert: jest.Mock;
     in: jest.Mock;
   };
-  let client: { from: jest.Mock };
+  let client: { from: jest.Mock; rpc: jest.Mock };
   let redis: jest.Mocked<
     Pick<
       MetadataRedisService,
@@ -29,6 +31,8 @@ describe('MetadataService', () => {
       textSearch: jest.fn().mockReturnThis(),
       range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
       eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       upsert: jest.fn(),
       in: jest.fn().mockReturnThis(),
@@ -36,6 +40,7 @@ describe('MetadataService', () => {
 
     client = {
       from: jest.fn().mockReturnValue(queryBuilder),
+      rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
 
     redis = {
@@ -44,6 +49,8 @@ describe('MetadataService', () => {
       setEx: jest.fn().mockResolvedValue(undefined),
       del: jest.fn().mockResolvedValue(undefined),
     };
+
+
 
     metrics = new MetadataCacheMetricsService();
 
@@ -62,13 +69,14 @@ describe('MetadataService', () => {
   it('searches metadata using full-text search vector', async () => {
     await service.searchMetadata('raffle');
 
-    expect(queryBuilder.textSearch).toHaveBeenCalledWith(
-      'search_vector',
-      'raffle',
-      expect.objectContaining({
-        config: 'english',
-        type: 'websearch',
-      }),
+    expect(client.rpc).toHaveBeenCalledWith(
+      'search_raffles_ranked',
+      {
+        search_query: 'raffle',
+        p_category: null,
+        p_limit: 20,
+        p_offset: 0,
+      },
     );
   });
 
@@ -124,6 +132,7 @@ describe('MetadataService', () => {
       metadata_cid: null,
       created_at: '2020-01-01T00:00:00.000Z',
       updated_at: '2020-01-01T00:00:00.000Z',
+      deleted_at: null,
     };
     redis.get.mockResolvedValue(JSON.stringify(cached));
 
@@ -153,6 +162,7 @@ describe('MetadataService', () => {
       metadata_cid: null,
       created_at: '2020-01-01T00:00:00.000Z',
       updated_at: '2020-01-01T00:00:00.000Z',
+      deleted_at: null,
     };
     queryBuilder.maybeSingle.mockResolvedValue({ data: row, error: null });
 
@@ -181,6 +191,29 @@ describe('MetadataService', () => {
 
     await service.upsertMetadata(9, { title: 'x' });
 
+    expect(redis.del).toHaveBeenCalledWith('tikka:raffle_metadata:9');
+  });
+
+  it('updates metadata_cid and invalidates cache key', async () => {
+    redis.isEnabled.mockReturnValue(true);
+    const selectBuilder = {
+      single: jest.fn().mockResolvedValue({
+        data: { raffle_id: 9, metadata_cid: 'QmNewCid' },
+        error: null,
+      }),
+    };
+    const updateBuilder = {
+      eq: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnValue(selectBuilder),
+    };
+    const localQueryBuilder = {
+      update: jest.fn().mockReturnValue(updateBuilder),
+    };
+    jest.spyOn(client, 'from').mockReturnValue(localQueryBuilder as any);
+
+    const result = await service.updateMetadataCid(9, 'QmNewCid');
+
+    expect(result.metadata_cid).toBe('QmNewCid');
     expect(redis.del).toHaveBeenCalledWith('tikka:raffle_metadata:9');
   });
 });

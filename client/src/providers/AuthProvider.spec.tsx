@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import * as fc from 'fast-check';
-import { AuthProvider } from './AuthProvider';
+import { AuthProvider, useAuthContext } from './AuthProvider';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -21,17 +21,20 @@ vi.mock('./WalletProvider', () => ({
 const mockLogout = vi.fn();
 const mockLogin = vi.fn();
 const mockCheckAuth = vi.fn();
+const mockMarkExpired = vi.fn();
 
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({
     isAuthenticated: !!sessionStorage.getItem('tikka_auth_token'),
     address: sessionStorage.getItem('tikka_auth_address'),
     token: sessionStorage.getItem('tikka_auth_token'),
+    status: sessionStorage.getItem('tikka_auth_token') ? 'authenticated' : 'anonymous',
     isAuthenticating: false,
     error: null,
     login: mockLogin,
     logout: mockLogout,
     checkAuth: mockCheckAuth,
+    markExpired: mockMarkExpired,
   }),
 }));
 

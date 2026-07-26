@@ -9,6 +9,12 @@ import { HealthService } from '../src/health/health.service';
 import { LagMonitorService } from '../src/health/lag-monitor.service';
 import { OracleRegistryService } from '../src/multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../src/multi-oracle/multi-oracle-coordinator.service';
+import { JobStateManager } from '../src/queue/job-state-manager';
+import { RandomnessProcessorService } from '../src/queue/randomness-processor.service';
+import { AuditLogService } from '../src/audit/audit-log.service';
+import { AlertingService } from '../src/health/alerting.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
+import { ConfigService } from '@nestjs/config';
 
 describe('RandomnessWorker', () => {
   let worker: RandomnessWorker;
@@ -21,6 +27,11 @@ describe('RandomnessWorker', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RandomnessWorker,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
+        { provide: JobStateManager, useValue: {} },
+        { provide: RandomnessProcessorService, useValue: {} },
+        { provide: AuditLogService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
+        { provide: AlertingService, useValue: { fire: jest.fn().mockResolvedValue(undefined), resolve: jest.fn().mockResolvedValue(undefined) } },
         {
           provide: ContractService,
           useValue: {
@@ -44,6 +55,7 @@ describe('RandomnessWorker', () => {
           provide: TxSubmitterService,
           useValue: {
             submitRandomness: jest.fn(),
+            keyService: { getPublicKey: jest.fn().mockResolvedValue('GORACLETESTADDRESS') },
           },
         },
         {
@@ -80,6 +92,12 @@ describe('RandomnessWorker', () => {
             recordSubmission: jest.fn().mockReturnValue({ ready: false, aggregated: null }),
           },
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, defaultValue?: string) => defaultValue),
+          },
+        },
       ],
     }).compile();
 
@@ -103,6 +121,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ raffleId: 1, prizeAmount: 100, status: 'DRAWING' });
       prngService.compute.mockResolvedValue({
         seed: 'prng-seed',
         proof: '0'.repeat(128),
@@ -115,7 +134,7 @@ describe('RandomnessWorker', () => {
 
       await worker.processRequest(request);
 
-      expect(prngService.compute).toHaveBeenCalledWith('req-123');
+      expect(prngService.compute).toHaveBeenCalledWith('req-123', 1);
       expect(vrfService.compute).not.toHaveBeenCalled();
       expect(txSubmitter.submitRandomness).toHaveBeenCalledWith(1, {
         seed: 'prng-seed',
@@ -133,6 +152,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ raffleId: 2, prizeAmount: 1000, status: 'DRAWING' });
       vrfService.compute.mockResolvedValue({
         seed: 'vrf-seed',
         proof: 'vrf-proof',
@@ -145,7 +165,7 @@ describe('RandomnessWorker', () => {
 
       await worker.processRequest(request);
 
-      expect(vrfService.compute).toHaveBeenCalledWith('req-456');
+      expect(vrfService.compute).toHaveBeenCalledWith('req-456', 2);
       expect(prngService.compute).not.toHaveBeenCalled();
       expect(txSubmitter.submitRandomness).toHaveBeenCalledWith(2, {
         seed: 'vrf-seed',
@@ -194,6 +214,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ raffleId: 4, prizeAmount: 100, status: 'DRAWING' });
       prngService.compute.mockResolvedValue({
         seed: 'seed',
         proof: '0'.repeat(128),
@@ -238,6 +259,7 @@ describe('RandomnessWorker', () => {
       };
 
       jest.spyOn(contractService, 'isRandomnessSubmitted').mockResolvedValue(false);
+      jest.spyOn(contractService, 'getRaffleData').mockResolvedValue({ raffleId: 6, prizeAmount: 100, status: 'DRAWING' });
       prngService.compute.mockResolvedValue({
         seed: 'seed',
         proof: '0'.repeat(128),

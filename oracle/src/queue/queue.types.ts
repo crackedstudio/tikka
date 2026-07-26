@@ -1,6 +1,8 @@
 export interface RandomnessRequest {
   raffleId: number;
   requestId: string;
+  stableRequestId?: string;
+  replayOverride?: boolean;
   prizeAmount?: number;
   priority?: number;
 }

@@ -1,11 +1,12 @@
 import { CommitmentService } from '../src/randomness/commitment.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
 import * as crypto from 'crypto';
 
 describe('CommitmentService', () => {
   let service: CommitmentService;
 
   beforeEach(() => {
-    service = new CommitmentService();
+    service = new CommitmentService({ log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService);
   });
 
   describe('commit', () => {

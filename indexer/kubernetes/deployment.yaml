@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tikka-indexer
+  namespace: tikka
   labels:
     app: tikka-indexer
 spec:
@@ -9,11 +10,21 @@ spec:
   selector:
     matchLabels:
       app: tikka-indexer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: tikka-indexer
     spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: tikka-indexer
           image: ghcr.io/crackedstudio/tikka-indexer:latest
@@ -31,18 +42,33 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            failureThreshold: 30
+            timeoutSeconds: 3
           readinessProbe:
             httpGet:
               path: /health
               port: 3002
             initialDelaySeconds: 10
-            periodSeconds: 15
+            periodSeconds: 5
             failureThreshold: 3
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
               port: 3002
             initialDelaySeconds: 30
-            periodSeconds: 30
+            periodSeconds: 10
             failureThreshold: 3
-      terminationGracePeriodSeconds: 30
+            timeoutSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

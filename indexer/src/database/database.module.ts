@@ -3,6 +3,9 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { DataSourceOptions } from "typeorm";
 import { RaffleEntity } from "./entities/raffle.entity";
+import { MetricsModule } from "../metrics/metrics.module";
+import { MetricsService } from "../metrics/metrics.service";
+import { TypeOrmQueryLogger } from "./typeorm-query.logger";
 import { TicketEntity } from "./entities/ticket.entity";
 import { UserEntity } from "./entities/user.entity";
 import { RaffleEventEntity } from "./entities/raffle-event.entity";
@@ -11,6 +14,7 @@ import { PlatformStateEntity } from "./entities/platform-state.entity";
 import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
 import { WebhookEntity } from "./entities/webhook.entity";
 import { DeadLetterEventEntity } from "./entities/dead-letter-event.entity";
+import { ArchiveCheckpointEntity } from "./entities/archive-checkpoint.entity";
 
 /**
  * DatabaseModule wires TypeORM into the NestJS DI container.
@@ -24,27 +28,38 @@ import { DeadLetterEventEntity } from "./entities/dead-letter-event.entity";
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService): DataSourceOptions => ({
-        ...(configService.get<DataSourceOptions>(
+      imports: [ConfigModule, MetricsModule],
+      inject: [ConfigService, MetricsService],
+      useFactory: (
+        configService: ConfigService,
+        metricsService: MetricsService,
+      ): DataSourceOptions => {
+        const databaseOptions = configService.get<DataSourceOptions>(
           "database",
-        ) as DataSourceOptions),
-        entities: [
-          RaffleEntity,
-          TicketEntity,
-          UserEntity,
-          RaffleEventEntity,
-          PlatformStatEntity,
-          PlatformStateEntity,
-          IndexerCursorEntity,
-          WebhookEntity,
-          DeadLetterEventEntity,
-        ],
-        migrations: [__dirname + "/migrations/*{.ts,.js}"],
-        migrationsRun: true,
-        synchronize: false,
-      }),
+        ) as DataSourceOptions;
+        const slowQueryThresholdMs =
+          databaseOptions.maxQueryExecutionTime ?? 200;
+
+        return {
+          ...databaseOptions,
+          entities: [
+            RaffleEntity,
+            TicketEntity,
+            UserEntity,
+            RaffleEventEntity,
+            PlatformStatEntity,
+            PlatformStateEntity,
+            IndexerCursorEntity,
+            WebhookEntity,
+            DeadLetterEventEntity,
+            ArchiveCheckpointEntity,
+          ],
+          migrations: [__dirname + "/migrations/*{.ts,.js}"],
+          migrationsRun: true,
+          synchronize: false,
+          logger: new TypeOrmQueryLogger(metricsService, slowQueryThresholdMs),
+        };
+      },
     }),
     // Export individual repositories for other modules to inject
     TypeOrmModule.forFeature([
@@ -57,6 +72,7 @@ import { DeadLetterEventEntity } from "./entities/dead-letter-event.entity";
       IndexerCursorEntity,
       WebhookEntity,
       DeadLetterEventEntity,
+      ArchiveCheckpointEntity,
     ]),
   ],
   exports: [TypeOrmModule],

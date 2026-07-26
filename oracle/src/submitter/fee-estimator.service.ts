@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -24,7 +25,7 @@ export interface FeeEstimate {
 
 @Injectable()
 export class FeeEstimatorService {
-  private readonly logger = new Logger(FeeEstimatorService.name);
+  
   private readonly rpcServer: any;
   
   private readonly BASE_FEE = 100; // stroops
@@ -36,7 +37,7 @@ export class FeeEstimatorService {
   private lastFetchTime = 0;
   private readonly CACHE_TTL_MS = 10_000; // 10 seconds
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly logger: OracleLoggerService, private readonly configService: ConfigService) {
     const rpcUrl =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
       'https://soroban-testnet.stellar.org';

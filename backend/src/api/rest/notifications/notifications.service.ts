@@ -3,12 +3,15 @@ import {
   NotificationService,
   CreateSubscriptionPayload,
   NotificationSubscription,
+  NotificationPreferences,
+  UpdatePreferencesPayload,
 } from '../../../services/notification.service';
 import {
   PushNotificationService,
   PushNotificationPayload,
   PushTokenRecord,
 } from '../../../services/push-notification.service';
+import { NotificationPreferencesResponse } from './dto/notification-preferences.dto';
 
 /** API response format (camelCase for frontend) */
 export interface SubscriptionResponse {
@@ -51,7 +54,14 @@ export class NotificationsService {
    * Unsubscribe user from raffle notifications
    */
   async unsubscribe(raffleId: number, userAddress: string): Promise<void> {
-    return this.notificationService.unsubscribe(raffleId, userAddress);
+    await this.notificationService.unsubscribe(raffleId, userAddress);
+  }
+
+  /**
+   * Update a subscription (e.g., channel)
+   */
+  async updateSubscription(id: string, dto: { channel?: string }): Promise<void> {
+    await this.notificationService.updateSubscription(id, dto);
   }
 
   /**
@@ -92,5 +102,37 @@ export class NotificationsService {
    */
   async sendPushToUser(userAddress: string, payload: PushNotificationPayload) {
     return this.pushNotificationService.sendToUser(userAddress, payload);
+  }
+
+  /**
+   * Transform database preferences to API response format
+   */
+  private toPreferencesResponse(prefs: NotificationPreferences): NotificationPreferencesResponse {
+    return {
+      userAddress: prefs.user_address,
+      raffleEnd: prefs.raffle_end,
+      winNotification: prefs.win_notification,
+      channel: prefs.channel,
+      updatedAt: prefs.updated_at,
+    };
+  }
+
+  /**
+   * Get user notification preferences
+   */
+  async getPreferences(userAddress: string): Promise<NotificationPreferencesResponse> {
+    const prefs = await this.notificationService.getPreferences(userAddress);
+    return this.toPreferencesResponse(prefs);
+  }
+
+  /**
+   * Update user notification preferences
+   */
+  async updatePreferences(
+    userAddress: string,
+    payload: UpdatePreferencesPayload,
+  ): Promise<NotificationPreferencesResponse> {
+    const prefs = await this.notificationService.updatePreferences(userAddress, payload);
+    return this.toPreferencesResponse(prefs);
   }
 }

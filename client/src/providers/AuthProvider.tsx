@@ -1,13 +1,19 @@
 /**
  * AuthProvider
  *
- * React context provider for authentication state management
- * Provides SIWS authentication state and methods across the application
+ * React context provider for authentication state management.
+ * Provides SIWS authentication state and methods across the application.
  */
 
-import { createContext, useContext, type ReactNode, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
 import { useAuth, type UseAuthReturn } from "../hooks/useAuth";
-import { useWalletContext } from "./WalletProvider";
+import { useAuthStore } from "../store/useAuthStore";
 
 const AuthContext = createContext<UseAuthReturn | undefined>(undefined);
 
@@ -16,18 +22,18 @@ interface AuthProviderProps {
 }
 
 /**
- * AuthProvider component that wraps the app and provides auth context
+ * AuthProvider component that wraps the app and provides auth context.
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const auth = useAuth();
-  const { address, isConnected } = useWalletContext();
+  const store = useAuthStore();
   const [didInitialAuthCheck, setDidInitialAuthCheck] = useState(false);
 
-  // Auto-logout when wallet disconnects.
-  // Skip the first render to allow wallet state to initialize.
   const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
   const { isAuthenticated, address: authAddress, logout } = auth;
+  const { address, isConnected } = store;
 
+  // Auto-logout when wallet disconnects.
   useEffect(() => {
     if (!didInitialAuthCheck) {
       setDidInitialAuthCheck(true);
@@ -40,7 +46,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isConnected, isAuthenticated, didInitialAuthCheck, logout, isTestMode]);
 
   // Auto-logout when wallet address changes to a different non-null value.
-  // Null address is handled by the disconnect watcher above.
   useEffect(() => {
     if (authAddress && address && isAuthenticated && authAddress !== address) {
       logout();
@@ -51,8 +56,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 }
 
 /**
- * Hook to access auth context
- * Must be used within an AuthProvider
+ * Hook to access auth context.
  */
 export function useAuthContext(): UseAuthReturn {
   const context = useContext(AuthContext);

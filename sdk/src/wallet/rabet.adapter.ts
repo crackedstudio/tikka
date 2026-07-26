@@ -3,6 +3,7 @@ import {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
+  WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
@@ -113,6 +114,19 @@ export class RabetAdapter extends WalletAdapter {
     // Rabet doesn't expose a direct method to get the current network
     // Return the configured network from adapter options
     return this.options.networkPassphrase;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Capabilities                                                       */
+  /* ------------------------------------------------------------------ */
+
+  getCapabilities(): WalletCapabilities {
+    return {
+      supportsGetPublicKey: true,
+      supportsSignTransaction: true,
+      supportsSignMessage: false,
+      supportsGetNetwork: true,
+    };
   }
 
   /* ------------------------------------------------------------------ */

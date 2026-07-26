@@ -11,6 +11,23 @@ import { RaffleEntity } from "./raffle.entity";
 /**
  * Represents a single raffle ticket purchased by a user.
  * Columns map to the `tickets` table in ARCHITECTURE.md.
+ *
+ * ## Field Ownership
+ * - **Raw chain state**: All fields (id, raffleId, owner, purchasedAtLedger,
+ *   purchaseTxHash, refunded, refundTxHash)
+ * - **Derived**: None
+ *
+ * ## Updater Handlers
+ * - `TicketProcessor.handleTicketPurchased()`: Inserts ticket rows idempotently
+ * - `TicketProcessor.handleTicketRefunded()`: Updates refunded flag and refundTxHash
+ *
+ * ## Recalculation Safety
+ * - ❌ Unsafe: All fields are source-of-truth from chain events
+ *
+ * ## Idempotency
+ * - `purchaseTxHash` has unique constraint — replays are no-ops
+ *
+ * See: `ENTITY_OWNERSHIP.md` for full documentation
  */
 @Entity("tickets")
 @Index("idx_tickets_raffle_id", ["raffleId"])

@@ -1,0 +1,128 @@
+{
+  "title": "Tikka Cross-Service Overview",
+  "uid": "tikka-overview",
+  "description": "Correlate events across indexer and oracle services in a single view",
+  "tags": ["tikka", "cross-service", "correlation"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "event_type",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(tikka_indexer_events_processed_total, event_type)",
+        "multi": true,
+        "includeAll": true
+      },
+      {
+        "name": "outcome",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(tikka_oracle_submission_outcome_total, outcome)",
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Events Rate (Indexer)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "custom": {
+            "stacking": { "mode": "normal" },
+            "fillOpacity": 30
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (event_type) (rate(tikka_indexer_events_processed_total[$__rate_interval]))",
+          "legendFormat": "__auto"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Submission Outcomes (Oracle)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "custom": {
+            "stacking": { "mode": "normal" },
+            "fillOpacity": 30
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(tikka_oracle_submission_outcome_total[$__rate_interval]))",
+          "legendFormat": "__auto"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "title": "Lag Comparison",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "tikka_indexer_lag_ledgers",
+          "legendFormat": "indexer lag"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "title": "Memory Comparison",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "tikka_indexer_memory_usage_bytes",
+          "legendFormat": "indexer"
+        },
+        {
+          "expr": "tikka_oracle_memory_usage_bytes",
+          "legendFormat": "oracle"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+    {
+      "title": "Error Rate (Indexer)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(tikka_indexer_errors_total[$__rate_interval])",
+          "legendFormat": "indexer errors"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    }
+  ]
+}

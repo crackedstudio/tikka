@@ -8,6 +8,7 @@
       "DOM",
       "DOM.Iterable"
     ],
+    "types": ["vite/client", "node", "vitest/globals"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -29,12 +30,7 @@
 
     /* RELEVANT FIXES BELOW */
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "types": [
-      "vite/client",
-      "node",
-      "vitest/globals"
-    ]
+    "esModuleInterop": true
     
   },
   "include": [

@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TxSubmitterService } from '../src/submitter/tx-submitter.service';
 import { KeyService } from '../src/keys/key.service';
 import { FeeEstimatorService } from '../src/submitter/fee-estimator.service';
+import { CostEstimatorService } from '../src/submitter/cost-estimator.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
 import { ConfigService } from '@nestjs/config';
 
 describe('TxSubmitterService', () => {
@@ -37,6 +39,7 @@ describe('TxSubmitterService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TxSubmitterService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         { provide: ConfigService, useValue: { get: jest.fn().mockImplementation((k: string, defaultVal?: any) => {
           if (k === 'RAFFLE_CONTRACT_ID') return 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
           if (k === 'SOROBAN_RPC_URL') return 'https://example.com';
@@ -44,6 +47,14 @@ describe('TxSubmitterService', () => {
         }) } },
         { provide: FeeEstimatorService, useValue: feeEstimator },
         { provide: KeyService, useValue: keyService },
+        {
+          provide: CostEstimatorService,
+          useValue: {
+            recordRevealCost: jest.fn(),
+            recordSubmissionRetry: jest.fn(),
+            recordSubmissionFailure: jest.fn(),
+          },
+        },
       ],
     }).compile();
 

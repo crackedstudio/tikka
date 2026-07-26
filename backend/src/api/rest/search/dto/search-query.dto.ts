@@ -6,7 +6,8 @@ export const SearchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
   offset: z.coerce.number().int().min(0).default(0).optional(),
   category: z.string().trim().optional(),
-  status: z.string().trim().optional(),
+    status: z.string().trim().optional(),
+  sort: z.enum(['relevance', 'ending_soon', 'price_asc', 'most_tickets']).optional(),
 });
 
 export class SearchQueryDto {
@@ -24,4 +25,10 @@ export class SearchQueryDto {
 
   @ApiPropertyOptional({ description: 'Filter by status' })
   status?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort order for results',
+    enum: ['relevance', 'ending_soon', 'price_asc', 'most_tickets'],
+  })
+  sort?: 'relevance' | 'ending_soon' | 'price_asc' | 'most_tickets';
 }

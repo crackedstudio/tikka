@@ -3,6 +3,7 @@ import {
   WalletAdapterOptions,
   WalletName,
   SignTransactionResult,
+  WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
@@ -113,6 +114,19 @@ export class AlbedoAdapter extends WalletAdapter {
    */
   async getNetwork(): Promise<string | undefined> {
     return this.options.networkPassphrase;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Capabilities                                                       */
+  /* ------------------------------------------------------------------ */
+
+  getCapabilities(): WalletCapabilities {
+    return {
+      supportsGetPublicKey: true,
+      supportsSignTransaction: true,
+      supportsSignMessage: true,
+      supportsGetNetwork: true,
+    };
   }
 
   /* ------------------------------------------------------------------ */

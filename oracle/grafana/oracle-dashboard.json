@@ -1,0 +1,107 @@
+{
+  "title": "Tikka Oracle",
+  "uid": "tikka-oracle",
+  "description": "Oracle service metrics — submission outcomes, fee estimates, queue depth, and memory usage",
+  "tags": ["tikka", "oracle"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "panels": [
+    {
+      "title": "Submission Outcomes Rate",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "custom": {
+            "stacking": { "mode": "normal" },
+            "fillOpacity": 30
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(tikka_oracle_submission_outcome_total[5m]))",
+          "legendFormat": "__auto"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Fee Estimates vs Actual (stroops)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "tikka_oracle_estimated_fee_stroops",
+          "legendFormat": "estimated"
+        },
+        {
+          "expr": "rate(tikka_oracle_actual_fee_total_stroops[5m])",
+          "legendFormat": "actual rate"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "tikka_oracle_memory_usage_bytes",
+          "legendFormat": "heap used"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "title": "VRF Proof Success/Failure Rate",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "custom": {
+            "stacking": { "mode": "normal" },
+            "fillOpacity": 30
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(oracle_vrf_proofs_total[5m])",
+          "legendFormat": "success"
+        },
+        {
+          "expr": "sum by (reason) (rate(oracle_vrf_failures_total[5m]))",
+          "legendFormat": "failure: {{reason}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    }
+  ]
+}

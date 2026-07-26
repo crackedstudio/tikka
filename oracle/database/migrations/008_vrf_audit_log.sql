@@ -1,7 +1,7 @@
 -- VRF Audit Trail: persistent, tamper-detectable audit log for commit-reveal randomness
 -- Requirements: 6.1, 6.2, 6.3
 
-CREATE TABLE vrf_audit_log (
+CREATE TABLE IF NOT EXISTS vrf_audit_log (
   id                BIGSERIAL    PRIMARY KEY,
   raffle_id         INTEGER      NOT NULL UNIQUE,
   request_id        TEXT,
@@ -17,8 +17,19 @@ CREATE TABLE vrf_audit_log (
   chain_hash        TEXT         NOT NULL
 );
 
-CREATE INDEX idx_vrf_audit_log_raffle_id    ON vrf_audit_log (raffle_id);
-CREATE INDEX idx_vrf_audit_log_committed_at ON vrf_audit_log (committed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vrf_audit_log_raffle_id    ON vrf_audit_log (raffle_id);
+CREATE INDEX IF NOT EXISTS idx_vrf_audit_log_committed_at ON vrf_audit_log (committed_at DESC);
 
 ALTER TABLE vrf_audit_log ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "public_select" ON vrf_audit_log FOR SELECT USING (true);
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'vrf_audit_log' 
+        AND policyname = 'public_select'
+    ) THEN
+        CREATE POLICY "public_select" ON vrf_audit_log FOR SELECT USING (true);
+    END IF;
+END $$;
+

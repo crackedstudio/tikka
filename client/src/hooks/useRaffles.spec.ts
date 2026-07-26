@@ -129,20 +129,42 @@ describe("useRaffles", () => {
         vi.restoreAllMocks();
     });
 
-    it("fetches and returns raffles on mount", async () => {
+    it("fetches and returns raffles on mount (initial load)", async () => {
         vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(mockRaffleListResponse);
 
         const { result } = renderHook(() => useRaffles());
 
-        expect(result.current.isLoading).toBe(true);
+        expect(result.current.status.isLoading).toBe(true);
+        expect(result.current.status.isRefreshing).toBe(false);
         expect(result.current.raffles).toEqual([]);
 
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
         expect(result.current.total).toBe(1);
         expect(result.current.error).toBeNull();
+        expect(result.current.status.isSuccess).toBe(true);
+        expect(result.current.status.isEmpty).toBe(false);
+        expect(result.current.status.isError).toBe(false);
         expect(raffleService.fetchRaffles).toHaveBeenCalledWith(undefined);
+    });
+
+    it("handles empty result set", async () => {
+        const emptyResponse: ApiRaffleListResponse = {
+            raffles: [],
+            total: 0,
+        };
+        vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(emptyResponse);
+
+        const { result } = renderHook(() => useRaffles());
+
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
+
+        expect(result.current.raffles).toEqual([]);
+        expect(result.current.total).toBe(0);
+        expect(result.current.status.isEmpty).toBe(true);
+        expect(result.current.status.isSuccess).toBe(true);
+        expect(result.current.status.isError).toBe(false);
     });
 
     it("applies filters when provided", async () => {
@@ -151,7 +173,7 @@ describe("useRaffles", () => {
         const filters = { status: "open", category: "Electronics" };
         const { result } = renderHook(() => useRaffles(filters));
 
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(raffleService.fetchRaffles).toHaveBeenCalledWith(filters);
         expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
@@ -163,10 +185,12 @@ describe("useRaffles", () => {
 
         const { result } = renderHook(() => useRaffles());
 
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(result.current.raffles).toEqual([]);
         expect(result.current.error?.message).toBe(errorMessage);
+        expect(result.current.status.isError).toBe(true);
+        expect(result.current.status.isSuccess).toBe(false);
     });
 
     it("handles non-Error rejections", async () => {
@@ -174,23 +198,100 @@ describe("useRaffles", () => {
 
         const { result } = renderHook(() => useRaffles());
 
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(result.current.error?.message).toBe("Failed to fetch raffles");
+        expect(result.current.status.isError).toBe(true);
     });
 
-    it("refetch triggers a new fetch", async () => {
+    it("refetch triggers a refresh (keeps cached data visible)", async () => {
         const spy = vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(mockRaffleListResponse);
 
         const { result } = renderHook(() => useRaffles());
 
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(spy).toHaveBeenCalledTimes(1);
+        expect(result.current.status.isRefreshing).toBe(false);
 
         result.current.refetch();
 
-        await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+        expect(result.current.status.isRefreshing).toBe(true);
+        // Cached data should remain visible during refresh
+        expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
+
+        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+
+        expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it("refresh success clears stale flag", async () => {
+        const spy = vi.spyOn(raffleService, "fetchRaffles")
+            .mockResolvedValueOnce(mockRaffleListResponse)
+            .mockRejectedValueOnce(new Error("Network error"))
+            .mockResolvedValueOnce(mockRaffleListResponse);
+
+        const { result } = renderHook(() => useRaffles());
+
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
+
+        expect(result.current.status.isStale).toBe(false);
+
+        // Trigger refresh that fails
+        result.current.refetch();
+        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+
+        expect(result.current.status.isStale).toBe(true);
+
+        // Retry succeeds
+        result.current.retry();
+        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+
+        expect(result.current.status.isStale).toBe(false);
+    });
+
+    it("refresh failure marks data as stale", async () => {
+        vi.spyOn(raffleService, "fetchRaffles")
+            .mockResolvedValueOnce(mockRaffleListResponse)
+            .mockRejectedValueOnce(new Error("Network error"));
+
+        const { result } = renderHook(() => useRaffles());
+
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
+
+        expect(result.current.status.isStale).toBe(false);
+
+        result.current.refetch();
+        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+
+        expect(result.current.status.isStale).toBe(true);
+        expect(result.current.error?.message).toBe("Network error");
+        // Cached data should still be visible
+        expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
+    });
+
+    it("retry clears error and refetches", async () => {
+        const spy = vi.spyOn(raffleService, "fetchRaffles")
+            .mockRejectedValueOnce(new Error("Network error"))
+            .mockResolvedValueOnce(mockRaffleListResponse);
+
+        const { result } = renderHook(() => useRaffles());
+
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
+
+        expect(result.current.status.isError).toBe(true);
+        expect(result.current.error?.message).toBe("Network error");
+
+        result.current.retry();
+
+        expect(result.current.error).toBeNull();
+        expect(result.current.status.isRefreshing).toBe(true);
+
+        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+
+        expect(spy).toHaveBeenCalledTimes(2);
+        expect(result.current.status.isError).toBe(false);
+        expect(result.current.status.isSuccess).toBe(true);
     });
 
     it("cancels stale requests when filters change", async () => {
@@ -232,7 +333,7 @@ describe("useRaffles", () => {
 
         // Resolve second request first
         resolveSecond!(secondResponse);
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(result.current.raffles).toEqual(secondResponse.raffles);
 
@@ -253,7 +354,7 @@ describe("useRaffles", () => {
 
         const { result } = renderHook(() => useRaffles());
 
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(result.current.total).toBe(2);
     });

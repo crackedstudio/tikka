@@ -15,7 +15,7 @@ import { TransactionLifecycle } from './lifecycle';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig, TikkaNetwork } from '../network/network.config';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { TikkaSdkErrorCode } from '../utils/errors';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
 import { ContractFn } from './bindings';
 
@@ -75,7 +75,7 @@ function buildService(withWallet = false) {
 describe('ContractService.simulateReadOnly()', () => {
   it('calls RpcService.simulateTransaction and decodes the return value', async () => {
     const { service } = buildService();
-    const { nativeToScVal, scValToNative } = jest.requireActual('@stellar/stellar-sdk');
+    const { nativeToScVal } = jest.requireActual('@stellar/stellar-sdk');
 
     const mockRetVal = 'mock-value';
     const simSpy = jest.spyOn(
@@ -102,7 +102,7 @@ describe('ContractService.simulateReadOnly()', () => {
 
     const result = await service.simulateReadOnly(ContractFn.IS_PAUSED, []);
     expect(simSpy).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ success: true, value: mockRetVal });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: mockRetVal });
   });
 });
 
@@ -110,7 +110,7 @@ describe('ContractService.invoke()', () => {
   it('throws WalletNotInstalled immediately when no wallet and simulateOnly is false', async () => {
     const { service } = buildService(false);
     const result = await service.invoke(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1]);
-    expect(result.success).toBe(false);
+    expect(result.status).toBe('ERROR');
     expect(result.error).toContain('Wallet required');
   });
 
@@ -134,7 +134,7 @@ describe('ContractService.invoke()', () => {
     expect(lifecycle.sign).toHaveBeenCalledWith(ASSEMBLED_XDR, Networks.TESTNET);
     expect(lifecycle.submit).toHaveBeenCalledWith(SIGNED_XDR);
     expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH, undefined);
-    expect(result).toEqual({ success: true, value: 99, transactionHash: TX_HASH, ledger: 300 });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: 99, txHash: TX_HASH, ledger: 300 });
   });
 
   it('returns simulated result early when simulateOnly is true', async () => {
@@ -149,7 +149,7 @@ describe('ContractService.invoke()', () => {
     });
 
     expect(signSpy).not.toHaveBeenCalled();
-    expect(result).toEqual({ success: true, value: 42, transactionHash: '', ledger: 0 });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: 42, txHash: '', ledger: 0 });
   });
 
   it('passes memo through to lifecycle.simulate()', async () => {
@@ -204,7 +204,7 @@ describe('ContractService.buildUnsigned()', () => {
     );
     expect(result).toEqual({
       unsignedXdr: ASSEMBLED_XDR,
-      simulatedResult: { success: true, value: 42 },
+      simulatedResult: { status: 'SUCCESS' as const, value: 42 },
       fee: '5000',
       networkPassphrase: Networks.TESTNET,
     });
@@ -229,7 +229,7 @@ describe('ContractService.submitSigned()', () => {
 
     expect(lifecycle.submit).toHaveBeenCalledWith(SIGNED_XDR);
     expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH);
-    expect(result).toEqual({ success: true, value: 99, transactionHash: TX_HASH, ledger: 300 });
+    expect(result).toEqual({ status: 'SUCCESS' as const, value: 99, txHash: TX_HASH, ledger: 300 });
   });
 
   it('throws InvalidParams when signedXdr is empty', async () => {
@@ -258,5 +258,127 @@ describe('ContractService.setWallet() / setContractId()', () => {
     service.setContractId('NEW_ID');
 
     expect(setIdSpy).toHaveBeenCalledWith('NEW_ID');
+  });
+});
+
+// ─── Stage method tests ───────────────────────────────────────────────────────
+
+describe('ContractService.simulate()', () => {
+  it('delegates to lifecycle.simulate() and returns SimulateResult', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+
+    const result = await service.simulate(ContractFn.BUY_TICKET, [1], { sourcePublicKey: SOURCE_KEY });
+
+    expect(lifecycle.simulate).toHaveBeenCalledWith(
+      ContractFn.BUY_TICKET,
+      [1],
+      { sourcePublicKey: SOURCE_KEY },
+    );
+    expect(result).toEqual(mockSimulateResult);
+  });
+
+  it('forwards memo option to lifecycle.simulate()', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+
+    await service.simulate(ContractFn.CREATE_RAFFLE, [], { memo: { type: 'text', value: 'ref' } });
+
+    expect(lifecycle.simulate).toHaveBeenCalledWith(
+      ContractFn.CREATE_RAFFLE,
+      [],
+      expect.objectContaining({ memo: { type: 'text', value: 'ref' } }),
+    );
+  });
+
+  it('propagates errors from lifecycle.simulate()', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'simulate').mockRejectedValue(
+      new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, 'sim error'),
+    );
+
+    await expect(service.simulate(ContractFn.IS_PAUSED, [])).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.SimulationFailed,
+    });
+  });
+});
+
+describe('ContractService.sign()', () => {
+  it('delegates to lifecycle.sign() and returns signed XDR', async () => {
+    const { service, lifecycle } = buildService(true);
+    jest.spyOn(lifecycle, 'sign').mockResolvedValue(SIGNED_XDR);
+
+    const result = await service.sign(ASSEMBLED_XDR, Networks.TESTNET);
+
+    expect(lifecycle.sign).toHaveBeenCalledWith(ASSEMBLED_XDR, Networks.TESTNET);
+    expect(result).toBe(SIGNED_XDR);
+  });
+
+  it('propagates WalletNotInstalled from lifecycle.sign()', async () => {
+    const { service, lifecycle } = buildService(false);
+    jest.spyOn(lifecycle, 'sign').mockRejectedValue(
+      new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'no wallet'),
+    );
+
+    await expect(service.sign(ASSEMBLED_XDR)).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.WalletNotInstalled,
+    });
+  });
+});
+
+describe('ContractService.submit()', () => {
+  it('delegates to lifecycle.submit() and returns tx hash', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'submit').mockResolvedValue(TX_HASH);
+
+    const result = await service.submit(SIGNED_XDR);
+
+    expect(lifecycle.submit).toHaveBeenCalledWith(SIGNED_XDR);
+    expect(result).toBe(TX_HASH);
+  });
+
+  it('propagates SubmissionFailed from lifecycle.submit()', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'submit').mockRejectedValue(
+      new TikkaSdkError(TikkaSdkErrorCode.SubmissionFailed, 'rejected'),
+    );
+
+    await expect(service.submit(SIGNED_XDR)).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.SubmissionFailed,
+    });
+  });
+});
+
+describe('ContractService.poll()', () => {
+  it('delegates to lifecycle.poll() and returns SubmitResult', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult as any);
+
+    const result = await service.poll<number>(TX_HASH, { timeoutMs: 30_000 });
+
+    expect(lifecycle.poll).toHaveBeenCalledWith(TX_HASH, { timeoutMs: 30_000 });
+    expect(result).toEqual(mockSubmitResult);
+  });
+
+  it('propagates Timeout from lifecycle.poll()', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'poll').mockRejectedValue(
+      new TikkaSdkError(TikkaSdkErrorCode.Timeout, 'timed out'),
+    );
+
+    await expect(service.poll(TX_HASH)).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.Timeout,
+    });
+  });
+
+  it('propagates ContractError from lifecycle.poll()', async () => {
+    const { service, lifecycle } = buildService();
+    jest.spyOn(lifecycle, 'poll').mockRejectedValue(
+      new TikkaSdkError(TikkaSdkErrorCode.ContractError, 'on-chain failure'),
+    );
+
+    await expect(service.poll(TX_HASH)).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ContractError,
+    });
   });
 });

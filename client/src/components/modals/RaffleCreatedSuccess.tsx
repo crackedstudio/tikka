@@ -1,13 +1,36 @@
+/**
+ * RaffleCreatedSuccess.tsx
+ *
+ * Raffle-creation success modal.
+ * Now accepts `ConfirmedState` from the shared model for the reference-ID /
+ * network fields, while all copy and action buttons remain raffle-specific.
+ */
+
 import { X, CheckCircle, ExternalLink, Copy } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { ConfirmedState } from "./transactionModalState";
 
-interface RaffleCreatedSuccessProps {
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+export interface RaffleCreatedSuccessProps {
     onClose?: () => void;
     raffleId?: number;
     transactionHash?: string;
     network?: string;
     isVisible?: boolean;
+    /**
+     * When provided, `referenceId` and `network` are sourced from the shared
+     * confirmed state. Falls back to the explicit `transactionHash` / `network`
+     * props so existing callers continue to work unchanged.
+     */
+    modalState?: ConfirmedState;
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 const RaffleCreatedSuccess = ({
     onClose,
@@ -15,31 +38,38 @@ const RaffleCreatedSuccess = ({
     transactionHash,
     network = "Demo Mode",
     isVisible = true,
+    modalState,
 }: RaffleCreatedSuccessProps) => {
     if (!isVisible) return null;
 
-    const handleCopyTransactionHash = () => {
-        if (transactionHash) {
-            navigator.clipboard.writeText(transactionHash);
-            // You could add a toast notification here
+    // Prefer values from the shared state model
+    const displayTxHash = modalState?.referenceId ?? transactionHash;
+    const displayNetwork = modalState?.network ?? network;
+
+    const handleCopyTxHash = () => {
+        if (displayTxHash) {
+            navigator.clipboard.writeText(displayTxHash);
         }
     };
 
     const handleViewOnExplorer = () => {
-        if (transactionHash) {
+        if (displayTxHash) {
             const explorerUrl =
-                network === "mainnet"
-                    ? `https://stellar.expert/explorer/public/tx/${transactionHash}`
-                    : `https://stellar.expert/explorer/testnet/tx/${transactionHash}`;
+                displayNetwork === "mainnet"
+                    ? `https://stellar.expert/explorer/public/tx/${displayTxHash}`
+                    : `https://stellar.expert/explorer/testnet/tx/${displayTxHash}`;
             window.open(explorerUrl, "_blank");
         }
     };
 
     return (
-        <div className="w-full max-w-[500px] mx-auto px-4 sm:px-6">
+        <div
+            data-testid="raffle-created-success-modal"
+            className="w-full max-w-[500px] mx-auto px-4 sm:px-6"
+        >
             {/* Header */}
             <div className="flex items-start justify-between mb-4 sm:mb-6">
-                <div className="flex-1"></div>
+                <div className="flex-1" />
                 {onClose && (
                     <button
                         onClick={onClose}
@@ -60,7 +90,10 @@ const RaffleCreatedSuccess = ({
 
             {/* Success Message */}
             <div className="text-center mb-8 sm:mb-12">
-                <h2 className="text-lg sm:text-[22px] font-bold text-gray-900 dark:text-white mb-2">
+                <h2
+                    id="modal-title"
+                    className="text-lg sm:text-[22px] font-bold text-gray-900 dark:text-white mb-2"
+                >
                     Raffle Created Successfully! 🎉
                 </h2>
                 <p className="text-[#B6C6E1] text-xs sm:text-sm text-center px-2">
@@ -82,12 +115,12 @@ const RaffleCreatedSuccess = ({
                                     #{raffleId}
                                 </span>
                             </div>
-                            <div className="border-t border-gray-200 dark:border-[#1F263F]"></div>
+                            <div className="border-t border-gray-200 dark:border-[#1F263F]" />
                         </>
                     )}
 
                     {/* Transaction Hash */}
-                    {transactionHash && (
+                    {displayTxHash && (
                         <>
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
@@ -95,31 +128,32 @@ const RaffleCreatedSuccess = ({
                                 </span>
                                 <div className="flex items-center space-x-2">
                                     <span className="text-gray-900 dark:text-white font-mono text-xs sm:text-sm truncate max-w-[120px]">
-                                        {transactionHash.slice(0, 6)}...
-                                        {transactionHash.slice(-4)}
+                                        {displayTxHash.slice(0, 6)}…
+                                        {displayTxHash.slice(-4)}
                                     </span>
                                     <button
-                                        onClick={handleCopyTransactionHash}
+                                        onClick={handleCopyTxHash}
                                         className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors"
                                         title="Copy transaction hash"
+                                        aria-label="Copy transaction hash"
                                     >
                                         <Copy size={14} />
                                     </button>
                                 </div>
                             </div>
-                            <div className="border-t border-gray-200 dark:border-[#1F263F]"></div>
+                            <div className="border-t border-gray-200 dark:border-[#1F263F]" />
                         </>
                     )}
 
-                    {/* Mode */}
+                    {/* Mode / Network */}
                     <div className="flex justify-between items-center">
                         <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
                             Mode:
                         </span>
                         <div className="flex items-center space-x-1 sm:space-x-2">
-                            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-400 rounded-full"></div>
+                            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-400 rounded-full" />
                             <span className="text-gray-900 dark:text-white text-xs sm:text-sm">
-                                {network}
+                                {displayNetwork}
                             </span>
                         </div>
                     </div>
@@ -128,7 +162,6 @@ const RaffleCreatedSuccess = ({
 
             {/* Action Buttons */}
             <div className="space-y-3 sm:space-y-4">
-                {/* View Raffle Button */}
                 {raffleId !== undefined && (
                     <Link
                         to={`/raffles/${raffleId}`}
@@ -139,18 +172,16 @@ const RaffleCreatedSuccess = ({
                     </Link>
                 )}
 
-                {/* View on Explorer Button */}
-                {transactionHash && (
+                {displayTxHash && (
                     <button
                         onClick={handleViewOnExplorer}
-                        className="w-full bg-gray-200 dark:bg-[#2A264A] hover:bg-gray-300 dark:bg-[#3A365A] text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                        className="w-full bg-gray-200 dark:bg-[#2A264A] hover:bg-gray-300 dark:hover:bg-[#3A365A] text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
                     >
                         <ExternalLink size={16} />
                         <span>View on Explorer</span>
                     </button>
                 )}
 
-                {/* Create Another Raffle Button */}
                 <Link
                     to="/create"
                     className="w-full bg-transparent border border-pink-500 dark:border-[#FF389C] text-pink-600 dark:text-[#FF389C] hover:bg-[#FF389C]/10 px-6 py-3 rounded-lg font-medium transition-colors duration-200 text-center block"
@@ -160,7 +191,7 @@ const RaffleCreatedSuccess = ({
                 </Link>
             </div>
 
-            {/* Bottom Message */}
+            {/* Footer */}
             <div className="text-center mt-6">
                 <p className="text-gray-400 text-xs sm:text-sm px-2">
                     Your raffle is now live! Share it with your community to get

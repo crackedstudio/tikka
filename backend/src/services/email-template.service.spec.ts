@@ -1,13 +1,53 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { EmailTemplateService } from './email-template.service';
-import { InternalServerErrorException } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
+import { Test, TestingModule } from "@nestjs/testing";
+import { EmailTemplateService } from "./email-template.service";
+import { InternalServerErrorException } from "@nestjs/common";
+import {
+  EMAIL_TEMPLATE_REQUIRED_FIELDS,
+  type EmailTemplateName,
+  type EmailTemplateRegistry,
+} from "../emails";
 
-// Mock the fs module so we don't hit the real disk
-jest.mock('fs');
+const TEMPLATE_FIXTURES: {
+  [K in EmailTemplateName]: {
+    context: EmailTemplateRegistry[K];
+    expectedText: string[];
+  };
+} = {
+  Winner: {
+    context: {
+      username: "Clinton",
+      raffleName: "Mega Draw",
+      claimUrl: "https://example.com/claim",
+    },
+    expectedText: ["Clinton", "Mega Draw", "https://example.com/claim"],
+  },
+  RaffleEnded: {
+    context: {
+      raffleName: "Mega Draw",
+      resultsUrl: "https://example.com/results",
+    },
+    expectedText: ["Mega Draw", "https://example.com/results"],
+  },
+  RaffleCancelled: {
+    context: {
+      raffleName: "Mega Draw",
+      cancellationReason: "Organizer cancelled the event",
+      ticketCount: 3,
+      refundAmountXlm: "42.0000000",
+      raffleUrl: "https://example.com/raffles/mega-draw",
+    },
+    expectedText: [
+      "Mega Draw",
+      "Organizer cancelled the event",
+      "42.0000000 XLM",
+      "https://example.com/raffles/mega-draw",
+    ],
+  },
+};
 
-describe('EmailTemplateService', () => {
+const LEFTOVER_TEMPLATE_TOKEN_PATTERN = /{{|}}|<%|%>|\$\{/;
+
+describe("EmailTemplateService", () => {
   let service: EmailTemplateService;
 
   beforeEach(async () => {
@@ -18,47 +58,41 @@ describe('EmailTemplateService', () => {
     service = module.get<EmailTemplateService>(EmailTemplateService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-    jest.restoreAllMocks();
-  });
-
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('render', () => {
-    it('should successfully render a template with context', () => {
-      const templateName = 'Winner';
-      const context = { username: 'Clinton' };
-      const mockHbsContent = 'Hello {{username}}';
+  describe("render", () => {
+    it.each(Object.entries(TEMPLATE_FIXTURES) as Array<
+      [EmailTemplateName, (typeof TEMPLATE_FIXTURES)[EmailTemplateName]]
+    >)("renders %s with all placeholders filled", (templateName, fixture) => {
+      const result = service.render(templateName, fixture.context);
 
-      // Mock fs to say the file exists and return our fake string
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue(mockHbsContent);
-
-      const result = service.render(templateName, context);
-
-      expect(result).toBe('Hello Clinton');
-      expect(fs.existsSync).toHaveBeenCalled();
-      expect(fs.readFileSync).toHaveBeenCalled();
+      for (const expected of fixture.expectedText) {
+        expect(result).toContain(expected);
+      }
+      expect(result).not.toMatch(LEFTOVER_TEMPLATE_TOKEN_PATTERN);
+      expect(result).toMatchSnapshot();
     });
 
-    it('should throw InternalServerErrorException if template does not exist', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
-
+    it("should throw InternalServerErrorException if template does not exist", () => {
       expect(() => {
-        service.render('non-existent', {});
+        service.render("non-existent", {});
       }).toThrow(InternalServerErrorException);
     });
 
-    it('should throw InternalServerErrorException if handlebars fails to compile', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue('Hello {{username');
+    it.each(Object.keys(EMAIL_TEMPLATE_REQUIRED_FIELDS) as EmailTemplateName[])(
+      "throws when %s is missing a required variable",
+      (templateName) => {
+        const fixture = TEMPLATE_FIXTURES[templateName].context;
+        const [fieldToRemove] = EMAIL_TEMPLATE_REQUIRED_FIELDS[templateName];
+        const incompleteContext = { ...fixture } as Record<string, unknown>;
+        delete incompleteContext[fieldToRemove as string];
 
-      expect(() => {
-        service.render('broken-template', { username: 'Clinton' });
-      }).toThrow(InternalServerErrorException);
-    });
+        expect(() => service.render(templateName, incompleteContext)).toThrow(
+          InternalServerErrorException,
+        );
+      },
+    );
   });
 });

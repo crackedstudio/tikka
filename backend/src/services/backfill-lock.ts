@@ -1,8 +1,6 @@
 export class BackfillLockError extends Error {
-  constructor() {
-    super(
-      'Backfill lock is already held — another backfill or the active poller is running',
-    );
+  constructor(message?: string) {
+    super(message ?? 'Backfill lock is already held — another backfill or the active poller is running');
     this.name = 'BackfillLockError';
   }
 }

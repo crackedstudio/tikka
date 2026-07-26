@@ -59,9 +59,9 @@ async function main() {
     const result = await contractService.submitSigned(signedXdr);
 
     console.log('\nTransaction confirmed:');
-    console.log(`  txHash : ${result.txHash}`);
+    console.log(`  txHash : ${result.transactionHash}`);
     console.log(`  ledger : ${result.ledger}`);
-    console.log(`  result :`, result.result);
+    console.log(`  result :`, result.value);
   } else {
     // ----------------------------------------------------------------
     // Step 1 — build an unsigned XDR for a sample create_raffle call

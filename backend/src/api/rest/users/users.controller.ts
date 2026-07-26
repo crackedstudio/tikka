@@ -1,13 +1,14 @@
-import { Controller, Get, Param, Query, UsePipes } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Param, Query, Res, UsePipes, ValidationPipe } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { FastifyReply } from 'fastify';
 import { Public } from '../../../auth/decorators/public.decorator';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { UsersService } from './users.service';
-import { UserHistoryQuerySchema, UserHistoryQueryDto } from './dto/user-history-query.dto';
-import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
+import { UserHistoryQueryDto } from './dto/user-history-query.dto';
+import { Throttle } from '../../../middleware/throttle.decorator';
 
 @ApiTags('Users')
 @Controller('users')
-@Public()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -16,6 +17,7 @@ export class UsersController {
    * Returns: address, total_tickets_bought, total_raffles_entered,
    *          total_raffles_won, total_prize_xlm, first_seen_ledger, updated_at.
    */
+  @Public()
   @Get(':address')
   @ApiOperation({ summary: 'Get user profile by Stellar address' })
   @ApiParam({ name: 'address', description: 'Stellar address of the user' })
@@ -28,15 +30,47 @@ export class UsersController {
    * GET /users/:address/history — Paginated raffle participation history.
    * Query params: limit (1–100, default 20), offset (default 0).
    */
+  @Public()
   @Get(':address/history')
   @ApiOperation({ summary: 'Get user raffle participation history' })
   @ApiParam({ name: 'address', description: 'Stellar address of the user' })
   @ApiResponse({ status: 200, description: 'User history retrieved successfully' })
-  @UsePipes(new (createZodPipe(UserHistoryQuerySchema))())
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async getHistory(
     @Param('address') address: string,
     @Query() query: UserHistoryQueryDto,
   ) {
     return this.usersService.getHistory(address, query);
+  }
+
+  /**
+   * GET /users/:address/history/export?format=csv — Full history as a CSV download.
+   * Requires JWT. Rate-limited to 1 request per minute per user.
+   * Must be declared before :address/history/:id to avoid route conflicts.
+   */
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 1, ttl: 60000 } })
+  @Get(':address/history/export')
+  @ApiOperation({ summary: 'Export full raffle participation history as CSV' })
+  @ApiParam({ name: 'address', description: 'Stellar address of the user' })
+  @ApiQuery({ name: 'format', enum: ['csv'], required: false, description: 'Export format (csv)' })
+  @ApiResponse({ status: 200, description: 'CSV file download' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded — 1 export per minute' })
+  async exportHistory(
+    @Param('address') address: string,
+    @CurrentUser('address') currentUserAddress: string,
+    @Res() reply: FastifyReply,
+  ) {
+    if (currentUserAddress !== address) {
+      throw new UnauthorizedException('You can only export your own history');
+    }
+
+    const stream = await this.usersService.getHistoryAsCsvStream(address);
+
+    reply
+      .header('Content-Type', 'text/csv')
+      .header('Content-Disposition', `attachment; filename="history.csv"`)
+      .send(stream);
   }
 }

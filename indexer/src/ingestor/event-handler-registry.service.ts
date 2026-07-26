@@ -1,16 +1,19 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { Injectable, Logger } from "@nestjs/common";
 import { IEventHandler, ContractConfig } from "./event-handler.interface";
 import { xdr } from "@stellar/stellar-sdk";
 import { DomainEvent } from "./event.types";
-import { RawSorobanEvent } from "./event-parser.service";
+import { RawSorobanEvent } from "./event-parser.interface";
 
 /**
  * Registry for managing event handlers across multiple contracts
- * Supports dynamic registration and extensibility
+ * Supports dynamic registration and extensibility.
+ *
+ * Configuration loading and validation is owned by `EventHandlersModule`,
+ * which validates `config/event-handlers.json` at boot (failing fast on bad
+ * config) and then calls {@link registerContract} for each validated contract.
  */
 @Injectable()
-export class EventHandlerRegistry implements OnModuleInit {
+export class EventHandlerRegistry {
   private readonly logger = new Logger(EventHandlerRegistry.name);
 
   // Map: contractAddress -> eventName -> schemaVersion -> handler
@@ -24,85 +27,6 @@ export class EventHandlerRegistry implements OnModuleInit {
 
   // Default handlers used when no contract-specific handler is found
   private readonly defaultHandlers = new Map<string, IEventHandler>();
-
-  constructor(private readonly configService: ConfigService) {}
-
-  async onModuleInit() {
-    await this.loadConfiguration();
-  }
-
-  /**
-   * Load contract configurations from config service or file
-   */
-  private async loadConfiguration(): Promise<void> {
-    try {
-      // Try to load from environment or config file
-      const configPath = this.configService.get<string>(
-        "EVENT_HANDLER_CONFIG_PATH",
-        "config/event-handlers.json",
-      );
-
-      this.logger.log(`Loading event handler configuration from: ${configPath}`);
-
-      // For now, we'll use a default configuration
-      // In production, this would load from a file or database
-      const defaultConfig = this.getDefaultConfiguration();
-
-      for (const contract of defaultConfig.contracts) {
-        if (contract.enabled) {
-          this.registerContract(contract);
-        }
-      }
-
-      this.logger.log(
-        `Loaded ${this.contractConfigs.size} contract configurations`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to load configuration: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      // Fall back to default configuration
-      this.loadDefaultHandlers();
-    }
-  }
-
-  /**
-   * Get default configuration (can be overridden by config file)
-   */
-  private getDefaultConfiguration(): { contracts: ContractConfig[] } {
-    return {
-      contracts: [
-        {
-          address: "default",
-          version: "v1",
-          description: "Default raffle contract",
-          enabled: true,
-          eventHandlers: {
-            RaffleCreated: "RaffleCreatedHandler",
-            TicketPurchased: "TicketPurchasedHandler",
-            DrawTriggered: "DrawTriggeredHandler",
-            RandomnessRequested: "RandomnessRequestedHandler",
-            RandomnessReceived: "RandomnessReceivedHandler",
-            RaffleFinalized: "RaffleFinalizedHandler",
-            RaffleCancelled: "RaffleCancelledHandler",
-            TicketRefunded: "TicketRefundedHandler",
-            ContractPaused: "ContractPausedHandler",
-            ContractUnpaused: "ContractUnpausedHandler",
-            AdminTransferProposed: "AdminTransferProposedHandler",
-            AdminTransferAccepted: "AdminTransferAcceptedHandler",
-          },
-        },
-      ],
-    };
-  }
-
-  /**
-   * Load default handlers for backward compatibility
-   */
-  private loadDefaultHandlers(): void {
-    this.logger.log("Loading default event handlers");
-    // Default handlers will be loaded dynamically
-  }
 
   /**
    * Register a contract and its event handlers
@@ -238,7 +162,10 @@ export class EventHandlerRegistry implements OnModuleInit {
 
     try {
       const parsed = handler.parse(topics, value, rawEvent);
-      return parsed ? { ...parsed, schemaVersion } : null;
+      if (!parsed) return null;
+      // Prefer the version the handler resolved; fall back to the routing
+      // version so every parsed event carries a schema version.
+      return { ...parsed, schemaVersion: parsed.schemaVersion ?? schemaVersion };
     } catch (error) {
       this.logger.error(
         `Handler failed for ${eventName}: ${error instanceof Error ? error.message : String(error)}`,

@@ -46,6 +46,14 @@ export interface CreateRaffleResult {
   ledger: number;
 }
 
+/** Pre-confirmation fee preview for raffle creation (no submission). */
+export interface CreateRaffleEstimate {
+  /** Estimated network fee in human-readable XLM (7 decimal places). */
+  xlm: string;
+  /** Estimated network fee in stroops. */
+  stroops: string;
+}
+
 /** On-chain raffle data. */
 export interface RaffleData {
   raffleId: number;
@@ -80,4 +88,62 @@ export interface CancelRaffleParams {
    * Supports text (≤28 bytes), numeric id, or 32-byte hash.
    */
   memo?: TxMemo;
+}
+
+// ─── Lifecycle additions (issue #602) ────────────────────────────────────────
+
+/**
+ * Valid state transitions in the raffle contract state machine:
+ *
+ *  Open ──► Drawing  (trigger_draw)
+ *  Drawing ──► Finalized (receive_randomness → internal finalization)
+ *  Open ──► Cancelled (cancel_raffle)
+ *
+ * Any other transition is rejected by the contract and surfaced as
+ * `RaffleStateError`.
+ */
+export type RaffleTransition =
+  | 'open→drawing'
+  | 'drawing→finalized'
+  | 'open→cancelled';
+
+/**
+ * Thrown when an operation is attempted in an invalid state.
+ * E.g. calling `triggerDraw` on an already-finalized raffle.
+ */
+export class RaffleStateError extends Error {
+  constructor(
+    public readonly raffleId: number,
+    public readonly currentStatus: RaffleStatus,
+    public readonly attempted: RaffleTransition,
+  ) {
+    super(
+      `Raffle ${raffleId} is in state ${RaffleStatus[currentStatus]} — ` +
+        `transition "${attempted}" is not allowed.`,
+    );
+    this.name = 'RaffleStateError';
+    Object.setPrototypeOf(this, RaffleStateError.prototype);
+  }
+}
+
+/** Parameters for triggering the draw on an open raffle. */
+export interface TriggerDrawParams {
+  raffleId: number;
+  memo?: TxMemo;
+}
+
+/** Result returned after triggering the draw. */
+export interface TriggerDrawResult {
+  txHash: string;
+  ledger: number;
+}
+
+/** Result returned after a raffle is finalized with a winner. */
+export interface WinnerResult {
+  raffleId: number;
+  winner: string;
+  winningTicketId: number;
+  prizeAmount: string;
+  txHash?: string;
+  ledger?: number;
 }

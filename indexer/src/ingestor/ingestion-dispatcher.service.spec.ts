@@ -140,4 +140,78 @@ describe('IngestionDispatcherService', () => {
       ),
     );
   });
+
+  describe('schema versioning', () => {
+    it('processes a supported (v1) event normally', async () => {
+      const { service, raffleProcessor } = makeService();
+
+      const result = await service.dispatch(
+        {
+          type: 'RaffleCancelled',
+          schemaVersion: 1,
+          raffle_id: 1,
+          reason: 'expired',
+        },
+        raw,
+      );
+
+      expect(result.outcome).toBe('succeeded');
+      expect(raffleProcessor.handleRaffleCancelled).toHaveBeenCalled();
+    });
+
+    it('dead-letters an unsupported schema version without running a handler', async () => {
+      const { service, raffleProcessor, dlq } = makeService();
+
+      const result = await service.dispatch(
+        {
+          type: 'RaffleCancelled',
+          schemaVersion: 99,
+          raffle_id: 1,
+          reason: 'expired',
+        },
+        raw,
+      );
+
+      expect(result.outcome).toBe('failed');
+      // The handler/processor must NOT run for an unsupported version.
+      expect(raffleProcessor.handleRaffleCancelled).not.toHaveBeenCalled();
+
+      const records = dlq.getRecords();
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        eventType: 'RaffleCancelled',
+        schemaVersion: 99,
+        reason: 'SCHEMA_UNSUPPORTED',
+      });
+      expect(records[0].errorMessage).toContain('Unsupported schema version');
+    });
+
+    it('records schema version and HANDLER_ERROR reason on handler failure', async () => {
+      const { service, ticketProcessor, dlq } = makeService();
+      ticketProcessor.handleTicketPurchased.mockRejectedValueOnce(
+        new Error('write failed'),
+      );
+
+      const result = await service.dispatch(
+        {
+          type: 'TicketPurchased',
+          schemaVersion: 1,
+          raffle_id: 1,
+          buyer: 'GBUYER',
+          ticket_ids: [1],
+          total_paid: '100',
+        },
+        raw,
+      );
+
+      expect(result.outcome).toBe('failed');
+      const records = dlq.getRecords();
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        eventType: 'TicketPurchased',
+        schemaVersion: 1,
+        reason: 'HANDLER_ERROR',
+      });
+    });
+  });
 });

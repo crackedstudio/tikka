@@ -6,8 +6,8 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 describe('GeoMiddleware', () => {
   let middleware: GeoMiddleware;
   let geoService: jest.Mocked<GeoService>;
-  let mockRequest: Partial<FastifyRequest>;
-  let mockResponse: Partial<FastifyReply>;
+  let mockRequest: any;
+  let mockResponse: any;
   let mockNext: jest.Mock;
 
   beforeEach(async () => {

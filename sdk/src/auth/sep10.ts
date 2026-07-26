@@ -29,6 +29,38 @@ export interface VerifyResponseOptions {
   nonceValidator: (nonceBase64: string) => boolean | Promise<boolean>;
 }
 
+export type ChallengeCreationOptions = BuildChallengeOptions;
+export type ChallengeVerificationOptions = VerifyResponseOptions;
+
+export enum Sep10VerificationErrorCode {
+  InvalidXdr = 'INVALID_XDR',
+  WrongServerAccount = 'WRONG_SERVER_ACCOUNT',
+  WrongSequenceNumber = 'WRONG_SEQUENCE_NUMBER',
+  MissingTimebounds = 'MISSING_TIMEBOUNDS',
+  InvalidTimebounds = 'INVALID_TIMEBOUNDS',
+  ChallengeTtlExceeded = 'CHALLENGE_TTL_EXCEEDED',
+  ChallengeNotYetValid = 'CHALLENGE_NOT_YET_VALID',
+  ChallengeExpired = 'CHALLENGE_EXPIRED',
+  MissingAnchorChallengeData = 'MISSING_ANCHOR_CHALLENGE_DATA',
+  InvalidNonce = 'INVALID_NONCE',
+  NonceRejected = 'NONCE_REJECTED',
+  InvalidSignature = 'INVALID_SIGNATURE',
+  MissingServerSignature = 'MISSING_SERVER_SIGNATURE',
+  MissingClientSignature = 'MISSING_CLIENT_SIGNATURE',
+  UnexpectedManageDataKey = 'UNEXPECTED_MANAGE_DATA_KEY',
+}
+
+export class Sep10VerificationError extends Error {
+  constructor(public code: Sep10VerificationErrorCode, message: string) {
+    super(message);
+    this.name = 'Sep10VerificationError';
+  }
+}
+
+function createVerificationError(code: Sep10VerificationErrorCode, message: string): never {
+  throw new Sep10VerificationError(code, message);
+}
+
 /**
  * Create a nonce validator backed by an in-memory TTL map.
  *
@@ -194,46 +226,90 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   let transaction: Transaction;
   try {
     transaction = new Transaction(signedChallenge, networkPassphrase);
-  } catch (err) {
+  } catch {
     throw new Error('Invalid signedChallenge xdr');
+    createVerificationError(Sep10VerificationErrorCode.InvalidXdr, 'Invalid signedChallenge xdr or network passphrase');
   }
 
-  assert(transaction.source === serverAccount, 'Transaction source must match server account');
-  assert(transaction.sequence === '0', 'Transaction sequence number must be 0');
+  if (transaction.source !== serverAccount) {
+    createVerificationError(
+      Sep10VerificationErrorCode.WrongServerAccount,
+      'Transaction source must match server account',
+    );
+  }
+
+  if (transaction.sequence !== '0') {
+    createVerificationError(
+      Sep10VerificationErrorCode.WrongSequenceNumber,
+      'Transaction sequence number must be 0',
+    );
+  }
 
   const timeBounds = transaction.timeBounds;
   if (!timeBounds || timeBounds.minTime == null || timeBounds.maxTime == null) {
-    throw new Error('Transaction must include timebounds');
+    createVerificationError(
+      Sep10VerificationErrorCode.MissingTimebounds,
+      'Transaction must include timebounds',
+    );
   }
 
   const minTime = Number(timeBounds.minTime);
   const maxTime = Number(timeBounds.maxTime);
 
-  assert(!Number.isNaN(minTime) && !Number.isNaN(maxTime), 'Timebounds must be numbers');
-  assert(maxTime > minTime, 'Timebounds maxTime must be greater than minTime');
+  if (Number.isNaN(minTime) || Number.isNaN(maxTime)) {
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidTimebounds,
+      'Timebounds must be numbers',
+    );
+  }
+
+  if (maxTime <= minTime) {
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidTimebounds,
+      'Timebounds maxTime must be greater than minTime',
+    );
+  }
 
   if (maxChallengeAge != null) {
     assert(
       Number.isInteger(maxChallengeAge) && maxChallengeAge > 0,
       'maxChallengeAge should be positive integer',
     );
-    assert(maxTime - minTime <= maxChallengeAge, 'Challenge TTL exceeds maxChallengeAge');
+    if (maxTime - minTime > maxChallengeAge) {
+      createVerificationError(
+        Sep10VerificationErrorCode.ChallengeTtlExceeded,
+        'Challenge TTL exceeds maxChallengeAge',
+      );
+    }
   }
 
-  assert(now >= minTime, 'Challenge not yet valid');
-  assert(now <= maxTime, 'Challenge has expired');
+  if (now < minTime) {
+    createVerificationError(
+      Sep10VerificationErrorCode.ChallengeNotYetValid,
+      'Challenge not yet valid',
+    );
+  }
+
+  if (now > maxTime) {
+    createVerificationError(
+      Sep10VerificationErrorCode.ChallengeExpired,
+      'Challenge has expired',
+    );
+  }
 
   if (transaction.operations.length === 0) {
     throw new Error('Transaction must include at least one operation');
   }
 
   let hasAnchorChallengeData = false;
-  let hasWebAuthDomainOp = false;
   let nonceValue: Buffer | undefined;
 
   for (const operation of transaction.operations) {
     if (operation.type !== 'manageData') {
-      throw new Error('Only manageData operations are allowed in a SEP-10 challenge');
+      createVerificationError(
+        Sep10VerificationErrorCode.InvalidSignature,
+        'Only manageData operations are allowed in a SEP-10 challenge',
+      );
     }
 
     if (operation.name === `${anchorDomain} auth`) {
@@ -243,26 +319,41 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
       assert(normalized.length >= 16, 'Challenge nonce must be at least 16 bytes');
       assert(normalized.length <= 64, 'Challenge nonce must be at most 64 bytes');
       nonceValue = normalized;
-    } else if (operation.name === 'web_auth_domain') {
-      hasWebAuthDomainOp = true;
+      } else if (operation.name === 'web_auth_domain') {
       assert(operation.value !== undefined, 'web_auth_domain value must be set if present');
       const normalized = normalizeBufferString(operation.value).toString('utf8');
       assert(normalized.length > 0, 'web_auth_domain must be non-empty');
     } else {
-      throw new Error(`Unexpected manageData key: ${operation.name}`);
+      createVerificationError(
+        Sep10VerificationErrorCode.UnexpectedManageDataKey,
+        `Unexpected manageData key: ${operation.name}`,
+      );
     }
   }
 
-  assert(hasAnchorChallengeData, 'Challenge must contain anchorDomain auth manageData');
+  if (!hasAnchorChallengeData) {
+    createVerificationError(
+      Sep10VerificationErrorCode.MissingAnchorChallengeData,
+      'Challenge must contain anchorDomain auth manageData',
+    );
+  }
 
   if (!nonceValue) {
-    throw new Error('Nonce buffer is required');
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidNonce,
+      'Nonce buffer is required',
+    );
   }
 
   const nonceBase64 = nonceValue.toString('base64');
 
   const valid = await Promise.resolve(nonceValidator(nonceBase64));
-  assert(valid === true, 'Nonce validation rejected (possible replay attack)');
+  if (valid !== true) {
+    createVerificationError(
+      Sep10VerificationErrorCode.NonceRejected,
+      'Nonce validation rejected (possible replay attack)',
+    );
+  }
 
   const serverKeypair = Keypair.fromPublicKey(serverAccount);
   const clientKeypair = Keypair.fromPublicKey(clientAccount);
@@ -273,11 +364,17 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   const hash = transaction.hash();
 
   if (!transaction.signatures || transaction.signatures.length === 0) {
-    throw new Error('Challenge response transaction must include signatures');
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidSignature,
+      'Challenge response transaction must include signatures',
+    );
   }
 
   if (transaction.signatures.length !== 2) {
-    throw new Error('Challenge response must contain exactly two signatures: server and client');
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidSignature,
+      'Challenge response must contain exactly two signatures: server and client',
+    );
   }
 
   for (const signature of transaction.signatures) {
@@ -292,11 +389,25 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
       continue;
     }
 
-    throw new Error('Found invalid signature in challenge response');
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidSignature,
+      'Found invalid signature in challenge response',
+    );
   }
 
-  assert(hasServerSignature, 'Server signature is missing from response');
-  assert(hasClientSignature, 'Client signature is missing from response');
+  if (!hasServerSignature) {
+    createVerificationError(
+      Sep10VerificationErrorCode.MissingServerSignature,
+      'Server signature is missing from response',
+    );
+  }
+
+  if (!hasClientSignature) {
+    createVerificationError(
+      Sep10VerificationErrorCode.MissingClientSignature,
+      'Client signature is missing from response',
+    );
+  }
 
   return clientAccount;
 }

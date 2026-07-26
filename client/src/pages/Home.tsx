@@ -1,6 +1,5 @@
 import BrowseRaffles from "../components/home/BrowseRaffles";
-import RaffleCardSkeleton from "../components/cards/RaffleCardSkeleton";
-import FeaturedRaffleCardSkeleton from "../components/cards/FeaturedRaffleCardSkeleton";
+import FollowedCreatorsRaffles from "../components/home/FollowedCreatorsRaffles";
 import FeaturedRaffle from "../components/landing/FeaturedRaffle";
 import TrendingRaffles from "../components/landing/TrendingRaffles";
 import VerifiedBadge from "../components/VerifiedBadge";
@@ -35,7 +34,7 @@ const Home = () => {
 
     const initialLimit = cached ? cached.offset + PAGE_SIZE : PAGE_SIZE;
 
-    const { raffles, total, error, isLoading: rafflesLoading, refetch } = useRaffles({
+    const { raffles, total, status, error, refetch, retry } = useRaffles({
         status: "open",
         limit: initialLimit,
     });
@@ -70,7 +69,7 @@ const Home = () => {
 
     const sentinelRef = useIntersectionObserver(handleLoadMore, {
         rootMargin: "200px",
-        enabled: hasMore && !loadingMore && !rafflesLoading,
+        enabled: hasMore && !loadingMore && !status.isLoading,
     });
 
     useEffect(() => {
@@ -84,14 +83,14 @@ const Home = () => {
     }, [allRaffles.length]);
 
     useEffect(() => {
-        if (!rafflesLoading && cached && cached.scrollY > 0) {
+        if (!status.isLoading && cached && cached.scrollY > 0) {
             const timer = setTimeout(() => {
                 window.scrollTo({ top: cached.scrollY, behavior: "auto" });
                 sessionStorage.removeItem(SCROLL_CACHE_KEY);
             }, 100);
             return () => clearTimeout(timer);
         }
-    }, [rafflesLoading, cached]);
+    }, [status.isLoading, cached]);
 
     return (
         <div className="bg-gray-50 dark:bg-[#060C23] text-gray-900 dark:text-white flex flex-col space-y-16">
@@ -99,7 +98,7 @@ const Home = () => {
             <FollowedCreatorsRaffles />
             <FeaturedRaffle isSignedIn={true} />
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 flex flex-col min-h-[50vh]">
-                {rafflesLoading ? (
+                {status.isLoading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {Array.from({ length: PAGE_SIZE }).map((_, i) => (
                             <RaffleCardSkeleton key={i} />
@@ -109,10 +108,10 @@ const Home = () => {
                     <ErrorMessage
                         title={t("home.failedToLoad")}
                         message={error.message}
-                        onRetry={refetch}
-                        disabled={rafflesLoading}
+                        onRetry={retry}
+                        disabled={status.isLoading}
                     />
-                ) : allRaffles.length === 0 ? (
+                ) : status.isEmpty ? (
                     <div className="text-center py-12">
                         <div className="text-gray-900 dark:text-white text-lg">
                             {t("home.noActiveRaffles")}

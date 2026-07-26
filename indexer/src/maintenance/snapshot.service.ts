@@ -21,10 +21,23 @@ export interface SnapshotData {
   cursor: IndexerCursorEntity | null;
 }
 
-export interface SnapshotWrapper {
+export interface SnapshotManifest {
   schemaVersion: string;
-  timestamp: string;
+  exportedAt: string;
+  ledgerRange: {
+    min: number;
+    max: number;
+  };
+  entityCounts: {
+    raffles: number;
+    tickets: number;
+    users: number;
+  };
   checksum: string;
+}
+
+export interface SnapshotWrapper {
+  manifest: SnapshotManifest;
   data: SnapshotData;
 }
 
@@ -62,10 +75,23 @@ export class SnapshotService {
     const dataJson = JSON.stringify(data);
     const checksum = crypto.createHash("sha256").update(dataJson).digest("hex");
 
-    const wrapper: SnapshotWrapper = {
+    const manifest: SnapshotManifest = {
       schemaVersion: this.schemaVersion,
-      timestamp: new Date().toISOString(),
+      exportedAt: new Date().toISOString(),
+      ledgerRange: {
+        min: 0,
+        max: data.cursor?.lastLedger || 0,
+      },
+      entityCounts: {
+        raffles: data.raffles.length,
+        tickets: data.tickets.length,
+        users: data.users.length,
+      },
       checksum,
+    };
+
+    const wrapper: SnapshotWrapper = {
+      manifest,
       data,
     };
 
@@ -83,28 +109,43 @@ export class SnapshotService {
    * Performs schema version and checksum verification.
    * Rollbacks entire transaction on failure.
    */
-  async importSnapshot(filename: string): Promise<void> {
-    this.logger.log(`Starting snapshot import from ${filename}...`);
+  async importSnapshot(filename: string, dryRun = false): Promise<SnapshotManifest> {
+    this.logger.log(`Starting snapshot import from ${filename} (dryRun: ${dryRun})...`);
 
     const compressed = await this.downloadFromS3(filename);
     const decompressed = await gunzip(compressed);
     const wrapper: SnapshotWrapper = JSON.parse(decompressed.toString());
+    const { manifest, data } = wrapper;
 
     // 1. Verify schema version
-    if (wrapper.schemaVersion !== this.schemaVersion) {
+    if (manifest.schemaVersion !== this.schemaVersion) {
       throw new Error(
-        `Incompatible schema version: expected ${this.schemaVersion}, got ${wrapper.schemaVersion}`,
+        `Incompatible schema version: expected ${this.schemaVersion}, got ${manifest.schemaVersion}`,
       );
     }
 
     // 2. Verify checksum
-    const dataJson = JSON.stringify(wrapper.data);
+    const dataJson = JSON.stringify(data);
     const actualChecksum = crypto.createHash("sha256").update(dataJson).digest("hex");
-    if (actualChecksum !== wrapper.checksum) {
+    if (actualChecksum !== manifest.checksum) {
       throw new Error(`Checksum mismatch: snapshot might be corrupted`);
     }
 
-    // 3. Perform import in a transaction
+    // 3. Verify entity counts
+    if (
+      data.raffles.length !== manifest.entityCounts.raffles ||
+      data.tickets.length !== manifest.entityCounts.tickets ||
+      data.users.length !== manifest.entityCounts.users
+    ) {
+      throw new Error(`Entity count mismatch: snapshot manifest entity counts do not match data`);
+    }
+
+    if (dryRun) {
+      this.logger.log("Dry run successful. Skipping database transaction.");
+      return manifest;
+    }
+
+    // 4. Perform import in a transaction
     await this.dataSource.transaction(async (manager) => {
       this.logger.log("Clearing existing tables...");
       
@@ -133,9 +174,28 @@ export class SnapshotService {
     });
 
     this.logger.log("Snapshot imported successfully");
+    return manifest;
   }
 
   private async uploadToS3(filename: string, data: Buffer): Promise<void> {
+    const storageUrl = this.configService.get<string>("SNAPSHOT_STORAGE_URL");
+    if (storageUrl?.startsWith("file://")) {
+      const fs = require("fs");
+      const path = require("path");
+      // Use URL constructor to handle Windows paths like file:///C:/temp or file://temp properly
+      // For simplicity, if it's file://test, we just use test. Or if file:///test, use /test.
+      let dir = storageUrl.slice("file://".length);
+      // Remove leading slash if on Windows (e.g., file:///C:/...)
+      if (process.platform === 'win32' && dir.startsWith('/')) {
+        dir = dir.slice(1);
+      }
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(dir, filename), data);
+      return;
+    }
+
     const { client, bucket, keyPrefix } = this.getS3Config();
     const key = keyPrefix ? `${keyPrefix}/${filename}` : filename;
 
@@ -150,6 +210,17 @@ export class SnapshotService {
   }
 
   private async downloadFromS3(filename: string): Promise<Buffer> {
+    const storageUrl = this.configService.get<string>("SNAPSHOT_STORAGE_URL");
+    if (storageUrl?.startsWith("file://")) {
+      const fs = require("fs");
+      const path = require("path");
+      let dir = storageUrl.slice("file://".length);
+      if (process.platform === 'win32' && dir.startsWith('/')) {
+        dir = dir.slice(1);
+      }
+      return fs.readFileSync(path.join(dir, filename));
+    }
+
     const { client, bucket, keyPrefix } = this.getS3Config();
     const key = keyPrefix ? `${keyPrefix}/${filename}` : filename;
 

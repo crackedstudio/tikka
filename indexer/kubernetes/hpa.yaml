@@ -1,7 +1,8 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: tikka-indexer
+  name: tikka-indexer-hpa
+  namespace: tikka
   labels:
     app: tikka-indexer
 spec:

@@ -2,7 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { rpc, xdr } from '@stellar/stellar-sdk';
 import { DEFAULT_RPC_CONFIG } from './network.config';
 import type { NetworkConfig, RpcConfig } from './network.config';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import {
+  TikkaSdkError,
+  TikkaSdkErrorCode,
+  RpcTimeoutError,
+  RateLimitError,
+  UnavailableError,
+  InvalidResponseError,
+  ContractFailureError,
+} from '../utils/errors';
 import { withRetry } from '../utils/retry';
 
 
@@ -18,6 +26,9 @@ interface RequestOptions {
 export class RpcService {
   private server: rpc.Server;
   private rpcConfig: RpcConfig;
+  private circuitState: 'closed' | 'open' | 'half-open' = 'closed';
+  private consecutiveFailures = 0;
+  private circuitOpenedAt: number | null = null;
 
   constructor(
     private readonly networkConfig: NetworkConfig,
@@ -107,7 +118,7 @@ export class RpcService {
   /**
    * Estimate fee using Horizon's fee stats endpoint.
    */
-  async estimateFee(operation?: xdr.Operation): Promise<{ minFee: number; suggestedFee: number }> {
+  async estimateFee(_operation?: xdr.Operation): Promise<{ minFee: number; suggestedFee: number }> {
     const fetchClient = this.resolveFetchClient();
     try {
       const response = await fetchClient(`${this.networkConfig.horizonUrl}/fee_stats`);
@@ -125,6 +136,78 @@ export class RpcService {
     }
   }
 
+  /** Get the current state of the circuit breaker */
+  getCircuitState(): 'closed' | 'open' | 'half-open' {
+    if (this.circuitState === 'open') {
+      const resetTimeout = this.rpcConfig.circuitBreakerResetTimeoutMs ?? 10_000;
+      const elapsed = Date.now() - (this.circuitOpenedAt ?? 0);
+      if (elapsed >= resetTimeout) {
+        this.circuitState = 'half-open';
+      }
+    }
+    return this.circuitState;
+  }
+
+  /**
+   * Returns true if the service is operating in a degraded mode:
+   * - Circuit breaker is open or half-open, OR
+   * - Currently experiencing consecutive failures (> 0)
+   */
+  isDegraded(): boolean {
+    return this.getCircuitState() !== 'closed' || this.consecutiveFailures > 0;
+  }
+
+  private checkCircuitBreaker(): void {
+    const state = this.getCircuitState();
+    if (state === 'open') {
+      const resetTimeout = this.rpcConfig.circuitBreakerResetTimeoutMs ?? 10_000;
+      const elapsed = Date.now() - (this.circuitOpenedAt ?? 0);
+      const remaining = resetTimeout - elapsed;
+      throw new UnavailableError(
+        `Circuit breaker is OPEN. Request blocked. Cooldown remaining: ${remaining > 0 ? remaining : 0}ms`,
+        { remainingMs: remaining > 0 ? remaining : 0 }
+      );
+    }
+  }
+
+  private recordSuccess(): void {
+    if (this.circuitState === 'half-open') {
+      this.circuitState = 'closed';
+      console.log(`[RpcService] Circuit breaker recovered. State set to CLOSED.`);
+    }
+    this.consecutiveFailures = 0;
+  }
+
+  private recordFailure(error: any): void {
+    const isInfraError =
+      error instanceof RpcTimeoutError ||
+      error instanceof RateLimitError ||
+      error instanceof UnavailableError ||
+      error?.code === TikkaSdkErrorCode.NetworkError ||
+      error?.code === TikkaSdkErrorCode.Timeout;
+
+    if (!isInfraError) {
+      return;
+    }
+
+    const threshold = this.rpcConfig.circuitBreakerFailureThreshold ?? 5;
+
+    if (this.circuitState === 'closed') {
+      this.consecutiveFailures++;
+      if (this.consecutiveFailures >= threshold) {
+        this.circuitState = 'open';
+        this.circuitOpenedAt = Date.now();
+        console.warn(
+          `[RpcService] Circuit breaker tripped to OPEN after ${this.consecutiveFailures} consecutive failures.`
+        );
+      }
+    } else if (this.circuitState === 'half-open') {
+      this.circuitState = 'open';
+      this.circuitOpenedAt = Date.now();
+      console.warn(`[RpcService] Circuit breaker probe failed. Re-entered OPEN state.`);
+    }
+  }
+
   /**
    * Internal request handler with automatic failover and custom transport.
    */
@@ -133,6 +216,8 @@ export class RpcService {
     params: any[] = [],
     options: RequestOptions = {},
   ): Promise<T> {
+    this.checkCircuitBreaker();
+
     const endpoints = [
       this.rpcConfig.endpoint ?? this.networkConfig.rpcUrl,
       ...(this.rpcConfig.failoverEndpoints || []),
@@ -141,12 +226,16 @@ export class RpcService {
 
     for (const url of endpoints) {
       try {
-        return await this.executeRequest<T>(url, method, params, options);
+        const result = await this.executeRequest<T>(url, method, params, options);
+        this.recordSuccess();
+        return result;
       } catch (error) {
         lastError = error;
         continue;
       }
     }
+
+    this.recordFailure(lastError);
 
     if (lastError instanceof TikkaSdkError) throw lastError;
     throw new TikkaSdkError(
@@ -174,7 +263,7 @@ export class RpcService {
         maxAttempts: this.rpcConfig.maxRetryAttempts ?? 3,
         baseDelayMs: this.rpcConfig.retryBaseDelayMs ?? 500,
         maxDelayMs: this.rpcConfig.maxRetryDelayMs ?? 8000,
-        retryOn: this.rpcConfig.retryableStatusCodes ?? [503, 429, 'ECONNRESET'],
+        retryOn: this.rpcConfig.retryableStatusCodes ?? [429, 502, 503, 504, 'RATE_LIMIT', 'UNAVAILABLE', 'TIMEOUT', 'ECONNRESET'],
         onRetry: (attempt, error, delay) => {
           console.warn(
             `[RpcService] ${method} retry ${attempt} in ${Math.round(delay)}ms (${url}): ${error?.message ?? error}`,
@@ -211,32 +300,61 @@ export class RpcService {
       });
 
       if (!response.ok) {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.NetworkError,
-          `RPC request failed: ${response.statusText}`,
-          { status: response.status },
-        );
+        if (response.status === 429) {
+          throw new RateLimitError(`Rate limit exceeded: ${response.statusText}`, { status: 429 });
+        }
+        if ([502, 503, 504].includes(response.status)) {
+          throw new UnavailableError(`Service unavailable: ${response.statusText}`, { status: response.status });
+        }
+        throw new InvalidResponseError(`RPC request failed: ${response.statusText}`, { status: response.status });
       }
 
-      const payload = await response.json();
+      let payload: any;
+      try {
+        payload = await response.json();
+      } catch (err: any) {
+        throw new InvalidResponseError('Failed to parse RPC response as JSON', err);
+      }
+
+      if (!payload || (payload.result === undefined && payload.error === undefined)) {
+        throw new InvalidResponseError('Malformed RPC response: missing both result and error fields', payload);
+      }
+
       if (payload.error) {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.SimulationFailed,
-          payload.error.message || 'Unknown RPC error',
-          payload.error,
-        );
+        const errorMsg = payload.error.message || 'Unknown RPC error';
+        const isContractErr = errorMsg.includes('ContractError') || errorMsg.includes('HostValidationError') || payload.error.code === -32603;
+        if (isContractErr) {
+          throw new ContractFailureError(`Contract execution failed: ${errorMsg}`, payload.error);
+        } else {
+          throw new ContractFailureError(`RPC execution failed: ${errorMsg}`, payload.error);
+        }
       }
 
       return payload.result as T;
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.Timeout,
-          `Request timed out after ${timeoutMs}ms`,
-          error,
-        );
+      if (error.name === 'AbortError' || error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
+        throw new RpcTimeoutError(`Request timed out after ${timeoutMs}ms`, error);
       }
-      throw error;
+
+      if (
+        error instanceof RateLimitError ||
+        error instanceof UnavailableError ||
+        error instanceof InvalidResponseError ||
+        error instanceof ContractFailureError ||
+        error instanceof RpcTimeoutError
+      ) {
+        throw error;
+      }
+
+      const isSystemNetworkError = ['ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EADDRINUSE'].includes(error.code) ||
+        error.message?.includes('fetch failed') ||
+        error.message?.includes('NetworkError');
+
+      if (isSystemNetworkError) {
+        throw new UnavailableError(`RPC network connection failed: ${error.message}`, error);
+      }
+
+      throw new UnavailableError(`RPC request failed: ${error.message}`, error);
     } finally {
       clearTimeout(timer);
     }

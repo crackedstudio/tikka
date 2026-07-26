@@ -1,6 +1,7 @@
+import { OracleLoggerService } from '../../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { Keypair } from '@stellar/stellar-sdk';
-import { KeyProvider } from '../key-provider.interface';
+import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
 
 /**
  * Environment-based KeyProvider.
@@ -13,10 +14,10 @@ import { KeyProvider } from '../key-provider.interface';
  */
 @Injectable()
 export class EnvKeyProvider implements KeyProvider {
-  private readonly logger = new Logger(EnvKeyProvider.name);
+  
   private keypair: Keypair;
 
-  constructor(privateKey: string) {
+  constructor(private readonly logger: OracleLoggerService, privateKey: string) {
     if (!privateKey) {
       throw new Error('Private key is required for EnvKeyProvider');
     }
@@ -52,5 +53,47 @@ export class EnvKeyProvider implements KeyProvider {
    */
   getSecretBuffer(): Buffer {
     return this.keypair.rawSecretKey();
+  }
+
+  /**
+   * Probes the env key provider and returns a safe health snapshot.
+   *
+   * Because the key is held in memory there is no remote call to make.
+   * The health check simply verifies that the keypair is still loaded and
+   * readable, then returns the public key as the active key identifier.
+   *
+   * SECURITY: only the public key (G-address) is included — never the secret.
+   */
+  async getProviderHealth(): Promise<KeyProviderHealth> {
+    const checkedAt = new Date().toISOString();
+    try {
+      // Verify the keypair is intact and the public key is readable.
+      const publicKey = this.keypair.publicKey();
+      if (!publicKey) {
+        return {
+          status: 'unknown',
+          activeKeyId: null,
+          message: 'Keypair is loaded but publicKey() returned an empty value.',
+          checkedAt,
+          providerType: this.getProviderType(),
+        };
+      }
+      return {
+        status: 'healthy',
+        activeKeyId: publicKey,
+        message: 'Env key provider is healthy. Key is loaded and accessible.',
+        checkedAt,
+        providerType: this.getProviderType(),
+      };
+    } catch {
+      // Intentionally not forwarding the raw error to avoid leaking key material.
+      return {
+        status: 'unknown',
+        activeKeyId: null,
+        message: 'An unexpected error occurred while reading the in-memory keypair.',
+        checkedAt,
+        providerType: this.getProviderType(),
+      };
+    }
   }
 }

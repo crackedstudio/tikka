@@ -1,11 +1,6 @@
-import { z } from 'zod';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-
-/** Query params for GET /users/:address/history */
-export const UserHistoryQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
-  offset: z.coerce.number().int().min(0).default(0).optional(),
-});
+import { Type } from 'class-transformer';
+import { IsOptional, IsInt, Min, Max } from 'class-validator';
 
 export class UserHistoryQueryDto {
   @ApiPropertyOptional({
@@ -14,12 +9,21 @@ export class UserHistoryQueryDto {
     maximum: 100,
     default: 20,
   })
-  limit?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
 
   @ApiPropertyOptional({
     description: 'Number of records to skip',
     minimum: 0,
     default: 0,
   })
-  offset?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number = 0;
 }

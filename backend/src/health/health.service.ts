@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { env } from '../config/env.config';
+import { PushNotificationService, DeliveryMetrics } from '../services/push-notification.service';
+import { MaintenanceModeService } from '../maintenance/maintenance-mode.service';
 
 export interface HealthResult {
   status: 'ok' | 'degraded';
   indexer: 'ok' | 'error';
   supabase: 'ok' | 'error';
+  /** Push delivery failure counts since process start, by class. */
+  pushDelivery: DeliveryMetrics;
   timestamp: string;
+  maintenance?: boolean;
 }
 
 @Injectable()
@@ -16,7 +21,11 @@ export class HealthService {
   private readonly supabaseUrl: string;
   private readonly supabaseKey: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly pushNotificationService: PushNotificationService,
+    private readonly maintenanceService: MaintenanceModeService,
+  ) {
     this.indexerUrl = this.config
       .getOrThrow<string>('INDEXER_URL')
       .replace(/\/$/, '');
@@ -36,7 +45,16 @@ export class HealthService {
     const status: 'ok' | 'degraded' =
       indexer === 'error' || supabase === 'error' ? 'degraded' : 'ok';
 
-    return { status, indexer, supabase, timestamp: new Date().toISOString() };
+    const maintenance = this.maintenanceService.isEnabled();
+
+    return {
+      status,
+      indexer,
+      supabase,
+      pushDelivery: this.pushNotificationService.getDeliveryMetrics(),
+      timestamp: new Date().toISOString(),
+      ...(maintenance && { maintenance }),
+    };
   }
 
   /**

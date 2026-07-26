@@ -1,21 +1,23 @@
-/**
+t/**
  * Settings Page
  *
  * User settings and preferences management
- * Includes notification preferences and account settings
+ * Separates concerns into discrete settings components
  */
 
-import { useState } from 'react';
-import { Settings as SettingsIcon, Bell, User } from 'lucide-react';
-import NotificationPreferences from '../components/NotificationPreferences';
-import { useAuthContext } from '../providers/AuthProvider';
-import { Breadcrumbs } from '../components/ui/Breadcrumbs';
+import { useState } from "react";
+import { Settings as SettingsIcon, Bell, User, Globe } from "lucide-react";
+import NotificationPreferencesSection from "../components/settings/NotificationPreferencesSection";
+import ProfileSection from "../components/settings/ProfileSection";
+import LanguageSection from "../components/settings/LanguageSection";
+import { useAuthContext } from "../providers";
+import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
-type SettingsTab = 'notifications' | 'profile';
+type SettingsTab = "notifications" | "profile" | "language";
 
 export default function Settings() {
-  const { isAuthenticated, address } = useAuthContext();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('notifications');
+  const { isAuthenticated } = useAuthContext();
+  const [activeTab, setActiveTab] = useState<SettingsTab>("notifications");
 
   if (!isAuthenticated) {
     return (
@@ -37,22 +39,20 @@ export default function Settings() {
         <Breadcrumbs />
       </div>
 
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
         <p className="text-gray-400">Manage your account and preferences</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b border-gray-700">
         <button
-          onClick={() => setActiveTab('notifications')}
+          onClick={() => setActiveTab("notifications")}
           className={`
             flex items-center gap-2 px-6 py-3 font-medium transition-colors
             ${
-              activeTab === 'notifications'
-                ? 'text-purple-400 border-b-2 border-purple-400'
-                : 'text-gray-400 hover:text-gray-700 dark:text-gray-300'
+              activeTab === "notifications"
+                ? "text-purple-400 border-b-2 border-purple-400"
+                : "text-gray-400 hover:text-gray-700 dark:text-gray-300"
             }
           `}
         >
@@ -60,47 +60,41 @@ export default function Settings() {
           Notifications
         </button>
         <button
-          onClick={() => setActiveTab('profile')}
+          onClick={() => setActiveTab("profile")}
           className={`
             flex items-center gap-2 px-6 py-3 font-medium transition-colors
             ${
-              activeTab === 'profile'
-                ? 'text-purple-400 border-b-2 border-purple-400'
-                : 'text-gray-400 hover:text-gray-700 dark:text-gray-300'
+              activeTab === "profile"
+                ? "text-purple-400 border-b-2 border-purple-400"
+                : "text-gray-400 hover:text-gray-700 dark:text-gray-300"
             }
           `}
         >
           <User className="w-5 h-5" />
           Profile
         </button>
+        <button
+          onClick={() => setActiveTab("language")}
+          className={`
+            flex items-center gap-2 px-6 py-3 font-medium transition-colors
+            ${
+              activeTab === "language"
+                ? "text-purple-400 border-b-2 border-purple-400"
+                : "text-gray-400 hover:text-gray-700 dark:text-gray-300"
+            }
+          `}
+        >
+          <Globe className="w-5 h-5" />
+          Language
+        </button>
       </div>
 
-      {/* Tab Content */}
       <div>
-        {activeTab === 'notifications' && <NotificationPreferences />}
-        
-        {activeTab === 'profile' && (
-          <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <User className="w-6 h-6 text-purple-500" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Profile</h2>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-gray-400 block mb-2">Wallet Address</label>
-                <div className="bg-gray-100 dark:bg-[#1A2238] rounded-xl p-4">
-                  <p className="text-gray-900 dark:text-white font-mono text-sm break-all">{address}</p>
-                </div>
-              </div>
-              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                <p className="text-blue-300 text-sm">
-                  Your profile is linked to your Stellar wallet address. Additional profile features coming soon!
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === "notifications" && <NotificationPreferencesSection />}
+        {activeTab === "profile" && <ProfileSection />}
+        {activeTab === "language" && <LanguageSection />}
       </div>
     </div>
   );
 }
+

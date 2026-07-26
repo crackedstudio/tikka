@@ -1,6 +1,8 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FeeEstimatorService } from './fee-estimator.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 export interface CostEstimate {
   /** Number of reveals expected per month */
@@ -47,8 +49,23 @@ export interface ActualCostMetrics {
   periodEnd: Date;
 }
 
+/**
+ * Per-submission cost breakdown for a single randomness transaction.
+ * Exposed to operators (e.g. via the admin API) for funding planning.
+ */
+export interface SubmissionCostEstimate {
+  /** Estimated fee for one submission, in XLM (string to preserve precision) */
+  estimatedFeeXlm: string;
+  /** Network base fee in stroops */
+  baseFee: number;
+  /** Effective multiplier applied to the base fee after capping */
+  feeMultiplier: number;
+  /** Network congestion surge: how much the priority fee exceeds the base fee */
+  surgeMultiplier: number;
+}
+
 export interface CostAlert {
-  type: 'COST_EXCEEDED' | 'HIGH_FEE_DETECTED' | 'BUDGET_WARNING';
+  type: 'COST_EXCEEDED' | 'HIGH_FEE_DETECTED' | 'BUDGET_WARNING' | 'SUBMISSION_FAILED';
   message: string;
   severity: 'LOW' | 'MEDIUM' | 'HIGH';
   details: {
@@ -56,18 +73,20 @@ export interface CostAlert {
     actual?: number;
     threshold?: number;
     exceedancePercent?: number;
+    error?: string;
   };
   timestamp: Date;
 }
 
 @Injectable()
 export class CostEstimatorService {
-  private readonly logger = new Logger(CostEstimatorService.name);
+  
   
   private readonly STROOPS_PER_XLM = 10_000_000;
   private readonly LOW_STAKES_THRESHOLD_XLM: number;
   private readonly PRNG_COMPUTATIONAL_COST = 0; // PRNG is essentially free
   private readonly VRF_COMPUTATIONAL_COST = 50_000; // ~0.005 XLM for VRF computation
+  private readonly network: string;
   
   // Cost tracking
   private actualCosts: Array<{
@@ -83,14 +102,17 @@ export class CostEstimatorService {
   private readonly HIGH_FEE_THRESHOLD_STROOPS = 5_000_000; // Alert if single fee > 0.5 XLM
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly feeEstimator: FeeEstimatorService,
+    private readonly metricsService: MetricsService,
   ) {
     this.LOW_STAKES_THRESHOLD_XLM = parseFloat(
       this.configService.get<string>('LOW_STAKES_THRESHOLD_XLM') || '500',
     );
+    this.network = this.configService.get<string>('NETWORK_PASSPHRASE') || 'testnet';
     
-    this.logger.log('CostEstimator initialized');
+    this.logger.log(`CostEstimator initialized for network: ${this.network}`);
   }
 
   /**
@@ -155,8 +177,44 @@ export class CostEstimatorService {
       `Monthly cost estimate: ${estimate.totalMonthlyCostXLM.toFixed(2)} XLM ` +
       `(${expectedRevealsPerMonth} reveals, ${lowStakesPercent}% low-stakes)`,
     );
+
+    // Record estimated fee metric
+    this.metricsService.recordEstimatedFee(avgCostPerReveal, this.network, 'average');
     
     return estimate;
+  }
+
+  /**
+   * Estimates the cost of submitting a single randomness transaction.
+   * Derives a per-submission breakdown from the current network fee stats,
+   * suitable for operator funding planning via the admin API.
+   *
+   * @param rafflePrizeXLM - Optional prize value used to select the fee cap tier
+   * @returns Cost breakdown with the estimated fee expressed in XLM
+   */
+  async estimateSubmissionCost(
+    rafflePrizeXLM?: number,
+  ): Promise<SubmissionCostEstimate> {
+    const fee = await this.feeEstimator.estimateFee(rafflePrizeXLM);
+
+    const baseFee = fee.baseFee;
+    // Surge: how much the network's priority (p95) fee exceeds the base fee.
+    const surgeMultiplier =
+      baseFee > 0 ? this.round(fee.priorityFee / baseFee, 2) : 1;
+    // Effective multiplier applied to the base fee once the cap is enforced.
+    const feeMultiplier =
+      baseFee > 0 ? this.round(fee.cappedFee / baseFee, 2) : 1;
+    const estimatedFeeXlm = (fee.cappedFee / this.STROOPS_PER_XLM).toFixed(7);
+
+    return { estimatedFeeXlm, baseFee, feeMultiplier, surgeMultiplier };
+  }
+
+  /**
+   * Rounds a number to the given number of decimal places.
+   */
+  private round(value: number, decimals: number): number {
+    const factor = 10 ** decimals;
+    return Math.round(value * factor) / factor;
   }
 
   /**
@@ -181,6 +239,10 @@ export class CostEstimatorService {
       gasFee,
       totalCost,
     });
+
+    // Record metrics
+    this.metricsService.recordActualFee(totalCost, this.network, method, raffleId);
+    this.metricsService.recordSubmissionOutcome('success', this.network, method);
     
     // Check for high fee alert
     if (gasFee > this.HIGH_FEE_THRESHOLD_STROOPS) {
@@ -200,6 +262,55 @@ export class CostEstimatorService {
       `Recorded reveal cost: raffle ${raffleId}, method ${method}, ` +
       `gas ${gasFee} stroops, total ${totalCost} stroops`,
     );
+  }
+
+  /**
+   * Records a failed submission outcome.
+   */
+  recordSubmissionFailure(
+    raffleId: number,
+    method: 'PRNG' | 'VRF',
+    error: string,
+  ): void {
+    this.metricsService.recordSubmissionOutcome('failure', this.network, method);
+    
+    this.emitAlert({
+      type: 'SUBMISSION_FAILED',
+      message: `Submission failed for raffle ${raffleId}: ${error}`,
+      severity: 'HIGH',
+      details: {
+        error,
+      },
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Records a submission retry.
+   */
+  recordSubmissionRetry(
+    raffleId: number,
+    method: 'PRNG' | 'VRF',
+  ): void {
+    this.metricsService.recordSubmissionOutcome('retry', this.network, method);
+  }
+
+  /**
+   * Emits an alert for abnormal cost or submission issues.
+   */
+  private emitAlert(alert: CostAlert): void {
+    const severityPrefix = {
+      'LOW': 'ℹ️',
+      'MEDIUM': '⚠️',
+      'HIGH': '🚨',
+    }[alert.severity];
+
+    this.logger.warn(`${severityPrefix} [${alert.type}] ${alert.message}`);
+    
+    // In a real system, this could send to Slack/PagerDuty/etc.
+    if (alert.severity === 'HIGH') {
+      this.logger.error(`CRITICAL COST ALERT: ${JSON.stringify(alert.details)}`);
+    }
   }
 
   /**
@@ -335,18 +446,5 @@ export class CostEstimatorService {
   clearCostHistory(): void {
     this.actualCosts = [];
     this.logger.log('Cost history cleared');
-  }
-
-  /**
-   * Emits a cost alert (can be extended to send to monitoring systems).
-   */
-  private emitAlert(alert: CostAlert): void {
-    const logLevel = alert.severity === 'HIGH' ? 'error' : 'warn';
-    this.logger[logLevel](
-      `[COST ALERT] ${alert.type}: ${alert.message}`,
-      JSON.stringify(alert.details),
-    );
-    
-    // TODO: Send to monitoring system (e.g., Datadog, Prometheus, Slack webhook)
   }
 }

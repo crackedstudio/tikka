@@ -70,9 +70,15 @@ async function main() {
     metadataCid,
   });
 
+  if (!result.success) {
+    console.error('Failed to create raffle:', result.error);
+    await app.close();
+    process.exit(1);
+  }
+
   console.log('\nRaffle created successfully:');
-  console.log(`  raffleId : ${result.raffleId}`);
-  console.log(`  txHash   : ${result.txHash}`);
+  console.log(`  raffleId : ${result.value}`);
+  console.log(`  txHash   : ${result.transactionHash}`);
   console.log(`  ledger   : ${result.ledger}`);
 
   await app.close();

@@ -44,3 +44,14 @@ export class RefreshBodyDto {
   @ApiProperty({ description: "Refresh token previously issued by the server" })
   refreshToken: string;
 }
+
+export const SignOutBodySchema = z.object({
+  refreshToken: z
+    .string({ required_error: "refreshToken is required" })
+    .min(1, "refreshToken cannot be empty"),
+});
+
+export class SignOutBodyDto {
+  @ApiProperty({ description: "Refresh token to revoke (signs out the session)" })
+  refreshToken: string;
+}

@@ -24,6 +24,36 @@ export interface SignTransactionResult {
 }
 
 /**
+ * Describes which operations a wallet adapter supports.
+ * Used to enable adaptive UI behavior based on wallet capabilities.
+ */
+export interface WalletCapabilities {
+  /**
+   * Whether the adapter supports retrieving the user's public key.
+   * @default true
+   */
+  supportsGetPublicKey: boolean;
+
+  /**
+   * Whether the adapter supports signing Soroban transactions.
+   * @default true
+   */
+  supportsSignTransaction: boolean;
+
+  /**
+   * Whether the adapter supports signing arbitrary messages (SIWS, etc).
+   * @default false
+   */
+  supportsSignMessage: boolean;
+
+  /**
+   * Whether the adapter can retrieve the currently selected network.
+   * @default false
+   */
+  supportsGetNetwork: boolean;
+}
+
+/**
  * Common interface every wallet adapter must implement.
  */
 export abstract class WalletAdapter {
@@ -36,6 +66,12 @@ export abstract class WalletAdapter {
    * (e.g. extension installed, or web-based wallet always available).
    */
   abstract isAvailable(): boolean;
+
+  /**
+   * Establishes connection to the wallet (optional).
+   * Some wallets require explicit connection, others connect implicitly on first use.
+   */
+  async connect?(): Promise<void>;
 
   /**
    * Retrieves the user's public key from the wallet.
@@ -69,4 +105,16 @@ export abstract class WalletAdapter {
   async getNetwork(): Promise<string | undefined> {
     return undefined;
   }
+
+  /**
+   * Returns the capabilities supported by this wallet adapter.
+   * Allows UI to adapt dynamically based on wallet features.
+   */
+  abstract getCapabilities(): WalletCapabilities;
+
+  /**
+   * Disconnects the wallet and clears any cached state.
+   * Optional - adapters can override if they need cleanup.
+   */
+  disconnect?(): void;
 }

@@ -5,6 +5,7 @@ import { UserProcessor } from "./user.processor";
 import { RaffleEntity, RaffleStatus } from "../database/entities/raffle.entity";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { WebhookService } from "../webhooks/webhook.service";
+import { CURRENT_SCHEMA_VERSION } from "../ingestor/handlers/schema-version";
 
 @Injectable()
 export class RaffleProcessor {
@@ -37,6 +38,7 @@ export class RaffleProcessor {
       metadata_cid: string;
       allow_multiple: boolean;
     },
+    schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleCreated for raffle ${raffleId} (tx ${txHash})`);
     const runner = this.dataSource.createQueryRunner();
@@ -75,7 +77,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleCreated",
-          schemaVersion: 1,
+          schemaVersion,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, creator, params },
@@ -89,12 +91,10 @@ export class RaffleProcessor {
       await this.cacheService.invalidateActiveRaffles();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatchEvent({
-        eventType: "RaffleCreated",
-        raffleId,
-        timestamp: new Date(),
-        data: { creator, ledger },
-      });
+      await this.webhookService.dispatch(
+        "RaffleCreated",
+        { raffleId, creator, ledger, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {
@@ -119,6 +119,7 @@ export class RaffleProcessor {
     prizeAmount: string,
     ledger: number,
     txHash: string,
+    schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleFinalized for raffle ${raffleId}, winner ${winner} (tx ${txHash})`);
     const runner = this.dataSource.createQueryRunner();
@@ -151,7 +152,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleFinalized",
-          schemaVersion: 1,
+          schemaVersion,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, winner, winning_ticket_id: winningTicketId, prize_amount: prizeAmount },
@@ -166,12 +167,10 @@ export class RaffleProcessor {
       await this.cacheService.invalidateLeaderboard();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatchEvent({
-        eventType: "RaffleFinalized",
-        raffleId,
-        timestamp: new Date(),
-        data: { winner, winningTicketId, prizeAmount },
-      });
+      await this.webhookService.dispatch(
+        "RaffleFinalized",
+        { raffleId, winner, winningTicketId, prizeAmount, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {
@@ -194,6 +193,7 @@ export class RaffleProcessor {
     reason: string,
     ledger: number,
     txHash: string,
+    schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleCancelled for raffle ${raffleId} (tx ${txHash})`);
     const runner = this.dataSource.createQueryRunner();
@@ -223,7 +223,7 @@ export class RaffleProcessor {
         .values({
           raffleId,
           eventType: "RaffleCancelled",
-          schemaVersion: 1,
+          schemaVersion,
           ledger,
           txHash,
           payloadJson: { raffle_id: raffleId, reason },
@@ -233,6 +233,11 @@ export class RaffleProcessor {
 
       await this.cacheService.invalidateRaffleDetail(raffleId.toString());
       await this.cacheService.invalidateActiveRaffles();
+
+      await this.webhookService.dispatch(
+        "RaffleCancelled",
+        { raffleId, reason, ledger, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {

@@ -8,6 +8,8 @@ import {
   rpc,
   xdr,
 } from '@stellar/stellar-sdk';
+import type { Transaction } from '@stellar/stellar-sdk';
+import BigNumber from 'bignumber.js';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig } from '../network/network.config';
@@ -19,7 +21,20 @@ import {
   EstimateFeeParams,
   FeeEstimateResult,
   FeeResourceBreakdown,
+  FeeQuote,
+  FeeQuoteWarning,
+  GetFeeQuoteParams,
 } from './fee-estimator.types';
+
+/** Default TTL for a simulation-derived fee quote (30 s). */
+const DEFAULT_STALE_AFTER_MS = 30_000;
+
+/**
+ * Fallback base estimate used when simulation is unavailable.
+ * Covers a typical Soroban invocation with moderate resource usage.
+ * 100 (base) + 50 000 (resource) = 50 100 stroops ≈ 0.0050100 XLM.
+ */
+const FALLBACK_RESOURCE_FEE_STROOPS = '50000';
 
 /**
  * Stellar protocol minimum base fee (100 stroops).
@@ -109,19 +124,63 @@ export class FeeEstimatorService {
 
     const tx = await this.buildTransaction(params.method, params.params, sourceKey);
 
+    return this.estimate(tx);
+  }
+
+  /**
+   * Estimates the transaction fee by simulating a pre-built unsigned transaction.
+   *
+   * Call after assembling contract params when the caller owns transaction construction.
+   * Used by write flows that simulate first, then surface the fee before signing.
+   */
+  async estimate(tx: Transaction): Promise<FeeEstimateResult> {
     const simResponse = await this.rpcService.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
       const errMsg = (simResponse as any).error ?? 'unknown error';
       throw new TikkaSdkError(
         TikkaSdkErrorCode.SimulationFailed,
-        `Fee estimation simulation failed for "${params.method}": ${errMsg}`,
+        `Fee estimation simulation failed: ${errMsg}`,
       );
     }
 
     const successSim = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
 
     return this.parseFeeResult(successSim);
+  }
+
+  /**
+   * Derives a fee estimate from an already-completed simulation response.
+   * Avoids a second RPC round-trip when the caller has just simulated the tx.
+   */
+  estimateFromSimulation(
+    sim: rpc.Api.SimulateTransactionSuccessResponse,
+  ): FeeEstimateResult {
+    return this.parseFeeResult(sim);
+  }
+
+  /**
+   * Derives a fee estimate from a simulation's `minResourceFee` stroops value.
+   * Used after {@link ContractService.simulate} when the raw RPC response is unavailable.
+   */
+  estimateFromResourceFee(minResourceFee: string): FeeEstimateResult {
+    const totalStroops = new BigNumber(BASE_FEE_STROOPS)
+      .plus(minResourceFee)
+      .toFixed(0);
+
+    return {
+      xlm: stroopsToXlm(totalStroops),
+      stroops: totalStroops,
+      resources: {
+        baseFeeStroops: String(BASE_FEE_STROOPS),
+        resourceFeeStroops: minResourceFee,
+        cpuInstructions: 0,
+        diskReadBytes: 0,
+        writeBytes: 0,
+        readOnlyEntries: 0,
+        readWriteEntries: 0,
+      },
+    };
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
@@ -186,9 +245,9 @@ export class FeeEstimatorService {
       // transactionData may be absent in mocked/test responses; degrade gracefully.
     }
 
-    const totalStroops = (
-      BigInt(BASE_FEE_STROOPS) + BigInt(resourceFeeStroops)
-    ).toString();
+    const totalStroops = new BigNumber(BASE_FEE_STROOPS)
+      .plus(resourceFeeStroops)
+      .toFixed(0);
 
     const breakdown: FeeResourceBreakdown = {
       baseFeeStroops: String(BASE_FEE_STROOPS),
@@ -213,5 +272,108 @@ export class FeeEstimatorService {
       return new Address(val).toScVal();
     }
     return nativeToScVal(val);
+  }
+
+  // ─── Fee Quote API ──────────────────────────────────────────────────────────
+
+  /**
+   * Returns a reusable, typed `FeeQuote` that includes source, confidence,
+   * expiry, and any user-visible warnings.
+   *
+   * Behaviour:
+   * - Attempts a live `simulateTransaction` (source = `simulation`, confidence = `high`)
+   * - On simulation failure falls back to a static heuristic (source = `fallback`,
+   *   confidence = `low`) so the caller always receives a usable estimate.
+   * - Adds `MAX_FEE_EXCEEDED` warning when the estimate exceeds `maxFeeStroops`.
+   *
+   * @example
+   * ```ts
+   * const quote = await feeEstimator.getFeeQuote({
+   *   method: ContractFn.BUY_TICKET,
+   *   params: [raffleId, buyerKey, quantity],
+   *   maxFeeStroops: '100000',
+   * });
+   * if (quote.warnings.length) console.warn(quote.warnings.map(w => w.message));
+   * // Pass quote.stroops as the fee ceiling when building the real transaction.
+   * await wallet.signTransaction(tx, { fee: quote.stroops });
+   * ```
+   */
+  async getFeeQuote(params: GetFeeQuoteParams): Promise<FeeQuote> {
+    const staleAfterMs = params.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
+    const warnings: FeeQuoteWarning[] = [];
+
+    let estimate: FeeEstimateResult;
+    let source: FeeQuote['source'];
+    let confidence: FeeQuote['confidence'];
+
+    try {
+      estimate = await this.estimateFee(params);
+      source = 'simulation';
+      confidence = 'high';
+    } catch {
+      // Simulation failed — build a fallback quote from static heuristics.
+      const fallbackStroops = (
+        BigInt(BASE_FEE_STROOPS) + BigInt(FALLBACK_RESOURCE_FEE_STROOPS)
+      ).toString();
+
+      const fallbackResources: FeeResourceBreakdown = {
+        baseFeeStroops: String(BASE_FEE_STROOPS),
+        resourceFeeStroops: FALLBACK_RESOURCE_FEE_STROOPS,
+        cpuInstructions: 0,
+        diskReadBytes: 0,
+        writeBytes: 0,
+        readOnlyEntries: 0,
+        readWriteEntries: 0,
+      };
+
+      estimate = {
+        xlm: stroopsToXlm(fallbackStroops),
+        stroops: fallbackStroops,
+        resources: fallbackResources,
+      };
+      source = 'fallback';
+      confidence = 'low';
+      warnings.push({
+        code: 'FALLBACK_ESTIMATE',
+        message:
+          'Fee simulation failed — showing a static fallback estimate. ' +
+          'The actual fee may differ.',
+      });
+    }
+
+    // Max-fee guard
+    if (
+      params.maxFeeStroops !== undefined &&
+      BigInt(estimate.stroops) > BigInt(params.maxFeeStroops)
+    ) {
+      confidence = 'low';
+      warnings.push({
+        code: 'MAX_FEE_EXCEEDED',
+        message:
+          `Estimated fee (${estimate.stroops} stroops) exceeds your configured ` +
+          `maximum of ${params.maxFeeStroops} stroops. Review before signing.`,
+      });
+    }
+
+    return {
+      xlm: estimate.xlm,
+      stroops: estimate.stroops,
+      expiresAt: Date.now() + staleAfterMs,
+      source,
+      confidence,
+      warnings,
+      resources: estimate.resources,
+    };
+  }
+
+  /**
+   * Returns whether a previously obtained `FeeQuote` is still within its
+   * validity window.
+   *
+   * @param quote  - The quote to check.
+   * @param nowMs  - Override for the current time (defaults to `Date.now()`).
+   */
+  isQuoteStale(quote: FeeQuote, nowMs = Date.now()): boolean {
+    return nowMs >= quote.expiresAt;
   }
 }

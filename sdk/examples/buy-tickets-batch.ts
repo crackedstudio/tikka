@@ -94,10 +94,18 @@ async function main() {
 
   console.log(`Purchasing tickets for ${purchases.length} raffle(s)...\n`);
 
-  const result = await ticketService.buyBatch({
+  const batchRes = await ticketService.buyBatch({
     purchases,
     memo: { type: 'text', value: 'Batch purchase' },
   });
+
+  if (!batchRes.success || !batchRes.value) {
+    console.error('Batch purchase failed:', batchRes.error);
+    await app.close();
+    process.exit(1);
+  }
+
+  const batchResults = batchRes.value;
 
   // Display results
   console.log('Batch purchase completed:\n');
@@ -105,7 +113,7 @@ async function main() {
   let successCount = 0;
   let failureCount = 0;
 
-  for (const purchaseResult of result.results) {
+  for (const purchaseResult of batchResults) {
     if (purchaseResult.success) {
       successCount++;
       console.log(`✅ Raffle ${purchaseResult.raffleId}:`);
@@ -120,20 +128,19 @@ async function main() {
   console.log(`\nSummary:`);
   console.log(`  Successful: ${successCount}`);
   console.log(`  Failed: ${failureCount}`);
-  console.log(`  Last txHash: ${result.txHash}`);
-  console.log(`  Last ledger: ${result.ledger}`);
-  console.log(`  Total fees: ${result.feePaid} stroops`);
+  console.log(`  Last txHash: ${batchRes.transactionHash}`);
+  console.log(`  Last ledger: ${batchRes.ledger}`);
 
   // Show all tickets for successful purchases
   if (successCount > 0) {
     console.log(`\nYour tickets:`);
-    for (const purchaseResult of result.results) {
+    for (const purchaseResult of batchResults) {
       if (purchaseResult.success) {
-        const myTickets = await ticketService.getUserTickets({
+        const myTicketsRes = await ticketService.getUserTickets({
           raffleId: purchaseResult.raffleId,
           userAddress: publicKey,
         });
-        console.log(`  Raffle ${purchaseResult.raffleId}: [${myTickets.join(', ')}]`);
+        console.log(`  Raffle ${purchaseResult.raffleId}: [${(myTicketsRes.value ?? []).join(', ')}]`);
       }
     }
   }

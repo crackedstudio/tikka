@@ -4,7 +4,7 @@ import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { IEventHandler, ContractConfig } from "./event-handler.interface";
 import { xdr } from "@stellar/stellar-sdk";
 import { DomainEvent } from "./event.types";
-import { RawSorobanEvent } from "./event-parser.service";
+import { RawSorobanEvent } from "./event-parser.interface";
 
 // Mock handler for testing
 class MockEventHandler implements IEventHandler {

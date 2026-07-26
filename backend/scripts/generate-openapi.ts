@@ -4,8 +4,27 @@ import { AppModule } from '../src/app.module';
 import * as fs from 'fs';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 
+function ensureOpenApiEnvDefaults(): void {
+  const defaults: Record<string, string> = {
+    SUPABASE_URL: 'https://openapi.example.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: 'openapi-service-role-key',
+    REDIS_URL: 'redis://localhost:6379',
+    JWT_SECRET: 'a'.repeat(32),
+    VITE_FRONTEND_URL: 'https://app.example.com',
+    ADMIN_TOKEN: 'openapi-admin-token',
+    INDEXER_URL: 'http://localhost:3002',
+  };
+
+  for (const [key, value] of Object.entries(defaults)) {
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
 async function generate() {
   try {
+    ensureOpenApiEnvDefaults();
     const app = await NestFactory.create(AppModule, new FastifyAdapter() as any, { logger: false });
     const config = new DocumentBuilder()
       .setTitle("Tikka API")

@@ -1,8 +1,8 @@
 import { Eye } from "lucide-react";
-
 import RecentlyAddedCard from "../cards/RecentlyAddedCard";
 import VerifiedBadge from "../VerifiedBadge";
 import { useRaffles, useRaffle } from "../../hooks/useRaffles";
+import { formattedRaffleToViewModel } from "../cards/raffleCardViewModel";
 
 const RecentlyAddedCardWrapper: React.FC<{ raffleId: number }> = ({
     raffleId,
@@ -30,16 +30,7 @@ const RecentlyAddedCardWrapper: React.FC<{ raffleId: number }> = ({
         );
     }
 
-    return (
-        <RecentlyAddedCard
-            image={raffle.image}
-            title={raffle.metadata.title}
-            countdown={raffle.countdown}
-            ticketPrice={raffle.ticketPriceFormatted}
-            entries={raffle.entries}
-            progress={raffle.progress}
-        />
-    );
+    return <RecentlyAddedCard viewModel={formattedRaffleToViewModel(raffle)} />;
 };
 
 const RecentlyAdded = () => {
