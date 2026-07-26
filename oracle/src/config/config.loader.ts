@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { ZodError } from 'zod';
 import { OracleConfigSchema, OracleConfig, KeyProviderConfig } from './config.schema';
 
 const logger = new Logger('ConfigLoader');
@@ -153,13 +154,13 @@ export function loadOracleConfig(): OracleConfig {
     },
     supabase: process.env.SUPABASE_URL
       ? {
-          url: process.env.SUPABASE_URL,
-          serviceRoleKey:
-            process.env.SUPABASE_SERVICE_ROLE_KEY ||
-            process.env.SUPABASE_ANON_KEY ||
-            '',
-          anonKey: process.env.SUPABASE_ANON_KEY,
-        }
+        url: process.env.SUPABASE_URL,
+        serviceRoleKey:
+          process.env.SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.SUPABASE_ANON_KEY ||
+          '',
+        anonKey: process.env.SUPABASE_ANON_KEY,
+      }
       : undefined,
     alerting: {
       provider: (process.env.ALERTING_PROVIDER || 'none') as 'none' | 'pagerduty' | 'opsgenie',
@@ -191,6 +192,16 @@ export function loadOracleConfig(): OracleConfig {
     logger.log('Configuration loaded and validated successfully');
     return validated;
   } catch (error) {
+    if (error instanceof ZodError) {
+      const issues = error.issues
+        .map((issue) => {
+          const path = issue.path.length > 0 ? issue.path.join('.') : '<root>';
+          return `${path}: ${issue.message}`;
+        })
+        .join('; ');
+      logger.error('Configuration validation failed:', issues);
+      throw new Error(`Invalid configuration: ${issues}`);
+    }
     if (error instanceof Error) {
       logger.error('Configuration validation failed:', error.message);
       throw new Error(`Invalid configuration: ${error.message}`);
