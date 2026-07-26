@@ -26,7 +26,6 @@ import {
   type BackfillJobConfig,
 } from "../../../services/backfill-job.service";
 import { SkipThrottle } from "../../../middleware/throttle.decorator";
-import { Public } from "../../../auth/decorators/public.decorator";
 import { AdminGuard } from "./admin.guard";
 import { MonitorService } from "./monitor.service";
 import { JobsQuerySchema, JobsQueryDto } from "./dto/jobs-query.dto";
@@ -68,7 +67,6 @@ class BackfillRequestDto {
 @Controller("monitor")
 @UseGuards(AdminGuard)
 @UseInterceptors(AuditLogInterceptor)
-@Public()
 @SkipThrottle()
 export class MonitorController {
   constructor(
