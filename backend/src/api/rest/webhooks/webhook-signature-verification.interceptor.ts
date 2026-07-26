@@ -10,6 +10,13 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Observable, throwError } from 'rxjs';
 
 const SIGNATURE_HEADER = 'x-webhook-signature';
+const TIMESTAMP_HEADER = 'x-webhook-timestamp';
+const MAX_TIMESTAMP_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
+export interface WebhookVerificationResult {
+    valid: boolean;
+    error?: string;
+}
 
 @Injectable()
 export class WebhookSignatureVerificationInterceptor
@@ -38,8 +45,9 @@ export class WebhookSignatureVerificationInterceptor
             'indexer';
 
         const secret = this.getSecretForSource(source);
+        
+        // Verify signature
         const expected = this.computeSignatureHex(secret, rawBody);
-
         const providedBuf = Buffer.from(signatureHeader, 'hex');
         const expectedBuf = Buffer.from(expected, 'hex');
 
@@ -68,5 +76,56 @@ export class WebhookSignatureVerificationInterceptor
     private computeSignatureHex(secret: string, rawBody: Buffer): string {
         return createHmac('sha256', secret).update(rawBody).digest('hex');
     }
-}
 
+    /**
+     * Verifies webhook signature and timestamp.
+     * Extracted for testability.
+     * 
+     * @param secret - The webhook secret
+     * @param rawBody - The raw request body
+     * @param signatureHeader - The provided signature hex string
+     * @param timestampHeader - The provided timestamp (ISO string or epoch ms)
+     * @returns Verification result with validity status and optional error message
+     */
+    static verifyWebhook(
+        secret: string,
+        rawBody: Buffer,
+        signatureHeader: string,
+        timestampHeader?: string,
+    ): WebhookVerificationResult {
+        // Check timestamp if provided
+        if (timestampHeader) {
+            const timestamp = Date.parse(timestampHeader);
+            if (isNaN(timestamp)) {
+                return { valid: false, error: 'Invalid timestamp format' };
+            }
+
+            const now = Date.now();
+            const age = now - timestamp;
+            if (age > MAX_TIMESTAMP_AGE_MS) {
+                return { valid: false, error: 'Webhook timestamp too old' };
+            }
+
+            if (age < -MAX_TIMESTAMP_AGE_MS) {
+                return { valid: false, error: 'Webhook timestamp in the future' };
+            }
+        }
+
+        // Verify signature
+        const expected = createHmac('sha256', secret)
+            .update(rawBody)
+            .digest('hex');
+
+        const providedBuf = Buffer.from(signatureHeader, 'hex');
+        const expectedBuf = Buffer.from(expected, 'hex');
+
+        if (
+            providedBuf.length !== expectedBuf.length ||
+            !timingSafeEqual(providedBuf, expectedBuf)
+        ) {
+            return { valid: false, error: 'Invalid webhook signature' };
+        }
+
+        return { valid: true };
+    }
+}

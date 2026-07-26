@@ -60,8 +60,11 @@ describe('HealthService', () => {
 
     const result = await service.getHealth();
     expect(result.status).toBe('ok');
-    expect(result.indexer).toBe('ok');
-    expect(result.supabase).toBe('ok');
+    expect(result.dependencies).toHaveLength(2);
+    expect(result.dependencies[0].name).toBe('indexer');
+    expect(result.dependencies[0].status).toBe('ok');
+    expect(result.dependencies[1].name).toBe('supabase');
+    expect(result.dependencies[1].status).toBe('ok');
     expect(result.timestamp).toBeDefined();
   });
 
@@ -71,8 +74,9 @@ describe('HealthService', () => {
 
     const result = await service.getHealth();
     expect(result.status).toBe('degraded');
-    expect(result.indexer).toBe('error');
-    expect(result.supabase).toBe('ok');
+    expect(result.dependencies).toHaveLength(2);
+    expect(result.dependencies.find(d => d.name === 'indexer')?.status).toBe('error');
+    expect(result.dependencies.find(d => d.name === 'supabase')?.status).toBe('ok');
   });
 
   it('returns degraded when supabase is unreachable', async () => {
@@ -81,8 +85,9 @@ describe('HealthService', () => {
 
     const result = await service.getHealth();
     expect(result.status).toBe('degraded');
-    expect(result.indexer).toBe('ok');
-    expect(result.supabase).toBe('error');
+    expect(result.dependencies).toHaveLength(2);
+    expect(result.dependencies.find(d => d.name === 'indexer')?.status).toBe('ok');
+    expect(result.dependencies.find(d => d.name === 'supabase')?.status).toBe('error');
   });
 
   it('returns degraded when both are down', async () => {
@@ -91,8 +96,9 @@ describe('HealthService', () => {
 
     const result = await service.getHealth();
     expect(result.status).toBe('degraded');
-    expect(result.indexer).toBe('error');
-    expect(result.supabase).toBe('error');
+    expect(result.dependencies).toHaveLength(2);
+    expect(result.dependencies.find(d => d.name === 'indexer')?.status).toBe('error');
+    expect(result.dependencies.find(d => d.name === 'supabase')?.status).toBe('error');
   });
 
   it('treats indexer non-ok response as error', async () => {
@@ -101,8 +107,8 @@ describe('HealthService', () => {
 
     const result = await service.getHealth();
     expect(result.status).toBe('degraded');
-    expect(result.indexer).toBe('error');
-    expect(result.supabase).toBe('ok');
+    expect(result.dependencies.find(d => d.name === 'indexer')?.status).toBe('error');
+    expect(result.dependencies.find(d => d.name === 'supabase')?.status).toBe('ok');
   });
 
   it('treats supabase non-ok response as reachable', async () => {
@@ -112,7 +118,35 @@ describe('HealthService', () => {
 
     const result = await service.getHealth();
     expect(result.status).toBe('ok');
-    expect(result.indexer).toBe('ok');
-    expect(result.supabase).toBe('ok');
+    expect(result.dependencies.find(d => d.name === 'indexer')?.status).toBe('ok');
+    expect(result.dependencies.find(d => d.name === 'supabase')?.status).toBe('ok');
+  });
+
+  it('returns liveness as always ok', async () => {
+    const result = await service.getLiveness();
+    expect(result.status).toBe('ok');
+    expect(result.timestamp).toBeDefined();
+  });
+
+  it('returns readiness with dependency status', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockFetch.mockResolvedValueOnce({ ok: true });
+
+    const result = await service.getReadiness();
+    expect(result.status).toBe('ok');
+    expect(result.dependencies).toHaveLength(2);
+    expect(result.timestamp).toBeDefined();
+  });
+
+  it('reports latency for each dependency', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockFetch.mockResolvedValueOnce({ ok: true });
+
+    const result = await service.getHealth();
+    const indexer = result.dependencies.find(d => d.name === 'indexer');
+    const supabase = result.dependencies.find(d => d.name === 'supabase');
+    
+    expect(indexer?.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(supabase?.latencyMs).toBeGreaterThanOrEqual(0);
   });
 });
