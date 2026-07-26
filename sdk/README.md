@@ -18,6 +18,45 @@ Choose the full SDK when you need NestJS modules, dependency injection, wallet s
 
 The light bundle is intended for browser and mobile integrations where bundle size matters most. Services must be instantiated manually, and NestJS module wiring is not available in this entry point.
 
+## Browser vs Node support matrix
+
+Every public entry point and its runtime compatibility. Use this table when choosing an import path or planning bundler polyfills.
+
+| Module / entry | Browser | Node | Notes |
+| --- | :---: | :---: | --- |
+| `@tikka/sdk` (full) | ✅ | ✅ | NestJS modules (`RaffleModule`, `TicketModule`, etc.) target server-side DI; instantiate service classes directly in browser apps. Bundler required (`buffer`, `crypto`, `stream` polyfills may be needed). |
+| `@tikka/sdk/read` | ✅ | ✅ | Recommended for dashboards and SSR. No wallet or signing code bundled. |
+| `@tikka/sdk/write` | ✅ | ✅ | Write path: wallet adapters, `ContractService`, `TransactionLifecycle`, domain write services. Re-exports `@tikka/sdk/read`. |
+| Light build (`@tikka/sdk/dist/light/index.light`) | ✅ | ✅ | Smallest bundle; manual instantiation only. No NestJS, wallet adapters, or CLI. |
+| `RpcService` | ✅ | ✅ | Uses `fetch`; pass `fetchClient` in React Native or custom environments. |
+| `HorizonService` | ✅ | ✅ | Same fetch-based pattern as `RpcService`. |
+| `MockRpcService` | ✅ | ✅ | In-memory mock for tests, Storybook, and offline dev. |
+| `NetworkModule` (NestJS) | ⚠️ | ✅ | Requires NestJS runtime; use plain `RpcService` / `HorizonService` in browser. |
+| `ContractService` | ✅ | ✅ | Simulate/build/submit; signing delegated to a `WalletAdapter`. |
+| `TransactionLifecycle` | ✅ | ✅ | Four-phase invoke flow; needs a wallet adapter for the sign step. |
+| `ReadOnlyRaffleService` | ✅ | ✅ | Query-only; no wallet required. |
+| `ReadOnlyUserService` | ✅ | ✅ | Query-only; no wallet required. |
+| `RaffleService` (write) | ✅ | ✅ | Create/cancel need a browser wallet or `MockWalletAdapter`. Read methods work without signing. |
+| `TicketService` | ✅ | ✅ | Buy/refund need a wallet adapter; queries are simulate-only. |
+| `UserService` (write) | ✅ | ✅ | Participation queries are read-only; no wallet for reads. |
+| `AdminService` | ✅ | ✅ | Admin writes need a wallet; reads are simulate-only. |
+| `RaffleModule` / `TicketModule` / `UserModule` / `AdminModule` | ⚠️ | ✅ | NestJS DI wrappers; prefer direct service classes in browser bundles. |
+| `FeeEstimatorService` | ✅ | ✅ | RPC simulation only; no wallet or Node APIs. |
+| `FeeEstimatorModule` (NestJS) | ⚠️ | ✅ | NestJS DI wrapper around `FeeEstimatorService`. |
+| `buildChallenge` / `verifyResponse` (SEP-10) | ⚠️ | ✅ | Uses Node `crypto.randomBytes`; provide a `crypto` polyfill in browser or run server-side only. |
+| `FreighterAdapter` | ✅ | ❌ | Requires Freighter extension or `@stellar/freighter-api`. |
+| `XBullAdapter` | ✅ | ❌ | Requires xBull extension. |
+| `AlbedoAdapter` | ✅ | ❌ | Popup-based; requires `@albedo-link/intent`. |
+| `LobstrAdapter` | ✅ | ❌ | Requires LOBSTR extension. |
+| `RabetAdapter` | ✅ | ❌ | Requires Rabet extension (`window.rabet`). |
+| `MockWalletAdapter` | ✅ | ✅ | For tests, Storybook, and examples without a real wallet. |
+| Utils (`errors`, `validation`, `formatting`, `retry`, `BigNumber`) | ✅ | ✅ | Pure utilities; no environment-specific APIs. |
+| CLI (`tikka` / `bin/tikka.cjs`) | ❌ | ✅ | Node-only; uses `commander`, `inquirer`, and filesystem. |
+
+**Legend:** ✅ supported · ⚠️ works with bundler/polyfill or is not the primary target · ❌ not supported
+
+**Common polyfills for browser bundlers (Vite, Webpack, esbuild):** `buffer`, `crypto` (for SEP-10 and Stellar SDK), and `stream` when your toolchain requires them. React Native consumers should pass an explicit `fetchClient` to `RpcService` (see [React Native Notes](#react-native-notes) below).
+
 ## Core Features
 
 - **Customizable RpcService**: Support for custom fetch clients, headers, and automatic failover across multiple nodes.
