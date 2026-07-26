@@ -19,10 +19,11 @@
  */
 
 import type { ReactNode } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+
 import { WalletProvider } from "./WalletProvider";
 import { AuthProvider } from "./AuthProvider";
 import { Toaster } from "sonner";
@@ -39,6 +40,14 @@ const queryClient = new QueryClient({
         },
     },
 });
+
+const ReactQueryDevtools = import.meta.env.DEV
+    ? lazy(() =>
+          import("@tanstack/react-query-devtools").then((m) => ({
+              default: m.ReactQueryDevtools,
+          })),
+      )
+    : null;
 
 export function AppProviders({ children }: AppProvidersProps) {
     return (
@@ -58,7 +67,11 @@ export function AppProviders({ children }: AppProvidersProps) {
                     </WalletProvider>
                 </BrowserRouter>
             </HelmetProvider>
-            <ReactQueryDevtools initialIsOpen={false} />
+            {ReactQueryDevtools && (
+                <Suspense fallback={null}>
+                    <ReactQueryDevtools initialIsOpen={false} />
+                </Suspense>
+            )}
         </QueryClientProvider>
     );
 }
