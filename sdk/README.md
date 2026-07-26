@@ -6,6 +6,8 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 
 **Consumers:** Frontend (client), third-party developers.
 
+**Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./DEPRECATION.md).
+
 ## Core Features
 
 - **Customizable RpcService**: Support for custom fetch clients, headers, and automatic failover across multiple nodes.
