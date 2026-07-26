@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useRaffle } from "../hooks/useRaffles";
@@ -15,7 +15,7 @@ import {
     Clock,
     ShieldCheck,
     ArrowLeft,
-    Share2,
+
     Info,
     Trophy,
     User,
@@ -31,6 +31,7 @@ import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { CountdownTimer } from "../components/ui/CountdownTimer";
+import CopyButton from "../components/ui/CopyButton";
 
 const Skeleton = ({ className }: { className?: string }) => (
     <div className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`} />
@@ -121,6 +122,13 @@ const RafflePage = () => {
     const handleDecrement = () => setTicketCount(prev => Math.max(prev - 1, 1));
 
     const totalCost = (parseFloat(raffle.ticketPrice) * ticketCount).toFixed(3);
+    const publicRaffleUrl = useMemo(() => {
+        if (typeof window === "undefined") {
+            return "";
+        }
+
+        return `${window.location.origin}/raffles/${raffleId}`;
+    }, [raffleId]);
 
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -162,9 +170,17 @@ const RafflePage = () => {
                     <span className="font-medium">{t("raffle.back")}</span>
                 </button>
                 <div className="flex items-center space-x-3">
-                    <button className="p-2 rounded-xl bg-gray-200 dark:bg-white/5 hover:bg-gray-300 dark:bg-white/10 transition-colors text-gray-400 hover:text-gray-900 dark:text-white">
-                        <Share2 className="w-5 h-5" />
-                    </button>
+                    <CopyButton
+                        value={publicRaffleUrl}
+                        defaultLabel="Copy link"
+                        copiedLabel="Copied!"
+                        ariaLabel="Copy public raffle URL"
+                        successMessage="Public raffle URL copied to clipboard"
+                        errorMessage="Could not copy public raffle URL"
+                        className="inline-flex items-center gap-2 rounded-xl bg-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                        iconClassName="h-4 w-4 shrink-0"
+                        labelClassName="hidden sm:inline"
+                    />
                     <VerifiedBadge />
                 </div>
             </div>
@@ -206,22 +222,30 @@ const RafflePage = () => {
 
                     {/* Metadata */}
                     <div className="bg-white dark:bg-[#11172E] border border-gray-200 dark:border-white/5 rounded-3xl p-8 space-y-6">
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gray-900 dark:text-white">{title}</h1>
-                            <div className="flex items-center space-x-3 text-gray-400">
-                                <User className="w-4 h-4" />
-                                <span className="text-sm">
-                                    {t("raffle.createdBy")}{" "}
-                                    <Link
-                                        to={`/creators/${creator}`}
-                                        className="text-gray-900 dark:text-white font-medium hover:text-[#FE3796] dark:hover:text-[#FE3796] transition-colors"
-                                    >
-                                        {creator.slice(0, 6)}...{creator.slice(-4)}
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center space-x-3 text-gray-400">
+                                    <User className="w-4 h-4" />
+                                    <span className="text-sm">
+                                        {t("raffle.createdBy")} 
+                                        <Link
+                                            to={`/creators/${creator}`}
+                                            className="text-gray-900 dark:text-white font-medium hover:text-[#FE3796] dark:hover:text-[#FE3796] transition-colors"
+                                        >
+                                            {creator.slice(0, 6)}...{creator.slice(-4)}
+                                        </Link>
+                                    </span>
+                                    <Link to={`/creators/${creator}`}>
+                                        <ExternalLink className="w-3 h-3 hover:text-[#FE3796] cursor-pointer transition-colors" />
                                     </Link>
-                                </span>
-                                <Link to={`/creators/${creator}`}>
-                                    <ExternalLink className="w-3 h-3 hover:text-[#FE3796] cursor-pointer transition-colors" />
-                                </Link>
+                                </div>
+                                <div className="min-w-0 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:border-white/5 dark:bg-white/5 dark:text-gray-300">
+                                    <div className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                                        Public raffle URL
+                                    </div>
+                                    <div className="truncate">{publicRaffleUrl}</div>
+                                </div>
                             </div>
                         </div>
 
