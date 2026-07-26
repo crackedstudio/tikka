@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import { AllowedUploadMimeType } from '../config/upload.config';
 import * as crypto from 'crypto';
 import { MetricsService } from './metrics.service';

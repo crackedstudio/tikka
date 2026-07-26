@@ -1,6 +1,7 @@
 import { RpcService } from '../network/rpc.service';
 import { RaffleService } from '../modules/raffle/raffle.service';
 import { ContractService } from '../contract/contract.service';
+import { FeeEstimatorService } from '../fee-estimator/fee-estimator.service';
 import { HorizonService } from '../network/horizon.service';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
 import { nativeToScVal, TransactionBuilder, Networks, Keypair } from '@stellar/stellar-sdk';
@@ -52,7 +53,8 @@ describe('Soroban RPC Integration (Mock)', () => {
     } as any);
 
     contractService = new ContractService(rpcService, horizonService, networkConfig);
-    raffleService = new RaffleService(contractService);
+    const feeEstimator = new FeeEstimatorService(rpcService, horizonService, networkConfig);
+    raffleService = new RaffleService(contractService, feeEstimator);
 
     // 3. Setup Mock Wallet
     mockWallet = {

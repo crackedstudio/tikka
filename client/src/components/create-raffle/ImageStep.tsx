@@ -191,7 +191,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                                 setPrimaryImage(index);
                                             }}
                                             aria-label={`Set image ${index + 1} as primary`}
-                                            className="bg-white text-black px-3 py-1 rounded text-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C]"
+                                            className="bg-white dark:bg-gray-200 text-black hover:bg-gray-100 dark:hover:bg-gray-300 px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#FF389C]"
                                         >
                                             Set Primary
                                         </button>
@@ -299,7 +299,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     disabled={!canContinue}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#0B1220] ${canContinue
                             ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white focus:ring-[#FF389C]"
-                            : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            : "bg-gray-300 dark:bg-gray-600 text-gray-400 cursor-not-allowed"
                         }`}
                 >
                     Continue

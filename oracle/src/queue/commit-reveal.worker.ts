@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { CommitmentService } from '../randomness/commitment.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
@@ -18,9 +19,10 @@ export interface RevealRequest {
 
 @Injectable()
 export class CommitRevealWorker {
-  private readonly logger = new Logger(CommitRevealWorker.name);
+  
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly commitmentService: CommitmentService,
     private readonly contractService: ContractService,
     private readonly txSubmitter: TxSubmitterService,

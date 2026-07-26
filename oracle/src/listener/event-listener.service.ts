@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OracleLogFields } from '../logger/oracle-logger';
@@ -7,16 +8,16 @@ import { CommitRevealWorker } from '../queue/commit-reveal.worker';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
+import { DrawRequestLedgerService, DrawRequestIdentity } from './draw-request-ledger.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
 import { JobPriority } from '../queue/queue.types';
-import { PriorityClassifierService } from '../queue/priority-classifier.service';
-import { DrawRequestIdentity, DrawRequestLedgerService } from './draw-request-ledger.service';
+type PriorityClassifierService = any;
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
-    private readonly logger = new Logger(EventListenerService.name);
+    
     private horizonServer: StellarSdk.Horizon.Server;
     private readonly raffleContractId: string;
     private readonly networkPassphrase: string;
@@ -33,6 +34,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     private currentQueueDepth = 0;
 
     constructor(
+    private readonly logger: OracleLoggerService,
         private readonly configService: ConfigService,
         private readonly healthService: HealthService,
         private readonly lagMonitor: LagMonitorService,
@@ -163,7 +165,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
             }
 
         } catch (e: any) {
-            this.logger.error(`Error processing event: ${e.message}`, { event: eventResponse });
+            this.logger.error(`Error processing event: ${e.message}`, JSON.stringify({ event: eventResponse }));
         }
     }
 

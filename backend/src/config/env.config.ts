@@ -19,6 +19,13 @@ function envLikeFromProcess(): Record<string, string | undefined> {
   return { ...process.env };
 }
 
+function requireJwtSecret(secret: string | undefined): string {
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be set and at least 32 characters long');
+  }
+  return secret;
+}
+
 export const env = {
   get supabase() {
     return {
@@ -45,7 +52,7 @@ export const env = {
   },
   get auth() {
     return {
-      jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+      jwtSecret: requireJwtSecret(process.env.JWT_SECRET),
       jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
       siwsDomain: process.env.SIWS_DOMAIN ?? 'tikka.io',
       siwsNonceTtlSeconds: parseInt(process.env.SIWS_NONCE_TTL_SECONDS ?? '300', 10),
@@ -84,9 +91,9 @@ export const env = {
     return {
       throttleDefaultLimit: parseInt(process.env.THROTTLE_DEFAULT_LIMIT ?? '100', 10),
       throttleDefaultTtl: parseInt(process.env.THROTTLE_DEFAULT_TTL ?? '60', 10),
-      throttleAuthLimit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '10', 10),
-      throttleAuthTtl: parseInt(process.env.THROTTLE_AUTH_TTL ?? '60', 10),
-      throttleNonceLimit: parseInt(process.env.THROTTLE_NONCE_LIMIT ?? '30', 10),
+      throttleAuthLimit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '5', 10),
+      throttleAuthTtl: parseInt(process.env.THROTTLE_AUTH_TTL ?? '900', 10),
+      throttleNonceLimit: parseInt(process.env.THROTTLE_NONCE_LIMIT ?? '10', 10),
       throttleNonceTtl: parseInt(process.env.THROTTLE_NONCE_TTL ?? '60', 10),
       raffleCreateLimit: parseInt(process.env.RAFFLE_CREATE_RATE_LIMIT ?? '5', 10),
       raffleCreateWindowSeconds: parseInt(process.env.RAFFLE_CREATE_RATE_WINDOW_SECONDS ?? '600', 10),

@@ -36,6 +36,8 @@ pnpm build
 - Provide a concise summary of the change and motivation.
 - Keep the scope focused; avoid unrelated refactors.
 - Include screenshots or recordings for UI changes.
+- Add new UI strings to every locale under `public/locales` and run
+  `pnpm check:locales`; missing or orphaned keys should be fixed before review.
 - Ensure `pnpm lint` and `pnpm build` pass.
 - Link related issues if applicable.
 
@@ -43,4 +45,3 @@ pnpm build
 
 Use GitHub Issues to report bugs or propose improvements. Provide clear steps
 to reproduce and expected vs actual behavior.
-

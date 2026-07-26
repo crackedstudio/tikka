@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiSecurity } from "@nestjs/swagger";
 import { CacheService } from "../../cache/cache.service";
 import { UserEntity } from "../../database/entities/user.entity";
 import { TicketEntity } from "../../database/entities/ticket.entity";
@@ -29,6 +30,8 @@ export interface PaginationQuery {
   offset?: string;
 }
 
+@ApiTags('users')
+@ApiSecurity('api-key')
 @UseGuards(ApiKeyGuard)
 @Controller()
 export class UsersController {
@@ -47,6 +50,10 @@ export class UsersController {
    * Top users by total_raffles_won, then total_prize_xlm.
    * Declared before /:address to avoid route shadowing.
    */
+  @ApiOperation({ summary: 'User leaderboard', description: 'Top users ordered by wins, then prize XLM.' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: UserLeaderboardResponseDto })
   @Get("leaderboard")
   async leaderboard(@Query() query: PaginationQuery): Promise<UserLeaderboardResponseDto> {
     const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
@@ -92,6 +99,10 @@ export class UsersController {
    * GET /users/:address
    * User profile — cache-first, PostgreSQL fallback.
    */
+  @ApiOperation({ summary: 'Get user profile' })
+  @ApiParam({ name: 'address', description: 'Stellar public key' })
+  @ApiResponse({ status: 200, type: UserProfileDto })
+  @ApiResponse({ status: 404, description: 'User not found' })
   @Get("users/:address")
   async profile(@Param("address") address: string): Promise<UserProfileDto> {
     const cached = await this.cacheService.getUserProfile(address);
@@ -153,6 +164,11 @@ export class UsersController {
    * GET /users/:address/history
    * Paginated list of raffles the user has participated in.
    */
+  @ApiOperation({ summary: 'Get user raffle history' })
+  @ApiParam({ name: 'address', description: 'Stellar public key' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: UserRaffleHistoryResponseDto })
   @Get("users/:address/history")
   async history(
     @Param("address") address: string,

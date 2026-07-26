@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Controller, Get, Logger } from '@nestjs/common';
 import { JobStateManager } from './job-state-manager';
 import { JobState, QueueMetrics } from './job-state.types';
@@ -8,9 +9,9 @@ import { JobState, QueueMetrics } from './job-state.types';
  */
 @Controller('queue')
 export class QueueHealthController {
-  private readonly logger = new Logger(QueueHealthController.name);
+  
 
-  constructor(private readonly stateManager: JobStateManager) {}
+  constructor(private readonly logger: OracleLoggerService, private readonly stateManager: JobStateManager) {}
 
   /**
    * Get comprehensive queue metrics aggregated by job state.
@@ -18,7 +19,7 @@ export class QueueHealthController {
    * @returns QueueMetrics with counts for all states and aggregated pending/failed counts
    */
   @Get('metrics')
-  function getMetrics(): QueueMetrics {
+  getMetrics(): QueueMetrics {
     const metrics = this.stateManager.getMetrics();
     this.logger.debug(`Queue metrics requested: ${JSON.stringify(metrics)}`);
     return metrics;
@@ -31,7 +32,7 @@ export class QueueHealthController {
    * @returns Health status object with key indicators
    */
   @Get('health')
-  function getHealth(): {
+  getHealth(): {
     status: 'healthy' | 'degraded' | 'unhealthy';
     pendingCount: number;
     failedCount: number;
@@ -75,7 +76,7 @@ export class QueueHealthController {
    * @returns Array of job metadata for jobs in the specified state
    */
   @Get('jobs/:state')
-  function getJobsByState(state: string): any[] {
+  getJobsByState(state: string): any[] {
     const jobState = state.toUpperCase().replace(/-/g, '_') as JobState;
     
     if (!Object.values(JobState).includes(jobState)) {
@@ -109,7 +110,7 @@ export class QueueHealthController {
    * @returns Array of dead-lettered job metadata
    */
   @Get('dead-letter')
-  function getDeadLetteredJobs(): any[] {
+  getDeadLetteredJobs(): any[] {
     const jobs = this.stateManager.getJobsByState(JobState.DEAD_LETTERED);
     
     this.logger.log(`Dead-lettered jobs query: ${jobs.length} jobs require rescue`);
@@ -137,7 +138,7 @@ export class QueueHealthController {
    * @returns Current queue configuration
    */
   @Get('config')
-  function getConfig(): any {
+  getConfig(): any {
     const config = this.stateManager.getConfig();
     return {
       ...config,

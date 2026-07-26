@@ -5,6 +5,8 @@ import { DeadLetterEventEntity, DlqReason } from '../database/entities/dead-lett
 import { DomainEvent } from './event.types';
 import { IngestionDispatcherService } from './ingestion-dispatcher.service';
 import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
+import { MetricsService } from '../metrics/metrics.service';
+
 
 export { DlqReason };
 
@@ -57,7 +59,9 @@ export class DlqService {
     private readonly repo: Repository<DeadLetterEventEntity>,
     private readonly dispatcher: IngestionDispatcherService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
-  ) {}
+    @Optional() private readonly metrics?: MetricsService,
+  ) { }
+
 
   /**
    * Enqueue a failed event in the DLQ with a classified reason and retryability flag.
@@ -94,9 +98,17 @@ export class DlqService {
 
     this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
 
+    // DLQ depth and total event metrics
+    const contractAddressLabel = contractId ?? 'unknown';
+    this.metrics?.incrementDlqEventsTotal(reason, event.type);
+    this.metrics?.setDlqDepth(contractAddressLabel, await this.repo.count({
+      where: { contractId: contractAddressLabel, replayedAt: IsNull() },
+    }) as unknown as number);
+
     this.logger.warn(
       `DLQ [${reason}] stored ${event.type} at ledger ${ledger} (retryable=${retryable}): ${errorMessage}`,
     );
+
   }
 
   async count(): Promise<number> {
@@ -127,14 +139,15 @@ export class DlqService {
       ...(fromLedger !== undefined && toLedger !== undefined
         ? { ledger: Between(fromLedger, toLedger) }
         : fromLedger !== undefined
-        ? { ledger: Between(fromLedger, Number.MAX_SAFE_INTEGER) }
-        : toLedger !== undefined
-        ? { ledger: Between(0, toLedger) }
-        : {}),
+          ? { ledger: Between(fromLedger, Number.MAX_SAFE_INTEGER) }
+          : toLedger !== undefined
+            ? { ledger: Between(0, toLedger) }
+            : {}),
     };
 
     const entries = await this.repo.find({ where, order: { ledger: 'ASC', createdAt: 'ASC' } });
-    const eligible = entries.filter((e) => e.retryCount < MAX_RETRIES);
+    const eligible = entries.filter((entry) => entry.retryCount < MAX_RETRIES);
+
 
     let replayed = 0;
     let skipped = 0;
@@ -160,13 +173,26 @@ export class DlqService {
         if (result.outcome === 'failed') {
           throw result.error ?? new Error(`Replay failed for ${entry.eventType}`);
         }
+
+        // Count replay attempts in total events counter.
+        this.metrics?.incrementDlqEventsTotal(entry.reason, entry.eventType);
+
         // Mark as successfully replayed (idempotency guard)
         entry.replayedAt = new Date();
         await this.repo.save(entry);
         replayed++;
         this.pipeline?.apply(PipelineTransition.RETRY_SUCCESS);
+
+        // Successful replay reduces depth for this contract.
+        const contractAddressLabel = entry.contractId ?? 'unknown';
+        const remaining = await this.repo.count({
+          where: { contractId: contractAddressLabel, replayedAt: IsNull() },
+        });
+        this.metrics?.setDlqDepth(contractAddressLabel, remaining);
+
         this.logger.log(`DLQ: replayed ${entry.eventType} ledger=${entry.ledger} id=${entry.id}`);
       } catch (err) {
+
         entry.retryCount += 1;
         entry.errorMessage = err instanceof Error ? err.message : String(err);
         await this.repo.save(entry);

@@ -232,6 +232,17 @@ export class PipelineStateMachine {
       this.history.shift();
     }
 
+    // Log structured pipeline state change
+    const structuredLog = {
+      event: 'pipeline_state_change',
+      from: record.from,
+      to: record.to,
+      reason: transition,
+      timestamp: record.at,
+    };
+    this.logger.log(structuredLog);
+
+    // Keep the existing debug log for backward compatibility
     this.logger.debug(
       `Pipeline ${record.from} -> ${record.to} (${transition})`,
     );

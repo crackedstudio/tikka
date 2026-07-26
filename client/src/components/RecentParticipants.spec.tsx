@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import RecentParticipants from "./RecentParticipants";
+import { render, screen, waitFor, act } from "@testing-library/react";
+import RecentParticipants, { type RecentParticipantsHandle } from "./RecentParticipants";
 import * as apiClient from "../services/apiClient";
 
 // Mock the API client
@@ -67,7 +67,7 @@ describe("RecentParticipants", () => {
     });
   });
 
-  it("adds optimistic participant when onOptimisticUpdate is called", async () => {
+  it("adds optimistic participant via ref handle", async () => {
     const mockParticipants = [
       { address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5V3VQ", timestamp: Date.now() },
     ];
@@ -75,11 +75,24 @@ describe("RecentParticipants", () => {
     vi.mocked(apiClient.api.get).mockResolvedValue(mockParticipants);
 
     const onOptimisticUpdate = vi.fn();
-    render(
+    const ref = { current: null as RecentParticipantsHandle | null };
+
+    const { rerender } = render(
       <RecentParticipants
         raffleId={1}
         currentUserAddress="GTEST"
         onOptimisticUpdate={onOptimisticUpdate}
+        ref={ref as any}
+      />
+    );
+
+    // Re-render to ensure ref callback fires
+    rerender(
+      <RecentParticipants
+        raffleId={1}
+        currentUserAddress="GTEST"
+        onOptimisticUpdate={onOptimisticUpdate}
+        ref={ref as any}
       />
     );
 
@@ -87,12 +100,12 @@ describe("RecentParticipants", () => {
       expect(screen.getByText(/1 participant/)).toBeInTheDocument();
     });
 
-    // Simulate optimistic update
-    const addOptimistic = (window as any).__addOptimisticParticipant;
-    if (addOptimistic) {
-      addOptimistic("GTEST");
-      expect(onOptimisticUpdate).toHaveBeenCalledWith("GTEST");
-    }
+    // Simulate optimistic update via ref
+    act(() => {
+      ref.current?.addOptimisticParticipant("GTEST");
+    });
+
+    expect(onOptimisticUpdate).toHaveBeenCalledWith("GTEST");
   });
 
   it("respects prefers-reduced-motion", () => {

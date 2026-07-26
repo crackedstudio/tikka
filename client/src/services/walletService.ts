@@ -1,11 +1,7 @@
-import {
-  allowAllModules,
-  FREIGHTER_ID,
-  StellarWalletsKit,
-  WalletNetwork,
-} from "@creit.tech/stellar-wallets-kit";
+import type { WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 
 const SELECTED_WALLET_ID = "selectedWalletId";
+const LAST_CONNECTED_WALLET_TYPE = "tikka_last_connected_wallet";
 const TEST_MODE_WALLET_AVAILABLE_KEY = "tikka_test_wallet_available";
 const TEST_MODE_WALLET_CONNECTED_KEY = "tikka_test_wallet_connected";
 const TEST_MODE_WALLET_TYPE_KEY = "tikka_test_wallet_type";
@@ -14,6 +10,21 @@ const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
 function getTestModeOverride(key: string): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(key);
+}
+
+export function normalizeNetworkName(network: string | undefined | null): string {
+  if (!network) return "";
+  const normalized = network.trim().toLowerCase();
+  if (normalized === "mainnet" || normalized === "public") return "public";
+  if (normalized === "testnet") return "testnet";
+  return normalized;
+}
+
+export function prettyNetworkName(network: string | undefined | null): string {
+  const normalized = normalizeNetworkName(network);
+  if (normalized === "public") return "Mainnet";
+  if (normalized === "testnet") return "Testnet";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function isTestWalletAvailable(): boolean {
@@ -61,11 +72,11 @@ export interface WalletCapabilities {
 const WALLET_CAPABILITY_PROFILES: Record<string, WalletCapabilities> = {
   freighter: {
     canSignTransaction: true,
-    canSwitchNetwork: false, // Freighter requires manual network switching
+    canSwitchNetwork: true,
     canGetAccount: true,
     supportsMobileDeepLink: false,
     walletName: "Freighter",
-    unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension.",
+    unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension if automatic switching fails.",
   },
   lobstr: {
     canSignTransaction: true,
@@ -77,11 +88,11 @@ const WALLET_CAPABILITY_PROFILES: Record<string, WalletCapabilities> = {
   },
   xbull: {
     canSignTransaction: true,
-    canSwitchNetwork: false,
+    canSwitchNetwork: true,
     canGetAccount: true,
     supportsMobileDeepLink: false,
     walletName: "xBull",
-    unsupportedActionCopy: "This action is not supported by xBull. Please switch networks manually in the extension.",
+    unsupportedActionCopy: "This action is not supported by xBull. Please switch networks manually in the extension if automatic switching fails.",
   },
   rabet: {
     canSignTransaction: true,
@@ -121,13 +132,76 @@ function detectWalletType(): string {
 
   // Fallback: detect from window object
   if (typeof window !== "undefined") {
-    if ((window as any).freighter) return "freighter";
-    if ((window as any).lobstr) return "lobstr";
-    if ((window as any).xBull) return "xbull";
-    if ((window as any).rabet) return "rabet";
+    const g = window as any;
+    if (g.freighter) return "freighter";
+    if (g.lobstr) return "lobstr";
+    if (g.xBull || g.xbull) return "xbull";
+    if (g.rabet) return "rabet";
   }
 
   return "default";
+}
+
+function getWalletSettingsUrl(walletType: string): string | undefined {
+  switch (walletType) {
+    case "freighter":
+      return "https://freighter.app";
+    case "xbull":
+      return "https://xbull.app";
+    case "lobstr":
+      return "https://lobstr.co";
+    case "rabet":
+      return "https://rabet.io";
+    default:
+      return undefined;
+  }
+}
+
+function getProgrammaticNetworkSwitcher(walletType: string): ((network: string) => Promise<void>) | undefined {
+  if (typeof window === "undefined") return undefined;
+  const g = window as any;
+
+  if (walletType === "freighter") {
+    if (typeof g.freighter?.switchNetwork === "function") {
+      return async (network) => {
+        await g.freighter.switchNetwork(network);
+      };
+    }
+    if (typeof g.freighter?.openWallet === "function") {
+      return async () => {
+        await g.freighter.openWallet();
+      };
+    }
+    return undefined;
+  }
+
+  if (walletType === "xbull") {
+    if (typeof g.xBull?.switchNetwork === "function") {
+      return async (network) => {
+        await g.xBull.switchNetwork(network);
+      };
+    }
+    if (typeof g.xbull?.switchNetwork === "function") {
+      return async (network) => {
+        await g.xbull.switchNetwork(network);
+      };
+    }
+    if (typeof g.xBull?.request === "function") {
+      return async (network) => {
+        await g.xBull.request({ method: "xbull_switchNetwork", params: [network] });
+      };
+    }
+    return undefined;
+  }
+
+  return undefined;
+}
+
+async function openWalletSettings(walletType: string): Promise<void> {
+  const settingsUrl = getWalletSettingsUrl(walletType);
+  if (settingsUrl && typeof window !== "undefined") {
+    window.open(settingsUrl, "_blank");
+  }
 }
 
 /**
@@ -162,10 +236,11 @@ function getNetworkPassphrase(): string {
     : "Test SDF Network ; September 2015";
 }
 
-let kit: StellarWalletsKit | null = null;
+let kit: any = null;
 
-export function getKit(): StellarWalletsKit {
+export async function getKit() {
   if (!kit) {
+    const { allowAllModules, FREIGHTER_ID, StellarWalletsKit } = await import("@creit.tech/stellar-wallets-kit");
     kit = new StellarWalletsKit({
       modules: allowAllModules(),
       network: getNetworkPassphrase() as WalletNetwork,
@@ -190,7 +265,8 @@ export async function getAccountAddress(): Promise<string | null> {
 
   try {
     if (!getSelectedWalletId()) return null;
-    const { address } = await getKit().getAddress();
+    const kit = await getKit();
+    const { address } = await kit.getAddress();
     return address;
   } catch (error) {
     console.error("Error getting account address:", error);
@@ -206,17 +282,24 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
       }
       localStorage.setItem(SELECTED_WALLET_ID, "test-wallet");
       localStorage.setItem(TEST_MODE_WALLET_CONNECTED_KEY, "true");
+      localStorage.setItem(LAST_CONNECTED_WALLET_TYPE, "freighter");
     }
     return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
   }
 
-  const kitInstance = getKit();
-  return new Promise((resolve) => {
-    kitInstance.openModal({
+  return new Promise(async (resolve) => {
+    const kit = await getKit();
+    kit.openModal({
       onWalletSelected: async (option: any) => {
         try {
           await setWallet(option.id);
           const address = await getAccountAddress();
+          
+          // Store the last connected wallet type
+          if (typeof window !== "undefined" && address) {
+            localStorage.setItem(LAST_CONNECTED_WALLET_TYPE, option.id);
+          }
+          
           resolve(address ? { success: true, address } : { success: false, error: "No address found" });
         } catch (error: any) {
           resolve({ success: false, error: error.message });
@@ -228,12 +311,17 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
 
 async function setWallet(walletId: string): Promise<void> {
   if (typeof window !== "undefined") localStorage.setItem(SELECTED_WALLET_ID, walletId);
-  getKit().setWallet(walletId);
+  const kit = await getKit();
+  kit.setWallet(walletId);
 }
 
 export async function disconnectWallet(): Promise<void> {
-  if (typeof window !== "undefined") localStorage.removeItem(SELECTED_WALLET_ID);
-  getKit().disconnect();
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(SELECTED_WALLET_ID);
+    localStorage.removeItem(LAST_CONNECTED_WALLET_TYPE);
+  }
+  const kit = await getKit();
+  kit.disconnect();
 }
 
 /**
@@ -249,7 +337,8 @@ export async function getNetwork(): Promise<string | null> {
 
   try {
     if (!getSelectedWalletId()) return null;
-    const { network } = await getKit().getNetwork();
+    const kit = await getKit();
+    const { network } = await kit.getNetwork();
     return parsePassphrase(network); // Returns "testnet" or "public"
   } catch (error) {
     console.error("Error getting network:", error);
@@ -277,7 +366,8 @@ export async function signTransaction(transaction: any): Promise<WalletSignResul
 
   if (!getSelectedWalletId()) throw new WalletUserRejectedError("No wallet connected");
 
-  const result = await getKit().signTransaction(transaction);
+  const kit = await getKit();
+  const result = await kit.signTransaction(transaction);
   // Map the kit's result to our WalletSignResult interface
   return {
     success: true,
@@ -311,15 +401,106 @@ export async function isWalletInstalled(): Promise<boolean> {
   );
 }
 
-export async function setNetwork(network: string): Promise<void> {
-  console.warn(`Network switch to ${network} requested. Please switch manually in your wallet extension.`);
-  // Most Stellar wallets don't support programmatic network switching
-  // Users need to switch manually in their wallet extension
+/**
+ * Attempts to auto-reconnect to a previously connected wallet.
+ * Returns true if reconnection was successful, false otherwise.
+ */
+export async function attemptAutoReconnect(): Promise<{ success: boolean; address?: string }> {
+  if (IS_TEST_MODE) {
+    if (isTestWalletConnected()) {
+      return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
+    }
+    return { success: false };
+  }
+
+  try {
+    // Check if there was a previously connected wallet
+    const lastWalletType = typeof window !== "undefined" 
+      ? localStorage.getItem(LAST_CONNECTED_WALLET_TYPE)
+      : null;
+
+    if (!lastWalletType) {
+      return { success: false };
+    }
+
+    // Currently only Freighter supports auto-reconnect via isConnected API
+    if (lastWalletType.toLowerCase().includes("freighter")) {
+      // Check if Freighter extension is available
+      if (typeof window === "undefined" || !(window as any).freighter) {
+        return { success: false };
+      }
+
+      try {
+        // Try to get freighter API
+        const freighterApi = await import('@stellar/freighter-api');
+        
+        // Check if already connected
+        if (typeof freighterApi.isConnected === 'function') {
+          const connected = await freighterApi.isConnected();
+          
+          if (connected) {
+            // Set the wallet without showing modal
+            const selectedWalletId = getSelectedWalletId();
+            if (!selectedWalletId) {
+              await setWallet(FREIGHTER_ID);
+            }
+            
+            // Get the address
+            const address = await getAccountAddress();
+            
+            if (address) {
+              return { success: true, address };
+            }
+          }
+        }
+      } catch (error) {
+        console.debug("Auto-reconnect failed:", error);
+        return { success: false };
+      }
+    }
+
+    return { success: false };
+  } catch (error) {
+    console.debug("Auto-reconnect error:", error);
+    return { success: false };
+  }
 }
 
-// Placeholder for future Kit support
-export async function promptNetworkSwitch(_targetNetwork: string): Promise<void> {
-  console.warn("Manual network switch required in the wallet extension.");
+export async function setNetwork(network: string): Promise<void> {
+  if (IS_TEST_MODE) return;
+
+  const targetNetwork = normalizeNetworkName(network);
+  const walletType = detectWalletType();
+  const switcher = getProgrammaticNetworkSwitcher(walletType);
+
+  if (switcher) {
+    try {
+      await switcher(targetNetwork);
+      return;
+    } catch (error) {
+      console.warn("Programmatic network switch failed:", error);
+    }
+  }
+
+  const settingsUrl = getWalletSettingsUrl(walletType);
+  if (settingsUrl && typeof window !== "undefined") {
+    window.open(settingsUrl, "_blank");
+    return;
+  }
+
+  throw new Error(`${walletType} does not support automatic network switching.`);
+}
+
+export async function promptNetworkSwitch(targetNetwork: string): Promise<void> {
+  const walletType = detectWalletType();
+  const settingsUrl = getWalletSettingsUrl(walletType);
+
+  if (settingsUrl && typeof window !== "undefined") {
+    window.open(settingsUrl, "_blank");
+    return;
+  }
+
+  console.warn(`Please switch your wallet to ${prettyNetworkName(targetNetwork)} manually.`);
 }
 
 // ─── Typed signing result ─────────────────────────────────────────────────────

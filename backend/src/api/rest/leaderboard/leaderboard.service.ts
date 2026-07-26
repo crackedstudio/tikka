@@ -4,20 +4,73 @@ import {
   IndexerLeaderboardResponse,
   IndexerLeaderboardFilters,
 } from '../../../services/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata-redis.service';
 import { LeaderboardQueryDto } from './dto/leaderboard-query.dto';
+
+export const LEADERBOARD_CACHE_TTL = 60;
+/** Redis set that tracks every leaderboard cache key currently written. */
+const LEADERBOARD_KEY_INDEX = 'leaderboard:__keys__';
+
+/**
+ * Tie-breaking contract
+ * =====================
+ * The indexer applies a deterministic 6-level ORDER BY cascade so that users
+ * with equal scores always appear in the same order, including across
+ * paginated boundaries:
+ *
+ *  1. Primary metric (mode-specific) DESC
+ *  2. totalPrizeXlm (numeric) DESC
+ *  3. totalTicketsBought DESC
+ *  4. totalRafflesWon DESC
+ *  5. firstSeenLedger ASC
+ *  6. address ASC
+ *
+ * This service caches the indexer response as-is and never re-sorts entries,
+ * so the tie-breaking guarantee is preserved end-to-end.
+ */
 
 @Injectable()
 export class LeaderboardService {
-  constructor(private readonly indexerService: IndexerService) {}
+  constructor(
+    private readonly indexerService: IndexerService,
+    private readonly redis: MetadataRedisService,
+  ) {}
 
-  /** Get leaderboard entries sorted by wins, volume, or tickets. */
-  async getLeaderboard(query: LeaderboardQueryDto): Promise<IndexerLeaderboardResponse> {
+  cacheKey(query: LeaderboardQueryDto): string {
+    const by = query.by ?? 'wins';
+    const limit = query.limit ?? 20;
+    const cursor = query.cursor ?? '';
+    const offset = query.offset ?? '';
+    return `leaderboard:${by}:${limit}:${cursor}:${offset}`;
+  }
+
+  /** Get leaderboard entries, served from cache when available. */
+  async getLeaderboard(
+    query: LeaderboardQueryDto,
+  ): Promise<{ data: IndexerLeaderboardResponse; cacheHit: boolean }> {
+    const key = this.cacheKey(query);
+    const cached = await this.redis.get(key);
+    if (cached) {
+      return { data: JSON.parse(cached) as IndexerLeaderboardResponse, cacheHit: true };
+    }
+
     const filters: IndexerLeaderboardFilters = {
       by: query.by,
       limit: query.limit,
       cursor: query.cursor,
       offset: query.offset,
     };
-    return this.indexerService.getLeaderboard(filters);
+    const data = await this.indexerService.getLeaderboard(filters);
+    await this.redis.setEx(key, LEADERBOARD_CACHE_TTL, JSON.stringify(data));
+    // Track this key so invalidateAll can delete it later.
+    await this.redis.sAdd(LEADERBOARD_KEY_INDEX, key);
+    return { data, cacheHit: false };
+  }
+
+  /** Invalidate all leaderboard cache keys (called on RaffleFinalized). */
+  async invalidateAll(): Promise<void> {
+    const keys = await this.redis.sMembers(LEADERBOARD_KEY_INDEX);
+    await Promise.all(keys.map((k) => this.redis.del(k)));
+    await this.redis.del(LEADERBOARD_KEY_INDEX);
   }
 }

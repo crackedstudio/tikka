@@ -275,17 +275,50 @@ export class WebhookService {
         await this.client.from(TABLE).update({ failure_count: 0 }).eq('id', webhook.id);
       }
     } else {
-      // Increment failure count
-      const newFailureCount = webhook.failure_count + 1;
-      const updates: any = { failure_count: newFailureCount };
+      // RACE CONDITION FIX (original lines 260-277):
+      // The original code was vulnerable to concurrent delivery failures:
+      //   Delivery A: reads failure_count = N → computes N+1 → writes N+1
+      //   Delivery B: reads failure_count = N → computes N+1 → writes N+1
+      // Both write the same value N+1, so the count only increments by 1 instead of 2.
+      // If N+1 < MAX_FAILURES but N+2 >= MAX_FAILURES, the webhook is never disabled.
+      //
+      // FIX: Use atomic server-side increment via increment_webhook_failure_count()
+      // This single database operation:
+      //   1. Increments failure_count at the server (failure_count = failure_count + 1)
+      //   2. Conditionally disables in the same statement (CASE WHEN ...)
+      //   3. Returns the post-increment values in one round-trip
+      // All concurrent requests now correctly read the post-increment value and
+      // the webhook is disabled exactly at the right threshold.
       
-      // Disable webhook if it consistently fails
-      if (newFailureCount >= MAX_FAILURES) {
-        updates.is_active = false;
-        this.logger.warn(`Disabled webhook ${webhook.id} due to ${newFailureCount} consecutive failures.`);
+      const { data, error } = await this.client.rpc('increment_webhook_failure_count', {
+        p_webhook_id: webhook.id,
+        p_max_failures: MAX_FAILURES,
+      });
+
+      if (error) {
+        this.logger.error(
+          `Failed to increment failure count for webhook ${webhook.id}: ${error.message}`,
+          error
+        );
+        return;
       }
-      
-      await this.client.from(TABLE).update(updates).eq('id', webhook.id);
+
+      if (data && data.length > 0) {
+        // Use post-increment values from RPC for logging — do not re-read the row;
+        // a re-read races with other concurrent updates
+        const result = data[0];
+        const { failure_count: postIncrementCount, is_active: isActive } = result;
+
+        if (!isActive) {
+          this.logger.warn(
+            `Disabled webhook ${webhook.id} due to ${postIncrementCount} consecutive failures.`
+          );
+        } else {
+          this.logger.debug(
+            `Incremented failure count for webhook ${webhook.id} to ${postIncrementCount}.`
+          );
+        }
+      }
     }
   }
 
