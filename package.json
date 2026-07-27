@@ -11,6 +11,7 @@
     "build:indexer": "npm run build --prefix indexer",
     "build:oracle": "npm run build --prefix oracle",
     "check:dependencies": "node scripts/check-dependencies.js",
+    "db:check-drift": "npx tsx scripts/check-schema-drift.ts",
     "prepare": "husky"
   },
   "devDependencies": {
