@@ -1,8 +1,9 @@
 {
   "name": "tikka-backend",
   "version": "0.1.0",
-  "description": "Tikka API layer — auth, metadata, indexer merge, notifications",
+  "description": "Tikka API layer \u2014 auth, metadata, indexer merge, notifications",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "build": "nest build",
     "start": "nest start",
@@ -32,7 +33,6 @@
     "@sentry/node": "8.55.1",
     "@react-email/components": "^0.5.7",
     "@sentry/profiling-node": "^10.55.0",
-    "@react-email/components": "^0.5.7",
     "@stellar/stellar-sdk": "^14.4.0",
     "@supabase/supabase-js": "^2.45.0",
     "class-transformer": "^0.5.1",
