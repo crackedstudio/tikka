@@ -11,28 +11,37 @@ import { CommitRevealWorker } from '../src/queue/commit-reveal.worker';
 import { DrawRequestLedgerService } from '../src/listener/draw-request-ledger.service';
 import { CircuitBreakerService } from '../src/listener/circuit-breaker.service';
 import { OracleLoggerService } from '../src/logger/oracle-logger';
+import { MetricsService } from '../src/metrics/metrics.service';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const RAFFLE_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
 const HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
 
-// ─── Task 2.1: Test-scoped callback capture variables ────────────────────────
+// ─── Task 2.1: MockHorizonServer ─────────────────────────────────────────────
+// Chainable mock: events() -> { forContract() -> { cursor() -> { stream | order().limit().call } } }
 let capturedOnMessage: ((event: any) => void) | undefined;
 let capturedOnError: ((err: Error) => void) | undefined;
 let mockCloseFn: jest.Mock;
+let capturedStreamCursors: string[] = [];
+let mockBackfillRecords: any[] = [];
 
-// ─── Task 2.1: MockHorizonServer ─────────────────────────────────────────────
-// Chainable mock: events() -> { cursor() -> { stream(opts) -> closeFn } }
-// stream() captures onmessage/onerror and returns a jest.fn() close fn.
+const mockCallFn = jest.fn().mockImplementation(async () => ({
+    records: [...mockBackfillRecords],
+    next: async () => ({ records: [] }),
+}));
+const mockLimitFn = jest.fn().mockReturnValue({ call: mockCallFn });
+const mockOrderFn = jest.fn().mockReturnValue({ limit: mockLimitFn });
 const mockStreamFn = jest.fn().mockImplementation((opts: { onmessage: any; onerror: any }) => {
     capturedOnMessage = opts.onmessage;
     capturedOnError = opts.onerror;
     mockCloseFn = jest.fn();
     return mockCloseFn;
 });
-
-const mockCursorFn = jest.fn().mockReturnValue({ stream: mockStreamFn });
+const mockCursorFn = jest.fn().mockImplementation((cursor: string) => {
+    capturedStreamCursors.push(cursor);
+    return { stream: mockStreamFn, order: mockOrderFn };
+});
 const mockForContractFn = jest.fn().mockReturnValue({ cursor: mockCursorFn });
 const mockEventsFn = jest.fn().mockReturnValue({ forContract: mockForContractFn });
 
@@ -119,16 +128,24 @@ describe('EventListenerService', () => {
     let mockHealthService: jest.Mocked<Pick<HealthService, 'updateQueueDepth' | 'recordSuccess' | 'recordFailure'>>;
     let mockDrawRequestLedger: jest.Mocked<Pick<DrawRequestLedgerService, 'claim'>>;
     let mockCircuitBreaker: jest.Mocked<Pick<CircuitBreakerService, 'canAttempt' | 'recordSuccess' | 'recordFailure' | 'getRemainingCooldownMs'>>;
+    let mockMetricsService: { recordEventListenerGap: jest.Mock; getGapDetectionCount: jest.Mock };
+    let gapCount = 0;
 
     // ─── Task 2.2: TestingModule setup ───────────────────────────────────────
     beforeEach(async () => {
         capturedOnMessage = undefined;
         capturedOnError = undefined;
         mockCloseFn = jest.fn();
+        capturedStreamCursors = [];
+        mockBackfillRecords = [];
+        gapCount = 0;
 
         mockStreamFn.mockClear();
         mockCursorFn.mockClear();
         mockEventsFn.mockClear();
+        mockCallFn.mockClear();
+        mockOrderFn.mockClear();
+        mockLimitFn.mockClear();
 
         mockStreamFn.mockImplementation((opts: { onmessage: any; onerror: any }) => {
             capturedOnMessage = opts.onmessage;
@@ -136,6 +153,16 @@ describe('EventListenerService', () => {
             mockCloseFn = jest.fn();
             return mockCloseFn;
         });
+
+        mockCursorFn.mockImplementation((cursor: string) => {
+            capturedStreamCursors.push(cursor);
+            return { stream: mockStreamFn, order: mockOrderFn };
+        });
+
+        mockCallFn.mockImplementation(async () => ({
+            records: [...mockBackfillRecords],
+            next: async () => ({ records: [] }),
+        }));
 
         mockRandomnessWorker = {
             processRequest: jest.fn().mockResolvedValue(undefined),
@@ -156,7 +183,8 @@ describe('EventListenerService', () => {
             updateQueueDepth: jest.fn(),
             recordSuccess: jest.fn(),
             recordFailure: jest.fn(),
-        };
+            updateStreamStatus: jest.fn(),
+        } as any;
 
         mockDrawRequestLedger = {
             claim: jest.fn().mockResolvedValue('claimed'),
@@ -167,6 +195,14 @@ describe('EventListenerService', () => {
             recordSuccess: jest.fn(),
             recordFailure: jest.fn(),
             getRemainingCooldownMs: jest.fn().mockReturnValue(0),
+        };
+
+        mockMetricsService = {
+            recordEventListenerGap: jest.fn((n = 0) => {
+                gapCount += 1;
+                return n;
+            }),
+            getGapDetectionCount: jest.fn(() => gapCount),
         };
 
         const mockConfigService = {
@@ -190,6 +226,7 @@ describe('EventListenerService', () => {
                 { provide: LagMonitorService, useValue: mockLagMonitor },
                 { provide: DrawRequestLedgerService, useValue: mockDrawRequestLedger },
                 { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
+                { provide: MetricsService, useValue: mockMetricsService },
             ],
         }).compile();
 
@@ -197,6 +234,7 @@ describe('EventListenerService', () => {
 
         // Trigger startListening() and populate captured callbacks
         service.onModuleInit();
+        await Promise.resolve();
     });
 
     afterEach(() => {
@@ -424,10 +462,10 @@ describe('EventListenerService', () => {
             expect(jest.getTimerCount()).toBe(1);
         });
 
-        it('should re-establish the stream after the reconnect timeout fires', () => {
+        it('should re-establish the stream after the reconnect timeout fires', async () => {
             const callsBefore = mockEventsFn.mock.calls.length;
             capturedOnError!(new Error('stream error'));
-            jest.runAllTimers();
+            await jest.runAllTimersAsync();
             expect(mockEventsFn.mock.calls.length).toBeGreaterThan(callsBefore);
         });
 
@@ -452,6 +490,72 @@ describe('EventListenerService', () => {
                 ),
                 { numRuns: 10 },
             );
+        });
+
+        it('killing the connection resumes from the last cursor and does not miss events', async () => {
+            const firstMap = buildScvMap(1, 'req-live-1');
+            mockFromXDR(firstMap);
+            await capturedOnMessage!(
+                buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', firstMap, 1000, 'tx-live-1', 1),
+            );
+            await Promise.resolve();
+
+            expect(service.getLastProcessedCursor()).toBe('1000-1');
+
+            const missedMap = buildScvMap(2, 'req-missed');
+            mockFromXDR(missedMap);
+            mockBackfillRecords = [
+                buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', missedMap, 1001, 'tx-missed', 1),
+            ];
+
+            const cursorsBeforeReconnect = capturedStreamCursors.length;
+            capturedOnError!(new Error('connection killed'));
+            await jest.runAllTimersAsync();
+
+            // Backfill recovered the missed event
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith(
+                expect.objectContaining({ requestId: 'req-missed', raffleId: 2 }),
+            );
+            expect(mockMetricsService.recordEventListenerGap).toHaveBeenCalledWith(1);
+            expect(service.getGapDetectionCount()).toBeGreaterThanOrEqual(1);
+
+            // Live stream resumed from the persisted cursor (not "now")
+            const resumeCursors = capturedStreamCursors.slice(cursorsBeforeReconnect);
+            expect(resumeCursors.some((c) => c !== 'now')).toBe(true);
+
+            const afterMap = buildScvMap(3, 'req-after');
+            mockFromXDR(afterMap);
+            await capturedOnMessage!(
+                buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', afterMap, 1002, 'tx-after', 1),
+            );
+            await Promise.resolve();
+
+            expect(mockRandomnessWorker.processRequest).toHaveBeenCalledWith(
+                expect.objectContaining({ requestId: 'req-after', raffleId: 3 }),
+            );
+            expect(service.getLastProcessedCursor()).toBe('1002-1');
+        });
+
+        it('increments the gap metric when backfill recovers missed events', async () => {
+            const liveMap = buildScvMap(1, 'req-1');
+            mockFromXDR(liveMap);
+            await capturedOnMessage!(
+                buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', liveMap, 500, 'tx-1', 1),
+            );
+            await Promise.resolve();
+
+            const missed = buildScvMap(9, 'req-gap');
+            mockFromXDR(missed);
+            mockBackfillRecords = [
+                buildMockEvent(RAFFLE_CONTRACT_ID, 'RandomnessRequested', missed, 510, 'tx-gap', 1),
+            ];
+
+            const gapsBefore = service.getGapDetectionCount();
+            capturedOnError!(new Error('drop'));
+            await jest.runAllTimersAsync();
+
+            expect(service.getGapDetectionCount()).toBe(gapsBefore + 1);
+            expect(mockMetricsService.recordEventListenerGap).toHaveBeenCalledWith(1);
         });
     });
 
@@ -521,11 +625,11 @@ describe('EventListenerService', () => {
             expect(closeFnSnapshot).toHaveBeenCalledTimes(1);
         });
 
-        it('should cancel a pending reconnect timeout on onModuleDestroy', () => {
+        it('should cancel a pending reconnect timeout on onModuleDestroy', async () => {
             jest.useFakeTimers();
             capturedOnError!(new Error('stream error'));
             service.onModuleDestroy();
-            jest.runAllTimers();
+            await jest.runAllTimersAsync();
             // events() should not be called again after destroy
             expect(mockEventsFn).toHaveBeenCalledTimes(1);
             jest.useRealTimers();
