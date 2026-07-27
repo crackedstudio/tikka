@@ -1,8 +1,9 @@
 {
   "name": "tikka-oracle",
   "version": "0.1.0",
-  "description": "Tikka randomness oracle — VRF/PRNG and receive_randomness submitter",
+  "description": "Tikka randomness oracle \u2014 VRF/PRNG and receive_randomness submitter",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "build": "nest build",
     "decrypt-env": "bash scripts/decrypt-env.sh",

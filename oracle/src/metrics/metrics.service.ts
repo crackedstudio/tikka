@@ -17,6 +17,11 @@ export class MetricsService implements OnModuleInit {
   private vrfFailuresCounter: Counter;
   private vrfProofsCounter: Counter;
 
+  // Event listener gap / backfill metrics
+  private eventListenerGapCounter: Counter;
+  private eventListenerBackfillCounter: Counter;
+  private gapDetectionCount = 0;
+
   constructor() {
     this.exporter = new PrometheusExporter({
       preventServerStart: true,
@@ -53,6 +58,22 @@ export class MetricsService implements OnModuleInit {
       description: 'Total number of successful VRF proof generations',
     });
 
+    // Gaps detected when the event listener reconnects and backfills
+    this.eventListenerGapCounter = this.meter.createCounter(
+      'oracle_event_listener_gaps_total',
+      {
+        description:
+          'Total number of event-stream gaps detected on reconnect/backfill',
+      },
+    );
+
+    this.eventListenerBackfillCounter = this.meter.createCounter(
+      'oracle_event_listener_backfill_events_total',
+      {
+        description: 'Total number of events recovered via backfill after a gap',
+      },
+    );
+
     // Standard metrics
     this.meter.createObservableGauge('tikka_oracle_memory_usage_bytes', {
       description: 'Current memory usage (heapUsed)',
@@ -86,6 +107,23 @@ export class MetricsService implements OnModuleInit {
 
   recordVrfProofSuccess() {
     this.vrfProofsCounter.add(1);
+  }
+
+  /**
+   * Record a detected gap in the Horizon event stream (e.g. after reconnect backfill).
+   * @param backfilledEvents Number of events recovered during backfill (0 if ledger-only gap).
+   */
+  recordEventListenerGap(backfilledEvents = 0) {
+    this.gapDetectionCount += 1;
+    this.eventListenerGapCounter.add(1);
+    if (backfilledEvents > 0) {
+      this.eventListenerBackfillCounter.add(backfilledEvents);
+    }
+  }
+
+  /** Process-local count of gap detections (useful for unit tests). */
+  getGapDetectionCount(): number {
+    return this.gapDetectionCount;
   }
 
   /**
