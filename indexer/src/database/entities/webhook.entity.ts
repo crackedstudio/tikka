@@ -23,7 +23,7 @@ export class WebhookEntity {
 
   /** Filter events to dispatch (only these will receive payloads) */
   @Column("simple-array")
-  supportedEvents!: string[];
+  supportedEvents!: ("RaffleCreated" | "RaffleFinalized")[];
 
   /** Enabled/disabled */
   @Column({ default: true })

@@ -14,7 +14,6 @@ import { PlatformStatEntity } from "../database/entities/platform-stat.entity";
 import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
 import { CacheModule } from "../cache/cache.module";
 import { MaintenanceModule } from "../maintenance/maintenance.module";
-import { IngestorModule } from "../ingestor/ingestor.module";
 import { supabaseProvider } from "./supabase.provider";
 
 @Module({

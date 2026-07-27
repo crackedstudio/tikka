@@ -47,13 +47,7 @@ describe('DlqService', () => {
     } as any;
 
     dispatcher = {
-      dispatch: jest.fn().mockResolvedValue({
-        outcome: 'succeeded',
-        handlerName: 'test',
-        eventId: 'e1',
-        eventType: 'RaffleCreated',
-        durationMs: 1,
-      }),
+      dispatch: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -128,24 +122,17 @@ describe('DlqService', () => {
   // -------------------------------------------------------------------------
 
   describe('replayAll — success path', () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
     it('replays eligible entries, sets replayedAt, and does not delete', async () => {
       const entry = makeEntry();
       repo.find.mockResolvedValue([entry]);
+      const mockQr = { commitTransaction: jest.fn(), release: jest.fn() };
+      dispatcher.dispatch.mockResolvedValue(mockQr as any);
 
-      const promise = service.replayAll();
-      await jest.runAllTimersAsync();
-      const result = await promise;
+      const result = await service.replayAll();
 
       expect(result.replayed).toBe(1);
       expect(result.failed).toBe(0);
-      expect(dispatcher.dispatch).toHaveBeenCalled();
+      expect(mockQr.commitTransaction).toHaveBeenCalled();
       expect(entry.replayedAt).toBeInstanceOf(Date);
       expect(repo.save).toHaveBeenCalledWith(entry);
       // entry should NOT be deleted — idempotency guard relies on replayedAt
@@ -155,17 +142,9 @@ describe('DlqService', () => {
     it('handles a null QueryRunner from dispatcher', async () => {
       const entry = makeEntry();
       repo.find.mockResolvedValue([entry]);
-      dispatcher.dispatch.mockResolvedValue({
-        outcome: 'succeeded',
-        handlerName: 'test',
-        eventId: 'e1',
-        eventType: 'RaffleCreated',
-        durationMs: 1,
-      } as any);
+      dispatcher.dispatch.mockResolvedValue(null);
 
-      const promise = service.replayAll();
-      await jest.runAllTimersAsync();
-      const result = await promise;
+      const result = await service.replayAll();
       expect(result.replayed).toBe(1);
     });
   });
@@ -175,21 +154,12 @@ describe('DlqService', () => {
   // -------------------------------------------------------------------------
 
   describe('replayAll — failure path', () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
     it('increments retryCount on failure and preserves error message', async () => {
       const entry = makeEntry({ retryCount: 1 });
       repo.find.mockResolvedValue([entry]);
       dispatcher.dispatch.mockRejectedValue(new Error('still failing'));
 
-      const promise = service.replayAll();
-      await jest.runAllTimersAsync();
-      const result = await promise;
+      const result = await service.replayAll();
       expect(result.failed).toBe(1);
       expect(entry.retryCount).toBe(2);
       expect(entry.errorMessage).toBe('still failing');
@@ -199,9 +169,7 @@ describe('DlqService', () => {
       const exhausted = makeEntry({ retryCount: MAX_RETRIES });
       repo.find.mockResolvedValue([exhausted]);
 
-      const promise = service.replayAll();
-      await jest.runAllTimersAsync();
-      const result = await promise;
+      const result = await service.replayAll();
       expect(result.replayed).toBe(0);
       expect(result.failed).toBe(0);
       expect(dispatcher.dispatch).not.toHaveBeenCalled();
@@ -226,23 +194,14 @@ describe('DlqService', () => {
     });
 
     it('replays already-replayed entries when forceReplay=true', async () => {
-      jest.useFakeTimers();
       const alreadyDone = makeEntry({ replayedAt: new Date('2025-01-01') });
       repo.find.mockResolvedValue([alreadyDone]);
-      dispatcher.dispatch.mockResolvedValue({
-        outcome: 'succeeded',
-        handlerName: 'test',
-        eventId: 'e1',
-        eventType: 'RaffleCreated',
-        durationMs: 1,
-      } as any);
+      const mockQr = { commitTransaction: jest.fn(), release: jest.fn() };
+      dispatcher.dispatch.mockResolvedValue(mockQr as any);
 
-      const promise = service.replayAll({ forceReplay: true });
-      await jest.runAllTimersAsync();
-      const result = await promise;
+      const result = await service.replayAll({ forceReplay: true });
       expect(result.replayed).toBe(1);
       expect(alreadyDone.replayedAt).not.toEqual(new Date('2025-01-01')); // updated
-      jest.useRealTimers();
     });
   });
 

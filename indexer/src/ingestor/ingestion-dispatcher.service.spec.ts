@@ -3,16 +3,6 @@ import { DeadLetterQueueService } from './dead-letter-queue.service';
 import { DomainEvent } from './event.types';
 
 describe('IngestionDispatcherService', () => {
-  const originalRetries = process.env.MAX_DISPATCH_RETRIES;
-
-  afterEach(() => {
-    if (originalRetries === undefined) {
-      delete process.env.MAX_DISPATCH_RETRIES;
-    } else {
-      process.env.MAX_DISPATCH_RETRIES = originalRetries;
-    }
-  });
-
   function makeService() {
     const raffleProcessor = {
       handleRaffleCreated: jest.fn().mockResolvedValue(undefined),
@@ -68,8 +58,7 @@ describe('IngestionDispatcherService', () => {
 
   it('isolates one failed handler while later events still run', async () => {
     const { service, raffleProcessor, ticketProcessor, dlq } = makeService();
-    process.env.MAX_DISPATCH_RETRIES = '1';
-    ticketProcessor.handleTicketPurchased.mockRejectedValue(
+    ticketProcessor.handleTicketPurchased.mockRejectedValueOnce(
       new Error('ticket write failed'),
     );
 
@@ -102,7 +91,6 @@ describe('IngestionDispatcherService', () => {
       'expired',
       124,
       'tx-2',
-      1,
     );
     expect(dlq.getRecords()).toHaveLength(1);
     expect(dlq.getRecords()[0]).toMatchObject({
@@ -200,8 +188,7 @@ describe('IngestionDispatcherService', () => {
 
     it('records schema version and HANDLER_ERROR reason on handler failure', async () => {
       const { service, ticketProcessor, dlq } = makeService();
-      process.env.MAX_DISPATCH_RETRIES = '1';
-      ticketProcessor.handleTicketPurchased.mockRejectedValue(
+      ticketProcessor.handleTicketPurchased.mockRejectedValueOnce(
         new Error('write failed'),
       );
 

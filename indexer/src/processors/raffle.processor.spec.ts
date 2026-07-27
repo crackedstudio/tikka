@@ -1,11 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
 import { RaffleProcessor } from './raffle.processor';
 import { UserProcessor } from './user.processor';
 import { CacheService } from '../cache/cache.service';
 import { WebhookService } from '../webhooks/webhook.service';
 import { RaffleEntity, RaffleStatus } from '../database/entities/raffle.entity';
-import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
 
 describe('RaffleProcessor', () => {
   let processor: RaffleProcessor;
@@ -14,16 +12,6 @@ describe('RaffleProcessor', () => {
   let webhookService: WebhookService;
   let mockQueryRunner: any;
   let mockManager: any;
-  let dataSource: { createQueryRunner: jest.Mock };
-
-  const defaultParams = {
-    ticket_price: '100',
-    max_tickets: 100,
-    end_time: 1700000000,
-    asset: 'XLM',
-    metadata_cid: 'cid',
-    allow_multiple: false,
-  };
 
   beforeEach(async () => {
     mockManager = {
@@ -32,15 +20,6 @@ describe('RaffleProcessor', () => {
 
     mockQueryRunner = {
       manager: mockManager,
-      connect: jest.fn().mockResolvedValue(undefined),
-      startTransaction: jest.fn().mockResolvedValue(undefined),
-      commitTransaction: jest.fn().mockResolvedValue(undefined),
-      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
-      release: jest.fn().mockResolvedValue(undefined),
-    };
-
-    dataSource = {
-      createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
     };
 
     cacheService = {
@@ -51,7 +30,7 @@ describe('RaffleProcessor', () => {
     } as any;
 
     webhookService = {
-      dispatch: jest.fn().mockResolvedValue(undefined),
+      dispatchEvent: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     userProcessor = {
@@ -62,7 +41,6 @@ describe('RaffleProcessor', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RaffleProcessor,
-        { provide: DataSource, useValue: dataSource },
         { provide: UserProcessor, useValue: userProcessor },
         { provide: CacheService, useValue: cacheService },
         { provide: WebhookService, useValue: webhookService },
@@ -72,149 +50,229 @@ describe('RaffleProcessor', () => {
     processor = module.get<RaffleProcessor>(RaffleProcessor);
   });
 
-  function mockInsertChain() {
-    return {
-      insert: jest.fn().mockReturnThis(),
-      into: jest.fn().mockReturnThis(),
-      values: jest.fn().mockReturnThis(),
-      orIgnore: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ identifiers: [] }),
-      update: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-    };
-  }
-
   describe('handleRaffleCreated', () => {
     it('should invalidate active raffles cache', async () => {
-      mockManager.createQueryBuilder
-        .mockReturnValueOnce(mockInsertChain())
-        .mockReturnValueOnce(mockInsertChain());
-
-      await processor.handleRaffleCreated(
-        1,
-        'GAAAA',
-        500,
-        'tx-1',
-        defaultParams,
-      );
+      await processor.handleRaffleCreated(1, undefined, undefined, mockQueryRunner);
 
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalledTimes(1);
     });
 
     it('should handle raffle creation with creator and ledger', async () => {
-      mockManager.createQueryBuilder
-        .mockReturnValueOnce(mockInsertChain())
-        .mockReturnValueOnce(mockInsertChain());
-
       const raffleId = 1;
       const creator = 'GAAAA';
       const ledger = 500;
 
-      await processor.handleRaffleCreated(
-        raffleId,
-        creator,
-        ledger,
-        'tx-1',
-        defaultParams,
-      );
+      await processor.handleRaffleCreated(raffleId, creator, ledger, mockQueryRunner);
 
-      expect(userProcessor.handleRaffleCreated).toHaveBeenCalledWith(
-        creator,
-        ledger,
-        mockQueryRunner,
-      );
-      expect(webhookService.dispatch).toHaveBeenCalledWith(
-        'RaffleCreated',
-        expect.objectContaining({ raffleId, creator, ledger }),
+      expect(userProcessor.handleRaffleCreated).toHaveBeenCalledWith(creator, ledger, mockQueryRunner);
+      expect(webhookService.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'RaffleCreated',
+          raffleId,
+          data: { creator, ledger },
+        }),
       );
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
     });
 
     it('should propagate errors from userProcessor', async () => {
-      mockManager.createQueryBuilder
-        .mockReturnValueOnce(mockInsertChain())
-        .mockReturnValueOnce(mockInsertChain());
-
       const error = new Error('Database error');
-      (userProcessor.handleRaffleCreated as jest.Mock).mockRejectedValueOnce(
-        error,
-      );
+      (userProcessor.handleRaffleCreated as jest.Mock).mockRejectedValueOnce(error);
 
       await expect(
-        processor.handleRaffleCreated(1, 'GAAAA', 500, 'tx-1', defaultParams),
-      ).rejects.toThrow('Database error');
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(webhookService.dispatch).not.toHaveBeenCalled();
+        processor.handleRaffleCreated(1, 'GAAAA', 500, mockQueryRunner),
+      ).rejects.toThrow(error);
+    });
+
+    it('should handle raffle creation without creator and ledger', async () => {
+      await processor.handleRaffleCreated(1, undefined, undefined, mockQueryRunner);
+
+      expect(userProcessor.handleRaffleCreated).not.toHaveBeenCalled();
+      expect(webhookService.dispatchEvent).not.toHaveBeenCalled();
+      expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
     });
   });
 
   describe('handleRaffleFinalized', () => {
-    it('should invalidate caches and dispatch webhook', async () => {
-      mockManager.createQueryBuilder
-        .mockReturnValueOnce(mockInsertChain())
-        .mockReturnValueOnce(mockInsertChain());
+    it('should invalidate raffle detail and leaderboard cache', async () => {
+      await processor.handleRaffleFinalized(1, undefined, undefined, mockQueryRunner);
 
-      await processor.handleRaffleFinalized(
-        1,
-        'GWINNER',
-        42,
-        '1000',
-        600,
-        'tx-final',
+      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
+      expect(cacheService.invalidateLeaderboard).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle raffle finalization with winner and prize', async () => {
+      const raffleId = 2;
+      const winner = 'GBBBB';
+      const prizeAmount = '100000000';
+
+      await processor.handleRaffleFinalized(raffleId, winner, prizeAmount, mockQueryRunner);
+
+      expect(userProcessor.handleRaffleFinalized).toHaveBeenCalledWith(
+        raffleId,
+        winner,
+        prizeAmount,
+        mockQueryRunner,
       );
-
-      expect(userProcessor.handleRaffleFinalized).toHaveBeenCalled();
-      expect(webhookService.dispatch).toHaveBeenCalledWith(
-        'RaffleFinalized',
+      expect(webhookService.dispatchEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          raffleId: 1,
-          winner: 'GWINNER',
-          winningTicketId: 42,
-          prizeAmount: '1000',
+          eventType: 'RaffleFinalized',
+          raffleId,
+          data: { winner, prizeAmount },
         }),
       );
-      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
+      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('2');
       expect(cacheService.invalidateLeaderboard).toHaveBeenCalled();
     });
 
-    it('should propagate errors and roll back', async () => {
-      mockManager.createQueryBuilder
-        .mockReturnValueOnce(mockInsertChain())
-        .mockReturnValueOnce(mockInsertChain());
+    it('should use default prize amount of 0 if not provided', async () => {
+      const raffleId = 3;
+      const winner = 'GCCCC';
 
-      (userProcessor.handleRaffleFinalized as jest.Mock).mockRejectedValueOnce(
-        new Error('finalize failed'),
+      await processor.handleRaffleFinalized(raffleId, winner, undefined, mockQueryRunner);
+
+      expect(userProcessor.handleRaffleFinalized).toHaveBeenCalledWith(
+        raffleId,
+        winner,
+        '0',
+        mockQueryRunner,
       );
+    });
+
+    it('should propagate errors from userProcessor during finalization', async () => {
+      const error = new Error('Finalization error');
+      (userProcessor.handleRaffleFinalized as jest.Mock).mockRejectedValueOnce(error);
 
       await expect(
-        processor.handleRaffleFinalized(1, 'GWINNER', 42, '1000', 600, 'tx-f'),
-      ).rejects.toThrow('finalize failed');
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(webhookService.dispatch).not.toHaveBeenCalled();
+        processor.handleRaffleFinalized(1, 'GAAAA', '100000000', mockQueryRunner),
+      ).rejects.toThrow(error);
+    });
+
+    it('should handle finalization without winner', async () => {
+      await processor.handleRaffleFinalized(1, undefined, undefined, mockQueryRunner);
+
+      expect(userProcessor.handleRaffleFinalized).not.toHaveBeenCalled();
+      expect(webhookService.dispatchEvent).not.toHaveBeenCalled();
+      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalled();
+      expect(cacheService.invalidateLeaderboard).toHaveBeenCalled();
     });
   });
 
   describe('handleRaffleCancelled', () => {
-    it('should update raffle and dispatch webhook', async () => {
-      const updateChain = mockInsertChain();
-      const insertChain = mockInsertChain();
-      mockManager.createQueryBuilder
-        .mockReturnValueOnce(updateChain)
-        .mockReturnValueOnce(insertChain);
+    it('should update raffle status (event row is inserted by dispatcher)', async () => {
+      const raffleId = 1;
+      const reason = 'Insufficient participants';
+      const ledger = 600;
+      const txHash = 'tx-hash-123';
 
-      await processor.handleRaffleCancelled(1, 'expired', 700, 'tx-cancel');
+      const mockUpdateBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
 
-      expect(updateChain.update).toHaveBeenCalledWith(RaffleEntity);
-      expect(updateChain.set).toHaveBeenCalledWith(
-        expect.objectContaining({ status: RaffleStatus.CANCELLED }),
-      );
-      expect(insertChain.into).toHaveBeenCalledWith(RaffleEventEntity);
-      expect(webhookService.dispatch).toHaveBeenCalledWith(
-        'RaffleCancelled',
-        expect.objectContaining({ raffleId: 1, reason: 'expired', ledger: 700 }),
-      );
+      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
+
+      await processor.handleRaffleCancelled(raffleId, reason, ledger, txHash, mockQueryRunner);
+
+      expect(mockUpdateBuilder.update).toHaveBeenCalledWith(RaffleEntity);
+      expect(mockUpdateBuilder.set).toHaveBeenCalledWith({
+        status: RaffleStatus.CANCELLED,
+        finalizedLedger: ledger,
+      });
+      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
+    });
+
+    it('should be safe to process cancellation more than once', async () => {
+      const raffleId = 1;
+      const reason = 'Cancelled';
+      const ledger = 600;
+      const txHash = 'tx-hash-123';
+
+      const mockUpdateBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      mockManager.createQueryBuilder
+        .mockReturnValueOnce(mockUpdateBuilder)
+        .mockReturnValueOnce(mockUpdateBuilder);
+
+      await processor.handleRaffleCancelled(raffleId, reason, ledger, txHash, mockQueryRunner);
+      await processor.handleRaffleCancelled(raffleId, reason, ledger, txHash, mockQueryRunner);
+
+      expect(mockUpdateBuilder.execute).toHaveBeenCalledTimes(2);
+    });
+
+    it('should propagate errors from update', async () => {
+      const error = new Error('Cancellation error');
+      const mockUpdateBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockRejectedValueOnce(error),
+      };
+
+      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
+
+      await expect(
+        processor.handleRaffleCancelled(1, 'reason', 600, 'tx-hash', mockQueryRunner),
+      ).rejects.toThrow(error);
+    });
+
+    it('should invalidate caches after successful cancellation', async () => {
+      const mockUpdateBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
+
+      await processor.handleRaffleCancelled(1, 'reason', 600, 'tx-hash', mockQueryRunner);
+
+      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
+      expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
+    });
+  });
+
+  describe('raffle status transitions', () => {
+    it('should transition from OPEN to CANCELLED', async () => {
+      const mockUpdateBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
+
+      await processor.handleRaffleCancelled(1, 'reason', 600, 'tx-hash', mockQueryRunner);
+
+      const setCall = mockUpdateBuilder.set.mock.calls[0][0];
+      expect(setCall.status).toBe(RaffleStatus.CANCELLED);
+    });
+
+    it('should record correct ledger on status transition', async () => {
+      const ledger = 750;
+      const mockUpdateBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
+
+      await processor.handleRaffleCancelled(1, 'reason', ledger, 'tx-hash', mockQueryRunner);
+
+      const setCall = mockUpdateBuilder.set.mock.calls[0][0];
+      expect(setCall.finalizedLedger).toBe(ledger);
     });
   });
 });
