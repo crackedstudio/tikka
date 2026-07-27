@@ -8,6 +8,7 @@ import {
   Transaction,
   TransactionBuilder,
 } from '@stellar/stellar-sdk';
+import { AuthError, TikkaSdkErrorCode } from '../utils/errors';
 
 export interface BuildChallengeOptions {
   serverSecret: string;
@@ -227,8 +228,7 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   try {
     transaction = new Transaction(signedChallenge, networkPassphrase);
   } catch {
-    throw new Error('Invalid signedChallenge xdr');
-    createVerificationError(Sep10VerificationErrorCode.InvalidXdr, 'Invalid signedChallenge xdr or network passphrase');
+    throw new AuthError(TikkaSdkErrorCode.AuthError, 'Invalid signedChallenge xdr or network passphrase');
   }
 
   if (transaction.source !== serverAccount) {
@@ -298,7 +298,7 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   }
 
   if (transaction.operations.length === 0) {
-    throw new Error('Transaction must include at least one operation');
+    throw new AuthError(TikkaSdkErrorCode.AuthError, 'Transaction must include at least one operation');
   }
 
   let hasAnchorChallengeData = false;

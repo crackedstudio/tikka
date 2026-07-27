@@ -5,6 +5,7 @@ import type { NetworkConfig, RpcConfig } from './network.config';
 import {
   TikkaSdkError,
   TikkaSdkErrorCode,
+  NetworkError,
   RpcTimeoutError,
   RateLimitError,
   UnavailableError,
@@ -238,8 +239,7 @@ export class RpcService {
     this.recordFailure(lastError);
 
     if (lastError instanceof TikkaSdkError) throw lastError;
-    throw new TikkaSdkError(
-      TikkaSdkErrorCode.NetworkError,
+    throw new NetworkError(
       `RPC request failed for all endpoints. Last error: ${lastError?.message ?? lastError}`,
       lastError
     );
@@ -366,8 +366,7 @@ export class RpcService {
     if (typeof runtimeFetch === 'function') {
       return runtimeFetch;
     }
-    throw new TikkaSdkError(
-      TikkaSdkErrorCode.NetworkError,
+    throw new NetworkError(
       'No fetch implementation found. Provide rpcConfig.fetchClient (required in some React Native and older Node runtimes).',
     );
   }
