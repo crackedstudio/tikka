@@ -10,8 +10,6 @@ import * as Sentry from '@sentry/node';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { REQUEST_ID_HEADER } from '../../middleware/request-id.middleware';
 
-export const REQUEST_ID_HEADER = 'x-request-id';
-
 export const ErrorCode = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   BAD_REQUEST: 'BAD_REQUEST',
@@ -30,7 +28,6 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 export interface ApiErrorResponse {
   statusCode: number;
-  error: string;
   message: string;
   error: ErrorCode;
   requestId?: string;
@@ -63,7 +60,6 @@ export class BaseExceptionFilter implements ExceptionFilter {
       statusCode,
       error,
       message,
-      error,
       requestId: request.headers?.[REQUEST_ID_HEADER] as string | undefined,
       timestamp: new Date().toISOString(),
       path: request.url,
@@ -236,7 +232,6 @@ export class BaseExceptionFilter implements ExceptionFilter {
 
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      error: this.getHttpStatusLabel(HttpStatus.INTERNAL_SERVER_ERROR),
       message: 'Internal server error',
       error: ErrorCode.INTERNAL_ERROR,
     };

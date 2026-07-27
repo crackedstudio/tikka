@@ -225,7 +225,7 @@ export function buildSentryOptions(envInput: {
      * This is a defence-in-depth measure on top of per-scope redaction.
      */
     beforeSend(event) {
-      return scrubSentryEvent(event);
+      return scrubSentryEvent(event as any) as any;
     },
   };
 }
