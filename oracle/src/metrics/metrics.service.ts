@@ -17,6 +17,10 @@ export class MetricsService implements OnModuleInit {
   private vrfFailuresCounter: Counter;
   private vrfProofsCounter: Counter;
 
+  // Multi-oracle divergence metrics
+  private oracleDivergenceCounter: Counter;
+  private divergenceCount = 0;
+
   // Event listener gap / backfill metrics
   private eventListenerGapCounter: Counter;
   private eventListenerBackfillCounter: Counter;
@@ -74,6 +78,15 @@ export class MetricsService implements OnModuleInit {
       },
     );
 
+    // Divergences detected when oracle nodes submit conflicting values
+    this.oracleDivergenceCounter = this.meter.createCounter(
+      'oracle_multi_divergence_total',
+      {
+        description:
+          'Total number of rounds where oracle nodes submitted divergent values and consensus was not reached',
+      },
+    );
+
     // Standard metrics
     this.meter.createObservableGauge('tikka_oracle_memory_usage_bytes', {
       description: 'Current memory usage (heapUsed)',
@@ -107,6 +120,22 @@ export class MetricsService implements OnModuleInit {
 
   recordVrfProofSuccess() {
     this.vrfProofsCounter.add(1);
+  }
+
+  /**
+   * Record an oracle divergence event.
+   *
+   * @param distinctGroups Number of distinct seed-hash groups observed in the round
+   *                       (always ≥ 2 when divergence occurs).
+   */
+  recordDivergence(distinctGroups: number): void {
+    this.divergenceCount += 1;
+    this.oracleDivergenceCounter.add(1, { distinct_groups: String(distinctGroups) });
+  }
+
+  /** Process-local count of divergence detections (useful for unit tests). */
+  getDivergenceCount(): number {
+    return this.divergenceCount;
   }
 
   /**

@@ -2,7 +2,7 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams } from './audit.types';
+import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord } from './audit.types';
 import { SUPABASE_CLIENT } from './supabase.provider';
 
 @Injectable()
@@ -396,6 +396,61 @@ export class AuditLogService {
 
     if (error) {
       throw new Error(`Failed to mark record as abandoned: ${error.message}`);
+    }
+  }
+
+  /**
+   * Appends a structured divergence event to the audit trail.
+   *
+   * The record is emitted as a structured log entry (so it flows into any
+   * log-aggregation pipeline without requiring a separate DB table) and is
+   * also inserted into the `oracle_divergence_log` Supabase table when that
+   * table is available.
+   *
+   * The method is intentionally non-throwing: a failure here must never
+   * interrupt the caller's control flow.
+   */
+  public async recordDivergence(params: OracleDivergenceRecord): Promise<void> {
+    try {
+      // Structured log entry — always emitted, even if the DB write fails.
+      this.logger.warn({
+        message: 'Oracle divergence detected',
+        requestId: params.requestId,
+        raffleId: params.raffleId ?? null,
+        submittedValueHashes: params.submittedValueHashes,
+        oracleTimestamps: params.oracleTimestamps,
+        seedGroups: params.seedGroups,
+        largestGroupHash: params.largestGroupHash,
+        totalResponses: params.totalResponses,
+        consensusThreshold: params.consensusThreshold,
+        detectedAt: params.detectedAt,
+      });
+
+      // Persist to dedicated divergence log table.
+      const { error } = await this.supabase
+        .from('oracle_divergence_log')
+        .insert({
+          request_id: params.requestId,
+          raffle_id: params.raffleId ?? null,
+          submitted_value_hashes: params.submittedValueHashes,
+          oracle_timestamps: params.oracleTimestamps,
+          seed_groups: params.seedGroups,
+          largest_group_hash: params.largestGroupHash,
+          total_responses: params.totalResponses,
+          consensus_threshold: params.consensusThreshold,
+          detected_at: params.detectedAt,
+        });
+
+      if (error) {
+        // Non-fatal: log and continue so callers are not disrupted.
+        this.logger.error(
+          `Failed to persist divergence record for requestId=${params.requestId}: ${error.message}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Unexpected error recording divergence for requestId=${params.requestId}: ${err.message}`,
+      );
     }
   }
 }
