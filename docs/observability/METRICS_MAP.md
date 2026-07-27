@@ -127,7 +127,36 @@ scrape_configs:
 | `tikka_oracle_estimated_fee_stroops` | Gauge | `network`, `method` | Estimated fee for next submission |
 | `tikka_oracle_actual_fee_total_stroops` | Counter | `network`, `method` | Total actual fee paid for submissions |
 | `tikka_oracle_submission_outcome_total` | Counter | `outcome`, `network`, `method` | Submission outcomes (success/failure/retry) |
+| `tikka_oracle_component_heartbeat_unixtime` | Gauge | `component` | Unix seconds of last main-loop activity (`listener`, `queue`, `submitter`) |
 | `tikka_oracle_memory_usage_bytes` | ObservableGauge | (none) | Current heap used |
+
+### Component heartbeat (liveness)
+
+Each oracle component updates `tikka_oracle_component_heartbeat_unixtime{component=...}` on every main-loop iteration:
+
+| Component | Updated when | Expected cadence |
+|-----------|--------------|------------------|
+| `listener` | Each Horizon SSE message handled | Continuously while the stream is connected (often sub-second when events flow; stalls if the stream wedges) |
+| `queue` | Each Bull job the randomness worker starts | Per job; stalls if the worker stops consuming |
+| `submitter` | Each `submitRandomnessTyped` entry | Per submission attempt; stalls if the submit path wedges |
+
+**Suggested Prometheus alert** (component wedged while process still up):
+
+```yaml
+- alert: OracleComponentHeartbeatStale
+  expr: |
+    (time() - tikka_oracle_component_heartbeat_unixtime) > 120
+  for: 2m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Oracle {{ $labels.component }} heartbeat is stale"
+    description: >
+      Component {{ $labels.component }} has not updated its heartbeat for >120s.
+      The process may still look alive while this loop is wedged.
+```
+
+Tune the threshold to your expected idle periods (raise it if the queue/submitter can be legitimately idle longer than 2 minutes).
 
 ### In-Memory Queue Metrics
 
