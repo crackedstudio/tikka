@@ -78,6 +78,16 @@ Complete inventory of all metrics endpoints, Prometheus metrics, and health endp
 | `tikka_indexer_memory_usage_bytes` | ObservableGauge | (none) | Current heap used |
 | `tikka_db_slow_query_total` | Counter | `query_hash` | Slow database queries |
 | `tikka_db_query_duration_seconds` | Histogram | `query_hash` | Database query duration |
+| `indexer_dlq_depth` | Gauge | `contract_address` | Current DLQ depth per contract |
+| `indexer_dlq_events_total` | Counter | `reason`, `event_type` | Total DLQ events added/replayed |
+| `tikka_indexer_queue_waiting` | Gauge | `queue` | Number of jobs waiting in queue |
+| `tikka_indexer_queue_active` | Gauge | `queue` | Number of actively processing jobs |
+| `tikka_indexer_queue_completed` | Gauge | `queue` | Number of completed jobs |
+| `tikka_indexer_queue_failed` | Gauge | `queue` | Number of failed jobs |
+| `tikka_indexer_queue_delayed` | Gauge | `queue` | Number of delayed jobs |
+| `tikka_indexer_queue_paused` | Gauge | `queue` | Number of paused jobs |
+| `tikka_indexer_queue_oldest_job_age_seconds` | Gauge | `queue` | Age of oldest waiting job in seconds |
+| `tikka_indexer_queue_total` | Gauge | `queue` | Total jobs across all states |
 
 ### Prometheus Scrape Config
 
@@ -96,6 +106,9 @@ scrape_configs:
 | `IndexerFallingBehind` | `tikka_indexer_lag_ledgers > 20` for 5m | critical |
 | `IndexerHighLatency` | avg poll duration > 10s for 10m | warning |
 | `IndexerErrors` | error rate > 0.1/s for 2m | warning |
+| `IndexerQueueBacklog` | `tikka_indexer_queue_waiting > 100` for 5m | warning |
+| `IndexerQueueStalled` | `tikka_indexer_queue_oldest_job_age_seconds > 300` for 5m | critical |
+| `IndexerQueueFailureRate` | `rate(tikka_indexer_queue_failed[5m]) > 0.1` for 5m | warning |
 
 ---
 
