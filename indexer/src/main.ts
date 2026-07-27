@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -6,6 +7,9 @@ const logger = new Logger("Bootstrap");
 
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Allow NestJS to call onModuleDestroy / onApplicationShutdown on SIGTERM/SIGINT.
+  app.enableShutdownHooks();
 
   // ── OpenAPI / Swagger ──────────────────────────────────────────────────────
   const swaggerConfig = new DocumentBuilder()
