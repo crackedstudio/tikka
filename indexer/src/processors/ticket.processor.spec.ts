@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TicketProcessor } from './ticket.processor';
 import { UserProcessor } from './user.processor';
 import { CacheService } from '../cache/cache.service';
+import { WebhookService } from '../webhooks/webhook.service';
 import { TicketEntity } from '../database/entities/ticket.entity';
 import { RaffleEntity } from '../database/entities/raffle.entity';
 
@@ -9,6 +10,7 @@ describe('TicketProcessor', () => {
   let processor: TicketProcessor;
   let userProcessor: UserProcessor;
   let cacheService: CacheService;
+  let webhookService: WebhookService;
   let mockQueryRunner: any;
   let mockManager: any;
 
@@ -27,6 +29,10 @@ describe('TicketProcessor', () => {
       invalidatePlatformStats: jest.fn().mockResolvedValue(undefined),
     } as any;
 
+    webhookService = {
+      dispatch: jest.fn().mockResolvedValue(undefined),
+    } as any;
+
     userProcessor = {
       handleTicketPurchased: jest.fn().mockResolvedValue(undefined),
       handleTicketRefunded: jest.fn().mockResolvedValue(undefined),
@@ -37,6 +43,7 @@ describe('TicketProcessor', () => {
         TicketProcessor,
         { provide: UserProcessor, useValue: userProcessor },
         { provide: CacheService, useValue: cacheService },
+        { provide: WebhookService, useValue: webhookService },
       ],
     }).compile();
 
@@ -57,6 +64,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -78,7 +86,7 @@ describe('TicketProcessor', () => {
       // Verify each ticket was inserted
       expect(mockInsertBuilder.insert).toHaveBeenCalledTimes(3);
       expect(mockInsertBuilder.into).toHaveBeenCalledWith(TicketEntity);
-      expect(mockInsertBuilder.orIgnore).toHaveBeenCalledTimes(3);
+      expect(mockInsertBuilder.onConflict).toHaveBeenCalledTimes(3);
     });
 
     it('should increment raffle tickets_sold count', async () => {
@@ -94,6 +102,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -132,6 +141,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -172,6 +182,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -204,6 +215,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -230,6 +242,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockRejectedValueOnce(error),
       };
 
@@ -253,6 +266,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -429,6 +443,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -462,6 +477,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -502,6 +518,7 @@ describe('TicketProcessor', () => {
         into: jest.fn().mockReturnThis(),
         values: jest.fn().mockReturnThis(),
         orIgnore: jest.fn().mockReturnThis(),
+        onConflict: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       };
 
@@ -525,8 +542,8 @@ describe('TicketProcessor', () => {
       // Second call with same parameters
       await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
-      // orIgnore should prevent duplicate ticket insertion
-      expect(mockInsertBuilder.orIgnore).toHaveBeenCalled();
+      // onConflict should prevent duplicate ticket insertion
+      expect(mockInsertBuilder.onConflict).toHaveBeenCalled();
     });
   });
 });
