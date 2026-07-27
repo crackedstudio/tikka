@@ -11,7 +11,7 @@ export class CreateArchiveCheckpoints1748589373000 implements MigrationInterface
             type: "uuid",
             isPrimary: true,
             generationStrategy: "uuid",
-            default: "uuid_generate_v4()",
+            default: "gen_random_uuid()",
           },
           {
             name: "job_type",
@@ -95,14 +95,12 @@ export class CreateArchiveCheckpoints1748589373000 implements MigrationInterface
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex(
-      "archive_checkpoints",
-      "idx_archive_checkpoints_started_at",
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_archive_checkpoints_started_at"`,
     );
-    await queryRunner.dropIndex(
-      "archive_checkpoints",
-      "idx_archive_checkpoints_job_type_status",
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_archive_checkpoints_job_type_status"`,
     );
-    await queryRunner.dropTable("archive_checkpoints");
+    await queryRunner.query(`DROP TABLE IF EXISTS "archive_checkpoints"`);
   }
 }
