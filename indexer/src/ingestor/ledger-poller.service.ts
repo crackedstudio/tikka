@@ -36,6 +36,9 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   private readonly BASE_RETRY_DELAY = 2000;
   private readonly safetyDepth: number;
 
+  /** Wall-clock of last successful ingestion progress (poll / batch / SSE attach). */
+  private lastHeartbeatAt: Date | null = null;
+
   constructor(
     private configService: ConfigService,
     private cursorManager: CursorManagerService,
@@ -84,8 +87,28 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       `Starting Ledger Poller for contracts: ${this.contractIds.join(", ")} (batch size ${this.batchSize})`,
     );
     this.isRunning = true;
+    this.touchHeartbeat();
     this.pipeline?.apply(PipelineTransition.START);
     this.startIngestion();
+  }
+
+  /**
+   * Ingestion heartbeat for readiness probes.
+   * When `isRunning` is false (no contracts / not started), readiness should not
+   * treat a missing heartbeat as stalled ingestion.
+   */
+  getIngestionHeartbeat(): {
+    isRunning: boolean;
+    lastHeartbeatAt: Date | null;
+  } {
+    return {
+      isRunning: this.isRunning,
+      lastHeartbeatAt: this.lastHeartbeatAt,
+    };
+  }
+
+  private touchHeartbeat(): void {
+    this.lastHeartbeatAt = new Date();
   }
 
   async onModuleDestroy() {
@@ -150,6 +173,8 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
             this.schedulePollingFallback();
           },
         });
+      // Connected to Horizon SSE — treat as a live ingestion heartbeat.
+      this.touchHeartbeat();
     } catch (error) {
       this.logger.error(
         `Failed to initialize SSE: ${error instanceof Error ? error.message : String(error)}`,
@@ -287,12 +312,14 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
         for (const item of batch) {
           this.metrics.incrementEventsProcessed(item.parsed.type);
         }
+        this.touchHeartbeat();
         this.pipeline?.apply(PipelineTransition.CURSOR_UPDATED);
         return;
       }
 
       const currentCount = this.cursorManager.getStatus().lastCheckpoint?.processedEventCount ?? 0;
       await this.cursorManager.saveCursor(ledger, ledgerHash, nextToken, currentCount + batch.length);
+      this.touchHeartbeat();
 
       for (const item of batch) {
         this.metrics.incrementEventsProcessed(item.parsed.type);
@@ -364,6 +391,8 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
       }
 
       this.retryAttempt = 0;
+      // Successful Horizon poll (even with zero records) proves ingestion is alive.
+      this.touchHeartbeat();
 
       const nextDelay = records.length === 100 ? 500 : 5000;
       this.pollingTimeout = setTimeout(() => void this.pollOnce(), nextDelay);
