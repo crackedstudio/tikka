@@ -13,6 +13,7 @@ import {
   isSupportedSchemaVersion,
   UnsupportedSchemaVersionError,
 } from "./handlers/schema-version";
+import { TracingService } from "../tracing/tracing.service";
 
 export type HandlerOutcome = "succeeded" | "failed" | "skipped";
 
@@ -41,6 +42,8 @@ export class IngestionDispatcherService {
     private readonly adminProcessor: AdminProcessor,
     @Optional() private readonly deadLetterQueue?: DeadLetterQueueService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
+    // Keep last so unit tests that construct with positional DLQ args stay valid.
+    @Optional() private readonly tracing?: TracingService,
   ) {}
 
   async dispatch(
@@ -79,6 +82,61 @@ export class IngestionDispatcherService {
     const handlerName = this.getHandlerName(event);
     const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
 
+    const run = () =>
+      this.executeIsolatedInner({
+        event,
+        raw,
+        startedAt,
+        ledger,
+        txHash,
+        eventId,
+        handlerName,
+        schemaVersion,
+      });
+
+    if (!this.tracing?.withSpan) {
+      return run();
+    }
+
+    return this.tracing.withSpan(
+      "indexer.event.process",
+      {
+        "event.type": event.type,
+        "event.id": eventId,
+        "event.schema_version": schemaVersion,
+        "handler.name": handlerName,
+        ...(Number.isFinite(ledger) ? { "stellar.ledger": ledger } : {}),
+      },
+      async (span) => {
+        const result = await run();
+        span.setAttribute("handler.outcome", result.outcome);
+        span.setAttribute("handler.duration_ms", result.durationMs);
+        return result;
+      },
+    );
+  }
+
+  private async executeIsolatedInner(params: {
+    event: DomainEvent;
+    raw: Record<string, unknown>;
+    startedAt: number;
+    ledger: number;
+    txHash: string;
+    eventId: string;
+    handlerName: string;
+    schemaVersion: number;
+  }): Promise<HandlerExecutionResult> {
+    const {
+      event,
+      raw,
+      startedAt,
+      ledger,
+      txHash,
+      eventId,
+      handlerName,
+      schemaVersion,
+    } = params;
+
     // Reject events whose schema version this build cannot decode, instead of
     // letting a handler silently mis-parse them.
     if (!isSupportedSchemaVersion(schemaVersion)) {
@@ -113,7 +171,7 @@ export class IngestionDispatcherService {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const runner = await this.applyEvent(event, raw);
+        const runner = await this.applyEventTraced(event, raw, eventId);
         if (runner) {
           await runner.commitTransaction();
           await runner.release();
@@ -163,6 +221,41 @@ export class IngestionDispatcherService {
     });
 
     return result;
+  }
+
+  private async applyEventTraced(
+    event: DomainEvent,
+    raw: Record<string, unknown>,
+    eventId: string,
+  ): Promise<QueryRunner | null> {
+    const apply = () => this.applyEvent(event, raw);
+    if (!this.tracing?.withSpan) {
+      return apply();
+    }
+
+    return this.tracing.withSpan(
+      "indexer.event.handler",
+      {
+        "event.type": event.type,
+        "event.id": eventId,
+        "db.system": "postgresql",
+      },
+      async (span) => {
+        return this.tracing!.withSpan(
+          "indexer.event.db",
+          {
+            "event.type": event.type,
+            "event.id": eventId,
+            "db.operation": "apply_event",
+          },
+          async () => {
+            const runner = await apply();
+            span.setAttribute("db.transaction", runner != null);
+            return runner;
+          },
+        );
+      },
+    );
   }
 
   /**
