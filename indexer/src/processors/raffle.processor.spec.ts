@@ -30,7 +30,7 @@ describe('RaffleProcessor', () => {
     } as any;
 
     webhookService = {
-      dispatchEvent: jest.fn().mockResolvedValue(undefined),
+      dispatch: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     userProcessor = {
@@ -65,12 +65,9 @@ describe('RaffleProcessor', () => {
       await processor.handleRaffleCreated(raffleId, creator, ledger, mockQueryRunner);
 
       expect(userProcessor.handleRaffleCreated).toHaveBeenCalledWith(creator, ledger, mockQueryRunner);
-      expect(webhookService.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'RaffleCreated',
-          raffleId,
-          data: { creator, ledger },
-        }),
+      expect(webhookService.dispatch).toHaveBeenCalledWith(
+        'RaffleCreated',
+        expect.objectContaining({ raffleId, creator, ledger }),
       );
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
     });
@@ -88,7 +85,7 @@ describe('RaffleProcessor', () => {
       await processor.handleRaffleCreated(1, undefined, undefined, mockQueryRunner);
 
       expect(userProcessor.handleRaffleCreated).not.toHaveBeenCalled();
-      expect(webhookService.dispatchEvent).not.toHaveBeenCalled();
+      expect(webhookService.dispatch).not.toHaveBeenCalled();
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalled();
     });
   });
@@ -114,12 +111,9 @@ describe('RaffleProcessor', () => {
         prizeAmount,
         mockQueryRunner,
       );
-      expect(webhookService.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'RaffleFinalized',
-          raffleId,
-          data: { winner, prizeAmount },
-        }),
+      expect(webhookService.dispatch).toHaveBeenCalledWith(
+        'RaffleFinalized',
+        expect.objectContaining({ raffleId, winner, prizeAmount }),
       );
       expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('2');
       expect(cacheService.invalidateLeaderboard).toHaveBeenCalled();
@@ -152,7 +146,7 @@ describe('RaffleProcessor', () => {
       await processor.handleRaffleFinalized(1, undefined, undefined, mockQueryRunner);
 
       expect(userProcessor.handleRaffleFinalized).not.toHaveBeenCalled();
-      expect(webhookService.dispatchEvent).not.toHaveBeenCalled();
+      expect(webhookService.dispatch).not.toHaveBeenCalled();
       expect(cacheService.invalidateRaffleDetail).toHaveBeenCalled();
       expect(cacheService.invalidateLeaderboard).toHaveBeenCalled();
     });
