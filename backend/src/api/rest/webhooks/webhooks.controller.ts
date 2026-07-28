@@ -89,4 +89,14 @@ export class WebhooksController {
   ) {
     return this.webhookService.getDeliveries(id, address);
   }
+
+  @Get(':id/dead-letters')
+  @ApiOperation({ summary: 'Get permanently failed (dead letter) deliveries for a webhook' })
+  @ApiParam({ name: 'id', description: 'Webhook UUID' })
+  async getDeadLetters(
+    @CurrentUser('address') address: string,
+    @Param('id') id: string,
+  ) {
+    return this.webhookService.getDeadLetters(id, address);
+  }
 }
