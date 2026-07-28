@@ -1,12 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MeterProvider } from '@opentelemetry/sdk-metrics';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-import { Counter, Gauge, Histogram, Meter, ObservableResult } from '@opentelemetry/api';
-import { HealthService } from '../health/health.service';
+import {
+  Counter,
+  Gauge,
+  Histogram,
+  Meter,
+  ObservableGauge,
+  ObservableResult,
+} from '@opentelemetry/api';
 import { DlqReason } from '../database/entities/dead-letter-event.entity';
+import { CursorManagerService } from '../ingestor/cursor-manager.service';
+import { LagProbeService } from './lag-probe.service';
+import {
+  computeIngestionLagLedgers,
+  computeIngestionLagSeconds,
+} from './lag-math';
 
+/**
+ * Prometheus-facing metrics surface for the indexer service.
+ *
+ * The canonical ingestion-lag gauges are fed by `LagProbeService`
+ * (caches the network tip polled from Horizon) and the cursor's last
+ * persisted checkpoint. Math lives in `./lag-math.ts` so it can be
+ * exercised independently from the OpenTelemetry wiring and the broken
+ * upstream webhook pipeline (issue #1110).
+ */
 @Injectable()
 export class MetricsService {
+  private readonly logger = new Logger(MetricsService.name);
   private meter: Meter;
   private exporter: PrometheusExporter;
 
@@ -22,9 +44,13 @@ export class MetricsService {
   private dlqDepthGauge: Gauge;
   private dlqEventsTotalCounter: Counter;
 
+  private ingestionLagLedgersGauge: ObservableGauge;
+  private ingestionLagSecondsGauge: ObservableGauge;
 
-
-  constructor(private readonly healthService: HealthService) {
+  constructor(
+    private readonly cursorManager: CursorManagerService,
+    private readonly lagProbe: LagProbeService,
+  ) {
     // PrometheusExporter automatically initializes the Prometheus registry
     this.exporter = new PrometheusExporter({
       preventServerStart: true,
@@ -49,11 +75,13 @@ export class MetricsService {
     });
 
     this.lagGauge = this.meter.createGauge('tikka_indexer_lag_ledgers', {
-      description: 'Current ledger lag behind the network',
+      description:
+        '[Deprecated alias of tikka_indexer_ingestion_lag_ledgers] Current ledger lag behind the Stellar network. Updated opportunistically when the SSE stream falls back to polling; prefer the canonical ingestion_lag_* gauges for new dashboards/alerts.',
     });
 
     this.indexerLedgerLagGauge = this.meter.createGauge('indexer_ledger_lag', {
-      description: 'Number of ledgers the indexer is behind the Stellar network tip',
+      description:
+        '[Deprecated alias of tikka_indexer_ingestion_lag_ledgers] Number of ledgers the indexer is behind the Stellar network tip.',
     });
 
     this.pollDurationHistogram = this.meter.createHistogram('tikka_indexer_poll_duration_seconds', {
@@ -88,8 +116,41 @@ export class MetricsService {
     }).addCallback((result: ObservableResult) => {
       result.observe(process.memoryUsage().heapUsed);
     });
-  }
 
+    // Canonical ingestion-lag gauges (issue #1110).
+    this.ingestionLagLedgersGauge = this.meter.createObservableGauge(
+      'tikka_indexer_ingestion_lag_ledgers',
+      {
+        description:
+          'Ingestion lag in ledgers: latest_network_ledger_sequence - indexer.cursor.lastLedger. Refreshed every LAG_PROBE_REFRESH_MS (default 15000 = 15s) via LagProbeService. Alert when > INDEXER_LAG_ALERT_THRESHOLD_LEDGERS (default 50).',
+      },
+    );
+    this.ingestionLagLedgersGauge.addCallback((result) =>
+      result.observe(
+        computeIngestionLagLedgers(
+          this.lagProbe.getNetworkTip(),
+          this.cursorManager.getStatus().lastCheckpoint,
+        ),
+      ),
+    );
+
+    this.ingestionLagSecondsGauge = this.meter.createObservableGauge(
+      'tikka_indexer_ingestion_lag_seconds',
+      {
+        description:
+          'Ingestion lag in seconds: latest_network_ledger.closedAt - indexer.cursor.lastSavedAt. Refreshed every LAG_PROBE_REFRESH_MS (default 15000 = 15s) via LagProbeService. Alert when > INDEXER_LAG_ALERT_THRESHOLD_SECONDS (default 90).',
+        unit: 's',
+      },
+    );
+    this.ingestionLagSecondsGauge.addCallback((result) =>
+      result.observe(
+        computeIngestionLagSeconds(
+          this.lagProbe.getNetworkTip(),
+          this.cursorManager.getStatus().lastCheckpoint,
+        ),
+      ),
+    );
+  }
 
   incrementEventsProcessed(type: string = 'unknown', amount: number = 1) {
     this.eventsProcessedCounter.add(amount, { event_type: type });
@@ -103,6 +164,11 @@ export class MetricsService {
     this.reorgDetectedCounter.add(amount);
   }
 
+  /**
+   * Deprecated: prefer the canonical `tikka_indexer_ingestion_lag_ledgers`
+   * observable gauge. Retained so callers (e.g. LedgerPollerService) and
+   * existing PromQL alerts continue to work without modification.
+   */
   setLagLedgers(lag: number) {
     this.lagGauge.record(lag);
     this.indexerLedgerLagGauge.record(lag);
@@ -134,8 +200,7 @@ export class MetricsService {
    * we simulate it here to get the metrics string.
    */
   async getMetrics(): Promise<string> {
-    return new Promise((resolve, reject) => {
-
+    return new Promise((resolve) => {
       // Use a mock response object to capture the output from the exporter's handler
       const res = {
         setHeader: () => { },
