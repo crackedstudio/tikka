@@ -205,15 +205,7 @@ All entity files include inline comments marking derived fields and their update
 
 ## Redis Cache TTL Strategy
 
-The `CacheService` in `src/cache/` manages caching and invalidation using the following TTLs:
-
-| Data Type              | Cache Key        | TTL  | Invalidation                                         |
-| ---------------------- | ---------------- | ---- | ---------------------------------------------------- |
-| **Active Raffle List** | `raffle:active`  | 30s  | On `RaffleCreated`, `RaffleCancelled`                |
-| **Raffle Detail**      | `raffle:{id}`    | 10s  | On any raffle event (finalized, cancelled, purchase) |
-| **Leaderboard**        | `leaderboard`    | 60s  | On `RaffleFinalized`                                 |
-| **User Profile**       | `user:{address}` | 30s  | On `TicketPurchased`, `TicketRefunded` for that user |
-| **Platform Stats**     | `stats:platform` | 5min | On daily rollup cron                                 |
+See [`docs/CACHE.md`](./docs/CACHE.md) for every cache key family: TTL, event-driven invalidation triggers, and staleness tolerance.
 
 Caching logic is wired into the processors in `src/processors/` to ensure consistency after database writes.
 
