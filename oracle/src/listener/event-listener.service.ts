@@ -231,6 +231,9 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     }
 
     private async handleEvent(eventResponse: any) {
+        // Main-loop heartbeat — updated on every stream message, including noise.
+        this.metricsService?.recordComponentHeartbeat('listener');
+
         // Double check contract ID just in case, though Horizon should filter it
         if (eventResponse.contractId !== this.raffleContractId) {
             return;
