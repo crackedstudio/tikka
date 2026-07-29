@@ -155,7 +155,7 @@ backend/src/
 ## 📚 Full Documentation
 
 - **Complete Guide**: `NOTIFICATION_FEATURE_COMPLETE.md`
-- **Testing Guide**: `TESTING_GUIDE.md`
+- **Testing Guide**: `docs/testing/notifications-testing-guide.md`
 - **PR Description**: `PR_DESCRIPTION.md`
 - **API Docs**: `client/docs/NOTIFICATIONS.md`
 

@@ -4,11 +4,12 @@ import { CircuitBreakerService } from './circuit-breaker.service';
 import { QueueModule } from '../queue/queue.module';
 import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from '../health/health.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { PriorityClassifierService } from '../queue/priority-classifier.service';
 import { DrawRequestLedgerService } from './draw-request-ledger.service';
 
 @Module({
-  imports: [QueueModule, ConfigModule, HealthModule],
+  imports: [QueueModule, ConfigModule, HealthModule, MetricsModule],
   providers: [EventListenerService, CircuitBreakerService, PriorityClassifierService, DrawRequestLedgerService],
   exports: [EventListenerService, CircuitBreakerService, PriorityClassifierService, DrawRequestLedgerService],
 })

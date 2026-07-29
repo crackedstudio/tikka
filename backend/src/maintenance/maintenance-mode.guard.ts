@@ -51,6 +51,15 @@ export class MaintenanceModeGuard implements CanActivate {
 
     // Check if blocked
     if (this.maintenanceMode.isScopeActive(scope)) {
+      const response = context.switchToHttp().getResponse();
+      if (response) {
+        if (typeof response.header === 'function') {
+          response.header('Retry-After', '60');
+        } else if (typeof response.setHeader === 'function') {
+          response.setHeader('Retry-After', '60');
+        }
+      }
+
       throw new ServiceUnavailableException({
         message: 'Service temporarily unavailable due to maintenance mode',
         scope,

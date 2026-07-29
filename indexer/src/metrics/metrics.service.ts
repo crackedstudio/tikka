@@ -1,14 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MeterProvider } from '@opentelemetry/sdk-metrics';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { Counter, Gauge, Histogram, Meter, ObservableResult } from '@opentelemetry/api';
 import { HealthService } from '../health/health.service';
 import { DlqReason } from '../database/entities/dead-letter-event.entity';
+import { Queue } from 'bullmq';
+
+interface QueueMetricsConfig {
+  name: string;
+  queue: Queue;
+}
 
 @Injectable()
 export class MetricsService {
   private meter: Meter;
   private exporter: PrometheusExporter;
+  private logger = new Logger(MetricsService.name);
 
   private eventsProcessedCounter: Counter;
   private errorsCounter: Counter;
@@ -22,7 +29,18 @@ export class MetricsService {
   private dlqDepthGauge: Gauge;
   private dlqEventsTotalCounter: Counter;
 
+  // BullMQ queue metrics
+  private queueWaitingGauge: Gauge;
+  private queueActiveGauge: Gauge;
+  private queueCompletedGauge: Gauge;
+  private queueFailedGauge: Gauge;
+  private queueDelayedGauge: Gauge;
+  private queuePausedGauge: Gauge;
+  private queueOldestJobAgeGauge: Gauge;
+  private queueTotalGauge: Gauge;
 
+  private queueMetricsIntervals: NodeJS.Timeout[] = [];
+  private queues: Map<string, Queue> = new Map();
 
   constructor(private readonly healthService: HealthService) {
     // PrometheusExporter automatically initializes the Prometheus registry
@@ -88,8 +106,108 @@ export class MetricsService {
     }).addCallback((result: ObservableResult) => {
       result.observe(process.memoryUsage().heapUsed);
     });
+
+    // Initialize BullMQ queue metrics gauges
+    this.queueWaitingGauge = this.meter.createGauge('tikka_indexer_queue_waiting', {
+      description: 'Number of jobs waiting in queue',
+    });
+
+    this.queueActiveGauge = this.meter.createGauge('tikka_indexer_queue_active', {
+      description: 'Number of actively processing jobs',
+    });
+
+    this.queueCompletedGauge = this.meter.createGauge('tikka_indexer_queue_completed', {
+      description: 'Number of completed jobs',
+    });
+
+    this.queueFailedGauge = this.meter.createGauge('tikka_indexer_queue_failed', {
+      description: 'Number of failed jobs',
+    });
+
+    this.queueDelayedGauge = this.meter.createGauge('tikka_indexer_queue_delayed', {
+      description: 'Number of delayed jobs',
+    });
+
+    this.queuePausedGauge = this.meter.createGauge('tikka_indexer_queue_paused', {
+      description: 'Number of paused jobs',
+    });
+
+    this.queueOldestJobAgeGauge = this.meter.createGauge('tikka_indexer_queue_oldest_job_age_seconds', {
+      description: 'Age of the oldest waiting job in seconds',
+      unit: 's',
+    });
+
+    this.queueTotalGauge = this.meter.createGauge('tikka_indexer_queue_total', {
+      description: 'Total number of jobs across all states',
+    });
   }
 
+  /**
+   * Register a BullMQ queue for metrics collection.
+   * Call this after the queue is initialized to start collecting queue metrics.
+   */
+  registerQueue(name: string, queue: Queue): void {
+    this.queues.set(name, queue);
+    this.logger.log(`Registered queue "${name}" for metrics collection`);
+    this.startQueueMetricsCollection(name, queue);
+  }
+
+  /**
+   * Start periodic metrics collection for a queue.
+   * Refreshes every 10 seconds.
+   */
+  private startQueueMetricsCollection(name: string, queue: Queue): void {
+    const collectMetrics = async () => {
+      try {
+        const [waiting, active, completed, failed, delayed, paused] = await Promise.all([
+          queue.getWaitingCount(),
+          queue.getActiveCount(),
+          queue.getCompletedCount(),
+          queue.getFailedCount(),
+          queue.getDelayedCount(),
+          queue.getPausedCount(),
+        ]);
+
+        // Get oldest job timestamp
+        let oldestJobAge = 0;
+        const waitingJobs = await queue.getJobs(['waiting'], 0, 0);
+        if (waitingJobs.length > 0 && waitingJobs[0].timestamp) {
+          oldestJobAge = (Date.now() - waitingJobs[0].timestamp) / 1000;
+        }
+
+        const labels = { queue: name };
+
+        this.queueWaitingGauge.record(waiting, labels);
+        this.queueActiveGauge.record(active, labels);
+        this.queueCompletedGauge.record(completed, labels);
+        this.queueFailedGauge.record(failed, labels);
+        this.queueDelayedGauge.record(delayed, labels);
+        this.queuePausedGauge.record(paused, labels);
+        this.queueOldestJobAgeGauge.record(oldestJobAge, labels);
+        this.queueTotalGauge.record(waiting + active + completed + failed + delayed + paused, labels);
+      } catch (error) {
+        this.logger.warn(`Failed to collect metrics for queue "${name}": ${error.message}`);
+      }
+    };
+
+    // Collect immediately
+    collectMetrics();
+
+    // Then every 10 seconds
+    const interval = setInterval(collectMetrics, 10_000);
+    this.queueMetricsIntervals.push(interval);
+  }
+
+  /**
+   * Stop all queue metrics collection intervals.
+   * Call during graceful shutdown.
+   */
+  stopQueueMetricsCollection(): void {
+    for (const interval of this.queueMetricsIntervals) {
+      clearInterval(interval);
+    }
+    this.queueMetricsIntervals = [];
+  }
 
   incrementEventsProcessed(type: string = 'unknown', amount: number = 1) {
     this.eventsProcessedCounter.add(amount, { event_type: type });

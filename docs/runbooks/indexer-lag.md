@@ -3,6 +3,15 @@
 ## Overview
 Indexer lag occurs when the Tikka Indexer's `last_ledger` falls significantly behind the Stellar network's latest closed ledger. This can be caused by network congestion, database performance issues, or service interruptions.
 
+## Dashboard (issue #211)
+
+Design reference for an indexer lag dashboard:
+
+- Figma: https://www.figma.com/design/Yja14jB0ZqnCj09eG64A8E/Untitled?node-id=14-187&t=SgAZJM3WZOL62AAP-1
+- Related issue: Implement dashboard for indexer lag (#211)
+
+Existing Grafana panels already chart `tikka_indexer_lag_ledgers` (see `indexer/grafana/indexer-dashboard.json` and `docs/observability/GRAFANA.md`).
+
 ## Detection
 - **Alert**: `indexer_lag_alert` triggers when lag exceeds the threshold (default: 50 ledgers).
 - **Health Endpoint**: `GET /health` returns `lagStatus: 'critical'` or `degraded`.

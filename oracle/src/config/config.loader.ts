@@ -193,14 +193,12 @@ export function loadOracleConfig(): OracleConfig {
     return validated;
   } catch (error) {
     if (error instanceof ZodError) {
-      const issues = error.issues
-        .map((issue) => {
-          const path = issue.path.length > 0 ? issue.path.join('.') : '<root>';
-          return `${path}: ${issue.message}`;
-        })
+      const summary = error.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
         .join('; ');
-      logger.error('Configuration validation failed:', issues);
-      throw new Error(`Invalid configuration: ${issues}`);
+      logger.error(`Configuration validation failed: ${summary}`);
+      // Re-throw ZodError so callers (config:verify / startup) can list every field.
+      throw error;
     }
     if (error instanceof Error) {
       logger.error('Configuration validation failed:', error.message);
