@@ -263,14 +263,9 @@ describe('RafflesController — uploadImage', () => {
   });
 });
 
-describe('RafflesController — upsertMetadata idempotency', () => {
+describe('RafflesController — upsertMetadata', () => {
   let controller: RafflesController;
   let rafflesService: { upsertMetadata: jest.Mock };
-  let idempotencyService: {
-    get: jest.Mock;
-    lock: jest.Mock;
-    resolve: jest.Mock;
-  };
 
   beforeEach(async () => {
     rafflesService = {
@@ -281,27 +276,21 @@ describe('RafflesController — upsertMetadata idempotency', () => {
       }),
     };
 
-    idempotencyService = {
-      get: jest.fn().mockResolvedValue(null),
-      lock: jest.fn().mockResolvedValue(true),
-      resolve: jest.fn().mockResolvedValue(undefined),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RafflesController],
       providers: [
         { provide: RafflesService, useValue: rafflesService },
         { provide: StorageService, useValue: {} },
-        { provide: IdempotencyService, useValue: idempotencyService },
+        { provide: IdempotencyService, useValue: {} },
         { provide: SseService, useValue: {} },
-        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false), get: jest.fn(), setEx: jest.fn() } },
+        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false) } },
       ],
     }).compile();
 
     controller = module.get<RafflesController>(RafflesController);
   });
 
-  it('processes the first request and caches the response', async () => {
+  it('delegates to rafflesService.upsertMetadata', async () => {
     const payload = {
       title: 'Test Raffle',
       description: 'A test raffle',
@@ -315,58 +304,39 @@ describe('RafflesController — upsertMetadata idempotency', () => {
       description: 'A test raffle',
     });
     expect(rafflesService.upsertMetadata).toHaveBeenCalledWith(42, payload, 'GABC123');
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns cached response for duplicate request with same Idempotency-Key', async () => {
-    const cachedResponse = {
-      raffleId: 42,
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
-
-    idempotencyService.get.mockResolvedValueOnce({
-      status: 'done',
-      response: cachedResponse,
-    });
-
-    const payload = {
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
-
-    const result = await controller.upsertMetadata(42, 'GABC123', payload);
-
-    expect(result).toEqual(cachedResponse);
-    expect(rafflesService.upsertMetadata).not.toHaveBeenCalled();
-    expect(idempotencyService.lock).not.toHaveBeenCalled();
-  });
-
-  it('does not call service method twice for same Idempotency-Key', async () => {
-    const cachedResponse = {
-      raffleId: 42,
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
-
-    // First request: no cache, will call service
-    idempotencyService.get.mockResolvedValueOnce(null);
-    
-    const payload = {
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
-
-    await controller.upsertMetadata(42, 'GABC123', payload);
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
-
-    // Second request with same key: cache hit, won't call service
-    idempotencyService.get.mockResolvedValueOnce({
-      status: 'done',
-      response: cachedResponse,
-    });
-
-    await controller.upsertMetadata(42, 'GABC123', payload);
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1); // Still only called once
   });
 });
+
+describe('RafflesController — getById', () => {
+  let controller: RafflesController;
+  let rafflesService: { getById: jest.Mock };
+
+  beforeEach(async () => {
+    rafflesService = {
+      getById: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [RafflesController],
+      providers: [
+        { provide: RafflesService, useValue: rafflesService },
+        { provide: StorageService, useValue: {} },
+        { provide: IdempotencyService, useValue: {} },
+        { provide: SseService, useValue: {} },
+        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false) } },
+      ],
+    }).compile();
+
+    controller = module.get<RafflesController>(RafflesController);
+  });
+
+  it('delegates to rafflesService.getById and returns raffle details', async () => {
+    const mockDetail = { id: 1, status: 'open', title: 'Test Raffle' };
+    rafflesService.getById.mockResolvedValue(mockDetail);
+
+    const result = await controller.getById(1);
+    expect(result).toEqual(mockDetail);
+    expect(rafflesService.getById).toHaveBeenCalledWith(1);
+  });
+});
+

@@ -1,6 +1,3 @@
-import { Body, Controller, Post } from "@nestjs/common";
-import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
-import { Public } from "../../../auth/decorators/public.decorator";
 import {
   Body,
   Controller,
@@ -16,6 +13,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { FastifyRequest } from "fastify";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
+import { Public } from "../../../auth/decorators/public.decorator";
 import { SupportService } from "./support.service";
 import { SupportDto, SupportSchema } from "./dto/support.dto";
 import { createZodPipe } from "../raffles/pipes/zod-validation.pipe";

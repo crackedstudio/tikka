@@ -1,5 +1,4 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
-import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SUPABASE_CLIENT } from "../../../services/supabase.provider";
 import { EmailTemplateService } from "../../../services/email-template.service";
@@ -19,21 +18,6 @@ export class SupportService {
   private readonly logger = new Logger(SupportService.name);
   private readonly recentSubmissions = new Map<string, number>();
 
-  async createTicket(payload: SupportDto, userAddress: string): Promise<{ success: true }> {
-    const duplicateKey = this.getDuplicateKey(payload);
-    const now = Date.now();
-    const previousSubmissionAt = this.recentSubmissions.get(duplicateKey);
-
-    if (previousSubmissionAt && now - previousSubmissionAt < 15 * 60 * 1000) {
-      throw new BadRequestException({
-        message: "A similar support request was submitted recently. Please wait a moment before sending another.",
-      });
-    }
-
-    this.recentSubmissions.set(duplicateKey, now);
-    this.logger.log(`Received support ticket for ${userAddress}`, payload);
-    // TODO: Integrate with real email or ticketing system (SendGrid / SES / Zendesk)
-    return { success: true };
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
     private readonly emailTemplateService: EmailTemplateService,
@@ -156,7 +140,8 @@ export class SupportService {
   }
 
   async submitTicket(payload: SupportDto): Promise<{ success: true }> {
-    return this.createTicket(payload, "unknown");
+    await this.createTicket(payload, "unknown");
+    return { success: true };
   }
 
   private getDuplicateKey(payload: SupportDto): string {
