@@ -32,9 +32,9 @@ export class SupportService {
     const previousSubmissionAt = this.recentSubmissions.get(duplicateKey);
 
     if (previousSubmissionAt && now - previousSubmissionAt < 15 * 60 * 1000) {
-      throw new BadRequestException(
-        "A similar support request was submitted recently. Please wait a moment before sending another."
-      );
+      throw new BadRequestException({
+        message: "A similar support request was submitted recently. Please wait a moment before sending another.",
+      });
     }
 
     this.recentSubmissions.set(duplicateKey, now);
@@ -151,9 +151,8 @@ export class SupportService {
     return data as SupportTicket;
   }
 
-  async submitTicket(payload: SupportDto): Promise<{ success: true }> {
-    await this.createTicket(payload, "unknown");
-    return { success: true };
+  async submitTicket(payload: SupportDto): Promise<SupportTicket> {
+    return this.createTicket(payload, "unknown");
   }
 
   private getDuplicateKey(payload: SupportDto): string {

@@ -28,7 +28,6 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 export interface ApiErrorResponse {
   statusCode: number;
-  message: string;
   error: ErrorCode;
   message: string;
   requestId?: string;
@@ -239,7 +238,6 @@ export class BaseExceptionFilter implements ExceptionFilter {
 
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Internal server error',
       error: ErrorCode.INTERNAL_ERROR,
       message: 'Internal server error',
     };

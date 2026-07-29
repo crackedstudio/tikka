@@ -102,7 +102,13 @@ describe('LeaderboardService', () => {
     });
 
     it('returns identical cached results across repeated calls', async () => {
-      indexer.getLeaderboard.mockResolvedValue(tiedMockData);
+      const store = new Map<string, string>();
+      redis.get.mockImplementation((key) => Promise.resolve(store.get(key) ?? null));
+      redis.setEx.mockImplementation((key, _, val) => {
+        store.set(key, val);
+        return Promise.resolve(undefined);
+      });
+
       const first = await service.getLeaderboard({ by: 'wins', limit: 3 });
       expect(first.cacheHit).toBe(false);
 
