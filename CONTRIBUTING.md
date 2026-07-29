@@ -10,6 +10,19 @@ pnpm install
 pnpm dev
 ```
 
+## Package manager policy
+
+Use pnpm for every package root in this repository so each package has a single canonical lockfile:
+
+- Root package: pnpm
+- Client workspace: pnpm
+- Backend workspace: pnpm
+- SDK workspace: pnpm
+- Indexer workspace: pnpm
+- Oracle workspace: pnpm
+
+Use the package manager that matches the package root you are working in. Do not add or commit npm lockfiles such as package-lock.json in these directories.
+
 ## Running unit tests
 
 Unit tests run without any external services and are safe to run in CI.
