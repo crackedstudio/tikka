@@ -1,6 +1,3 @@
-import { Body, Controller, Post } from "@nestjs/common";
-import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
-import { Public } from "../../../auth/decorators/public.decorator";
 import {
   Body,
   Controller,
