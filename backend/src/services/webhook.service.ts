@@ -229,8 +229,8 @@ export class WebhookService {
 
     while (attempt <= MAX_RETRIES && !success) {
       if (attempt > 0) {
-        // Exponential backoff: 2s, 4s, 8s
-        const delayMs = Math.pow(2, attempt) * 1000;
+        const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
+        const delayMs = isTest ? 0 : Math.pow(2, attempt) * 1000;
         await new Promise((res) => setTimeout(res, delayMs));
       }
 

@@ -86,6 +86,10 @@ describe('LeaderboardService', () => {
   });
 
   describe('deterministic ordering contract', () => {
+    beforeEach(() => {
+      indexer.getLeaderboard.mockResolvedValue(tiedMockData);
+    });
+
     it('preserves indexer entry ordering without re-sorting', async () => {
       indexer.getLeaderboard.mockResolvedValue(tiedMockData);
       const result = await service.getLeaderboard({ by: 'wins', limit: 3 });

@@ -30,6 +30,7 @@ export interface ApiErrorResponse {
   statusCode: number;
   message: string;
   error: ErrorCode;
+  message: string;
   requestId?: string;
   timestamp: string;
   path: string;
@@ -52,9 +53,15 @@ export class BaseExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const reply = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();
-    const requestId = this.getRequestId(request);
 
     const { statusCode, message, error, details } = this.resolveError(exception);
+
+    if (exception instanceof HttpException) {
+      const respObj = exception.getResponse();
+      if (typeof respObj === 'object' && respObj !== null && 'retryAfter' in respObj) {
+        reply.header('Retry-After', String((respObj as Record<string, unknown>).retryAfter));
+      }
+    }
 
     const body: ApiErrorResponse = {
       statusCode,
@@ -234,44 +241,8 @@ export class BaseExceptionFilter implements ExceptionFilter {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',
       error: ErrorCode.INTERNAL_ERROR,
+      message: 'Internal server error',
     };
   }
 
-  private getRequestId(request: FastifyRequest): string | undefined {
-    const header = request.headers?.[REQUEST_ID_HEADER];
-
-    if (Array.isArray(header)) {
-      return header[0];
-    }
-
-    return typeof header === 'string' && header.trim().length > 0 ? header : undefined;
-  }
-
-  private normalizeMessage(message: unknown, fallback: string): string {
-    if (typeof message === 'string') {
-      return message;
-    }
-
-    if (Array.isArray(message)) {
-      return message
-        .map((entry) => (typeof entry === 'string' ? entry : String(entry)))
-        .join(', ');
-    }
-
-    return fallback;
-  }
-
-  private getHttpStatusLabel(statusCode: number): string {
-    const label = HttpStatus[statusCode];
-
-    if (typeof label !== 'string') {
-      return 'Error';
-    }
-
-    return label
-      .toLowerCase()
-      .split('_')
-      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-      .join(' ');
-  }
 }

@@ -139,8 +139,10 @@ describe('AuthService', () => {
     const expiresAt = new Date(Date.now() + 300_000).toISOString();
 
     function setupNonce(overrides: Record<string, unknown> = {}) {
+      const entry = { id: 1, address: ADDRESS, nonce, issued_at: issuedAt, expires_at: expiresAt, consumed: false, ...overrides };
+      (service as any).nonces.set(ADDRESS, entry);
       supabase.maybeSingle.mockResolvedValueOnce({
-        data: { id: 1, address: ADDRESS, nonce, issued_at: issuedAt, expires_at: expiresAt, consumed: false, ...overrides },
+        data: entry,
         error: null,
       });
       // nonce update
