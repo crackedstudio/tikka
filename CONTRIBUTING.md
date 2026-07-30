@@ -91,6 +91,7 @@ A future issue will convert them to use a real Soroban testnet endpoint.
 ## Pull request checklist
 
 - [ ] `pnpm test` passes with no new failures.
+- [ ] SDK PRs must pass `examples:check` locally (`pnpm --filter @tikka/sdk examples:check` or `npm run examples:check` in `sdk/`).
 - [ ] New client UI strings are added to every supported locale and
   `pnpm --filter client check:locales` passes with zero missing or orphaned keys.
 - [ ] New public APIs include JSDoc.
