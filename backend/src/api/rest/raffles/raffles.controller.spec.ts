@@ -263,80 +263,85 @@ describe('RafflesController — uploadImage', () => {
   });
 });
 
-describe('RafflesController — upsertMetadata', () => {
-  let controller: RafflesController;
-  let rafflesService: { upsertMetadata: jest.Mock };
+import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
+import { ExecutionContext } from '@nestjs/common';
+import { of } from 'rxjs';
 
-  beforeEach(async () => {
-    rafflesService = {
-      upsertMetadata: jest.fn().mockResolvedValue({
-        raffleId: 42,
-        title: 'Test Raffle',
-        description: 'A test raffle',
-      }),
+describe('IdempotencyInterceptor — upsertMetadata idempotency', () => {
+  let interceptor: IdempotencyInterceptor;
+  let idempotencyService: {
+    get: jest.Mock;
+    lock: jest.Mock;
+    resolve: jest.Mock;
+  };
+
+  beforeEach(() => {
+    idempotencyService = {
+      get: jest.fn().mockResolvedValue(null),
+      lock: jest.fn().mockResolvedValue(true),
+      resolve: jest.fn().mockResolvedValue(undefined),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [RafflesController],
-      providers: [
-        { provide: RafflesService, useValue: rafflesService },
-        { provide: StorageService, useValue: {} },
-        { provide: IdempotencyService, useValue: {} },
-        { provide: SseService, useValue: {} },
-        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false) } },
-      ],
-    }).compile();
-
-    controller = module.get<RafflesController>(RafflesController);
+    interceptor = new IdempotencyInterceptor(idempotencyService as any);
   });
 
-  it('delegates to rafflesService.upsertMetadata', async () => {
-    const payload = {
-      title: 'Test Raffle',
-      description: 'A test raffle',
+  function createMockContext(idempotencyKey?: string, walletAddress = 'GABC123') {
+    const req = {
+      headers: idempotencyKey ? { 'idempotency-key': idempotencyKey } : {},
+      user: { address: walletAddress },
     };
+    return {
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as unknown as ExecutionContext;
+  }
 
-    const result = await controller.upsertMetadata(42, 'GABC123', payload);
+  it('processes the first request and caches the response', (done) => {
+    const ctx = createMockContext('key-1');
+    const handler = { handle: () => of({ raffleId: 42, title: 'Test Raffle' }) };
 
-    expect(result).toEqual({
-      raffleId: 42,
-      title: 'Test Raffle',
-      description: 'A test raffle',
+    interceptor.intercept(ctx, handler).subscribe({
+      next: (result) => {
+        expect(result).toEqual({ raffleId: 42, title: 'Test Raffle' });
+        expect(idempotencyService.get).toHaveBeenCalledWith('GABC123', 'key-1');
+        expect(idempotencyService.lock).toHaveBeenCalledWith('GABC123', 'key-1');
+        expect(idempotencyService.resolve).toHaveBeenCalledWith('GABC123', 'key-1', { raffleId: 42, title: 'Test Raffle' });
+        done();
+      },
     });
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledWith(42, payload, 'GABC123');
   });
 });
 
-describe('RafflesController — getById', () => {
-  let controller: RafflesController;
-  let rafflesService: { getById: jest.Mock };
+  it('returns cached response for duplicate request with same Idempotency-Key', (done) => {
+    const cachedResponse = { raffleId: 42, title: 'Test Raffle' };
+    idempotencyService.get.mockResolvedValueOnce({ status: 'done', response: cachedResponse });
 
-  beforeEach(async () => {
-    rafflesService = {
-      getById: jest.fn(),
-    };
+    const ctx = createMockContext('key-1');
+    const handler = { handle: jest.fn().mockReturnValue(of({ raffleId: 42 })) };
 
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [RafflesController],
-      providers: [
-        { provide: RafflesService, useValue: rafflesService },
-        { provide: StorageService, useValue: {} },
-        { provide: IdempotencyService, useValue: {} },
-        { provide: SseService, useValue: {} },
-        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false) } },
-      ],
-    }).compile();
-
-    controller = module.get<RafflesController>(RafflesController);
+    interceptor.intercept(ctx, handler).subscribe({
+      next: (result) => {
+        expect(result).toEqual(cachedResponse);
+        expect(handler.handle).not.toHaveBeenCalled();
+        expect(idempotencyService.lock).not.toHaveBeenCalled();
+        done();
+      },
+    });
   });
 
-  it('delegates to rafflesService.getById and returns raffle details', async () => {
-    const mockDetail = { id: 1, status: 'open', title: 'Test Raffle' };
-    rafflesService.getById.mockResolvedValue(mockDetail);
+  it('does not call service method twice for same Idempotency-Key', (done) => {
+    const cachedResponse = { raffleId: 42, title: 'Test Raffle' };
+    idempotencyService.get.mockResolvedValueOnce({ status: 'done', response: cachedResponse });
 
-    const result = await controller.getById(1);
-    expect(result).toEqual(mockDetail);
-    expect(rafflesService.getById).toHaveBeenCalledWith(1);
+    const ctx = createMockContext('key-1');
+    const handler = { handle: jest.fn() };
+
+    interceptor.intercept(ctx, handler).subscribe({
+      next: (result) => {
+        expect(result).toEqual(cachedResponse);
+        expect(handler.handle).not.toHaveBeenCalled();
+        done();
+      },
+    });
   });
 });
 

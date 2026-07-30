@@ -4,6 +4,8 @@ import { IndexerService } from '../../../services/indexer.service';
 import { MetadataService } from '../../../services/metadata.service';
 import { PinningService } from '../../../services/pinning.service';
 import { MetadataRedisService } from '../../../services/metadata-redis.service';
+import { MetadataService } from '../../../services/metadata.service';
+import { PinningService } from '../../../services/pinning.service';
 import { ConfigService } from '@nestjs/config';
 
 describe('RafflesService', () => {
@@ -11,6 +13,8 @@ describe('RafflesService', () => {
   let indexerService: jest.Mocked<IndexerService>;
   let redis: jest.Mocked<MetadataRedisService>;
   let configService: jest.Mocked<ConfigService>;
+  let metadataService: jest.Mocked<MetadataService>;
+  let pinningService: jest.Mocked<PinningService>;
 
   let metadataService: {
     getMetadata: jest.Mock;
@@ -40,14 +44,28 @@ describe('RafflesService', () => {
       get: jest.fn(),
     } as any;
 
+    metadataService = {
+      getMetadata: jest.fn(),
+      getBatchMetadata: jest.fn(),
+      upsertMetadata: jest.fn(),
+      updateMetadataCid: jest.fn(),
+      softDeleteMetadata: jest.fn(),
+      restoreMetadata: jest.fn(),
+      getArchivedMetadata: jest.fn(),
+    } as any;
+
+    pinningService = {
+      pin: jest.fn(),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RafflesService,
-        { provide: IndexerService, useValue: indexerService },
         { provide: MetadataService, useValue: metadataService },
-        { provide: MetadataRedisService, useValue: redis },
+        { provide: IndexerService, useValue: indexerService },
         { provide: ConfigService, useValue: configService },
-        { provide: PinningService, useValue: {} },
+        { provide: PinningService, useValue: pinningService },
+        { provide: MetadataRedisService, useValue: redis },
       ],
     }).compile();
 
@@ -305,9 +323,9 @@ describe('RafflesService', () => {
     });
 
     it('throws UnprocessableEntity when raffle is not open', async () => {
-      configService.get.mockReturnValue(true);
-      const mockRaffle = { id: 1, creator: 'GABC123', status: 'finalized' };
+      const mockRaffle = { id: 1, status: 'finalized', creator: 'GABC123' };
       const payload = { quantity: 1 };
+      configService.get.mockReturnValue(true);
       indexerService.getRaffle.mockResolvedValue(mockRaffle as any);
 
       await expect(

@@ -224,8 +224,8 @@ export function buildSentryOptions(envInput: {
      * Strip sensitive data from every event before it leaves the process.
      * This is a defence-in-depth measure on top of per-scope redaction.
      */
-    beforeSend(event: any): any {
-      return scrubSentryEvent(event);
+    beforeSend(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
+      return scrubSentryEvent(event as Sentry.Event) as Sentry.ErrorEvent;
     },
   };
 }
