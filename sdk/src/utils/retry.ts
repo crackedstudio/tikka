@@ -48,10 +48,10 @@ export async function withRetry<T>(
         throw error;
       }
 
-      // Exponential backoff with jitter: delay = min(maxDelay, base * 2^(attempt-1) * (0.5 + random))
+      // Full jitter: delay = random(0, min(maxDelay, base * 2^(attempt-1)))
       const backoff = Math.pow(2, attempt - 1);
-      const jitter = 0.5 + Math.random();
-      const delay = Math.min(maxDelayMs, baseDelayMs * backoff * jitter);
+      const cap = Math.min(maxDelayMs, baseDelayMs * backoff);
+      const delay = cap * Math.random();
 
       if (onRetry) {
         onRetry(attempt, error, delay);
