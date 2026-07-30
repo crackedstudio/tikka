@@ -68,6 +68,7 @@ class BackfillRequestDto {
 @UseGuards(AdminGuard)
 @UseInterceptors(AuditLogInterceptor)
 @SkipThrottle()
+@SkipMaintenance()
 export class MonitorController {
   constructor(
     private readonly monitorService: MonitorService,

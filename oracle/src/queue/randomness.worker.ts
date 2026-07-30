@@ -17,8 +17,9 @@ import { AlertingService } from '../health/alerting.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MetricsService } from '../metrics/metrics.service';
 
 const DLQ_DEPTH_ALERT_DEDUP_KEY = 'dlq-depth-threshold';
 
@@ -46,6 +47,7 @@ export class RandomnessWorker {
     private readonly configService: ConfigService,
     private readonly auditLogService: AuditLogService,
     private readonly alertingService: AlertingService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -58,6 +60,9 @@ export class RandomnessWorker {
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
     return CorrelationContext.run(String(job.id), async () => {
+    // Main-loop heartbeat — updated on every job the queue worker picks up.
+    this.metricsService?.recordComponentHeartbeat('queue');
+
     const priority = job.opts.priority ?? JobPriority.NORMAL;
     const isHighPriority = priority <= JobPriority.HIGH;
     
