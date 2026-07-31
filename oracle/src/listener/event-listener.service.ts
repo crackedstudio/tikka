@@ -245,12 +245,48 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 this.lagMonitor.updateCurrentLedger(eventResponse.ledger);
             }
 
+            // ── Continuity check + gap backfill (BEFORE processing this event) ──
+            const ledgerBefore =
+                eventResponse?.ledger !== undefined && eventResponse?.ledger !== null
+                    ? Number(eventResponse.ledger)
+                    : null;
+
+            if (
+                !this.isBackfilling &&
+                ledgerBefore != null &&
+                Number.isFinite(ledgerBefore) &&
+                this.lastProcessedLedger != null &&
+                ledgerBefore > this.lastProcessedLedger + 1
+            ) {
+                const gapSize = ledgerBefore - this.lastProcessedLedger - 1;
+                this.logger.warn(
+                    `Event stream ledger gap detected: ${this.lastProcessedLedger} → ${ledgerBefore} (${gapSize} ledger(s) missed)`,
+                );
+                this.metricsService?.recordEventListenerGap(0);
+
+                if (this.lastProcessedCursor) {
+                    this.logger.log(
+                        `Initiating live-stream backfill to recover ${gapSize} missed ledger(s)…`,
+                    );
+                    const backfilled = await this.backfill(this.lastProcessedCursor);
+                    this.logger.log(
+                        `Live-stream backfill complete — recovered ${backfilled} event(s) from gap, proceeding with current event.`,
+                    );
+                }
+            }
+
             const topics = (eventResponse.topic || []).map((t: string) => StellarSdk.xdr.ScVal.fromXDR(t, 'base64'));
 
-            if (topics.length === 0) return;
+            if (topics.length === 0) {
+                this.recordProcessedCursor(eventResponse);
+                return;
+            }
 
             const primaryTopic = topics[0];
-            if (primaryTopic.switch() !== StellarSdk.xdr.ScValType.scvSymbol()) return;
+            if (primaryTopic.switch() !== StellarSdk.xdr.ScValType.scvSymbol()) {
+                this.recordProcessedCursor(eventResponse);
+                return;
+            }
 
             const eventName = primaryTopic.sym().toString();
         this.logger.debug(`Received event: ${eventName} for raffle ${this.raffleContractId}`);
