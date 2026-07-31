@@ -149,6 +149,23 @@ This document describes all environment variables used by the Tikka Oracle servi
 - **Description**: GCP KMS key version
 - **Example**: `GCP_KEY_VERSION=1`
 
+### Key age / rotation tracking
+
+#### `ORACLE_KEY_CREATED_AT`
+- **Type**: ISO-8601 date or datetime
+- **Default**: None
+- **Required**: No (recommended)
+- **Description**: When the active oracle signing key was created or last rotated. Used by `config:verify` and startup to warn when the key is older than `ORACLE_KEY_MAX_AGE_DAYS`.
+- **Example**: `ORACLE_KEY_CREATED_AT=2026-07-27T00:00:00Z`
+- **See**: `docs/runbooks/oracle-key-rotation.md`
+
+#### `ORACLE_KEY_MAX_AGE_DAYS`
+- **Type**: Positive integer
+- **Default**: `90`
+- **Required**: No
+- **Description**: Maximum recommended key age in days. Exceeding this emits a **warning** (does not fail startup by itself).
+- **Example**: `ORACLE_KEY_MAX_AGE_DAYS=90`
+
 ---
 
 ## Queue Configuration
@@ -434,6 +451,20 @@ This document describes all environment variables used by the Tikka Oracle servi
 - **Description**: Opsgenie API key
 - **Example**: `OPSGENIE_API_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 
+### `ALERT_WEBHOOK_URL`
+- **Type**: String (URL)
+- **Default**: None
+- **Required**: No
+- **Description**: Slack-compatible webhook URL. When set, alerts are POSTed here in addition to (or instead of) `ALERTING_PROVIDER`. Fires on circuit breaker OPEN, dead-letter queue depth exceeding `DLQ_DEPTH_ALERT_THRESHOLD`, and VRF signing key unavailability. Each payload includes `oracle_id`, `raffle_id` (when applicable), and severity.
+- **Example**: `ALERT_WEBHOOK_URL=https://hooks.slack.com/services/T00/B00/XXXX`
+
+### `DLQ_DEPTH_ALERT_THRESHOLD`
+- **Type**: Integer
+- **Default**: `5`
+- **Required**: No
+- **Description**: Number of dead-lettered jobs that triggers a critical alert
+- **Example**: `DLQ_DEPTH_ALERT_THRESHOLD=10`
+
 ---
 
 ## Heartbeat Configuration
@@ -556,6 +587,8 @@ REDIS_PORT=6379
 # Alerting
 ALERTING_PROVIDER=pagerduty
 PAGERDUTY_ROUTING_KEY=R0XXXXXXXXXXXXXXXXXXXXXXXXXX
+ALERT_WEBHOOK_URL=https://hooks.slack.com/services/T00/B00/XXXX
+DLQ_DEPTH_ALERT_THRESHOLD=10
 
 # Logging
 LOG_LEVEL=info

@@ -41,9 +41,14 @@ import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
   AllowedUploadMimeType,
+  MAX_UPLOAD_IMAGE_HEIGHT,
+  MAX_UPLOAD_IMAGE_PIXELS,
+  MAX_UPLOAD_IMAGE_WIDTH,
   MAX_UPLOAD_BYTES,
 } from "../../../config/upload.config";
 import { StorageService } from "../../../services/storage.service";
+import { MetadataRedisService } from "../../../services/metadata-redis.service";
+import { SseService } from "../../../services/sse.service";
 import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
@@ -51,7 +56,10 @@ import {
 import { Throttle } from "@nestjs/throttler";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
 import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
+import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
+import { SetMetadata } from "@nestjs/common";
 import * as fileType from "file-type";
+import sharp, { type Metadata } from "sharp";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
@@ -68,6 +76,7 @@ export class RafflesController {
     private readonly storageService: StorageService,
     private readonly idempotencyService: IdempotencyService,
     private readonly sseService: SseService,
+    private readonly metadataRedis: MetadataRedisService,
   ) {}
 
   /**
@@ -78,6 +87,8 @@ export class RafflesController {
   @Get()
   @ApiOperation({ summary: "List raffles with optional filters and pagination" })
   @ApiResponse({ status: 200, description: "Raffles list retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 10)
   @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
   async list(@Query() filters: ListRafflesQueryDto) {
     return this.rafflesService.list(filters);
@@ -92,6 +103,8 @@ export class RafflesController {
   @Get('metadata')
   @ApiOperation({ summary: "Batch fetch off-chain metadata for up to 100 raffle IDs" })
   @ApiResponse({ status: 200, description: "Batch metadata retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 15)
   @UsePipes(new (createZodPipe(BatchMetadataQuerySchema))())
   async getBatchMetadata(@Query() query: BatchMetadataQueryDto) {
     return this.rafflesService.getBatchMetadata(query.ids);
@@ -105,6 +118,8 @@ export class RafflesController {
   @ApiOperation({ summary: "Get raffle detail by ID" })
   @ApiParam({ name: "id", description: "Internal raffle ID" })
   @ApiResponse({ status: 200, description: "Raffle details retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 30)
   async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
   }
@@ -122,6 +137,8 @@ export class RafflesController {
   @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 100, default 20" })
   @ApiQuery({ name: "offset", required: false, type: Number, description: "Offset for pagination, default 0" })
   @ApiResponse({ status: 200, description: "Participants list retrieved successfully", type: ParticipantListResponseDto })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 30)
   @UsePipes(new (createZodPipe(ParticipantListQuerySchema))())
   async getParticipants(
     @Param("id", ParseIntPipe) id: number,
@@ -248,12 +265,30 @@ export class RafflesController {
     @Req() request: FastifyRequestWithMultipart,
     @CurrentUser("address") address: string,
   ): Promise<{ url: string; variantUrls: string[] }> {
-    const file = await request.file();
+    let file: MultipartFile | undefined;
+    try {
+      file = await request.file();
+    } catch (error) {
+      if (this.isMultipartLimitError(error)) {
+        throw this.createPayloadTooLargeException();
+      }
+      throw error;
+    }
+
     if (!file) {
       throw new BadRequestException("Image file is required");
     }
 
-    const buffer = await file.toBuffer();
+    let buffer: Buffer;
+    try {
+      buffer = await file.toBuffer();
+    } catch (error) {
+      if (this.isMultipartLimitError(error)) {
+        throw this.createPayloadTooLargeException();
+      }
+      throw error;
+    }
+
     const detectedFileType = await fileType.fromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
@@ -269,6 +304,8 @@ export class RafflesController {
       );
     }
 
+    await this.assertImageDimensionsWithinLimits(buffer);
+
     const raffleId = this.extractRaffleId(file);
     const upload = await this.storageService.uploadRaffleImage({
       fileBuffer: buffer,
@@ -278,6 +315,52 @@ export class RafflesController {
     });
 
     return { url: upload.url, variantUrls: upload.variantUrls };
+  }
+
+  private async assertImageDimensionsWithinLimits(buffer: Buffer): Promise<void> {
+    let metadata: Metadata;
+
+    try {
+      metadata = await sharp(buffer, {
+        limitInputPixels: MAX_UPLOAD_IMAGE_PIXELS + 1,
+      }).metadata();
+    } catch {
+      throw new BadRequestException("Invalid or unreadable image file");
+    }
+
+    const width = metadata.width ?? 0;
+    const height = metadata.height ?? 0;
+    const pixels = width * height;
+
+    if (width <= 0 || height <= 0) {
+      throw new BadRequestException("Image dimensions could not be determined");
+    }
+
+    if (
+      width > MAX_UPLOAD_IMAGE_WIDTH ||
+      height > MAX_UPLOAD_IMAGE_HEIGHT ||
+      pixels > MAX_UPLOAD_IMAGE_PIXELS
+    ) {
+      throw new BadRequestException(
+        `Image dimensions exceed limit (${width}x${height}). Max: ${MAX_UPLOAD_IMAGE_WIDTH}x${MAX_UPLOAD_IMAGE_HEIGHT}`,
+      );
+    }
+  }
+
+  private isMultipartLimitError(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const maybeMultipartError = error as Error & { code?: string; statusCode?: number };
+    return (
+      maybeMultipartError.code === "FST_REQ_FILE_TOO_LARGE" ||
+      maybeMultipartError.statusCode === 413 ||
+      /file too large/i.test(maybeMultipartError.message)
+    );
+  }
+
+  private createPayloadTooLargeException(): PayloadTooLargeException {
+    return new PayloadTooLargeException(
+      `File too large. Max: ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,
+    );
   }
 
   private extractRaffleId(file: MultipartFile): string {

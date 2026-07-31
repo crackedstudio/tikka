@@ -238,16 +238,39 @@ export class WebhookService {
     }
 
     await Promise.allSettled(
-      webhooks.map((webhook) =>
-        this.deliveryQueue.add(
-          'deliver',
-          {
-            webhookId: webhook.id,
-            targetUrl: webhook.target_url,
-            secret: webhook.secret,
-            eventType,
-            payload: payloadData,
-            ownerAddress: webhook.owner_address,
+      webhooks.map((webhook) => this.deliverWebhookWithRetries(webhook, eventType, payloadString))
+    );
+  }
+
+  /**
+   * Delivers a webhook with exponential backoff retries
+   */
+  private async deliverWebhookWithRetries(webhook: Webhook, eventType: string, payloadString: string): Promise<void> {
+    const signature = crypto
+      .createHmac('sha256', webhook.secret)
+      .update(payloadString)
+      .digest('hex');
+
+    let attempt = 0;
+    let success = false;
+    let statusCode: number | null = null;
+    let responseBody: string | null = null;
+    let errorMessage: string | null = null;
+
+    while (attempt <= MAX_RETRIES && !success) {
+      if (attempt > 0) {
+        const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
+        const delayMs = isTest ? 0 : Math.pow(2, attempt) * 1000;
+        await new Promise((res) => setTimeout(res, delayMs));
+      }
+
+      try {
+        const response = await fetch(webhook.target_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tikka-Signature': signature,
+            'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
           },
         ),
       ),

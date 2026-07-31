@@ -2,8 +2,12 @@ import {
   archiveOldRaffleEvents,
   ArchiveResult,
   ArchiveCheckpointIntegrityError,
+  ArchiveDeleteConfirmationError,
   computeIntegrityHash,
   verifyCheckpointIntegrity,
+  isDeleteConfirmed,
+  requireDeleteConfirmation,
+  promptDeleteConfirmation,
 } from "./archive-raffle-events";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import {
@@ -1014,5 +1018,77 @@ describe("archiveOldRaffleEvents", () => {
       );
       expect(failedSaves).toHaveLength(0);
     });
+  });
+});
+
+describe("delete confirmation gate", () => {
+  it("isDeleteConfirmed requires CONFIRM_DELETE=yes", () => {
+    expect(isDeleteConfirmed({})).toBe(false);
+    expect(isDeleteConfirmed({ CONFIRM_DELETE: "YES" })).toBe(false);
+    expect(isDeleteConfirmed({ CONFIRM_DELETE: "yes" })).toBe(true);
+  });
+
+  it("requireDeleteConfirmation allows dry runs without confirmation", async () => {
+    await expect(
+      requireDeleteConfirmation({
+        dryRun: true,
+        env: {},
+        stdinIsTTY: false,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("requireDeleteConfirmation accepts CONFIRM_DELETE=yes", async () => {
+    await expect(
+      requireDeleteConfirmation({
+        dryRun: false,
+        env: { CONFIRM_DELETE: "yes" },
+        stdinIsTTY: false,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("requireDeleteConfirmation refuses non-interactive deletes without CONFIRM_DELETE", async () => {
+    await expect(
+      requireDeleteConfirmation({
+        dryRun: false,
+        env: {},
+        stdinIsTTY: false,
+      }),
+    ).rejects.toBeInstanceOf(ArchiveDeleteConfirmationError);
+  });
+
+  it("requireDeleteConfirmation accepts interactive yes", async () => {
+    await expect(
+      requireDeleteConfirmation({
+        dryRun: false,
+        env: {},
+        stdinIsTTY: true,
+        prompt: async () => true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("requireDeleteConfirmation rejects interactive no", async () => {
+    await expect(
+      requireDeleteConfirmation({
+        dryRun: false,
+        env: {},
+        stdinIsTTY: true,
+        prompt: async () => false,
+      }),
+    ).rejects.toBeInstanceOf(ArchiveDeleteConfirmationError);
+  });
+
+  it("promptDeleteConfirmation treats only yes as confirmation", async () => {
+    await expect(
+      promptDeleteConfirmation(async () => "yes"),
+    ).resolves.toBe(true);
+    await expect(
+      promptDeleteConfirmation(async () => " YES "),
+    ).resolves.toBe(true);
+    await expect(
+      promptDeleteConfirmation(async () => "no"),
+    ).resolves.toBe(false);
   });
 });

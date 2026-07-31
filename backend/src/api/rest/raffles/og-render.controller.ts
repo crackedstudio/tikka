@@ -5,7 +5,7 @@ import { Public } from "../../../auth/decorators/public.decorator";
 import { RafflesService, RaffleDetailResponse } from "./raffles.service";
 import { ConfigService } from "@nestjs/config";
 import { MetadataRedisService } from "../../../services/metadata-redis.service";
-import * as sharp from "sharp";
+import sharp from "sharp";
 
 /**
  * OG Pre-Render Controller

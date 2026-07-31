@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, PrimaryColumn, UpdateDateColumn } from "typeorm";
 
 /**
  * Aggregated per-user participation statistics.
@@ -32,6 +32,11 @@ import { Column, Entity, PrimaryColumn, UpdateDateColumn } from "typeorm";
  * See: `ENTITY_OWNERSHIP.md` for full documentation
  */
 @Entity("users")
+@Index("IDX_USERS_TOTAL_RAFFLES_WON_ADDRESS", ["totalRafflesWon", "address"])
+@Index("IDX_USERS_TOTAL_TICKETS_BOUGHT_ADDRESS", [
+  "totalTicketsBought",
+  "address",
+])
 export class UserEntity {
   /** Stellar account address — primary key. */
   @PrimaryColumn({ type: "varchar", length: 56, name: "address" })

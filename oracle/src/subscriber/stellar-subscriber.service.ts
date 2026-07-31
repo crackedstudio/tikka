@@ -1,8 +1,9 @@
 import { OracleLoggerService } from '../logger/oracle-logger';
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Horizon } from '@stellar/stellar-sdk';
 import { HealthService } from '../health/health.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 /** How long to wait between reconnect attempts (ms). */
 const RECONNECT_DELAY_MS = 5_000;
@@ -22,9 +23,13 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
   private lastMessageAt = 0;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private isRestarting = false;
+  private isBackfilling = false;
 
   /** Paging token of the last successfully-processed transaction. */
   private lastSeenCursor: string | null = null;
+
+  /** Ledger sequence of the last successfully-processed transaction. */
+  private lastSeenLedger: number | null = null;
 
   /** Deduplication set: paging tokens we have already processed. */
   private readonly seenCursors = new Set<string>();
@@ -36,6 +41,7 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
     private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly healthService: HealthService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {
     const horizonUrl = this.configService.get<string>(
       'HORIZON_URL',
@@ -61,6 +67,16 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
     return this.lastSeenCursor;
   }
 
+  /** Returns the ledger sequence of the last processed transaction, or null. */
+  getLastSeenLedger(): number | null {
+    return this.lastSeenLedger;
+  }
+
+  /** Number of gap detections recorded via MetricsService (0 if metrics unavailable). */
+  getGapDetectionCount(): number {
+    return this.metricsService?.getGapDetectionCount() ?? 0;
+  }
+
   /**
    * Returns the estimated subscriber lag as the number of ledgers between
    * the last processed cursor and now. Returns 0 when no cursor is recorded.
@@ -83,7 +99,7 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
       const withCursor = cursor ? builder.cursor(cursor) : builder.cursor('now');
 
       this.closeStream = withCursor.stream({
-        onmessage: (tx: any) => this.handleMessage(tx),
+        onmessage: (tx: any) => void this.handleMessage(tx),
         onerror: (error: any) => this.handleError(error),
       });
 
@@ -108,7 +124,7 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
 
   // ─── Message handling + deduplication ────────────────────────────────────
 
-  private handleMessage(message: any) {
+  private async handleMessage(message: any) {
     this.lastMessageAt = Date.now();
 
     if (this.healthService.getMetrics().streamStatus !== 'connected') {
@@ -130,17 +146,61 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      this.recordCursor(cursor);
+      const ledger = this.extractLedger(message);
+
+      if (
+        !this.isBackfilling &&
+        ledger != null &&
+        Number.isFinite(ledger) &&
+        this.lastSeenLedger != null &&
+        ledger > this.lastSeenLedger + 1
+      ) {
+        const gapSize = ledger - this.lastSeenLedger - 1;
+        this.logger.warn(
+          `SSE stream ledger gap detected: ${this.lastSeenLedger} → ${ledger} (${gapSize} ledger(s) missed)`,
+        );
+        this.metricsService?.recordEventListenerGap(0);
+
+        if (this.lastSeenCursor) {
+          this.logger.log(`Initiating backfill to recover ${gapSize} missed ledger(s)…`);
+          const backfilled = await this.backfill(this.lastSeenCursor);
+          this.logger.log(
+            `Backfill complete — recovered ${backfilled} transaction(s) from gap, proceeding with live stream.`,
+          );
+        }
+      }
+
+      this.recordCursor(cursor, ledger);
     }
 
     this.logger.debug(`Processing transaction: ${message.hash ?? cursor}`);
   }
 
   /**
+   * Extracts the ledger sequence number from a Horizon transaction record.
+   * Horizon paging tokens use the format "<ledger>-<txOrder>-<opOrder>", so
+   * we can derive the ledger from the first hyphen-delimited segment as a
+   * fallback when the explicit `ledger` field is absent.
+   */
+  private extractLedger(message: any): number | null {
+    if (message?.ledger !== undefined && message?.ledger !== null) {
+      const parsed = Number(message.ledger);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+
+    const token = String(message?.paging_token ?? message?.id ?? '');
+    const firstSegment = token.split('-')[0];
+    if (!firstSegment) return null;
+
+    const parsed = Number(firstSegment);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  /**
    * Records a cursor as processed and keeps the deduplication set bounded.
    * Oldest entries are evicted once the set reaches `MAX_SEEN_IDS`.
    */
-  private recordCursor(cursor: string) {
+  private recordCursor(cursor: string, ledger?: number | null) {
     if (this.seenCursors.size >= MAX_SEEN_IDS) {
       // Evict oldest entry — Set iteration order is insertion order in V8
       const oldest = this.seenCursors.values().next().value;
@@ -148,6 +208,10 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
     }
     this.seenCursors.add(cursor);
     this.lastSeenCursor = cursor;
+
+    if (ledger != null && Number.isFinite(ledger)) {
+      this.lastSeenLedger = ledger;
+    }
   }
 
   private handleError(error: any) {
@@ -160,15 +224,19 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Fetches transactions from `fromCursor` up to the current ledger,
-   * deduplicated by cursor. Called on reconnect when `lastSeenCursor` exists.
+   * deduplicated by cursor. Called on reconnect when `lastSeenCursor` exists,
+   * or on-the-fly when a live-stream gap is detected.
+   *
+   * Returns the number of newly-processed transactions recovered.
    */
-  async backfill(fromCursor: string): Promise<void> {
+  async backfill(fromCursor: string): Promise<number> {
     this.logger.log(`Backfilling missed transactions from cursor ${fromCursor}…`);
 
     let count = 0;
+    this.isBackfilling = true;
 
     try {
-      let page: Horizon.Server.CollectionPage<Horizon.HorizonApi.TransactionResponse> =
+      let page: Horizon.ServerApi.CollectionPage<Horizon.ServerApi.TransactionRecord> =
         await this.horizonServer
           .transactions()
           .cursor(fromCursor)
@@ -185,7 +253,8 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
             continue;
           }
 
-          if (cursor) this.recordCursor(cursor);
+          const ledger = this.extractLedger(tx);
+          if (cursor) this.recordCursor(cursor, ledger);
           this.logger.debug(`Backfill: processing tx ${(tx as any).hash ?? cursor}`);
           count++;
         }
@@ -195,9 +264,20 @@ export class StellarSubscriberService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (err: any) {
       this.logger.error(`Backfill failed: ${err.message}`);
+    } finally {
+      this.isBackfilling = false;
     }
 
-    this.logger.log(`Backfill complete — processed ${count} transactions`);
+    if (count > 0) {
+      this.logger.warn(
+        `Backfill gap recovery: processed ${count} new transaction(s) from cursor ${fromCursor}`,
+      );
+      this.metricsService?.recordEventListenerGap(count);
+    } else {
+      this.logger.log('Backfill complete — no missed transactions');
+    }
+
+    return count;
   }
 
   // ─── Heartbeat / reconnect ────────────────────────────────────────────────

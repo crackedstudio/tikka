@@ -11,6 +11,20 @@ export interface EmailTemplateRegistry {
   RaffleCancelled: RaffleCancelledEmailProps;
 }
 
+export const EMAIL_TEMPLATE_REQUIRED_FIELDS: {
+  [K in keyof EmailTemplateRegistry]: Array<keyof EmailTemplateRegistry[K]>;
+} = {
+  Winner: ["username", "raffleName", "claimUrl"],
+  RaffleEnded: ["raffleName", "resultsUrl"],
+  RaffleCancelled: [
+    "raffleName",
+    "cancellationReason",
+    "ticketCount",
+    "refundAmountXlm",
+    "raffleUrl",
+  ],
+};
+
 const templateFactories: {
   [K in keyof EmailTemplateRegistry]: (
     props: EmailTemplateRegistry[K],

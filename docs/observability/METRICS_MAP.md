@@ -39,6 +39,8 @@ Complete inventory of all metrics endpoints, Prometheus metrics, and health endp
 | `pushDelivery.providerOutage` | `PushNotificationService` | Provider outage count |
 | `pushDelivery.totalFailures` | `PushNotificationService` | Total failure count |
 
+For ingestion-lag alert thresholds and the runbook, see [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md).
+
 ### Monitor (DB-Backed) Fields
 
 | Entity | Fields |
@@ -73,11 +75,23 @@ Complete inventory of all metrics endpoints, Prometheus metrics, and health endp
 | `tikka_indexer_events_processed_total` | Counter | `event_type` | Total events processed by type |
 | `tikka_indexer_errors_total` | Counter | (none) | Total errors during polling or processing |
 | `tikka_indexer_reorg_detected_total` | Counter | (none) | Total ledger reorgs detected |
-| `tikka_indexer_lag_ledgers` | Gauge | (none) | Current ledger lag behind the network |
+| `tikka_indexer_lag_ledgers` | Gauge | (none) | **[Deprecated alias]** Ledger lag behind the network; kept for backward compatibility, prefer `tikka_indexer_ingestion_lag_ledgers`. |
+| `tikka_indexer_ingestion_lag_ledgers` | ObservableGauge | (none) | Ingestion lag in ledgers: `latest_network_ledger_sequence - cursor.lastLedger`. Refreshed every `LAG_PROBE_REFRESH_MS` (default 15s) via `LagProbeService`. **Alert when > `INDEXER_LAG_ALERT_THRESHOLD_LEDGERS` (default 50) for 5m (critical).** See [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md). |
+| `tikka_indexer_ingestion_lag_seconds` | ObservableGauge | (none) | Ingestion lag in seconds: `latest_network_ledger.closedAt - cursor.lastSavedAt`. Refreshed every `LAG_PROBE_REFRESH_MS` (default 15s). **Alert when > `INDEXER_LAG_ALERT_THRESHOLD_SECONDS` (default 90) for 5m (warning).** See [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md). |
 | `tikka_indexer_poll_duration_seconds` | Histogram | (none) | Duration of ledger polling cycles |
 | `tikka_indexer_memory_usage_bytes` | ObservableGauge | (none) | Current heap used |
 | `tikka_db_slow_query_total` | Counter | `query_hash` | Slow database queries |
 | `tikka_db_query_duration_seconds` | Histogram | `query_hash` | Database query duration |
+| `indexer_dlq_depth` | Gauge | `contract_address` | Current DLQ depth per contract |
+| `indexer_dlq_events_total` | Counter | `reason`, `event_type` | Total DLQ events added/replayed |
+| `tikka_indexer_queue_waiting` | Gauge | `queue` | Number of jobs waiting in queue |
+| `tikka_indexer_queue_active` | Gauge | `queue` | Number of actively processing jobs |
+| `tikka_indexer_queue_completed` | Gauge | `queue` | Number of completed jobs |
+| `tikka_indexer_queue_failed` | Gauge | `queue` | Number of failed jobs |
+| `tikka_indexer_queue_delayed` | Gauge | `queue` | Number of delayed jobs |
+| `tikka_indexer_queue_paused` | Gauge | `queue` | Number of paused jobs |
+| `tikka_indexer_queue_oldest_job_age_seconds` | Gauge | `queue` | Age of oldest waiting job in seconds |
+| `tikka_indexer_queue_total` | Gauge | `queue` | Total jobs across all states |
 
 ### Prometheus Scrape Config
 
@@ -93,9 +107,14 @@ scrape_configs:
 
 | Alert Name | Expression | Severity |
 |------------|-----------|----------|
-| `IndexerFallingBehind` | `tikka_indexer_lag_ledgers > 20` for 5m | critical |
+| `IndexerIngestionLagLedgers` | `tikka_indexer_ingestion_lag_ledgers > 50` for 5m | critical |
+| `IndexerIngestionLagSeconds` | `tikka_indexer_ingestion_lag_seconds > 90` for 5m | warning |
+| `IndexerFallingBehind` | `tikka_indexer_lag_ledgers > 20` for 5m (deprecated alias) | critical |
 | `IndexerHighLatency` | avg poll duration > 10s for 10m | warning |
 | `IndexerErrors` | error rate > 0.1/s for 2m | warning |
+| `IndexerQueueBacklog` | `tikka_indexer_queue_waiting > 100` for 5m | warning |
+| `IndexerQueueStalled` | `tikka_indexer_queue_oldest_job_age_seconds > 300` for 5m | critical |
+| `IndexerQueueFailureRate` | `rate(tikka_indexer_queue_failed[5m]) > 0.1` for 5m | warning |
 
 ---
 
@@ -127,7 +146,36 @@ scrape_configs:
 | `tikka_oracle_estimated_fee_stroops` | Gauge | `network`, `method` | Estimated fee for next submission |
 | `tikka_oracle_actual_fee_total_stroops` | Counter | `network`, `method` | Total actual fee paid for submissions |
 | `tikka_oracle_submission_outcome_total` | Counter | `outcome`, `network`, `method` | Submission outcomes (success/failure/retry) |
+| `tikka_oracle_component_heartbeat_unixtime` | Gauge | `component` | Unix seconds of last main-loop activity (`listener`, `queue`, `submitter`) |
 | `tikka_oracle_memory_usage_bytes` | ObservableGauge | (none) | Current heap used |
+
+### Component heartbeat (liveness)
+
+Each oracle component updates `tikka_oracle_component_heartbeat_unixtime{component=...}` on every main-loop iteration:
+
+| Component | Updated when | Expected cadence |
+|-----------|--------------|------------------|
+| `listener` | Each Horizon SSE message handled | Continuously while the stream is connected (often sub-second when events flow; stalls if the stream wedges) |
+| `queue` | Each Bull job the randomness worker starts | Per job; stalls if the worker stops consuming |
+| `submitter` | Each `submitRandomnessTyped` entry | Per submission attempt; stalls if the submit path wedges |
+
+**Suggested Prometheus alert** (component wedged while process still up):
+
+```yaml
+- alert: OracleComponentHeartbeatStale
+  expr: |
+    (time() - tikka_oracle_component_heartbeat_unixtime) > 120
+  for: 2m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Oracle {{ $labels.component }} heartbeat is stale"
+    description: >
+      Component {{ $labels.component }} has not updated its heartbeat for >120s.
+      The process may still look alive while this loop is wedged.
+```
+
+Tune the threshold to your expected idle periods (raise it if the queue/submitter can be legitimately idle longer than 2 minutes).
 
 ### In-Memory Queue Metrics
 

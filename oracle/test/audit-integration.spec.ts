@@ -3,6 +3,7 @@ import { AuditLogService } from '../src/audit/audit-log.service';
 import { AuditController } from '../src/audit/audit.controller';
 import { SUPABASE_CLIENT } from '../src/audit/supabase.provider';
 import { RecordSubmissionParams, VrfAuditRecord } from '../src/audit/audit.types';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
 
 describe('Audit Integration Test', () => {
   let auditLogService: AuditLogService;
@@ -26,6 +27,7 @@ describe('Audit Integration Test', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuditLogService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         {
           provide: SUPABASE_CLIENT,
           useValue: mockSupabase,
@@ -59,10 +61,6 @@ describe('Audit Integration Test', () => {
       supabaseClient.single.mockResolvedValueOnce({
         data: null,
         error: { code: 'PGRST116' },
-      });
-      supabaseClient.single.mockResolvedValueOnce({
-        data: null,
-        error: null,
       });
       supabaseClient.insert.mockResolvedValue({ error: null });
 
@@ -105,7 +103,7 @@ describe('Audit Integration Test', () => {
       });
 
       // Retrieve via controller
-      const result = await auditController.getAuditByQuery('456');
+      const result = await auditController.getAuditByQuery('456') as VrfAuditRecord;
 
       expect(result).toEqual(mockRecord);
       expect(result.tx_hash).toBe('0x123abc');

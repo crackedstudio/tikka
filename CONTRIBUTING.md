@@ -88,9 +88,26 @@ File: `sdk/src/test/rpc-integration.spec.ts`
 These are currently mock-based and run as part of the normal unit test suite.
 A future issue will convert them to use a real Soroban testnet endpoint.
 
+## SDK bundle size
+
+The SDK enforces gzip size budgets on the read-only and light entry points via
+`size-limit`. See [sdk/README.md — Bundle size budget and size-check workflow](./sdk/README.md#bundle-size-budget-and-size-check-workflow)
+for current limits, how to run `pnpm --filter sdk size-check`, and remediation
+steps when a PR grows the bundle.
+
+```bash
+pnpm --filter sdk run build:read
+pnpm --filter sdk run build:light
+pnpm --filter sdk run size-check
+```
+
 ## Pull request checklist
 
 - [ ] `pnpm test` passes with no new failures.
+- [ ] New client UI strings are added to every supported locale and
+  `pnpm --filter client check:locales` passes with zero missing or orphaned keys.
 - [ ] New public APIs include JSDoc.
 - [ ] Integration tests (if added) are gated behind `TEST_INTEGRATION=true`.
 - [ ] `CONTRIBUTING.md` is updated if new integration test setup is required.
+- [ ] SDK PRs that touch public exports or read/light entry graphs:
+  `pnpm --filter sdk size-check` passes (see SDK bundle size section above).

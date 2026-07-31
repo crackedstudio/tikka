@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { StellarSubscriberService } from '../src/subscriber/stellar-subscriber.service';
 import { HealthService } from '../src/health/health.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
 
 describe('StellarSubscriberService', () => {
   let service: StellarSubscriberService;
@@ -11,6 +12,7 @@ describe('StellarSubscriberService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StellarSubscriberService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         {
           provide: ConfigService,
           useValue: {

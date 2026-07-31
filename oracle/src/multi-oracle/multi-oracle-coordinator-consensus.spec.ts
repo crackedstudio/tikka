@@ -1,5 +1,8 @@
 import { MultiOracleCoordinatorService } from './multi-oracle-coordinator.service';
 import { RandomnessResult } from '../queue/queue.types';
+import { OracleLoggerService } from '../logger/oracle-logger';
+
+const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,7 +50,7 @@ describe('MultiOracleCoordinatorService - Consensus Validation', () => {
       return defaultValue;
     });
 
-    service = new MultiOracleCoordinatorService(registry as any, config as any);
+    service = new MultiOracleCoordinatorService(mockLogger, registry as any, config as any);
   });
 
   // -------------------------------------------------------------------------

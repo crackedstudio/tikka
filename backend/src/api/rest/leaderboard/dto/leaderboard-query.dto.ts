@@ -1,25 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { z } from 'zod';
+import { PaginationQuerySchema, PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 
 /** Query params for GET /leaderboard */
-export const LeaderboardQuerySchema = z.object({
+export const LeaderboardQuerySchema = PaginationQuerySchema.extend({
   by: z.enum(['wins', 'volume', 'tickets']).default('wins').optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
   cursor: z.string().min(1).optional(),
-  // Deprecated: offset pagination is kept for backward compatibility.
-  offset: z.coerce.number().int().min(0).optional(),
 });
 
-export class LeaderboardQueryDto {
+export class LeaderboardQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['wins', 'volume', 'tickets'], default: 'wins', description: 'Sort field' })
   by?: 'wins' | 'volume' | 'tickets';
 
-  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20, description: 'Number of entries' })
-  limit?: number;
-
   @ApiPropertyOptional({ description: 'Cursor for cursor-based pagination' })
   cursor?: string;
-
-  @ApiPropertyOptional({ description: 'Offset for offset-based pagination (deprecated)' })
-  offset?: number;
 }

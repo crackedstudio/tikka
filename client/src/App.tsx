@@ -6,6 +6,7 @@ import { checkConnection } from "./services/rpcService";
 import { logger } from "./utils/logger";
 import { AppProviders } from "./providers/AppProviders";
 import NetworkWarning from "./components/NetworkWarning";
+import { OfflineBanner } from "./components/OfflineBanner";
 import { InstallPWA } from "./components/InstallPWA";
 import { ServiceWorkerUpdate } from "./components/ServiceWorkerUpdate";
 import { Spinner } from "./components/ui/Spinner";
@@ -54,6 +55,10 @@ function App() {
 
     return (
         <AppProviders>
+            {/* Offline detection banner — shows when browser loses network connectivity.
+              * Automatically hides and refetches data when connectivity returns.
+            */}
+            <OfflineBanner />
             {/* Issue #120: Global Network Warning
               * This will show at the top of every page if the user is on the wrong network.
             */}

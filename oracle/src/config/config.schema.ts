@@ -129,6 +129,7 @@ const AlertingSchema = z.object({
   provider: z.enum(['none', 'pagerduty', 'opsgenie']).default('none'),
   pagerdutyRoutingKey: z.string().optional(),
   opsgenieApiKey: z.string().optional(),
+  webhookUrl: z.string().url().optional(),
 }).refine(
   (data) => {
     if (data.provider === 'pagerduty') {

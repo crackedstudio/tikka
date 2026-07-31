@@ -41,6 +41,11 @@ export enum RaffleStatus {
 @Index("idx_raffles_status", ["status"])
 @Index("idx_raffles_creator", ["creator"])
 @Index("idx_raffles_created_at", ["createdAt"])
+@Index("idx_raffles_status_created_at", ["status", "createdAt"])
+@Index("idx_raffles_created_ledger", ["createdLedger"])
+@Index("idx_raffles_winner_not_null", ["winner"], {
+  where: '"winner" IS NOT NULL',
+})
 export class RaffleEntity {
   /** Contract-assigned raffle ID — used as natural PK. */
   @PrimaryColumn({ type: "integer", name: "id" })

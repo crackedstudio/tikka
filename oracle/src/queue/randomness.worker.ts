@@ -13,17 +13,22 @@ import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { PriorityClassifierService } from './priority-classifier.service';
 import { AuditLogService } from '../audit/audit-log.service';
+import { AlertingService } from '../health/alerting.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MetricsService } from '../metrics/metrics.service';
+
+const DLQ_DEPTH_ALERT_DEDUP_KEY = 'dlq-depth-threshold';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
 export class RandomnessWorker {
-  
+
   private readonly vrfThresholdXlm: number;
+  private readonly dlqDepthAlertThreshold: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
 
@@ -41,15 +46,23 @@ export class RandomnessWorker {
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
     private readonly configService: ConfigService,
     private readonly auditLogService: AuditLogService,
+    private readonly alertingService: AlertingService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
+    );
+    this.dlqDepthAlertThreshold = Number(
+      this.configService.get<string>('DLQ_DEPTH_ALERT_THRESHOLD', '5'),
     );
   }
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
     return CorrelationContext.run(String(job.id), async () => {
+    // Main-loop heartbeat — updated on every job the queue worker picks up.
+    this.metricsService?.recordComponentHeartbeat('queue');
+
     const priority = job.opts.priority ?? JobPriority.NORMAL;
     const isHighPriority = priority <= JobPriority.HIGH;
     
@@ -80,7 +93,9 @@ export class RandomnessWorker {
           `[DEAD-LETTER] Job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId} ` +
           `exhausted all retry attempts. Manual intervention required.`,
         );
-        throw new Error(`Dead-lettered: ${result.error}`);
+        this.checkDlqDepthAlert(job.data.raffleId);
+        await this.quarantineJob(job, new Error(`Dead-lettered: ${result.error}`));
+        return;
       } else {
         // Calculate backoff and schedule retry
         const backoffMs = this.stateManager.calculateBackoff(
@@ -98,17 +113,76 @@ export class RandomnessWorker {
         `[FAILED] Job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId} ` +
         `failed with non-retriable error: ${result.error}`,
       );
-      throw new Error(`Failed: ${result.error}`);
+      await this.quarantineJob(job, new Error(`Failed: ${result.error}`));
+      return;
     }
 
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
+    } catch (err: any) {
+      const maxRetries = this.stateManager.getConfig().maxRetries;
+      const attemptCount = job.attemptsMade + 1; // Include the current attempt
+
+      if (attemptCount >= maxRetries) {
+        if (job.data?.requestId) {
+          this.stateManager.transitionState(
+            job.data.requestId,
+            JobState.DEAD_LETTERED,
+            `Exhausted ${maxRetries} attempts due to handler crash`,
+            err.message
+          );
+        }
+        await this.quarantineJob(job, err);
+        return;
+      }
+      throw err; // Let Bull retry it
+    }
     }); // end CorrelationContext.run
+  }
+
+  private async quarantineJob(job: Job<RandomnessJobPayload>, error: any) {
+    const errorMsg = error?.message || String(error);
+    this.logger.error(`[QUARANTINE] Job ${job.id} (raffle ${job.data?.raffleId}) quarantined. Error: ${errorMsg}`);
+    this.healthService.recordQuarantine(job.data?.requestId || 'unknown', errorMsg);
+    
+    try {
+      const client = job.queue.client;
+      await client.rpush(
+        'oracle:quarantine:randomness',
+        JSON.stringify({
+          jobId: job.id,
+          data: job.data,
+          error: errorMsg,
+          stack: error?.stack,
+          quarantinedAt: new Date().toISOString()
+        })
+      );
+    } catch (redisError) {
+      this.logger.error(`Failed to push job ${job.id} to quarantine list in Redis: ${redisError}`);
+    }
   }
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /** Fires a critical alert when the dead-letter queue depth exceeds the configured threshold. */
+  private checkDlqDepthAlert(raffleId: number): void {
+    const deadLetteredCount = this.stateManager.getMetrics().deadLetteredCount;
+
+    if (deadLetteredCount >= this.dlqDepthAlertThreshold) {
+      void this.alertingService.fire({
+        severity: 'critical',
+        summary: `Dead-letter queue depth (${deadLetteredCount}) exceeds threshold (${this.dlqDepthAlertThreshold})`,
+        details: `Most recently dead-lettered job was for raffle ${raffleId}. Manual rescue intervention required.`,
+        dedupKey: DLQ_DEPTH_ALERT_DEDUP_KEY,
+        context: {
+          oracle_id: process.env.LOCAL_ORACLE_ID || 'oracle-001',
+          raffle_id: raffleId,
+        },
+      });
+    }
   }
 
   clearProcessedCache() {
