@@ -4,6 +4,7 @@ import { SnapshotService } from "../../maintenance/snapshot.service";
 import { ApiKeyGuard } from "../api-key.guard";
 import {
   SnapshotExportResponseDto,
+  SnapshotImportRequestDto,
   SnapshotImportResponseDto,
 } from "./dto/snapshot.dto";
 
@@ -39,7 +40,8 @@ export class SnapshotController {
   @ApiBody({ schema: { properties: { filename: { type: 'string' } } } })
   @ApiResponse({ status: 201, type: SnapshotImportResponseDto })
   @Post("import")
-  async import(@Body("filename") filename: string): Promise<SnapshotImportResponseDto> {
+  async import(@Body() dto: SnapshotImportRequestDto): Promise<SnapshotImportResponseDto> {
+    const { filename } = dto;
     if (!filename) {
       throw new HttpException("Filename is required", HttpStatus.BAD_REQUEST);
     }

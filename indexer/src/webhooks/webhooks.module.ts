@@ -1,14 +1,18 @@
-import { Module } from "@nestjs/common";
-import { BullModule } from "@nestjs/bullmq";
+import { Module, OnModuleInit } from "@nestjs/common";
+import { BullModule, InjectQueue } from "@nestjs/bullmq";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { Queue } from "bullmq";
 import { WebhookService } from "./webhook.service";
 import { WebhookEntity } from "../database/entities/webhook.entity";
 import { DatabaseModule } from "../database/database.module";
+import { MetricsModule } from "../metrics/metrics.module";
+import { MetricsService } from "../metrics/metrics.service";
 
 @Module({
   imports: [
     DatabaseModule,
     TypeOrmModule.forFeature([WebhookEntity]),
+    MetricsModule,
     BullModule.forRoot({
       connection: {
         host: process.env.REDIS_HOST || "localhost",
@@ -22,4 +26,13 @@ import { DatabaseModule } from "../database/database.module";
   providers: [WebhookService],
   exports: [WebhookService],
 })
-export class WebhooksModule {}
+export class WebhooksModule implements OnModuleInit {
+  constructor(
+    @InjectQueue("webhook") private readonly webhookQueue: Queue,
+    private readonly metricsService: MetricsService,
+  ) {}
+
+  onModuleInit() {
+    this.metricsService.registerQueue("webhook", this.webhookQueue);
+  }
+}

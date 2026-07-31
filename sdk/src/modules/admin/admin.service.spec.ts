@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdminService } from './admin.service';
 import { ContractService } from '../../contract/contract.service';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
 describe('AdminService', () => {
   let service: AdminService;
