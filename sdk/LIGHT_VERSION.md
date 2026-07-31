@@ -4,7 +4,7 @@ A lightweight, framework-agnostic version of the Tikka SDK designed for mobile a
 
 ## Features
 - **Zero NestJS Overheads**: No decorators or dependency injection logic.
-- **Small Footprint**: Target < 50kb gzipped.
+- **Small Footprint**: Soft target < 50 kB gzipped; enforced budget **25 kB** gzip via `pnpm run size-check` (see [README — Bundle size budget](./README.md#bundle-size-budget-and-size-check-workflow)).
 - **ESM Ready**: Optimized for modern bundlers (Vite, Webpack 5).
 
 ## Usage
