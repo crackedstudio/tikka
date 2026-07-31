@@ -18,14 +18,20 @@ describe('MaintenanceModeGuard', () => {
     get: jest.fn(),
   } as unknown as ConfigService;
 
-  const createContext = (method = 'GET', headers: Record<string, string> = {}) =>
+  const createContext = (
+    method = 'GET',
+    headers: Record<string, string> = {},
+    mockResponse = { header: jest.fn(), setHeader: jest.fn() },
+  ) =>
     ({
       getHandler: jest.fn(),
       getClass: jest.fn(),
       switchToHttp: jest.fn(() => ({
         getRequest: jest.fn(() => ({ method, headers })),
+        getResponse: jest.fn(() => mockResponse),
       })),
-    }) as unknown as ExecutionContext;
+      mockResponse,
+    }) as unknown as ExecutionContext & { mockResponse: { header: jest.Mock } };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -81,9 +87,9 @@ describe('MaintenanceModeGuard', () => {
       configService,
     );
 
-    expect(() =>
-      guard.canActivate(createContext('POST')),
-    ).toThrow(ServiceUnavailableException);
+    const ctx = createContext('POST');
+    expect(() => guard.canActivate(ctx)).toThrow(ServiceUnavailableException);
+    expect(ctx.mockResponse.header).toHaveBeenCalledWith('Retry-After', '60');
   });
 
   it('blocks GET request when all scope is active', () => {

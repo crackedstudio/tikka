@@ -78,7 +78,7 @@ describe('LeaderboardController', () => {
     ];
     const qb = setupQueryBuilder(rows);
 
-    const page = await controller.getLeaderboard('wins', 3, undefined, 0);
+    const page = await controller.getLeaderboard({ by: 'wins', limit: 3, offset: 0 });
 
     expect(qb.orderBy).toHaveBeenCalledWith('user.totalRafflesWon', 'DESC');
     expect(qb.addOrderBy).toHaveBeenCalledWith('CAST(user.totalPrizeXlm AS NUMERIC)', 'DESC');
@@ -94,7 +94,8 @@ describe('LeaderboardController', () => {
     const firstRows = [makeUser('A', 10), makeUser('B', 9), makeUser('C', 8)];
     setupQueryBuilder(firstRows);
 
-    const page1 = await controller.getLeaderboard('wins', 2);
+    const page1 = await controller.getLeaderboard({ by: 'wins', limit: 2 });
+
     expect(page1.entries.map((e) => e.address)).toEqual(['A', 'B']);
     expect(page1.nextCursor).toBeTruthy();
 
@@ -102,9 +103,7 @@ describe('LeaderboardController', () => {
     const qb2 = setupQueryBuilder(secondRows);
 
     const page2 = await controller.getLeaderboard(
-      'wins',
-      2,
-      page1.nextCursor ?? undefined,
+      { by: 'wins', limit: 2, cursor: page1.nextCursor ?? undefined },
     );
     expect(page2.entries.map((e) => e.address)).toEqual(['C']);
     expect(new Set([...page1.entries, ...page2.entries].map((e) => e.address)).size).toBe(3);
@@ -114,7 +113,7 @@ describe('LeaderboardController', () => {
   it('supports deprecated offset pagination with stable rank boundaries', async () => {
     const qb = setupQueryBuilder([makeUser('B', 9), makeUser('C', 8)]);
 
-    const page = await controller.getLeaderboard('wins', 2, undefined, 1);
+    const page = await controller.getLeaderboard({ by: 'wins', limit: 2, offset: 1 });
 
     expect(qb.skip).toHaveBeenCalledWith(1);
     expect(page.entries.map((entry) => entry.rank)).toEqual([2, 3]);
@@ -128,7 +127,7 @@ describe('LeaderboardController', () => {
     ] as const) {
       const qb = setupQueryBuilder([makeUser('A', 1)]);
 
-      await controller.getLeaderboard(mode, 10, undefined, 0);
+      await controller.getLeaderboard({ by: mode, limit: 10, offset: 0 });
 
       expect(qb.orderBy).toHaveBeenCalledWith(primaryOrder, 'DESC');
     }
@@ -146,7 +145,7 @@ describe('LeaderboardController', () => {
     const results: string[][] = [];
     for (let i = 0; i < 5; i++) {
       setupQueryBuilder(tiedUsers);
-      const page = await controller.getLeaderboard('wins', 5, undefined, 0);
+      const page = await controller.getLeaderboard({ by: 'wins', limit: 5, offset: 0 });
       results.push(page.entries.map((e) => e.address));
     }
 
@@ -172,7 +171,7 @@ describe('LeaderboardController', () => {
     ];
 
     setupQueryBuilder(allTied);
-    const page1 = await controller.getLeaderboard('wins', 2);
+    const page1 = await controller.getLeaderboard({ by: 'wins', limit: 2, offset: 0 });
     expect(page1.entries).toHaveLength(2);
     expect(page1.nextCursor).toBeTruthy();
 
@@ -185,9 +184,7 @@ describe('LeaderboardController', () => {
     const remaining = allTied.slice(2);
     setupQueryBuilder(remaining);
     const page2 = await controller.getLeaderboard(
-      'wins',
-      2,
-      page1.nextCursor ?? undefined,
+      { by: 'wins', limit: 2, cursor: page1.nextCursor ?? undefined },
     );
 
     expect(page2.entries).toHaveLength(2);
@@ -210,7 +207,7 @@ describe('LeaderboardController', () => {
     ];
     const qb = setupQueryBuilder(rows);
 
-    const page = await controller.getLeaderboard('wins', 1, undefined, 0);
+    const page = await controller.getLeaderboard({ by: 'wins', limit: 1, offset: 0 });
 
     expect(page.entries).toHaveLength(1);
     const entry = page.entries[0];

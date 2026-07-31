@@ -1,19 +1,25 @@
 import { OracleLoggerService } from '../logger/oracle-logger';
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OracleLogFields } from '../logger/oracle-logger';
 import * as StellarSdk from '@stellar/stellar-sdk';
+import * as fs from 'fs';
+import * as path from 'path';
 import { RandomnessWorker } from '../queue/randomness.worker';
 import { CommitRevealWorker } from '../queue/commit-reveal.worker';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { DrawRequestLedgerService, DrawRequestIdentity } from './draw-request-ledger.service';
+import { MetricsService } from '../metrics/metrics.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from '../queue/randomness.queue';
 import { JobPriority } from '../queue/queue.types';
 type PriorityClassifierService = any;
+
+/** Maximum events to recover in a single reconnect backfill window. */
+const MAX_BACKFILL_EVENTS = 500;
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
@@ -25,10 +31,20 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     private closeStream: (() => void) | null = null;
     private reconnectTimeout: NodeJS.Timeout | null = null;
     private retryCount = 0;
+    private isReconnecting = false;
+    private isStarting = false;
+    private isBackfilling = false;
     
     // Configurable retry delays
     private readonly INITIAL_RETRY_DELAY: number;
     private readonly MAX_RETRY_DELAY: number;
+
+    /** Paging token of the last successfully processed contract event. */
+    private lastProcessedCursor: string | null = null;
+    /** Ledger of the last successfully processed contract event. */
+    private lastProcessedLedger: number | null = null;
+    /** Optional file path used to persist the cursor across process restarts. */
+    private readonly cursorPersistPath: string | null;
 
     // Bull queue depth (approximate)
     private currentQueueDepth = 0;
@@ -44,6 +60,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue<RandomnessJobPayload>,
         @Optional() private readonly priorityClassifier?: PriorityClassifierService,
         @Optional() private readonly drawRequestLedger?: DrawRequestLedgerService,
+        @Optional() private readonly metricsService?: MetricsService,
     ) {
         // Config parsing
         const horizonUrl = this.configService.get<string>('HORIZON_URL', 'https://horizon-testnet.stellar.org');
@@ -52,12 +69,15 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         
         this.INITIAL_RETRY_DELAY = this.configService.get<number>('EVENT_LISTENER_INITIAL_RETRY_DELAY', 1000);
         this.MAX_RETRY_DELAY = this.configService.get<number>('EVENT_LISTENER_MAX_RETRY_DELAY', 60000);
+        this.cursorPersistPath =
+            this.configService.get<string>('EVENT_LISTENER_CURSOR_PATH') || null;
 
         if (!this.raffleContractId) {
             this.logger.warn('RAFFLE_CONTRACT_ID is not set. Event listener will not start.');
         }
 
         this.horizonServer = new StellarSdk.Horizon.Server(horizonUrl);
+        this.loadPersistedCursor();
     }
 
     onModuleInit() {
@@ -67,11 +87,26 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         }
 
         this.logger.log(`Initializing EventListenerService for contract: ${this.raffleContractId}`);
-        this.startListening();
+        void this.startListening();
     }
 
     onModuleDestroy() {
         this.stopListening();
+    }
+
+    /** Last cursor the listener successfully processed (exposed for tests/health). */
+    getLastProcessedCursor(): string | null {
+        return this.lastProcessedCursor;
+    }
+
+    /** Last ledger the listener successfully processed (exposed for tests/health). */
+    getLastProcessedLedger(): number | null {
+        return this.lastProcessedLedger;
+    }
+
+    /** Number of gap detections recorded via MetricsService (0 if metrics unavailable). */
+    getGapDetectionCount(): number {
+        return this.metricsService?.getGapDetectionCount() ?? 0;
     }
 
     private stopListening() {
@@ -86,32 +121,43 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
-    private startListening() {
+    private async startListening() {
         if (!this.raffleContractId) return;
-
-        // Task 4.2: Gate with circuit breaker before any Horizon SSE API call
-        if (this.circuitBreaker && !this.circuitBreaker.canAttempt()) {
-            this.healthService.updateStreamStatus('disconnected');
-            const cooldown = this.circuitBreaker.getRemainingCooldownMs() || this.INITIAL_RETRY_DELAY;
-            this.logger.debug(`Circuit breaker open. Scheduling retry in ${cooldown}ms.`);
-            if (this.reconnectTimeout) {
-                clearTimeout(this.reconnectTimeout);
-            }
-            this.reconnectTimeout = setTimeout(() => {
-                this.startListening();
-            }, cooldown);
-            return;
-        }
-
-        this.logger.log('Starting Horizon event stream with server-side filtering...');
-        this.retryCount = 0;
+        if (this.isStarting) return;
+        this.isStarting = true;
 
         try {
+            // Task 4.2: Gate with circuit breaker before any Horizon SSE API call
+            if (this.circuitBreaker && !this.circuitBreaker.canAttempt()) {
+                this.healthService.updateStreamStatus('disconnected');
+                const cooldown = this.circuitBreaker.getRemainingCooldownMs() || this.INITIAL_RETRY_DELAY;
+                this.logger.debug(`Circuit breaker open. Scheduling retry in ${cooldown}ms.`);
+                if (this.reconnectTimeout) {
+                    clearTimeout(this.reconnectTimeout);
+                }
+                this.reconnectTimeout = setTimeout(() => {
+                    void this.startListening();
+                }, cooldown);
+                return;
+            }
+
+            // On reconnect, backfill anything missed since the last processed cursor.
+            if (this.isReconnecting && this.lastProcessedCursor) {
+                await this.backfill(this.lastProcessedCursor);
+            }
+
+            const resumeCursor = this.lastProcessedCursor ?? 'now';
+            this.logger.log(
+                resumeCursor === 'now'
+                    ? 'Starting Horizon event stream with server-side filtering from "now"...'
+                    : `Starting Horizon event stream from cursor ${resumeCursor}...`,
+            );
+
             // Using forContract() to filter events at the Horizon level
             // Note: Horizon events endpoint might not be in the current types, using 'as any'
             this.closeStream = (this.horizonServer as any).events()
                 .forContract(this.raffleContractId)
-                .cursor('now')
+                .cursor(resumeCursor)
                 .stream({
                     onmessage: (event: any) => void this.handleEvent(event),
                     onerror: (err: any) => this.handleStreamError(err),
@@ -119,16 +165,75 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
             
             // Task 4.3: Record success after stream is opened
             this.circuitBreaker?.recordSuccess();
+            this.retryCount = 0;
+            this.isReconnecting = false;
+            this.healthService.updateStreamStatus('connected');
             this.logger.log('Successfully connected to Horizon event stream.');
         } catch (err: any) {
             this.logger.error(`Failed to start SSE stream: ${err.message}`, err.stack);
             // Task 4.4: Record failure in catch block
             this.circuitBreaker?.recordFailure();
             this.scheduleReconnect();
+        } finally {
+            this.isStarting = false;
         }
     }
 
+    /**
+     * Fetches contract events after `fromCursor` and processes any that were missed
+     * while the SSE stream was down. Records a gap metric when events are recovered.
+     */
+    async backfill(fromCursor: string): Promise<number> {
+        this.logger.log(`Backfilling missed contract events from cursor ${fromCursor}...`);
+        let recovered = 0;
+        this.isBackfilling = true;
+
+        try {
+            let page: any = await (this.horizonServer as any)
+                .events()
+                .forContract(this.raffleContractId)
+                .cursor(fromCursor)
+                .order('asc')
+                .limit(200)
+                .call();
+
+            while (page?.records?.length > 0 && recovered < MAX_BACKFILL_EVENTS) {
+                for (const event of page.records) {
+                    const cursor = this.extractCursor(event);
+                    if (cursor && cursor === this.lastProcessedCursor) {
+                        continue;
+                    }
+                    await this.handleEvent(event);
+                    recovered++;
+                    if (recovered >= MAX_BACKFILL_EVENTS) break;
+                }
+
+                if (recovered >= MAX_BACKFILL_EVENTS) break;
+                if (typeof page.next !== 'function') break;
+                page = await page.next();
+            }
+        } catch (err: any) {
+            this.logger.error(`Event backfill failed: ${err.message}`);
+        } finally {
+            this.isBackfilling = false;
+        }
+
+        if (recovered > 0) {
+            this.logger.warn(
+                `Event stream gap detected: backfilled ${recovered} event(s) from cursor ${fromCursor}`,
+            );
+            this.metricsService?.recordEventListenerGap(recovered);
+        } else {
+            this.logger.log('Backfill complete — no missed events');
+        }
+
+        return recovered;
+    }
+
     private async handleEvent(eventResponse: any) {
+        // Main-loop heartbeat — updated on every stream message, including noise.
+        this.metricsService?.recordComponentHeartbeat('listener');
+
         // Double check contract ID just in case, though Horizon should filter it
         if (eventResponse.contractId !== this.raffleContractId) {
             return;
@@ -163,6 +268,8 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                 default:
                     this.logger.debug(`Unhandled event type: ${eventName}`);
             }
+
+            this.recordProcessedCursor(eventResponse);
 
         } catch (e: any) {
             this.logger.error(`Error processing event: ${e.message}`, JSON.stringify({ event: eventResponse }));
@@ -414,23 +521,100 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     private handleStreamError(err: any) {
         this.logger.error(`Horizon SSE Stream Error: ${err.message || 'Unknown error'}`);
         this.stopListening();
+        this.healthService.updateStreamStatus('disconnected', err?.message || 'Unknown error');
         // Task 4.4: Record failure before scheduling reconnect
         this.circuitBreaker?.recordFailure();
         this.scheduleReconnect();
     }
 
     private scheduleReconnect() {
+        this.isReconnecting = true;
         this.retryCount++;
         const delay = Math.min(this.INITIAL_RETRY_DELAY * Math.pow(2, this.retryCount), this.MAX_RETRY_DELAY);
 
         this.logger.log(`Scheduling SSE reconnect in ${delay}ms (attempt ${this.retryCount})...`);
+        this.healthService.updateStreamStatus('reconnecting');
 
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
         }
 
         this.reconnectTimeout = setTimeout(() => {
-            this.startListening();
+            void this.startListening();
         }, delay);
+    }
+
+    private extractCursor(eventResponse: any): string | null {
+        const cursor = eventResponse?.paging_token ?? eventResponse?.id;
+        return cursor != null && cursor !== '' ? String(cursor) : null;
+    }
+
+    private recordProcessedCursor(eventResponse: any): void {
+        const cursor = this.extractCursor(eventResponse);
+        const ledger =
+            eventResponse?.ledger !== undefined && eventResponse?.ledger !== null
+                ? Number(eventResponse.ledger)
+                : null;
+
+        if (
+            !this.isBackfilling &&
+            ledger != null &&
+            Number.isFinite(ledger) &&
+            this.lastProcessedLedger != null &&
+            ledger > this.lastProcessedLedger + 1
+        ) {
+            this.logger.warn(
+                `Event stream ledger gap detected: ${this.lastProcessedLedger} → ${ledger}`,
+            );
+            // Live-stream ledger gaps are recorded without a backfill count.
+            this.metricsService?.recordEventListenerGap(0);
+        }
+
+        if (cursor) {
+            this.lastProcessedCursor = cursor;
+        }
+        if (ledger != null && Number.isFinite(ledger)) {
+            this.lastProcessedLedger = ledger;
+        }
+        this.persistCursor();
+    }
+
+    private loadPersistedCursor(): void {
+        if (!this.cursorPersistPath) return;
+        try {
+            if (!fs.existsSync(this.cursorPersistPath)) return;
+            const raw = fs.readFileSync(this.cursorPersistPath, 'utf8');
+            const parsed = JSON.parse(raw) as { cursor?: string; ledger?: number };
+            if (parsed.cursor) {
+                this.lastProcessedCursor = String(parsed.cursor);
+            }
+            if (parsed.ledger != null && Number.isFinite(Number(parsed.ledger))) {
+                this.lastProcessedLedger = Number(parsed.ledger);
+            }
+            this.logger.log(
+                `Restored event listener cursor ${this.lastProcessedCursor} (ledger ${this.lastProcessedLedger})`,
+            );
+        } catch (err: any) {
+            this.logger.warn(`Failed to load persisted event listener cursor: ${err.message}`);
+        }
+    }
+
+    private persistCursor(): void {
+        if (!this.cursorPersistPath || !this.lastProcessedCursor) return;
+        try {
+            const dir = path.dirname(this.cursorPersistPath);
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(
+                this.cursorPersistPath,
+                JSON.stringify({
+                    cursor: this.lastProcessedCursor,
+                    ledger: this.lastProcessedLedger,
+                    updatedAt: new Date().toISOString(),
+                }),
+                'utf8',
+            );
+        } catch (err: any) {
+            this.logger.warn(`Failed to persist event listener cursor: ${err.message}`);
+        }
     }
 }

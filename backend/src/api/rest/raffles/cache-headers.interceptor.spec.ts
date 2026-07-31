@@ -31,6 +31,9 @@ function createMockContext(overrides: {
       },
       writeHead: (code: number, _headers?: Record<string, string>) => {
         statusCode = code;
+        if (_headers) {
+          Object.assign(headerStore, _headers);
+        }
       },
       end: () => {
         ended = true;

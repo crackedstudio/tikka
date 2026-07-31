@@ -14,6 +14,7 @@ import {
   TransparencyEntryDto,
   TransparencyLogResponseDto,
 } from './dto/transparency.dto';
+import { TransparencyQueryDto } from './dto/query.dto';
 
 /**
  * Transparency Controller
@@ -46,14 +47,14 @@ export class TransparencyController {
    */
   @Get()
   async getTransparencyLog(
-    @Query('limit') limit?: string | number,
-    @Query('offset') offset?: string | number,
-    @Query('raffle_id') raffleId?: string | number,
-    @Query('tx_hash') txHash?: string,
+    @Query() query: TransparencyQueryDto,
   ): Promise<TransparencyLogResponseDto> {
-    const safeLimit = this.clampNumber(limit, 1, 100, 20);
-    const safeOffset = this.clampNumber(offset, 0, 10000, 0);
-    const safeRaffleId = raffleId != null ? Number(raffleId) : null;
+    const rawLimit = Number(query.limit);
+    const rawOffset = Number(query.offset);
+    const safeLimit = Math.min(Math.max(Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : 20, 1), 100);
+    const safeOffset = Math.min(Math.max(Number.isFinite(rawOffset) ? Math.trunc(rawOffset) : 0, 0), 10000);
+    const safeRaffleId = query.raffle_id ?? null;
+    const txHash = query.tx_hash;
 
     // Build cache key
     const cacheKey = `transparency:${safeLimit}:${safeOffset}${safeRaffleId ? `:${safeRaffleId}` : ''}${txHash ? `:${txHash}` : ''}`;
@@ -127,23 +128,5 @@ export class TransparencyController {
         total: 0,
       };
     }
-  }
-
-  /**
-   * Safely clamp a number to a range with fallback.
-   */
-  private clampNumber(
-    value: any,
-    min: number,
-    max: number,
-    fallback: number,
-  ): number {
-    const parsed = Number(value);
-
-    if (!Number.isFinite(parsed)) {
-      return fallback;
-    }
-
-    return Math.min(Math.max(Math.trunc(parsed), min), max);
   }
 }

@@ -23,4 +23,11 @@
 export { OracleConfigModule } from './oracle-config.module';
 export { OracleConfigService } from './oracle-config.service';
 export { loadOracleConfig } from './config.loader';
+export {
+  verifyOracleConfig,
+  assertOracleConfigOrExit,
+  checkKeyAge,
+  reportConfigVerification,
+} from './config.verify';
+export type { ConfigVerifyResult, ConfigVerifyIssue } from './config.verify';
 export * from './config.schema';

@@ -27,7 +27,7 @@ describe('StatsService', () => {
     redis = {
       isEnabled: jest.fn(),
       get: jest.fn(),
-      set: jest.fn(),
+      setEx: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -152,7 +152,7 @@ describe('StatsService', () => {
 
       redis.isEnabled.mockReturnValue(true);
       redis.get.mockResolvedValue(null);
-      redis.set.mockResolvedValue(undefined);
+      redis.setEx.mockResolvedValue(undefined);
 
       configService.get.mockReturnValue('0xkey');
       indexerService.getPlatformStats.mockResolvedValue(mockPlatformStats);
@@ -164,10 +164,10 @@ describe('StatsService', () => {
       await service.getTransparencyStats();
 
       // Should set cache with TTL of 60 seconds
-      expect(redis.set).toHaveBeenCalledWith(
+      expect(redis.setEx).toHaveBeenCalledWith(
         'stats:transparency:60',
-        expect.any(String),
         60,
+        expect.any(String),
       );
     });
 
@@ -210,7 +210,7 @@ describe('StatsService', () => {
 
       redis.isEnabled.mockReturnValue(true);
       redis.get.mockResolvedValue(null);
-      redis.set.mockRejectedValue(new Error('Redis write failed'));
+      redis.setEx.mockRejectedValue(new Error('Redis write failed'));
 
       configService.get.mockReturnValue('0xkey');
       indexerService.getPlatformStats.mockResolvedValue(mockPlatformStats);
@@ -273,7 +273,7 @@ describe('StatsService', () => {
 
       // Should not call Redis at all
       expect(redis.get).not.toHaveBeenCalled();
-      expect(redis.set).not.toHaveBeenCalled();
+      expect(redis.setEx).not.toHaveBeenCalled();
     });
   });
 
@@ -353,7 +353,7 @@ describe('StatsService', () => {
     it('should store verification in cache after verification', async () => {
       redis.isEnabled.mockReturnValue(true);
       redis.get.mockResolvedValue(null);
-      redis.set.mockResolvedValue(undefined);
+      redis.setEx.mockResolvedValue(undefined);
 
       await service.verifyDraw(
         testPublicKey,
@@ -362,11 +362,11 @@ describe('StatsService', () => {
         testSeed,
       );
 
-      // Verify set was called with TTL 60
-      expect(redis.set).toHaveBeenCalledWith(
+      // Verify setEx was called with TTL 60
+      expect(redis.setEx).toHaveBeenCalledWith(
         expect.stringContaining('stats:verify:'),
-        expect.any(String),
         60,
+        expect.any(String),
       );
     });
 
@@ -406,7 +406,7 @@ describe('StatsService', () => {
     it('should handle cache write error without failing', async () => {
       redis.isEnabled.mockReturnValue(true);
       redis.get.mockResolvedValue(null);
-      redis.set.mockRejectedValue(new Error('Write failed'));
+      redis.setEx.mockRejectedValue(new Error('Write failed'));
 
       // Should not throw
       const result = await service.verifyDraw(
@@ -430,7 +430,7 @@ describe('StatsService', () => {
       );
 
       expect(redis.get).not.toHaveBeenCalled();
-      expect(redis.set).not.toHaveBeenCalled();
+      expect(redis.setEx).not.toHaveBeenCalled();
     });
 
     it('should return VerifyResult interface for invalid hex inputs', async () => {
