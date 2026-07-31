@@ -15,6 +15,7 @@ export class MetricsService implements OnModuleInit {
   private estimatedFeeGauge: Gauge;
   private actualFeeCounter: Counter;
   private submissionOutcomeCounter: Counter;
+  private feeBumpCounter: Counter;
 
   // VRF metrics
   private vrfFailuresCounter: Counter;
@@ -57,6 +58,11 @@ export class MetricsService implements OnModuleInit {
     // Submission outcomes (success, failure, retry)
     this.submissionOutcomeCounter = this.meter.createCounter('tikka_oracle_submission_outcome_total', {
       description: 'Total number of submissions by outcome',
+    });
+
+    // Fee bump counter
+    this.feeBumpCounter = this.meter.createCounter('tikka_oracle_fee_bumps_total', {
+      description: 'Total number of times a transaction fee was bumped',
     });
 
     // VRF failures with reason label
@@ -119,6 +125,10 @@ export class MetricsService implements OnModuleInit {
 
   recordSubmissionOutcome(outcome: 'success' | 'failure' | 'retry', network: string, method: string) {
     this.submissionOutcomeCounter.add(1, { outcome, network, method });
+  }
+
+  recordFeeBump(network: string, method: string) {
+    this.feeBumpCounter.add(1, { network, method });
   }
 
   recordVrfFailure(reason: string) {
