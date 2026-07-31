@@ -34,6 +34,7 @@ describe('SearchService', () => {
           description: 'A nice prize',
           image_url: null,
           category: 'seasonal',
+          score: 0,
         },
       ],
       total: 11,

@@ -237,7 +237,7 @@ export class UserService {
    * @param address - The winner's Stellar public key
    * @returns Array of WinningEntry objects, one per won raffle
    */
-  async getWinnings(address: string): Promise {
+  async getWinnings(address: string): Promise<ContractResponse<WinningEntry[]>> {
     assertValidPublicKey(address);
 
     const activityResult = await this.getActivitySummary({ address });

@@ -5,6 +5,12 @@ import { RaffleEntity } from '../database/entities/raffle.entity';
 import { TicketEntity } from '../database/entities/ticket.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
+import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
+import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
+import { PlatformStatEntity } from '../database/entities/platform-stat.entity';
+import { PlatformStateEntity } from '../database/entities/platform-state.entity';
+import { WebhookEntity } from '../database/entities/webhook.entity';
+import { ArchiveCheckpointEntity } from '../database/entities/archive-checkpoint.entity';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import * as zlib from 'zlib';
@@ -21,11 +27,24 @@ describe('SnapshotService', () => {
   const mockTicketRepo = { find: jest.fn() };
   const mockUserRepo = { find: jest.fn() };
   const mockCursorRepo = { findOne: jest.fn() };
+  const mockRaffleEventRepo = { find: jest.fn() };
+  const mockDeadLetterRepo = { find: jest.fn() };
+  const mockPlatformStatRepo = { find: jest.fn() };
+  const mockPlatformStateRepo = { findOne: jest.fn() };
+  const mockWebhookRepo = { find: jest.fn() };
+  const mockArchiveCheckpointRepo = { find: jest.fn() };
 
   beforeEach(async () => {
     dataSource = {
       transaction: jest.fn(),
     } as any;
+
+    mockRaffleEventRepo.find.mockResolvedValue([]);
+    mockDeadLetterRepo.find.mockResolvedValue([]);
+    mockPlatformStatRepo.find.mockResolvedValue([]);
+    mockPlatformStateRepo.findOne.mockResolvedValue(null);
+    mockWebhookRepo.find.mockResolvedValue([]);
+    mockArchiveCheckpointRepo.find.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -35,6 +54,12 @@ describe('SnapshotService', () => {
         { provide: getRepositoryToken(TicketEntity), useValue: mockTicketRepo },
         { provide: getRepositoryToken(UserEntity), useValue: mockUserRepo },
         { provide: getRepositoryToken(IndexerCursorEntity), useValue: mockCursorRepo },
+        { provide: getRepositoryToken(RaffleEventEntity), useValue: mockRaffleEventRepo },
+        { provide: getRepositoryToken(DeadLetterEventEntity), useValue: mockDeadLetterRepo },
+        { provide: getRepositoryToken(PlatformStatEntity), useValue: mockPlatformStatRepo },
+        { provide: getRepositoryToken(PlatformStateEntity), useValue: mockPlatformStateRepo },
+        { provide: getRepositoryToken(WebhookEntity), useValue: mockWebhookRepo },
+        { provide: getRepositoryToken(ArchiveCheckpointEntity), useValue: mockArchiveCheckpointRepo },
         {
           provide: ConfigService,
           useValue: {
@@ -75,7 +100,7 @@ describe('SnapshotService', () => {
     const decompressed = zlib.gunzipSync(callArgs[1]);
     const wrapper: SnapshotWrapper = JSON.parse(decompressed.toString());
 
-    expect(wrapper.manifest.schemaVersion).toBe('1.0.0');
+    expect(wrapper.manifest.schemaVersion).toBe('1.1.0');
     expect(wrapper.manifest.ledgerRange.min).toBe(0);
     expect(wrapper.manifest.ledgerRange.max).toBe(1000);
     expect(wrapper.manifest.entityCounts.raffles).toBe(1);

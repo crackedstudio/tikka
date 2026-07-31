@@ -66,7 +66,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      const result = await controller.getTransparencyLog(20, 0);
+      const result = await controller.getTransparencyLog({});
 
       expect(result).toEqual(mockResponse);
       expect(result.entries).toHaveLength(1);
@@ -99,7 +99,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      const result = await controller.getTransparencyLog(20, 0, 42);
+      const result = await controller.getTransparencyLog({ limit: 20, raffle_id: 42 });
 
       // Verify eq() was called with raffle_id filter
       expect(supabase.eq).toHaveBeenCalledWith('raffle_id', 42);
@@ -118,7 +118,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog();
+      await controller.getTransparencyLog({});
 
       // Verify range was called with correct pagination (0, 19 = limit 20)
       expect(supabase.range).toHaveBeenCalledWith(0, 19);
@@ -135,7 +135,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(500, 0);
+      await controller.getTransparencyLog({ limit: 500 });
 
       // Verify range uses clamped limit (0, 99 = limit 100)
       expect(supabase.range).toHaveBeenCalledWith(0, 99);
@@ -152,7 +152,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(20, 40);
+      await controller.getTransparencyLog({ limit: 20, offset: 40 });
 
       // Verify range was called with offset (40, 59 = limit 20 at offset 40)
       expect(supabase.range).toHaveBeenCalledWith(40, 59);
@@ -174,7 +174,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(20, 0);
+      await controller.getTransparencyLog({});
 
       // Verify cache.wrap was called with TTL of 60 seconds
       expect(cacheService.wrap).toHaveBeenCalledWith(
@@ -221,8 +221,8 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      const result1 = await controller.getTransparencyLog(20, 0);
-      const result2 = await controller.getTransparencyLog(20, 0);
+      const result1 = await controller.getTransparencyLog({});
+      const result2 = await controller.getTransparencyLog({});
 
       // Verify cache.wrap was called twice
       expect(cacheService.wrap).toHaveBeenCalledTimes(2);
@@ -241,7 +241,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(20, 0);
+      await controller.getTransparencyLog({});
 
       // Verify order was set to created_at DESC
       expect(supabase.order).toHaveBeenCalledWith('created_at', {
@@ -260,7 +260,7 @@ describe('TransparencyController', () => {
         error: new Error('Supabase connection failed'),
       });
 
-      const result = await controller.getTransparencyLog(20, 0);
+      const result = await controller.getTransparencyLog({});
 
       expect(result).toEqual({
         entries: [],
@@ -291,7 +291,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      const result = await controller.getTransparencyLog(20, 0);
+      const result = await controller.getTransparencyLog({});
 
       const entry = result.entries[0];
       expect(entry.id).toBe('id-123');
@@ -328,7 +328,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      const result = await controller.getTransparencyLog(20, 0);
+      const result = await controller.getTransparencyLog({});
 
       const entry = result.entries[0];
       expect(entry.seed).toBe('');
@@ -347,7 +347,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(25, 50, 123);
+      await controller.getTransparencyLog({ limit: 25, offset: 50, raffle_id: 123 });
 
       // Verify cache key includes all parameters
       expect(cacheService.wrap).toHaveBeenCalledWith(
@@ -368,7 +368,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(25, 50);
+      await controller.getTransparencyLog({ limit: 25, offset: 50 });
 
       // Verify cache key does not include raffle_id
       expect(cacheService.wrap).toHaveBeenCalledWith(
@@ -390,7 +390,7 @@ describe('TransparencyController', () => {
       });
 
       // Pass string that cannot be converted to number
-      await controller.getTransparencyLog('invalid' as any, 0);
+      await controller.getTransparencyLog({ limit: 'invalid' as any });
 
       // Should use default limit of 20
       expect(supabase.range).toHaveBeenCalledWith(0, 19);
@@ -407,7 +407,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(20, -100);
+      await controller.getTransparencyLog({ limit: 20, offset: -100 });
 
       // Should clamp to 0
       expect(supabase.range).toHaveBeenCalledWith(0, 19);
@@ -424,7 +424,7 @@ describe('TransparencyController', () => {
         error: null,
       });
 
-      await controller.getTransparencyLog(20, 50000);
+      await controller.getTransparencyLog({ limit: 20, offset: 50000 });
 
       // Should clamp offset to 10000
       expect(supabase.range).toHaveBeenCalledWith(10000, 10019);
