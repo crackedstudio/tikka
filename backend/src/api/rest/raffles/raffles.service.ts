@@ -239,7 +239,8 @@ export class RafflesService {
     limit = 20,
     offset = 0,
   ): Promise<IndexerParticipantListResponse> {
-    const cacheKey = `raffle:${raffleId}:participants:${limit}:${offset}`;
+    const effectiveLimit = Math.min(limit, 100);
+    const cacheKey = `raffle:${raffleId}:participants:${effectiveLimit}:${offset}`;
 
     // Try cache first
     if (this.redis.isEnabled()) {
@@ -254,7 +255,7 @@ export class RafflesService {
     }
 
     // Fetch from indexer
-    const result = await this.indexerService.getRaffleParticipants(raffleId, limit, offset);
+    const result = await this.indexerService.getRaffleParticipants(raffleId, effectiveLimit, offset);
 
     // Cache for 30 seconds
     if (this.redis.isEnabled()) {

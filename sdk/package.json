@@ -41,7 +41,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest",
+    "test": "jest --config jest.config.cjs",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
     "example:cli": "node bin/tikka.mjs",
@@ -50,6 +50,7 @@
     "example:buy-tickets": "ts-node examples/buy-tickets.ts",
     "example:listen-events": "ts-node examples/listen-events.ts",
     "example:offline-signing": "ts-node examples/offline-signing.ts",
+    "example:custom-wallet": "ts-node examples/custom-wallet.ts",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
@@ -61,13 +62,29 @@
       "name": "@tikka/sdk/read",
       "path": "dist/read/index.read.js",
       "limit": "50 kB",
-      "gzip": true
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
     },
     {
-      "name": "@tikka/sdk/light",
+      "name": "@tikka/sdk light",
       "path": "dist/light/index.light.js",
-      "limit": "50 kB",
-      "gzip": true
+      "limit": "25 kB",
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
     }
   ],
   "dependencies": {
@@ -102,18 +119,5 @@
     "typedoc": "^0.28.18",
     "typedoc-plugin-markdown": "4.12",
     "typescript": "^5.6.0"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "testEnvironment": "node"
   }
 }

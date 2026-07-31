@@ -66,3 +66,9 @@ The following cross-service read patterns exist:
    - Indexer: `indexer/src/database/migrations/<timestamp>-<Name>.ts`
    - Oracle: `oracle/database/migrations/<name>.sql`
 3. **If adding a cross-service read**, document the read pattern here.
+
+## Retention & Archival
+
+| Document | Purpose |
+|---|---|
+| **[raffle-events-retention.md](./raffle-events-retention.md)** | `raffle_events` retention policy: criteria, cadence, archive destination, delete confirmation, and restore procedure |
