@@ -274,6 +274,22 @@ cp .env.example .env
 
 Then edit `.env` with your actual values. See [DEVELOPMENT.md](DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
 
+### Environment variables
+
+The frontend uses a `.env` file to configure Stellar, Soroban, and Supabase access.
+Run `npm run validate-env` before starting the app to ensure the required variables are set correctly.
+
+- `VITE_STELLAR_NETWORK` — optional, default `testnet`. Set to `testnet` or `mainnet`.
+- `VITE_STELLAR_HORIZON_URL` — required for Stellar network access. Must use `https://`.
+- `VITE_STELLAR_NETWORK_PASSPHRASE` — optional, default is the testnet passphrase.
+- `VITE_SOROBAN_RPC_URL` — required for Soroban contract calls. Must use `https://`.
+- `VITE_RAFFLE_CONTRACT_ADDRESS` — optional, but required for contract interactions once your raffle contract is deployed.
+- `VITE_SUPABASE_URL` — required for metadata storage. Use your Supabase project URL.
+- `VITE_SUPABASE_ANON_KEY` — required for Supabase access. Use your project anon public key.
+- `VITE_SUPABASE_TABLE` — optional, default `raffle_metadata`.
+- `VITE_USE_DEMO_DATA` — optional, `true` uses mock data instead of blockchain calls.
+- `VITE_DEBUG_MODE` — optional, `true` enables extra frontend debug logging.
+
 **Quick Start Configuration:**
 
 ```env
