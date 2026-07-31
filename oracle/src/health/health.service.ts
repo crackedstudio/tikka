@@ -35,6 +35,7 @@ export interface HealthMetrics {
   lastProcessedRequestId: string | null;
   totalProcessed: number;
   totalFailed: number;
+  totalQuarantined: number;
   recentErrors: ErrorRecord[];
   uptime: number;
   streamStatus: 'connected' | 'disconnected' | 'reconnecting';
@@ -80,6 +81,7 @@ export class HealthService {
   private lastProcessedRequestId: string | null = null;
   private totalProcessed = 0;
   private totalFailed = 0;
+  private totalQuarantined = 0;
   private recentErrors: ErrorRecord[] = [];
   private readonly MAX_ERROR_HISTORY = 10;
   private streamStatus: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
@@ -205,6 +207,7 @@ export class HealthService {
       lastProcessedRequestId: this.lastProcessedRequestId,
       totalProcessed: this.totalProcessed,
       totalFailed: this.totalFailed,
+      totalQuarantined: this.totalQuarantined,
       recentErrors: this.recentErrors,
       uptime: Date.now() - this.startTime,
       streamStatus: this.streamStatus,
@@ -314,5 +317,10 @@ export class HealthService {
     } else {
       this.updateSubmitterStatus('healthy', `Failure rate: ${(failureRate * 100).toFixed(1)}%`);
     }
+  }
+
+  recordQuarantine(requestId: string, error: string): void {
+    this.totalQuarantined++;
+    this.logger.error(`[QUARANTINE] Request ${requestId || 'unknown'} quarantined. Error: ${error}`);
   }
 }

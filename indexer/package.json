@@ -65,6 +65,8 @@
     "bullmq": "^5.81.0",
     "ioredis": "^5.9.3",
     "pg": "^8.13.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "typeorm": "^0.3.20"

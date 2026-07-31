@@ -15,7 +15,7 @@ import { TransactionLifecycle } from './lifecycle';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig, TikkaNetwork } from '../network/network.config';
-import { TikkaSdkErrorCode } from '../utils/errors';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
 import { ContractFn } from './bindings';
 

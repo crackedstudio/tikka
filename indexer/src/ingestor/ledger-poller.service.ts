@@ -112,20 +112,41 @@ export class LedgerPollerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    this.logger.log("Stopping Ledger Poller...");
+    const SHUTDOWN_TIMEOUT_MS = parseInt(
+      process.env.SHUTDOWN_TIMEOUT_MS ?? "15000",
+      10,
+    );
+
+    this.logger.log("[shutdown] Phase 1/3 — stopping ingestor subscription");
     this.isRunning = false;
     this.pipeline?.apply(PipelineTransition.SHUTDOWN);
     this.stopIngestion();
+
+    this.logger.log("[shutdown] Phase 2/3 — draining in-flight events");
+    const drainWithTimeout = Promise.race([
+      (async () => {
+        await this.chain;
+        await this.flushRemainder();
+      })(),
+      new Promise<void>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`drain timed out after ${SHUTDOWN_TIMEOUT_MS} ms`)),
+          SHUTDOWN_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+
     try {
-      await this.chain;
-      await this.flushRemainder();
+      await drainWithTimeout;
+      this.logger.log("[shutdown] Phase 2/3 — in-flight events drained");
     } catch (error) {
       this.logger.warn(
-        `Error while flushing ingestion buffer on shutdown: ${error instanceof Error ? error.message : String(error)}`,
+        `[shutdown] Phase 2/3 — drain incomplete: ${error instanceof Error ? error.message : String(error)}`,
       );
-    } finally {
-      this.pipeline?.apply(PipelineTransition.STOP);
     }
+
+    this.logger.log("[shutdown] Phase 3/3 — ledger poller stopped");
+    this.pipeline?.apply(PipelineTransition.STOP);
   }
 
   private async startIngestion() {

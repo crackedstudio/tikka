@@ -5,6 +5,7 @@ import type { NetworkConfig, RpcConfig } from './network.config';
 import {
   TikkaSdkError,
   TikkaSdkErrorCode,
+  NetworkError,
   RpcTimeoutError,
   RateLimitError,
   UnavailableError,
@@ -86,7 +87,7 @@ export class RpcService {
     tx: any,
     options: RequestOptions = {},
   ): Promise<rpc.Api.SimulateTransactionResponse> {
-    return this.request('simulateTransaction', [tx.toXDR()], options);
+    return this.request('simulateTransaction', { transaction: tx.toXDR() }, options);
   }
 
   /** Send transaction with automatic failover */
@@ -94,14 +95,16 @@ export class RpcService {
     tx: any,
     options: RequestOptions = {},
   ): Promise<rpc.Api.SendTransactionResponse> {
-    return this.request('sendTransaction', [tx.toXDR()], options);
+    return this.request('sendTransaction', { transaction: tx.toXDR() }, options);
   }
 
   /** Fetch latest ledger from Soroban RPC */
   async getLedger(
     options: RequestOptions = {},
   ): Promise<rpc.Api.GetLatestLedgerResponse> {
-    return this.request('getLatestLedger', [], options);
+    // getLatestLedger takes no params — omit rather than send []
+    // (empty array is rejected by current Soroban RPC).
+    return this.request('getLatestLedger', undefined, options);
   }
 
   /**
@@ -112,7 +115,7 @@ export class RpcService {
   async getTransaction(
     hash: string,
   ): Promise<rpc.Api.GetTransactionResponse> {
-    return this.request('getTransaction', [hash]);
+    return this.request('getTransaction', { hash });
   }
 
   /**
@@ -210,10 +213,11 @@ export class RpcService {
 
   /**
    * Internal request handler with automatic failover and custom transport.
+   * `params` should be a JSON-RPC object (or omitted for param-less methods).
    */
   private async request<T>(
     method: string,
-    params: any[] = [],
+    params?: Record<string, unknown>,
     options: RequestOptions = {},
   ): Promise<T> {
     this.checkCircuitBreaker();
@@ -238,8 +242,7 @@ export class RpcService {
     this.recordFailure(lastError);
 
     if (lastError instanceof TikkaSdkError) throw lastError;
-    throw new TikkaSdkError(
-      TikkaSdkErrorCode.NetworkError,
+    throw new NetworkError(
       `RPC request failed for all endpoints. Last error: ${lastError?.message ?? lastError}`,
       lastError
     );
@@ -248,7 +251,7 @@ export class RpcService {
   private async executeRequest<T>(
     url: string,
     method: string,
-    params: any[],
+    params: Record<string, unknown> | undefined,
     options: RequestOptions = {},
   ): Promise<T> {
     const retriesEnabled = this.rpcConfig.enableRetries !== false && !options.disableRetries;
@@ -276,7 +279,7 @@ export class RpcService {
   private async executeSingleRequest<T>(
     url: string,
     method: string,
-    params: any[],
+    params: Record<string, unknown> | undefined,
   ): Promise<T> {
     const fetchClient = this.resolveFetchClient();
     const timeoutMs = this.rpcConfig.timeoutMs ?? 30_000;
@@ -284,18 +287,24 @@ export class RpcService {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      const payload: Record<string, unknown> = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method,
+      };
+      // Omit params for methods that take none (e.g. getLatestLedger).
+      // Empty arrays are rejected by current Soroban RPC ("invalid parameters").
+      if (params !== undefined) {
+        payload.params = params;
+      }
+
       const response = await fetchClient(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...this.rpcConfig.headers,
         },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: Date.now(),
-          method,
-          params,
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
 
@@ -309,28 +318,28 @@ export class RpcService {
         throw new InvalidResponseError(`RPC request failed: ${response.statusText}`, { status: response.status });
       }
 
-      let payload: any;
+      let responsePayload: any;
       try {
-        payload = await response.json();
+        responsePayload = await response.json();
       } catch (err: any) {
         throw new InvalidResponseError('Failed to parse RPC response as JSON', err);
       }
 
-      if (!payload || (payload.result === undefined && payload.error === undefined)) {
-        throw new InvalidResponseError('Malformed RPC response: missing both result and error fields', payload);
+      if (!responsePayload || (responsePayload.result === undefined && responsePayload.error === undefined)) {
+        throw new InvalidResponseError('Malformed RPC response: missing both result and error fields', responsePayload);
       }
 
-      if (payload.error) {
-        const errorMsg = payload.error.message || 'Unknown RPC error';
-        const isContractErr = errorMsg.includes('ContractError') || errorMsg.includes('HostValidationError') || payload.error.code === -32603;
+      if (responsePayload.error) {
+        const errorMsg = responsePayload.error.message || 'Unknown RPC error';
+        const isContractErr = errorMsg.includes('ContractError') || errorMsg.includes('HostValidationError') || responsePayload.error.code === -32603;
         if (isContractErr) {
-          throw new ContractFailureError(`Contract execution failed: ${errorMsg}`, payload.error);
+          throw new ContractFailureError(`Contract execution failed: ${errorMsg}`, responsePayload.error);
         } else {
-          throw new ContractFailureError(`RPC execution failed: ${errorMsg}`, payload.error);
+          throw new ContractFailureError(`RPC execution failed: ${errorMsg}`, responsePayload.error);
         }
       }
 
-      return payload.result as T;
+      return responsePayload.result as T;
     } catch (error: any) {
       if (error.name === 'AbortError' || error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
         throw new RpcTimeoutError(`Request timed out after ${timeoutMs}ms`, error);
@@ -366,8 +375,7 @@ export class RpcService {
     if (typeof runtimeFetch === 'function') {
       return runtimeFetch;
     }
-    throw new TikkaSdkError(
-      TikkaSdkErrorCode.NetworkError,
+    throw new NetworkError(
       'No fetch implementation found. Provide rpcConfig.fetchClient (required in some React Native and older Node runtimes).',
     );
   }
