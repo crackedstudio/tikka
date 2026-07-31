@@ -5,6 +5,7 @@ import { DataSource } from "typeorm";
 import { CacheService } from "../cache/cache.service";
 import { CursorManagerService } from "../ingestor/cursor-manager.service";
 import { DlqService } from "../ingestor/dlq.service";
+import { LedgerPollerService } from "../ingestor/ledger-poller.service";
 import {
   PipelineStateMachine,
   PipelineStateSnapshot,
@@ -37,6 +38,8 @@ export interface HealthResult {
   cursor_integrity: "ok" | "error";
   dlq_size: number;
   dlqPressure: "ok" | "high";
+  ingestion: "ok" | "stalled" | "idle";
+  ingestion_heartbeat_age_ms: number | null;
   pipeline?: PipelineStateSnapshot | null;
   archive_integrity?: ArchiveIntegrityStatusSnapshot;
 }
@@ -47,6 +50,7 @@ export class HealthService {
   private readonly lagThreshold: number;
   private readonly lagAlertThreshold: number;
   private readonly dlqPressureThreshold: number;
+  private readonly ingestionHeartbeatStaleMs: number;
   private previousLagStatus: "healthy" | "degraded" | "critical" = "healthy";
   private eventEmitter: EventEmitter;
 
@@ -59,6 +63,7 @@ export class HealthService {
     @Optional() private readonly pipeline?: PipelineStateMachine,
     @Optional()
     private readonly archiveIntegrityStatusService?: ArchiveIntegrityStatusService,
+    @Optional() private readonly ledgerPoller?: LedgerPollerService,
   ) {
     this.horizonUrl = this.configService
       .get<string>("HORIZON_URL", "https://horizon.stellar.org")
@@ -75,7 +80,29 @@ export class HealthService {
       "DLQ_PRESSURE_THRESHOLD",
       DLQ_PRESSURE_THRESHOLD_DEFAULT,
     );
+    this.ingestionHeartbeatStaleMs = this.configService.get<number>(
+      "INGESTION_HEARTBEAT_STALE_MS",
+      INGESTION_HEARTBEAT_STALE_MS_DEFAULT,
+    );
     this.eventEmitter = new EventEmitter();
+  }
+
+  /**
+   * Liveness: process is up and can serve HTTP.
+   * Intentionally ignores lag, DLQ, Redis, and ingestion stall so Kubernetes
+   * does not restart pods under recoverable load.
+   */
+  getLiveness(): LivenessResult {
+    return { status: "ok" };
+  }
+
+  /**
+   * Readiness: safe to receive traffic. Fails when DB/Redis are down, cursor
+   * integrity failed, lag is high, DLQ is under pressure, archive integrity
+   * failed, or the ingestion heartbeat is stale while the poller is running.
+   */
+  async getReadiness(): Promise<HealthResult> {
+    return this.getHealth();
   }
 
   async getHealth(): Promise<HealthResult> {
@@ -125,6 +152,9 @@ export class HealthService {
     }
     this.previousLagStatus = lagStatus;
 
+    const { ingestion, ingestion_heartbeat_age_ms, ingestionStalled } =
+      this.evaluateIngestion(lag_ledgers);
+
     const degradedByLag =
       lag_ledgers != null && lag_ledgers > this.lagThreshold;
     const degradedByDlq = dlqPressure === "high";
@@ -138,7 +168,8 @@ export class HealthService {
       degradedByCursorIntegrity ||
       degradedByLag ||
       degradedByDlq ||
-      degradedByArchiveIntegrity
+      degradedByArchiveIntegrity ||
+      ingestionStalled
         ? "degraded"
         : "ok";
 
@@ -155,6 +186,8 @@ export class HealthService {
       cursor_integrity,
       dlq_size,
       dlqPressure,
+      ingestion,
+      ingestion_heartbeat_age_ms,
       pipeline,
       archive_integrity: archiveIntegrity,
     };
@@ -162,6 +195,45 @@ export class HealthService {
 
   getPipelineState(): PipelineStateSnapshot | null {
     return this.pipeline ? this.pipeline.snapshot() : null;
+  }
+
+  private evaluateIngestion(lag_ledgers: number | null): {
+    ingestion: "ok" | "stalled" | "idle";
+    ingestion_heartbeat_age_ms: number | null;
+    ingestionStalled: boolean;
+  } {
+    const heartbeat = this.ledgerPoller?.getIngestionHeartbeat();
+    if (!heartbeat || !heartbeat.isRunning) {
+      return {
+        ingestion: "idle",
+        ingestion_heartbeat_age_ms: null,
+        ingestionStalled: false,
+      };
+    }
+
+    const ageMs =
+      heartbeat.lastHeartbeatAt != null
+        ? Date.now() - heartbeat.lastHeartbeatAt.getTime()
+        : null;
+
+    const staleByHeartbeat =
+      ageMs == null || ageMs > this.ingestionHeartbeatStaleMs;
+    const staleByLag =
+      lag_ledgers != null && lag_ledgers > this.lagThreshold;
+
+    if (staleByHeartbeat || staleByLag) {
+      return {
+        ingestion: "stalled",
+        ingestion_heartbeat_age_ms: ageMs,
+        ingestionStalled: true,
+      };
+    }
+
+    return {
+      ingestion: "ok",
+      ingestion_heartbeat_age_ms: ageMs,
+      ingestionStalled: false,
+    };
   }
 
   private async checkDb(): Promise<boolean> {
@@ -219,6 +291,10 @@ export class HealthService {
 
   getDlqPressureThreshold(): number {
     return this.dlqPressureThreshold;
+  }
+
+  getIngestionHeartbeatStaleMs(): number {
+    return this.ingestionHeartbeatStaleMs;
   }
 
   getEventEmitter(): EventEmitter {
