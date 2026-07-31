@@ -38,6 +38,8 @@ import {
 @Index("idx_raffle_events_tx_hash", ["txHash"], { unique: true })
 @Index("idx_raffle_events_contract_address", ["contractAddress"])
 @Index("idx_raffle_events_contract_ledger", ["contractAddress", "ledger"])
+@Index("idx_raffle_events_ledger", ["ledger"])
+@Index("idx_raffle_events_indexed_at_id", ["indexedAt", "id"])
 export class RaffleEventEntity {
   @PrimaryGeneratedColumn("uuid", { name: "id" })
   id!: string;

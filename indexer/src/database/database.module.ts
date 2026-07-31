@@ -14,7 +14,6 @@ import { PlatformStateEntity } from "./entities/platform-state.entity";
 import { IndexerCursorEntity } from "./entities/indexer-cursor.entity";
 import { WebhookEntity } from "./entities/webhook.entity";
 import { WebhookDeliveryEntity } from "./entities/webhook-delivery.entity";
-import { WebhookDeadLetterEntity } from "./entities/webhook-dead-letter.entity";
 import { DeadLetterEventEntity } from "./entities/dead-letter-event.entity";
 import { ArchiveCheckpointEntity } from "./entities/archive-checkpoint.entity";
 
@@ -54,7 +53,6 @@ import { ArchiveCheckpointEntity } from "./entities/archive-checkpoint.entity";
             IndexerCursorEntity,
             WebhookEntity,
             WebhookDeliveryEntity,
-            WebhookDeadLetterEntity,
             DeadLetterEventEntity,
             ArchiveCheckpointEntity,
           ],
@@ -76,7 +74,6 @@ import { ArchiveCheckpointEntity } from "./entities/archive-checkpoint.entity";
       IndexerCursorEntity,
       WebhookEntity,
       WebhookDeliveryEntity,
-      WebhookDeadLetterEntity,
       DeadLetterEventEntity,
       ArchiveCheckpointEntity,
     ]),

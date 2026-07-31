@@ -10,6 +10,8 @@ import { DomainEvent } from "../event.types";
 import { RawSorobanEvent } from "../event-parser.interface";
 import { RaffleCancelledHandler } from "./raffle-cancelled.handler";
 
+export { RaffleCancelledHandler };
+
 @Injectable()
 export class DrawTriggeredHandler extends BaseEventHandler {
   constructor() {

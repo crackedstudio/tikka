@@ -5,6 +5,7 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 
+/** Audit log of outbound webhook delivery attempts. */
 @Entity("webhook_deliveries")
 export class WebhookDeliveryEntity {
   @PrimaryGeneratedColumn("uuid")
@@ -20,13 +21,13 @@ export class WebhookDeliveryEntity {
   payload!: Record<string, any>;
 
   @Column()
-  status!: string;
+  status!: "success" | "failed";
 
-  @Column()
+  @Column("int")
   attempts!: number;
 
-  @Column({ nullable: true, type: "text" })
-  errorResponse?: string | null;
+  @Column({ type: "text", nullable: true })
+  errorResponse!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

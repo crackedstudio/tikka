@@ -95,6 +95,7 @@
 **Migrations:** 1700000000003 (create), 1720000000003 (add schema_version)
 **Read:** Indexer internal
 **Write:** Indexer EventParser / IngestionDispatcher
+**Retention:** Rows older than `RAFFLE_EVENTS_RETENTION_DAYS` (default 30) can be archived to CSV and deleted via `npm run archive:raffle-events`. See [`raffle-events-retention.md`](./raffle-events-retention.md).
 
 ### `platform_stats`
 

@@ -54,6 +54,13 @@ export class AuthService {
       throw new Error('Failed to store nonce');
     }
 
+    this.nonces.set(address, {
+      nonce,
+      expires_at: expiresAt,
+      issued_at: issuedAt,
+      id: Date.now(),
+    });
+
     return { nonce, expiresAt, issuedAt, message };
   }
 
