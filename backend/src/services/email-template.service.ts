@@ -1,39 +1,77 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import * as handlebars from 'handlebars';
-import * as fs from 'fs';
-import * as path from 'path';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from "@nestjs/common";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  isEmailTemplateName,
+  EMAIL_TEMPLATE_REQUIRED_FIELDS,
+  renderEmailTemplate,
+  type EmailTemplateName,
+  type EmailTemplateRegistry,
+} from "../emails";
 
 @Injectable()
 export class EmailTemplateService {
   private readonly logger = new Logger(EmailTemplateService.name);
 
-  /**
-   * Renders a handlebars template with the provided context
-   * @param templateName Name of the file (without .hbs)
-   * @param context Data to inject into the template
-   */
-  render(templateName: string, context: any): string {
+  render<K extends EmailTemplateName>(
+    templateName: K,
+    context: EmailTemplateRegistry[K],
+  ): string;
+  render(templateName: string, context: unknown): string;
+  render(templateName: string, context: unknown): string {
     try {
-      // 1. Resolve the path to the template file
-      // Note: We look in 'dist' because that's where the compiled code runs from
-      const templatePath = path.join(process.cwd(), 'assets', 'templates', `${templateName}.hbs`);
-
-      // 2. Read the file content
-      if (!fs.existsSync(templatePath)) {
-        this.logger.error(`Template not found at path: ${templatePath}`);
-        throw new InternalServerErrorException(`Email template ${templateName} not found`);
+      if (!isEmailTemplateName(templateName)) {
+        this.logger.error(`Template not found: ${templateName}`);
+        throw new InternalServerErrorException(
+          `Email template ${templateName} not found`,
+        );
       }
 
-      const source = fs.readFileSync(templatePath, 'utf8');
+      this.assertRequiredContext(templateName, context);
 
-      // 3. Compile the template
-      const template = handlebars.compile(source);
-
-      // 4. Return the generated HTML string
-      return template(context);
+      return `<!DOCTYPE html>${renderToStaticMarkup(
+        renderEmailTemplate(
+          templateName,
+          context as EmailTemplateRegistry[typeof templateName],
+        ),
+      )}`;
     } catch (error) {
-      this.logger.error(`Error rendering template ${templateName}:`, error.stack);
-      throw new InternalServerErrorException('Failed to render email template');
+      if (error instanceof InternalServerErrorException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Error rendering template ${templateName}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException("Failed to render email template");
+    }
+  }
+
+  private assertRequiredContext<K extends EmailTemplateName>(
+    templateName: K,
+    context: unknown,
+  ): asserts context is EmailTemplateRegistry[K] {
+    if (context === null || typeof context !== "object") {
+      throw new InternalServerErrorException(
+        `Email template ${templateName} context is missing`,
+      );
+    }
+
+    const missingFields = EMAIL_TEMPLATE_REQUIRED_FIELDS[templateName].filter(
+      (field) => {
+        const value = (context as Record<string, unknown>)[field as string];
+        return value === undefined || value === null || value === "";
+      },
+    );
+
+    if (missingFields.length > 0) {
+      throw new InternalServerErrorException(
+        `Email template ${templateName} missing required field(s): ${missingFields.join(", ")}`,
+      );
     }
   }
 }

@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { UserEntity } from '../../database/entities/user.entity';
 import { CacheService } from '../../cache/cache.service';
 import {
@@ -8,7 +9,9 @@ import {
   LeaderboardResponseDto,
   LeaderboardEntryDto,
 } from './dto/leaderboard.dto';
+import { LeaderboardQueryDto } from './dto/query.dto';
 
+@ApiTags('leaderboard')
 @Controller('leaderboard')
 export class LeaderboardController {
   constructor(
@@ -17,17 +20,20 @@ export class LeaderboardController {
     private readonly cacheService: CacheService,
   ) {}
 
+  @ApiOperation({ summary: 'Cursor-paginated leaderboard', description: 'Returns users ranked by wins, volume, or ticket count.' })
+  @ApiQuery({ name: 'by', required: false, enum: ['wins', 'volume', 'tickets'] })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'cursor', required: false })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, type: LeaderboardResponseDto })
   @Get()
   async getLeaderboard(
-    @Query('by') by: LeaderboardMode = 'wins',
-    @Query('limit') limit: number = 50,
-    @Query('cursor') cursor?: string,
-    @Query('offset') offset?: number,
+    @Query() query: LeaderboardQueryDto,
   ): Promise<LeaderboardResponseDto> {
-    const mode = this.normalizeMode(by);
-    const safeLimit = this.clampNumber(limit, 1, 100, 50);
-    const safeOffset =
-      offset == null ? undefined : this.clampNumber(offset, 0, 10_000, 0);
+    const mode = (query.by ?? 'wins') as LeaderboardMode;
+    const safeLimit = query.limit ?? 50;
+    const safeOffset = query.offset;
+    const cursor = query.cursor;
 
     if (!cursor && (safeOffset == null || safeOffset === 0)) {
       return this.cacheService.wrap(
@@ -154,25 +160,6 @@ export class LeaderboardController {
       })),
       nextCursor: hasMore && last ? this.encodeCursor(mode, last) : null,
     };
-  }
-
-  private normalizeMode(by: LeaderboardMode): LeaderboardMode {
-    return ['wins', 'volume', 'tickets'].includes(by) ? by : 'wins';
-  }
-
-  private clampNumber(
-    value: number | string,
-    min: number,
-    max: number,
-    fallback: number,
-  ): number {
-    const parsed = Number(value);
-
-    if (!Number.isFinite(parsed)) {
-      return fallback;
-    }
-
-    return Math.min(Math.max(Math.trunc(parsed), min), max);
   }
 
   private rankingSemantics(mode: LeaderboardMode): string[] {

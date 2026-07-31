@@ -1,4 +1,11 @@
-import { redactSensitive, hashWallet, REDACTED_FIELDS } from './sentry';
+import {
+  redactSensitive,
+  hashWallet,
+  redactWalletAddresses,
+  scrubPii,
+  scrubSentryEvent,
+  REDACTED_FIELDS,
+} from './sentry';
 
 describe('REDACTED_FIELDS', () => {
   it('contains expected sensitive field names', () => {
@@ -100,5 +107,168 @@ describe('hashWallet', () => {
     const address = 'GRAWADDRESS123';
     const hash = hashWallet(address);
     expect(hash).not.toContain(address.toLowerCase());
+  });
+});
+
+describe('redactWalletAddresses', () => {
+  it('replaces a Stellar public key (56 base32 chars) with its hash', () => {
+    const key = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
+    const result = redactWalletAddresses(`user ${key} made a purchase`);
+    expect(result).not.toContain(key);
+    expect(result).toMatch(/^user [0-9a-f]{16} made a purchase$/);
+  });
+
+  it('replaces a Stellar secret seed (S…) with its hash', () => {
+    const seed = 'SBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
+    const result = redactWalletAddresses(`secret: ${seed}`);
+    expect(result).not.toContain(seed);
+    expect(result).toMatch(/^secret: [0-9a-f]{16}$/);
+  });
+
+  it('leaves non-matching strings unchanged', () => {
+    const input = 'no wallet here, just text';
+    expect(redactWalletAddresses(input)).toBe(input);
+  });
+});
+
+describe('scrubPii', () => {
+  it('redacts email fields', () => {
+    const result = scrubPii({ email: 'alice@example.com', name: 'Alice' }) as Record<string, unknown>;
+    expect(result.email).toBe('[REDACTED]');
+    expect(result.name).toBe('Alice');
+  });
+
+  it('redacts emailAddress and user_email fields', () => {
+    const result = scrubPii({
+      emailAddress: 'bob@example.com',
+      user_email: 'bob@example.com',
+    }) as Record<string, unknown>;
+    expect(result.emailAddress).toBe('[REDACTED]');
+    expect(result.user_email).toBe('[REDACTED]');
+  });
+
+  it('redacts authorization and cookie headers', () => {
+    const result = scrubPii({
+      authorization: 'Bearer secret-token',
+      cookie: 'session=abc123',
+      'content-type': 'application/json',
+    }) as Record<string, unknown>;
+    expect(result.authorization).toBe('[REDACTED]');
+    expect(result.cookie).toBe('[REDACTED]');
+    expect(result['content-type']).toBe('application/json');
+  });
+
+  it('hashes Stellar wallet addresses in string values', () => {
+    const wallet = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
+    const result = scrubPii({ address: wallet }) as Record<string, unknown>;
+    expect(result.address).not.toBe(wallet);
+    expect(result.address).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('recursively scrubs nested objects', () => {
+    const wallet = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
+    const result = scrubPii({
+      outer: { email: 'a@b.com', data: { wallet } },
+    }) as any;
+    expect(result.outer.email).toBe('[REDACTED]');
+    expect(result.outer.data.wallet).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('scrubs arrays', () => {
+    const result = scrubPii([{ email: 'a@b.com' }, { token: 'secret' }]) as any[];
+    expect(result[0].email).toBe('[REDACTED]');
+    expect(result[1].token).toBe('[REDACTED]');
+  });
+
+  it('does not mutate the original object', () => {
+    const original = { email: 'a@b.com' };
+    scrubPii(original);
+    expect(original.email).toBe('a@b.com');
+  });
+});
+
+describe('scrubSentryEvent', () => {
+  const VALID_WALLET = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
+
+  it('redacts authorization header', () => {
+    const event = {
+      request: { headers: { authorization: 'Bearer secret' } },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect(result.request!.headers!.authorization).toBe('[REDACTED]');
+  });
+
+  it('redacts cookie header', () => {
+    const event = {
+      request: { headers: { cookie: 'session=abc' } },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect(result.request!.headers!.cookie).toBe('[REDACTED]');
+  });
+
+  it('redacts email fields in user context', () => {
+    const event = {
+      user: { email: 'alice@example.com', id: '123' },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect(result.user!.email).toBe('[REDACTED]');
+    expect(result.user!.id).toBe('123');
+  });
+
+  it('deletes request body', () => {
+    const event = {
+      request: { data: { password: 'secret', token: 'abc' }, method: 'POST' },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect(result.request!.data).toBeUndefined();
+    expect(result.request!.method).toBe('POST');
+  });
+
+  it('redacts query string params', () => {
+    const event = {
+      request: { query_string: { authorization: 'Bearer x', safe: 'ok' } },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect(result.request!.query_string).toEqual({ authorization: '[REDACTED]', safe: 'ok' });
+  });
+
+  it('hashes wallet addresses in tags', () => {
+    const event = {
+      tags: { wallet: VALID_WALLET },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect(result.tags!.wallet).not.toBe(VALID_WALLET);
+    expect(result.tags!.wallet).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('redacts email fields in extra data', () => {
+    const event = {
+      extra: { email: 'leaked@example.com', debug: true },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect(result.extra!.email).toBe('[REDACTED]');
+    expect(result.extra!.debug).toBe(true);
+  });
+
+  it('redacts email fields in contexts', () => {
+    const event = {
+      contexts: { user: { email: 'bob@example.com' } },
+    } as any;
+    const result = scrubSentryEvent(event);
+    expect((result.contexts!.user as any).email).toBe('[REDACTED]');
+  });
+
+  it('does not mutate the original event', () => {
+    const event = {
+      request: { headers: { authorization: 'Bearer x' } },
+    } as any;
+    scrubSentryEvent(event);
+    expect(event.request.headers.authorization).toBe('Bearer x');
+  });
+
+  it('passes through an empty event unchanged', () => {
+    const event = {} as any;
+    const result = scrubSentryEvent(event);
+    expect(result).toEqual({});
   });
 });

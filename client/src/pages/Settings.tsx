@@ -1,4 +1,4 @@
-/**
+t/**
  * Settings Page
  *
  * User settings and preferences management
@@ -6,13 +6,14 @@
  */
 
 import { useState } from "react";
-import { Settings as SettingsIcon, Bell, User } from "lucide-react";
+import { Settings as SettingsIcon, Bell, User, Globe } from "lucide-react";
 import NotificationPreferencesSection from "../components/settings/NotificationPreferencesSection";
 import ProfileSection from "../components/settings/ProfileSection";
+import LanguageSection from "../components/settings/LanguageSection";
 import { useAuthContext } from "../providers";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
-type SettingsTab = "notifications" | "profile";
+type SettingsTab = "notifications" | "profile" | "language";
 
 export default function Settings() {
   const { isAuthenticated } = useAuthContext();
@@ -72,11 +73,26 @@ export default function Settings() {
           <User className="w-5 h-5" />
           Profile
         </button>
+        <button
+          onClick={() => setActiveTab("language")}
+          className={`
+            flex items-center gap-2 px-6 py-3 font-medium transition-colors
+            ${
+              activeTab === "language"
+                ? "text-purple-400 border-b-2 border-purple-400"
+                : "text-gray-400 hover:text-gray-700 dark:text-gray-300"
+            }
+          `}
+        >
+          <Globe className="w-5 h-5" />
+          Language
+        </button>
       </div>
 
       <div>
         {activeTab === "notifications" && <NotificationPreferencesSection />}
         {activeTab === "profile" && <ProfileSection />}
+        {activeTab === "language" && <LanguageSection />}
       </div>
     </div>
   );

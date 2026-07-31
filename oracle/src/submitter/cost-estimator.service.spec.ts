@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { CostEstimatorService } from './cost-estimator.service';
 import { FeeEstimatorService } from './fee-estimator.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 describe('CostEstimatorService', () => {
   let service: CostEstimatorService;
@@ -23,6 +24,7 @@ describe('CostEstimatorService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CostEstimatorService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         {
           provide: ConfigService,
           useValue: {

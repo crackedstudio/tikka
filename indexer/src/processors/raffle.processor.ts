@@ -91,12 +91,10 @@ export class RaffleProcessor {
       await this.cacheService.invalidateActiveRaffles();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatchEvent({
-        eventType: "RaffleCreated",
-        raffleId,
-        timestamp: new Date(),
-        data: { creator, ledger },
-      });
+      await this.webhookService.dispatch(
+        "RaffleCreated",
+        { raffleId, creator, ledger, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {
@@ -169,12 +167,10 @@ export class RaffleProcessor {
       await this.cacheService.invalidateLeaderboard();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatchEvent({
-        eventType: "RaffleFinalized",
-        raffleId,
-        timestamp: new Date(),
-        data: { winner, winningTicketId, prizeAmount },
-      });
+      await this.webhookService.dispatch(
+        "RaffleFinalized",
+        { raffleId, winner, winningTicketId, prizeAmount, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {
@@ -237,6 +233,11 @@ export class RaffleProcessor {
 
       await this.cacheService.invalidateRaffleDetail(raffleId.toString());
       await this.cacheService.invalidateActiveRaffles();
+
+      await this.webhookService.dispatch(
+        "RaffleCancelled",
+        { raffleId, reason, ledger, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {

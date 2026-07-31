@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { Keypair } from '@stellar/stellar-sdk';
 import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
@@ -13,10 +14,10 @@ import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
  */
 @Injectable()
 export class EnvKeyProvider implements KeyProvider {
-  private readonly logger = new Logger(EnvKeyProvider.name);
+  
   private keypair: Keypair;
 
-  constructor(privateKey: string) {
+  constructor(private readonly logger: OracleLoggerService, privateKey: string) {
     if (!privateKey) {
       throw new Error('Private key is required for EnvKeyProvider');
     }

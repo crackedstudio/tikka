@@ -1,3 +1,4 @@
+import { OracleLoggerService, CorrelationContext, OracleLogFields } from '../logger/oracle-logger';
 import { RandomnessRequest, RandomnessMethod, RandomnessResult, JobPriority } from './queue.types';
 import { JobState } from './job-state.types';
 import { JobStateManager } from './job-state-manager';
@@ -11,22 +12,28 @@ import { LagMonitorService } from '../health/lag-monitor.service';
 import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { PriorityClassifierService } from './priority-classifier.service';
+import { AuditLogService } from '../audit/audit-log.service';
+import { AlertingService } from '../health/alerting.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Job } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OracleLogFields } from '../logger/oracle-logger';
+import { MetricsService } from '../metrics/metrics.service';
+
+const DLQ_DEPTH_ALERT_DEDUP_KEY = 'dlq-depth-threshold';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
 export class RandomnessWorker {
-  private readonly logger = new Logger(RandomnessWorker.name);
+
   private readonly vrfThresholdXlm: number;
+  private readonly dlqDepthAlertThreshold: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly stateManager: JobStateManager,
     private readonly processor: RandomnessProcessorService,
     private readonly contractService: ContractService,
@@ -38,14 +45,24 @@ export class RandomnessWorker {
     private readonly oracleRegistry: OracleRegistryService,
     private readonly multiOracleCoordinator: MultiOracleCoordinatorService,
     private readonly configService: ConfigService,
+    private readonly auditLogService: AuditLogService,
+    private readonly alertingService: AlertingService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
+    );
+    this.dlqDepthAlertThreshold = Number(
+      this.configService.get<string>('DLQ_DEPTH_ALERT_THRESHOLD', '5'),
     );
   }
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
+    return CorrelationContext.run(String(job.id), async () => {
+    // Main-loop heartbeat — updated on every job the queue worker picks up.
+    this.metricsService?.recordComponentHeartbeat('queue');
+
     const priority = job.opts.priority ?? JobPriority.NORMAL;
     const isHighPriority = priority <= JobPriority.HIGH;
     
@@ -76,6 +93,7 @@ export class RandomnessWorker {
           `[DEAD-LETTER] Job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId} ` +
           `exhausted all retry attempts. Manual intervention required.`,
         );
+        this.checkDlqDepthAlert(job.data.raffleId);
         throw new Error(`Dead-lettered: ${result.error}`);
       } else {
         // Calculate backoff and schedule retry
@@ -100,10 +118,29 @@ export class RandomnessWorker {
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
+    }); // end CorrelationContext.run
   }
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /** Fires a critical alert when the dead-letter queue depth exceeds the configured threshold. */
+  private checkDlqDepthAlert(raffleId: number): void {
+    const deadLetteredCount = this.stateManager.getMetrics().deadLetteredCount;
+
+    if (deadLetteredCount >= this.dlqDepthAlertThreshold) {
+      void this.alertingService.fire({
+        severity: 'critical',
+        summary: `Dead-letter queue depth (${deadLetteredCount}) exceeds threshold (${this.dlqDepthAlertThreshold})`,
+        details: `Most recently dead-lettered job was for raffle ${raffleId}. Manual rescue intervention required.`,
+        dedupKey: DLQ_DEPTH_ALERT_DEDUP_KEY,
+        context: {
+          oracle_id: process.env.LOCAL_ORACLE_ID || 'oracle-001',
+          raffle_id: raffleId,
+        },
+      });
+    }
   }
 
   clearProcessedCache() {
@@ -155,6 +192,18 @@ export class RandomnessWorker {
       if (!result.success) {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
+
+      // Record audit log immediately after successful submission
+      const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
+      await this.auditLogService.record({
+        raffleId,
+        vrfProof: randomness.proof,
+        txHash: result.txHash,
+        ledger: result.ledger,
+        oracleAddress,
+        timestamp: new Date(),
+        requestId,
+      });
 
       this.processedRequestIds.add(requestId);
 
@@ -225,6 +274,18 @@ export class RandomnessWorker {
       if (!result.success) {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
+
+      // Record audit log immediately after successful submission
+      const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
+      await this.auditLogService.record({
+        raffleId,
+        vrfProof: aggregated.proof,
+        txHash: result.txHash,
+        ledger: result.ledger,
+        oracleAddress,
+        timestamp: new Date(),
+        requestId,
+      });
 
       this.processedRequestIds.add(requestId);
 

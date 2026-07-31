@@ -2,10 +2,12 @@
  * API Configuration
  * 
  * Central configuration for backend API endpoints
+ * 
+ * The base URL is configured via the VITE_API_BASE_URL environment variable.
+ * Defaults to http://localhost:3001 for local development.
  */
 
 const API_BASE_URL =
-  import.meta.env.VITE_BACKEND_URL ||
   import.meta.env.VITE_API_BASE_URL ||
   'http://localhost:3001';
 
@@ -19,6 +21,7 @@ export const API_CONFIG = {
     raffles: {
       list: '/raffles',
       detail: (id: string) => `/raffles/${id}`,
+      events: (id: string) => `/raffles/${id}/events`,
       metadata: '/raffles/metadata',
       uploadImage: '/raffles/upload-image',
     },

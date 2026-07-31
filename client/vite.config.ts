@@ -20,25 +20,37 @@ export default defineConfig({
                 open: false,
             }),
         VitePWA({
-            registerType: "autoUpdate",
-            includeAssets: ["vite.svg", "offline.html"],
+            registerType: "prompt",
+            includeAssets: ["favicon-32x32.png", "apple-touch-icon.png", "offline.html"],
             manifest: {
                 name: "Tikka",
                 short_name: "Tikka",
-                description: "Tikka Application",
-                theme_color: "#ffffff",
-                background_color: "#ffffff",
+                description: "Decentralized Raffles on Stellar",
+                theme_color: "#000000",
+                background_color: "#000000",
                 display: "standalone",
                 icons: [
                     {
-                        src: "vite.svg",
+                        src: "icon-192.png",
                         sizes: "192x192",
-                        type: "image/svg+xml",
+                        type: "image/png",
                     },
                     {
-                        src: "vite.svg",
+                        src: "icon-512.png",
                         sizes: "512x512",
-                        type: "image/svg+xml",
+                        type: "image/png",
+                    },
+                    {
+                        src: "icon-maskable-192.png",
+                        sizes: "192x192",
+                        type: "image/png",
+                        purpose: "maskable",
+                    },
+                    {
+                        src: "icon-maskable-512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                        purpose: "maskable",
                     },
                 ],
             },
@@ -47,13 +59,41 @@ export default defineConfig({
                 navigateFallback: "/offline.html",
                 runtimeCaching: [
                     {
+                        // Navigation requests (HTML documents) — NetworkFirst
+                        urlPattern: ({ request }) => request.mode === 'navigate',
+                        handler: "NetworkFirst",
+                        options: {
+                            cacheName: "pages-cache",
+                            expiration: {
+                                maxEntries: 50,
+                                maxAgeSeconds: 24 * 60 * 60,
+                            },
+                        },
+                    },
+                    {
+                        // API calls — NetworkFirst
+                        urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+                        handler: "NetworkFirst",
+                        options: {
+                            cacheName: "api-cache",
+                            expiration: {
+                                maxEntries: 100,
+                                maxAgeSeconds: 5 * 60,
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200],
+                            },
+                        },
+                    },
+                    {
+                        // Raffles data — NetworkFirst
                         urlPattern: ({ url }) => url.pathname.includes('/raffles'),
                         handler: "NetworkFirst",
                         options: {
                             cacheName: "raffles-cache",
                             expiration: {
                                 maxEntries: 50,
-                                maxAgeSeconds: 5 * 60, // 5 minutes
+                                maxAgeSeconds: 5 * 60,
                             },
                             cacheableResponse: {
                                 statuses: [0, 200],

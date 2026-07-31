@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { HealthService } from './health.service';
 import { ContractService } from '../contract/contract.service';
@@ -7,7 +8,7 @@ const HEARTBEAT_ALERT_DEDUP_KEY = 'tikka-oracle-heartbeat-missed';
 
 @Injectable()
 export class HeartbeatService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(HeartbeatService.name);
+  
   private intervalId: NodeJS.Timeout;
   private watchdogId: NodeJS.Timeout;
   private readonly heartbeatIntervalMs: number;
@@ -16,6 +17,7 @@ export class HeartbeatService implements OnModuleInit, OnModuleDestroy {
   private heartbeatAlertFired = false;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly healthService: HealthService,
     private readonly contractService: ContractService,
     private readonly alertingService: AlertingService,

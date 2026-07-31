@@ -1,4 +1,10 @@
-import { archiveOldRaffleEvents, ArchiveResult } from "./archive-raffle-events";
+import {
+  archiveOldRaffleEvents,
+  ArchiveResult,
+  ArchiveCheckpointIntegrityError,
+  computeIntegrityHash,
+  verifyCheckpointIntegrity,
+} from "./archive-raffle-events";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import {
   ArchiveCheckpointEntity,
@@ -51,7 +57,17 @@ function createMockDataSource(
 describe("archiveOldRaffleEvents", () => {
   let tmpDir: string;
 
+  // Freeze Date.now() for the entire test suite so any fixture that captures
+  // `new Date(Date.now() - …)` matches exactly the cutoff that
+  // archiveOldRaffleEvents computes from `retentionDays`. Under real time
+  // the difference between fixture-time and call-time Date.now() can drift
+  // by several ms, causing the resumption code path to mis-identify a same-
+  // cutoff checkpoint as belonging to a previous run.
+  const fixedNow = new Date("2026-01-15T12:00:00.000Z");
+
   beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "arch-"));
   });
 
@@ -59,6 +75,7 @@ describe("archiveOldRaffleEvents", () => {
     if (fs.existsSync(tmpDir)) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+    jest.useRealTimers();
   });
 
   describe("Basic Archiving", () => {
@@ -642,6 +659,360 @@ describe("archiveOldRaffleEvents", () => {
       expect(checkpointRepo.save).toHaveBeenCalled();
       const savedCheckpoint = checkpointRepo.save.mock.calls[0][0];
       expect(savedCheckpoint.lastProcessedId).toBe("j3");
+    });
+  });
+
+  describe("Checkpoint Integrity Verification", () => {
+    // Freeze Date.now() so the fixture's configSnapshot.cutoffDate matches
+    // EXACTLY what archiveOldRaffleEvents computes from retentionDays=30.
+    // Use jest.useFakeTimers / useRealTimers pair so the global Date object
+    // is cleanly restored for sibling tests in other describe blocks and
+    // doesn't leak Date.now() overrides into the rest of the file.
+    const fixedNow = new Date("2026-01-15T12:00:00.000Z");
+    let cutoff: Date;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(fixedNow);
+      cutoff = new Date(fixedNow.getTime() - 30 * 24 * 60 * 60 * 1000);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    /**
+     * Builds a checkpoint with batchNumber > 0 (a state that *would* trigger
+     * resume-time verification) and a pre-computed integrity hash matching
+     * the row. Override `integrityHash` post-hoc to simulate corruption.
+     */
+    function buildCheckpoint(
+      overrides: Partial<ArchiveCheckpointEntity> = {},
+    ): ArchiveCheckpointEntity {
+      const cp: ArchiveCheckpointEntity = {
+        id: overrides.id ?? "cp-verify",
+        jobType: "raffle_events",
+        lastProcessedTimestamp: overrides.lastProcessedTimestamp ?? null,
+        lastProcessedId: overrides.lastProcessedId ?? null,
+        totalArchived: overrides.totalArchived ?? 0,
+        batchNumber: overrides.batchNumber ?? 1,
+        status: ArchiveJobStatus.IN_PROGRESS,
+        configSnapshot: overrides.configSnapshot ?? {
+          retentionDays: 30,
+          batchSize: 10,
+          cutoffDate: cutoff.toISOString(),
+        },
+        startedAt: new Date(),
+        updatedAt: new Date(),
+        completedAt: null,
+        integrityHash: overrides.integrityHash ?? null,
+        lastVerifiedAt: overrides.lastVerifiedAt ?? null,
+        verificationFailureReason: overrides.verificationFailureReason ?? null,
+      };
+      return cp;
+    }
+
+    function buildMocks(
+      checkpoint: ArchiveCheckpointEntity | null,
+      eventRows: RaffleEventEntity[] = [],
+    ) {
+      const eventRepo = {
+        createQueryBuilder: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          addOrderBy: jest.fn().mockReturnThis(),
+          take: jest.fn().mockReturnThis(),
+          getMany: jest
+            .fn()
+            .mockResolvedValueOnce(eventRows)
+            .mockResolvedValueOnce([]),
+        }),
+      } as any;
+
+      const checkpointRepo = {
+        findOne: jest.fn().mockResolvedValue(checkpoint),
+        create: jest.fn().mockImplementation((data: any) => ({
+          ...data,
+          id: "cp-new",
+        })),
+        save: jest.fn().mockImplementation((entity: any) => Promise.resolve(entity)),
+      } as any;
+
+      return {
+        eventRepo,
+        checkpointRepo,
+        dataSource: createMockDataSource(eventRepo, checkpointRepo),
+      };
+    }
+
+    it("halts the service and throws ArchiveCheckpointIntegrityError when the stored hash is corrupted", async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      try {
+        const clean = buildCheckpoint({
+          id: "cp-corrupt",
+          batchNumber: 2,
+          totalArchived: 100,
+          integrityHash: computeIntegrityHash(
+            buildCheckpoint({ batchNumber: 2, totalArchived: 100 }),
+          ),
+        });
+        // Inject corruption: row state stays valid, but the integrity hash is
+        // overwritten with an unrelated value (by a buggy tool / SQL UPDATE).
+        clean.integrityHash =
+          "0000000000000000000000000000000000000000000000000000000000000000";
+
+        const oldEvent = makeEvent("corrupt-1", 60);
+        const { dataSource, checkpointRepo } = buildMocks(clean, [oldEvent]);
+
+        await expect(
+          archiveOldRaffleEvents(dataSource, {
+            retentionDays: 30,
+            batchSize: 10,
+            dryRun: false,
+            outDir: tmpDir,
+            resumeFromCheckpoint: true,
+          }),
+        ).rejects.toBeInstanceOf(ArchiveCheckpointIntegrityError);
+
+        // Crucial invariant: NO archival work should have happened.
+        expect(dataSource.transaction).not.toHaveBeenCalled();
+        const files = fs.readdirSync(tmpDir).filter((f) => f.endsWith(".csv"));
+        expect(files).toHaveLength(0);
+
+        // The checkpoint must be marked FAILED, original hash preserved.
+        const savedFailing = checkpointRepo.save.mock.calls.find(
+          (call: any[]) => call[0]?.status === ArchiveJobStatus.FAILED,
+        );
+        expect(savedFailing).toBeDefined();
+        expect(savedFailing![0].integrityHash).toBe(
+          "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        expect(savedFailing![0].verificationFailureReason).toMatch(/match/i);
+
+        // Critical alert must be emitted with a stable, parseable JSON shape.
+        const alertCall = consoleErrorSpy.mock.calls.find((call: any[]) => {
+          try {
+            const parsed = JSON.parse(call[0]);
+            return parsed.alert === "archive_checkpoint_integrity_mismatch";
+          } catch {
+            return false;
+          }
+        });
+        expect(alertCall).toBeDefined();
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it("throws with informative fields exposing checkpoint id and hashes", async () => {
+      const clean = buildCheckpoint({
+        id: "cp-fields",
+        batchNumber: 1,
+        totalArchived: 50,
+        integrityHash: computeIntegrityHash(
+          buildCheckpoint({ batchNumber: 1, totalArchived: 50 }),
+        ),
+      });
+      clean.integrityHash = "deadbeef".repeat(8); // 64 chars, but doesn't match
+
+      const { dataSource } = buildMocks(clean, []);
+
+      try {
+        await archiveOldRaffleEvents(dataSource, {
+          retentionDays: 30,
+          batchSize: 10,
+          dryRun: false,
+          outDir: tmpDir,
+          resumeFromCheckpoint: true,
+        });
+        throw new Error("Expected archiveOldRaffleEvents to throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(ArchiveCheckpointIntegrityError);
+        const e = err as ArchiveCheckpointIntegrityError;
+        expect(e.checkpointId).toBe("cp-fields");
+        expect(e.expectedHash).toBe("deadbeef".repeat(8));
+        expect(e.actualHash).toMatch(/^[0-9a-f]{64}$/);
+        expect(e.reason).toMatch(/match/i);
+      }
+    });
+
+    it("resumes successfully when the checkpoint's stored hash matches computed hash", async () => {
+      const ts = new Date(Date.now() - 50 * 24 * 60 * 60 * 1000);
+      const checkpoint = buildCheckpoint({
+        id: "cp-happy",
+        batchNumber: 1,
+        totalArchived: 1,
+        lastProcessedTimestamp: ts,
+        lastProcessedId: "e1",
+        status: ArchiveJobStatus.IN_PROGRESS,
+      });
+      checkpoint.integrityHash = computeIntegrityHash(checkpoint);
+
+      const oldEvent = makeEvent("e2", 49);
+      const { dataSource, checkpointRepo } = buildMocks(checkpoint, [oldEvent]);
+
+      const result = await archiveOldRaffleEvents(dataSource, {
+        retentionDays: 30,
+        batchSize: 10,
+        dryRun: false,
+        outDir: tmpDir,
+        resumeFromCheckpoint: true,
+      });
+
+      expect(result.resumed).toBe(true);
+      expect(result.totalArchived).toBe(2);
+      // Integrity verification succeeded -> lastVerifiedAt should be saved.
+      const lastVerifiedSave = checkpointRepo.save.mock.calls.find(
+        (call) =>
+          call[0]?.id === "cp-happy" && call[0]?.lastVerifiedAt instanceof Date,
+      );
+      expect(lastVerifiedSave).toBeDefined();
+    });
+
+    it("treats a legacy checkpoint without integruityHash as a graceful migration (does not halt)", async () => {
+      const checkpoint = buildCheckpoint({
+        id: "cp-legacy",
+        batchNumber: 1,
+        totalArchived: 1,
+        lastProcessedTimestamp: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000),
+        lastProcessedId: "legacy-1",
+        integrityHash: null, // legacy pre-migration state
+      });
+
+      const oldEvent = makeEvent("legacy-2", 49);
+      const { dataSource } = buildMocks(checkpoint, [oldEvent]);
+
+      const result = await archiveOldRaffleEvents(dataSource, {
+        retentionDays: 30,
+        batchSize: 10,
+        dryRun: false,
+        outDir: tmpDir,
+        resumeFromCheckpoint: true,
+      });
+
+      expect(result.resumed).toBe(true);
+      expect(result.totalArchived).toBe(2);
+    });
+
+    it("computeIntegrityHash returns the same value across calls (deterministic)", () => {
+      const cp = buildCheckpoint({
+        batchNumber: 3,
+        totalArchived: 200,
+        lastProcessedTimestamp: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+        lastProcessedId: "det-1",
+      });
+      const a = computeIntegrityHash(cp);
+      const b = computeIntegrityHash(cp);
+      expect(a).toBe(b);
+      expect(a).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it("computeIntegrityHash changes when checkpoint state changes", () => {
+      const cp = buildCheckpoint({ batchNumber: 3, totalArchived: 200 });
+      const before = computeIntegrityHash(cp);
+      cp.totalArchived = 201;
+      const after = computeIntegrityHash(cp);
+      expect(before).not.toBe(after);
+    });
+
+    it("verifyCheckpointIntegrity returns 'failed' for a corrupted hash", () => {
+      const cp = buildCheckpoint({ batchNumber: 1, totalArchived: 10 });
+      cp.integrityHash = computeIntegrityHash(cp);
+      cp.integrityHash = "0".repeat(64);
+      const result = verifyCheckpointIntegrity(cp);
+      expect(result.status).toBe("failed");
+      expect(result.reason).toMatch(/match/i);
+    });
+
+    it("verifyCheckpointIntegrity returns 'ok' when hashes match", () => {
+      const cp = buildCheckpoint({ batchNumber: 1, totalArchived: 10 });
+      cp.integrityHash = computeIntegrityHash(cp);
+      const result = verifyCheckpointIntegrity(cp);
+      expect(result.status).toBe("ok");
+    });
+
+    it("verifyCheckpointIntegrity returns 'missing' for null/undefined hash (legacy)", () => {
+      const cpNull = buildCheckpoint({ batchNumber: 1, totalArchived: 10 });
+      cpNull.integrityHash = null;
+      expect(verifyCheckpointIntegrity(cpNull).status).toBe("missing");
+
+      const cpUndef = buildCheckpoint({ batchNumber: 1, totalArchived: 10 });
+      // @ts-expect-error: intentionally bypass type for legacy emulation
+      cpUndef.integrityHash = undefined;
+      expect(verifyCheckpointIntegrity(cpUndef).status).toBe("missing");
+    });
+
+    it("computes and stores integrityHash on new checkpoint creation", async () => {
+      const eventRepo = {
+        createQueryBuilder: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          addOrderBy: jest.fn().mockReturnThis(),
+          take: jest.fn().mockReturnThis(),
+          getMany: jest.fn().mockResolvedValueOnce([]),
+        }),
+      } as any;
+
+      const checkpointRepo = {
+        findOne: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation((data: any) => ({
+          ...data,
+          id: "cp-newly-created",
+        })),
+        save: jest.fn().mockImplementation((entity: any) => Promise.resolve(entity)),
+      } as any;
+
+      const dataSource = createMockDataSource(eventRepo, checkpointRepo);
+
+      await archiveOldRaffleEvents(dataSource, {
+        retentionDays: 30,
+        batchSize: 10,
+        dryRun: false,
+        outDir: tmpDir,
+        resumeFromCheckpoint: true,
+      });
+
+      // The new checkpoint is created with id "cp-newly-created" and the
+      // integrity hash + lastVerifiedAt are populated between create() and
+      // save(), so the first save() call carries all three properties.
+      const createdSave = checkpointRepo.save.mock.calls.find(
+        (call: any[]) => call[0]?.id === "cp-newly-created",
+      );
+      expect(createdSave).toBeDefined();
+      expect(createdSave![0].integrityHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(createdSave![0].lastVerifiedAt).toBeInstanceOf(Date);
+    });
+
+    it("skips verification entirely when dryRun is true", async () => {
+      const checkpoint = buildCheckpoint({
+        id: "cp-dry",
+        batchNumber: 2,
+        totalArchived: 30,
+      });
+      // Give a wrong hash -- verification must NOT fire in dryRun mode.
+      checkpoint.integrityHash = "f".repeat(64);
+
+      const oldEvent = makeEvent("dry-1", 60);
+      const { dataSource, checkpointRepo } = buildMocks(checkpoint, [oldEvent]);
+
+      const result = await archiveOldRaffleEvents(dataSource, {
+        retentionDays: 30,
+        batchSize: 10,
+        dryRun: true,
+        outDir: tmpDir,
+        resumeFromCheckpoint: true,
+      });
+
+      expect(result.totalArchived).toBe(1);
+      // No FAILED mark should have been written during dry-run.
+      const failedSaves = checkpointRepo.save.mock.calls.filter(
+        (call) => call[0]?.status === ArchiveJobStatus.FAILED,
+      );
+      expect(failedSaves).toHaveLength(0);
     });
   });
 });

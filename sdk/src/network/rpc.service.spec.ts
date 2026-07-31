@@ -8,7 +8,7 @@ import {
   InvalidResponseError,
   ContractFailureError,
 } from '../utils/errors';
-import { NetworkConfig, TikkaNetwork } from './network.config';
+import { NetworkConfig, TikkaNetwork, SOROBAN_RPC_MAX_RETRIES, SOROBAN_RPC_BASE_DELAY_MS } from './network.config';
 import { Networks } from '@stellar/stellar-sdk';
 
 describe('RpcService', () => {
@@ -232,6 +232,37 @@ describe('RpcService', () => {
       const mockTx = { toXDR: () => 'mock-xdr' };
       await expect(service.simulateTransaction(mockTx)).rejects.toThrow(UnavailableError);
       expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('should succeed after exactly 2 transient 503 failures using SOROBAN_RPC_MAX_RETRIES attempts', async () => {
+      const mockResult = { status: 'ok-after-two-failures' };
+      const mockFetch = jest.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          statusText: 'Service Unavailable',
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          statusText: 'Service Unavailable',
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ result: mockResult }),
+        });
+
+      service.configure({
+        fetchClient: mockFetch as any,
+        maxRetryAttempts: SOROBAN_RPC_MAX_RETRIES,
+        retryBaseDelayMs: 1,
+      });
+
+      const mockTx = { toXDR: () => 'mock-xdr' };
+      const result = await service.simulateTransaction(mockTx);
+
+      expect(result).toEqual(mockResult);
+      expect(mockFetch).toHaveBeenCalledTimes(SOROBAN_RPC_MAX_RETRIES);
     });
 
     it('should fail immediately without retrying on non-retryable errors (e.g. invalid response status 400)', async () => {

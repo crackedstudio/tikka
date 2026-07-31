@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -19,11 +20,11 @@ const DEFAULT_MED_THRESHOLD = 1000;
 
 @Injectable()
 export class PriorityClassifierService {
-  private readonly logger = new Logger(PriorityClassifierService.name);
+  
   private readonly highThreshold: number;
   private readonly medThreshold: number;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly logger: OracleLoggerService, private readonly configService: ConfigService) {
     const highFromConfig = this.configService.get<number>(
       'ORACLE_HIGH_VALUE_THRESHOLD_XLM',
       DEFAULT_HIGH_THRESHOLD,

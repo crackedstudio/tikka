@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -15,11 +16,11 @@ export type DrawRequestClaimResult = 'claimed' | 'duplicate' | 'replayed';
 
 @Injectable()
 export class DrawRequestLedgerService {
-  private readonly logger = new Logger(DrawRequestLedgerService.name);
+  
   private readonly supabase?: SupabaseClient;
   private readonly inMemoryClaims = new Set<string>();
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly logger: OracleLoggerService, private readonly configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseKey =
       this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY') ||

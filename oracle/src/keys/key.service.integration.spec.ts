@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { KeyService } from './key.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 import * as StellarSdk from '@stellar/stellar-sdk';
 
 describe('KeyService Integration', () => {
@@ -15,6 +16,7 @@ describe('KeyService Integration', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KeyService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         {
           provide: ConfigService,
           useValue: {

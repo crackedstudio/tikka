@@ -22,9 +22,87 @@ This document defines versioning, changelog, and deployment procedures for the T
 - Must be reversible (include rollback logic)
 - Deployed independently of app versions
 
+## Changelog Automation (Changesets)
+
+This monorepo uses [Changesets](https://github.com/changesets/changesets) to manage versioning and changelog generation.
+
+### How It Works
+
+1. **Developer creates a changeset** when making a change:
+   ```bash
+   pnpm changeset
+   ```
+   This creates a markdown file in `.changeset/` describing the change and its semver bump type.
+
+2. **Changesets are committed** with the PR code.
+
+3. **CI bot (changeset-bot)** comments on PRs missing changesets.
+
+4. **On merge to master**, the `changesets/action` creates/updates a "Version Packages" PR that:
+   - Bumps versions in `package.json` files
+   - Updates `CHANGELOG.md` entries
+   - When merged, tags the release and publishes to npm (SDK only)
+
+### Creating a Changeset
+
+```bash
+# Interactive prompt
+pnpm changeset
+
+# Select the package to version
+# Choose bump type: patch / minor / major
+# Write a summary of the changes (this becomes the CHANGELOG entry)
+```
+
+### Changeset File Format
+
+Each changeset is a markdown file in `.changeset/`:
+
+```markdown
+---
+"@tikka/sdk": minor
+"tikka-backend": patch
+---
+
+Add new raffle metadata endpoint for mobile clients.
+```
+
+### Version Packages PR
+
+The `changesets/action` GitHub Action automatically creates a PR titled "Version Packages" when changesets accumulate on `master`. Merging this PR:
+- Bumps versions in all affected `package.json` files
+- Generates `CHANGELOG.md` entries from changeset files
+- Removes consumed `.changeset/*.md` files
+- Tags the commit with the release version
+
+### Manual Release (Fallback)
+
+If the automated flow is unavailable:
+
+```bash
+# Consume all changesets and bump versions
+pnpm changeset version
+
+# Review generated CHANGELOG.md entries
+git add -A
+git commit -m "Version Packages"
+git tag sdk-v0.2.0  # or appropriate tag
+
+# Publish SDK to npm
+cd sdk && npm publish
+```
+
 ## Release Types
 
-### SDK Release
+### SDK Release (Automated)
+
+1. Create changesets for each user-facing change
+2. Push to master; "Version Packages" PR is created automatically
+3. Review and merge the PR
+4. CI tags and publishes to npm
+
+### SDK Release (Manual)
+
 1. Update version in `sdk/package.json`
 2. Add entry to `CHANGELOG.md` (see template below)
 3. Tag commit: `sdk-v0.1.0`
@@ -32,6 +110,7 @@ This document defines versioning, changelog, and deployment procedures for the T
 5. Update TypeDoc: `npm run docs`
 
 ### App Release (Client, Backend, Indexer, Oracle)
+
 1. Update version in package.json (if applicable)
 2. Add entry to `CHANGELOG.md`
 3. Tag commit: `app-YYYY.MM.PATCH` (e.g., `app-2026.05.0`)
@@ -39,6 +118,7 @@ This document defines versioning, changelog, and deployment procedures for the T
 5. Deploy to production
 
 ### Database Migration
+
 1. Create migration file in `backend/migrations/`
 2. Include rollback procedure in comments
 3. Test locally: `npm run migrate:up` and `npm run migrate:down`
@@ -47,7 +127,7 @@ This document defines versioning, changelog, and deployment procedures for the T
 
 ## Changelog Template
 
-Create entries in `CHANGELOG.md` at the root:
+Entries are auto-generated from changeset files. Manual entries (if needed):
 
 ```markdown
 ## [0.1.0] - 2026-05-28
@@ -75,14 +155,33 @@ Create entries in `CHANGELOG.md` at the root:
 - Updated or added dependencies
 ```
 
+## Tag Scheme
+
+| Package | Tag Format | Example |
+|---------|-----------|---------|
+| SDK | `sdk-vMAJOR.MINOR.PATCH` | `sdk-v0.2.0` |
+| Client | `app-YYYY.MM.PATCH` | `app-2026.05.0` |
+| Backend | `app-YYYY.MM.PATCH` | `app-2026.05.0` |
+| Indexer | `app-YYYY.MM.PATCH` | `app-2026.05.0` |
+| Oracle | `app-YYYY.MM.PATCH` | `app-2026.05.0` |
+| Database | `db-YYYYMMDD_HHMMSS` | `db-20260528_143000` |
+
+## Docs Deployment
+
+The `docs.yml` workflow deploys SDK documentation to GitHub Pages when:
+- Code is pushed to `master` branch, OR
+- An **SDK tag** (`sdk-v*`) is pushed
+
+**Important**: Docs only deploy for SDK tags. App or database tags do not trigger a docs deploy.
+
 ## Rollout Checklist
 
 ### SDK
+- [ ] Changesets created for all user-facing changes
 - [ ] Tests pass (`npm test`)
 - [ ] TypeDoc builds (`npm run docs`)
 - [ ] No breaking changes to public APIs, or MAJOR version bumped
-- [ ] Changelog entry added
-- [ ] npm publish succeeds
+- [ ] "Version Packages" PR reviewed and merged
 
 ### Apps
 - [ ] All package tests pass
@@ -144,3 +243,4 @@ When multiple packages release together:
 - [Semantic Versioning](https://semver.org/)
 - [Keep a Changelog](https://keepachangelog.com/)
 - [Calendar Versioning](https://calver.org/)
+- [Changesets](https://github.com/changesets/changesets)

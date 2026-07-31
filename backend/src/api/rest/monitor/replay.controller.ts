@@ -13,6 +13,10 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 import { ReplayService, type ReplayJobConfig, type ReplayJobStatus } from '../../../services/replay.service';
 import { AdminGuard } from './admin.guard';
+import {
+  ReplayJobStartResponseDto,
+  ReplayJobStatusDto,
+} from './dto/replay-response.dto';
 
 @ApiTags('Admin - Replay')
 @ApiSecurity('admin-token')
@@ -34,13 +38,7 @@ export class ReplayController {
   @ApiResponse({
     status: 202,
     description: 'Replay job started',
-    schema: {
-      type: 'object',
-      properties: {
-        jobId: { type: 'string', format: 'uuid' },
-        message: { type: 'string' },
-      },
-    },
+    type: ReplayJobStartResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -76,20 +74,7 @@ export class ReplayController {
   @ApiResponse({
     status: 200,
     description: 'Job status',
-    schema: {
-      type: 'object',
-      properties: {
-        jobId: { type: 'string', format: 'uuid' },
-        status: { type: 'string', enum: ['pending', 'running', 'completed', 'failed'] },
-        config: { type: 'object' },
-        progress: { type: 'object' },
-        result: { type: 'object' },
-        error: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-        startedAt: { type: 'string', format: 'date-time' },
-        completedAt: { type: 'string', format: 'date-time' },
-      },
-    },
+    type: ReplayJobStatusDto,
   })
   @ApiResponse({
     status: 404,
