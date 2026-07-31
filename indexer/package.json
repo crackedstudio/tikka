@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Tikka blockchain event ingestion and query layer",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "build": "nest build",
     "openapi:generate": "ts-node --transpile-only scripts/generate-openapi.ts",
@@ -21,6 +22,7 @@
     "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate",
+    "migration:rollback-check": "ts-node --transpile-only scripts/check-migration-rollback.ts",
     "dlq:replay": "ts-node --transpile-only src/cli/dlq-replay.command.ts"
   },
   "jest": {
@@ -63,6 +65,8 @@
     "bullmq": "^5.81.0",
     "ioredis": "^5.9.3",
     "pg": "^8.13.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "typeorm": "^0.3.20"

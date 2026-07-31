@@ -1,5 +1,5 @@
 import { OracleLoggerService, OracleLogFields } from '../logger/oracle-logger';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
@@ -7,6 +7,7 @@ import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 import { CostEstimatorService } from './cost-estimator.service';
 import { ContractBuilders } from '../contract/contract.builders';
+import { MetricsService } from '../metrics/metrics.service';
 
 /**
  * Explicit transaction lifecycle states for state machine tracking
@@ -134,6 +135,7 @@ export class TxSubmitterService {
     private readonly feeEstimator: FeeEstimatorService,
     private readonly keyService: KeyService,
     private readonly costEstimator: CostEstimatorService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {
     const primary =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
@@ -178,6 +180,9 @@ export class TxSubmitterService {
     requestId: string,
     randomness: RandomnessResult,
   ): Promise<TransactionOutcome> {
+    // Main-loop heartbeat — updated on every submission attempt path.
+    this.metricsService?.recordComponentHeartbeat('submitter');
+
     const startTime = Date.now();
     const telemetry: TelemetryContext = {
       raffleId,
