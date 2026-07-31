@@ -25,7 +25,9 @@ import { RaffleEntity } from "./raffle.entity";
  * - ❌ Unsafe: All fields are source-of-truth from chain events
  *
  * ## Idempotency
- * - `purchaseTxHash` has unique constraint — replays are no-ops
+ * - Event-level: TicketProcessor skips when any row already exists for
+ *   `purchaseTxHash` (shared across all ticket_ids in one purchase)
+ * - Row-level: inserts use orIgnore() on the ticket `id` primary key
  *
  * See: `ENTITY_OWNERSHIP.md` for full documentation
  */
@@ -53,13 +55,13 @@ export class TicketEntity {
   purchasedAtLedger!: number;
 
   /**
-   * Transaction hash of the purchase — acts as idempotency key.
-   * Unique constraint prevents double-indexing the same transaction.
+   * Transaction hash of the purchase — shared by all tickets in that tx.
+   * Used as the event-level idempotency key in TicketProcessor (not UNIQUE,
+   * because one purchase can mint many ticket rows).
    */
   @Column({
     type: "varchar",
     length: 64,
-    unique: true,
     name: "purchase_tx_hash",
   })
   purchaseTxHash!: string;

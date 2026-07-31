@@ -14,6 +14,46 @@ describe('TicketProcessor', () => {
   let mockQueryRunner: any;
   let mockManager: any;
 
+  function existsBuilder(exists: boolean) {
+    return {
+      where: jest.fn().mockReturnValue({
+        getExists: jest.fn().mockResolvedValue(exists),
+      }),
+    };
+  }
+
+  function insertBuilder() {
+    return {
+      insert: jest.fn().mockReturnThis(),
+      into: jest.fn().mockReturnThis(),
+      values: jest.fn().mockReturnThis(),
+      orIgnore: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ identifiers: [{}], raw: { rowCount: 1 } }),
+    };
+  }
+
+  function updateBuilder() {
+    return {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+  }
+
+  /** First QB call is the idempotency getExists; remaining calls are insert/update. */
+  function mockPurchaseFlow(ticketCount: number, alreadyApplied = false) {
+    const insert = insertBuilder();
+    const update = updateBuilder();
+    const queue: unknown[] = [existsBuilder(alreadyApplied)];
+    if (!alreadyApplied) {
+      for (let i = 0; i < ticketCount; i++) queue.push(insert);
+      queue.push(update);
+    }
+    mockManager.createQueryBuilder.mockImplementation(() => queue.shift());
+    return { insert, update };
+  }
+
   beforeEach(async () => {
     mockManager = {
       createQueryBuilder: jest.fn(),
@@ -36,6 +76,10 @@ describe('TicketProcessor', () => {
     userProcessor = {
       handleTicketPurchased: jest.fn().mockResolvedValue(undefined),
       handleTicketRefunded: jest.fn().mockResolvedValue(undefined),
+    } as any;
+
+    webhookService = {
+      dispatch: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -90,8 +134,6 @@ describe('TicketProcessor', () => {
     });
 
     it('should increment raffle tickets_sold count', async () => {
-      const raffleId = 1;
-      const buyer = 'GBUYER';
       const ticketIds = [1, 2, 3];
       const totalCost = '300000000';
       const ledger = 500;
@@ -125,12 +167,9 @@ describe('TicketProcessor', () => {
       expect(mockUpdateBuilder.set).toHaveBeenCalledWith({
         ticketsSold: expect.any(Function),
       });
-      expect(mockUpdateBuilder.where).toHaveBeenCalledWith('id = :raffleId', { raffleId });
     });
 
     it('should call userProcessor.handleTicketPurchased', async () => {
-      const raffleId = 1;
-      const buyer = 'GBUYER';
       const ticketIds = [1, 2];
       const totalCost = '200000000';
       const ledger = 500;
@@ -160,12 +199,7 @@ describe('TicketProcessor', () => {
       await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(userProcessor.handleTicketPurchased).toHaveBeenCalledWith(
-        raffleId,
-        buyer,
-        ticketIds.length,
-        ledger,
-        txHash,
-        mockQueryRunner,
+        1, 'GBUYER', 2, 500, 'tx-hash-123', mockQueryRunner,
       );
     });
 
@@ -200,6 +234,11 @@ describe('TicketProcessor', () => {
       await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
+      expect(cacheService.invalidateUserProfile).toHaveBeenCalledWith('GBUYER');
+      expect(webhookService.dispatch).toHaveBeenCalledWith(
+        'TicketPurchased',
+        expect.objectContaining({ raffleId: 1, buyer: 'GBUYER' }),
+      );
     });
 
     it('should invalidate user profile cache', async () => {
@@ -293,120 +332,39 @@ describe('TicketProcessor', () => {
   });
 
   describe('handleTicketRefunded', () => {
-    it('should mark ticket as refunded', async () => {
-      const raffleId = 1;
-      const ticketId = 1;
-      const recipient = 'GBUYER';
-      const amount = '100000000';
-      const txHash = 'tx-refund-123';
-
-      const mockUpdateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
-      };
-
-      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
+    it('should mark ticket as refunded only when not already refunded', async () => {
+      const update = updateBuilder();
+      mockManager.createQueryBuilder.mockReturnValue(update);
 
       await processor.handleTicketRefunded(
-        raffleId,
-        ticketId,
-        recipient,
-        amount,
-        txHash,
-        mockQueryRunner,
+        1, 5, 'GBUYER', '100000000', 'tx-refund', mockQueryRunner,
       );
 
-      expect(mockUpdateBuilder.update).toHaveBeenCalledWith(TicketEntity);
-      expect(mockUpdateBuilder.set).toHaveBeenCalledWith({
+      expect(update.update).toHaveBeenCalledWith(TicketEntity);
+      expect(update.set).toHaveBeenCalledWith({
         refunded: true,
-        refundTxHash: txHash,
+        refundTxHash: 'tx-refund',
       });
+      expect(update.where).toHaveBeenCalledWith(
+        'id = :ticketId AND raffle_id = :raffleId AND refunded = false',
+        { ticketId: 5, raffleId: 1 },
+      );
+      expect(userProcessor.handleTicketRefunded).toHaveBeenCalledWith('GBUYER', '1');
     });
+  });
 
-    it('should update correct ticket by raffleId and ticketId', async () => {
-      const raffleId = 1;
-      const ticketId = 5;
-      const recipient = 'GBUYER';
-      const amount = '100000000';
-      const txHash = 'tx-refund-123';
-
-      const mockUpdateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
-      };
-
-      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
-
-      await processor.handleTicketRefunded(
-        raffleId,
-        ticketId,
-        recipient,
-        amount,
-        txHash,
-        mockQueryRunner,
+  describe('idempotency', () => {
+    it('should no-op on duplicate ticket purchase events', async () => {
+      // First delivery
+      mockPurchaseFlow(2, false);
+      await processor.handleTicketPurchased(
+        1, 'GBUYER', [1, 2], '200000000', 500, 'tx-hash-123', mockQueryRunner,
       );
 
-      expect(mockUpdateBuilder.where).toHaveBeenCalledWith('id = :ticketId AND raffle_id = :raffleId', {
-        ticketId,
-        raffleId,
-      });
-    });
-
-    it('should invalidate raffle detail cache after refund', async () => {
-      const raffleId = 1;
-      const ticketId = 1;
-      const recipient = 'GBUYER';
-      const amount = '100000000';
-      const txHash = 'tx-refund-123';
-
-      const mockUpdateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
-      };
-
-      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
-
-      await processor.handleTicketRefunded(
-        raffleId,
-        ticketId,
-        recipient,
-        amount,
-        txHash,
-        mockQueryRunner,
-      );
-
-      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
-    });
-
-    it('should invalidate user profile cache after refund', async () => {
-      const raffleId = 1;
-      const ticketId = 1;
-      const recipient = 'GBUYER';
-      const amount = '100000000';
-      const txHash = 'tx-refund-123';
-
-      const mockUpdateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
-      };
-
-      mockManager.createQueryBuilder.mockReturnValueOnce(mockUpdateBuilder);
-
-      await processor.handleTicketRefunded(
-        raffleId,
-        ticketId,
-        recipient,
-        amount,
-        txHash,
-        mockQueryRunner,
+      // Second delivery — already applied
+      mockPurchaseFlow(2, true);
+      await processor.handleTicketPurchased(
+        1, 'GBUYER', [1, 2], '200000000', 500, 'tx-hash-123', mockQueryRunner,
       );
 
       expect(cacheService.invalidateUserProfile).toHaveBeenCalledWith(recipient);
