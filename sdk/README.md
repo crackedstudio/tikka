@@ -410,6 +410,59 @@ try {
 
 The docs are organized by module: **Raffle** · **Ticket** · **Wallet** · **User** · **Network** · **Utils**.
 
+## Error Reference
+
+All SDK errors extend `TikkaSdkError` and carry a stable `code` property for predictable handling:
+
+| Code | Class | When thrown |
+|------|-------|-------------|
+| `NetworkError` | `NetworkError` | All RPC endpoints unreachable, no fetch implementation |
+| `TIMEOUT` | `RpcTimeoutError` | RPC request exceeded timeout |
+| `RATE_LIMIT` | `RateLimitError` | RPC node returned 429 |
+| `UNAVAILABLE` | `UnavailableError` | RPC node returned 502/503/504 |
+| `INVALID_RESPONSE` | `InvalidResponseError` | Malformed or unparseable RPC response |
+| `TRANSACTION_REJECTED` | `TransactionRejectedError` | Network explicitly rejected submitted transaction |
+| `SUBMISSION_FAILED` | `TikkaSdkError` (generic) | Transaction submission failed (fallback) |
+| `SimulationFailed` | `TikkaSdkError` (generic) | Transaction simulation failed |
+| `CONTRACT_FAILURE` | `ContractFailureError` | Contract execution returned an error |
+| `CONTRACT_ERROR` | `TikkaSdkError` (generic) | General contract error |
+| `AUTH_ERROR` | `AuthError` | Authentication / SEP-10 verification failure |
+| `UNAUTHORIZED` | `UnauthorizedError` | Caller lacks permission for admin-only operation |
+| `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | Caller's balance is too low |
+| `UserRejected` | `TikkaSdkError` (generic) | User cancelled the wallet prompt |
+| `WALLET_NOT_CONNECTED` | `TikkaSdkError` (generic) | Wallet not connected |
+| `WALLET_NOT_INSTALLED` | `TikkaSdkError` (generic) | No wallet extension detected |
+| `INVALID_PARAMS` | `TikkaSdkError` (generic) | Invalid function parameters |
+| `VALIDATION_ERROR` | `TikkaSdkError` (generic) | Input validation failure |
+| `RAFFLE_NOT_FOUND` | `RaffleNotFoundError` | Raffle ID does not exist on-chain |
+| `RAFFLE_ENDED` | `RaffleEndedError` | Raffle is in DRAWING/FINALIZED/CANCELLED state |
+| `RAFFLE_FULL` | `RaffleFullError` | Raffle has sold its maximum tickets |
+| `EXTERNAL_CONTRACT_ERROR` | `TikkaSdkError` (generic) | Cross-contract call failed |
+| `UNKNOWN` | `TikkaSdkError` (generic) | Catch-all for unexpected errors |
+
+```ts
+try {
+  await contractService.buyTicket(raffleId, quantity);
+} catch (err) {
+  if (err instanceof NetworkError) {
+    // All RPC endpoints are down
+  } else if (err instanceof TransactionRejectedError) {
+    // Network rejected the submission
+  } else if (err instanceof InsufficientFundsError) {
+    // Top up before retrying
+  } else if (err instanceof AuthError) {
+    // Re-authenticate
+  } else if (err instanceof TikkaSdkError) {
+    // Fallback: check err.code
+    switch (err.code) {
+      case TikkaSdkErrorCode.RateLimit:
+      case TikkaSdkErrorCode.Timeout:
+        // Retry with backoff
+    }
+  }
+}
+```
+
 ## Architecture
 
 Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section 2 — tikka-sdk).
