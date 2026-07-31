@@ -62,6 +62,10 @@ export enum TikkaSdkErrorCode {
   ContractFailure = 'CONTRACT_FAILURE',
   /** Unknown / catch-all */
   Unknown = 'UNKNOWN',
+  /** Transaction explicitly rejected by the network (separate from simulation failure) */
+  TransactionRejected = 'TRANSACTION_REJECTED',
+  /** Authentication failure (invalid signatures, bad SEP-10 tokens, etc.) */
+  AuthError = 'AUTH_ERROR',
   /** Contract is paused — write operations blocked */
   ContractPaused = 'CONTRACT_PAUSED',
   /** Caller is not authorized for this operation */
@@ -160,6 +164,39 @@ export class ContractFailureError extends TikkaSdkError {
     super(TikkaSdkErrorCode.ContractFailure, message, cause);
     this.name = 'ContractFailureError';
     Object.setPrototypeOf(this, ContractFailureError.prototype);
+  }
+}
+
+/**
+ * Thrown when all RPC endpoints are unreachable (generic network failure).
+ */
+export class NetworkError extends TikkaSdkError {
+  constructor(message: string, cause?: unknown) {
+    super(TikkaSdkErrorCode.NetworkError, message, cause);
+    this.name = 'NetworkError';
+    Object.setPrototypeOf(this, NetworkError.prototype);
+  }
+}
+
+/**
+ * Thrown when the network explicitly rejects a submitted transaction.
+ */
+export class TransactionRejectedError extends TikkaSdkError {
+  constructor(message: string, cause?: unknown) {
+    super(TikkaSdkErrorCode.TransactionRejected, message, cause);
+    this.name = 'TransactionRejectedError';
+    Object.setPrototypeOf(this, TransactionRejectedError.prototype);
+  }
+}
+
+/**
+ * Thrown for authentication failures (invalid signatures, bad SEP-10 tokens, etc.).
+ */
+export class AuthError extends TikkaSdkError {
+  constructor(message: string, cause?: unknown) {
+    super(TikkaSdkErrorCode.AuthError, message, cause);
+    this.name = 'AuthError';
+    Object.setPrototypeOf(this, AuthError.prototype);
   }
 }
 

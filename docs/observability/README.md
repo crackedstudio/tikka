@@ -149,3 +149,8 @@ Avoid these as metric label dimensions:
 | Backend | `GET /metrics` | JSON (custom) | 3001 |
 | Indexer | `GET /metrics` | Prometheus text | 3002 |
 | Oracle | `GET /metrics` | Prometheus text | 3003 |
+
+## Distributed tracing (indexer)
+
+Event-processing traces (ingest → handler → DB → webhook): [INDEXER_TRACING.md](./INDEXER_TRACING.md).
+

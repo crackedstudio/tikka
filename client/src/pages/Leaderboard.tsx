@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import type { LeaderboardSortBy } from "../services/leaderboardService";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import EmptyState from "../components/ui/EmptyState";
 
 const Leaderboard: React.FC = () => {
   const [sortBy, setSortBy] = useState<LeaderboardSortBy>("wins");
@@ -33,7 +34,7 @@ const Leaderboard: React.FC = () => {
         <div className="flex space-x-2 mb-6">
           <button
             onClick={() => setSortBy("wins")}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E] ${
               sortBy === "wins"
                 ? "bg-purple-600 text-white"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -43,7 +44,7 @@ const Leaderboard: React.FC = () => {
           </button>
           <button
             onClick={() => setSortBy("volume")}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E] ${
               sortBy === "volume"
                 ? "bg-purple-600 text-white"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -53,7 +54,7 @@ const Leaderboard: React.FC = () => {
           </button>
           <button
             onClick={() => setSortBy("tickets")}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+            className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E] ${
               sortBy === "tickets"
                 ? "bg-purple-600 text-white"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -79,27 +80,15 @@ const Leaderboard: React.FC = () => {
             disabled={isLoading}
           />
         ) : entries.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg
-                className="w-12 h-12 text-gray-400"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                  clipRule="evenodd"
-                />
+          <EmptyState
+            icon={
+              <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>
-            </div>
-            <h3 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
-              No Leaderboard Data Yet
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
-              The leaderboard will populate as users participate in raffles.
-            </p>
-          </div>
+            }
+            title="No Leaderboard Data Yet"
+            hint="The leaderboard will populate as users participate in raffles."
+          />
         ) : (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
@@ -143,7 +132,7 @@ const Leaderboard: React.FC = () => {
                           href={`https://stellar.expert/explorer/public/account/${entry.address}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-mono text-purple-600 dark:text-purple-400 hover:underline"
+                          className="text-sm font-mono text-purple-600 dark:text-purple-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF389C] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11172E]"
                           title={entry.address}
                         >
                           {shortenAddress(entry.address)}

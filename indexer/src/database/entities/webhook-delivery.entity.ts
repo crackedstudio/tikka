@@ -5,28 +5,25 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 
-/**
- * Audit log of outbound webhook delivery attempts.
- * Matches `webhook_deliveries` created by migration 1760000000000.
- */
+/** Audit log of outbound webhook delivery attempts. */
 @Entity("webhook_deliveries")
 export class WebhookDeliveryEntity {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
-  @Column({ type: "varchar" })
+  @Column()
   webhookUrl!: string;
 
-  @Column({ type: "varchar" })
+  @Column()
   eventType!: string;
 
-  @Column({ type: "jsonb" })
-  payload!: Record<string, unknown>;
+  @Column("jsonb")
+  payload!: Record<string, any>;
 
-  @Column({ type: "varchar" })
-  status!: string;
+  @Column()
+  status!: "success" | "failed";
 
-  @Column({ type: "integer" })
+  @Column("int")
   attempts!: number;
 
   @Column({ type: "text", nullable: true })

@@ -33,6 +33,8 @@ import { WalletAdapter } from "../wallet/wallet.interface";
 import {
   TikkaSdkError,
   TikkaSdkErrorCode,
+  TransactionRejectedError,
+  NetworkError,
   toTypedContractError,
 } from "../utils/errors";
 
@@ -323,8 +325,7 @@ export class TransactionLifecycle {
 
     if (sendResp.status === "ERROR") {
       const detail = (sendResp as any).errorResultXdr ?? "";
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.SubmissionFailed,
+      throw new TransactionRejectedError(
         `Transaction submission failed: ${detail}`,
       );
     }
