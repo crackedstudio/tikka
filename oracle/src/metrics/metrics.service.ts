@@ -21,6 +21,10 @@ export class MetricsService implements OnModuleInit {
   private vrfFailuresCounter: Counter;
   private vrfProofsCounter: Counter;
 
+  // Multi-oracle divergence metrics
+  private oracleDivergenceCounter: Counter;
+  private divergenceCount = 0;
+
   // Event listener gap / backfill metrics
   private eventListenerGapCounter: Counter;
   private eventListenerBackfillCounter: Counter;
@@ -137,6 +141,22 @@ export class MetricsService implements OnModuleInit {
 
   recordVrfProofSuccess() {
     this.vrfProofsCounter.add(1);
+  }
+
+  /**
+   * Record an oracle divergence event.
+   *
+   * @param distinctGroups Number of distinct seed-hash groups observed in the round
+   *                       (always ≥ 2 when divergence occurs).
+   */
+  recordDivergence(distinctGroups: number): void {
+    this.divergenceCount += 1;
+    this.oracleDivergenceCounter.add(1, { distinct_groups: String(distinctGroups) });
+  }
+
+  /** Process-local count of divergence detections (useful for unit tests). */
+  getDivergenceCount(): number {
+    return this.divergenceCount;
   }
 
   /**
