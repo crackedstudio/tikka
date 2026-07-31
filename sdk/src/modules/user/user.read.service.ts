@@ -64,7 +64,7 @@ export class ReadOnlyUserService {
   async getHistory(address: string): Promise<ContractResponse<number[]>> {
     assertValidPublicKey(address);
     const profile = await this.getProfile(address);
-    if (!profile.success) return profile as ContractResponse<number[]>;
+    if (!profile.success) return profile as unknown as ContractResponse<number[]>;
     return { success: true, value: profile.value!.raffleIds };
   }
 
