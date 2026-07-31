@@ -1,6 +1,8 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 import { WebhookEntity } from "../database/entities/webhook.entity";
 import { WebhookDeliveryEntity } from "../database/entities/webhook-delivery.entity";
 import { TracingService } from "../tracing/tracing.service";
@@ -9,6 +11,8 @@ export interface WebhookPayload {
   eventType: string;
   data: Record<string, any>;
 }
+
+const WEBHOOK_QUEUE = "webhook";
 
 @Injectable()
 export class WebhookService {
@@ -70,7 +74,6 @@ export class WebhookService {
       },
       async () => run(),
     );
-  }
 
   private async deliverWithRetry(
     url: string,
@@ -153,9 +156,5 @@ export class WebhookService {
   async registerWebhook(url: string, events: string[]) {
     const webhook = this.webhookRepo.create({ url, supportedEvents: events });
     await this.webhookRepo.save(webhook);
-  }
-
-  async onApplicationBootstrap() {
-    // Processors will inject this service
   }
 }

@@ -3,6 +3,8 @@ import { BullModule, InjectQueue } from "@nestjs/bullmq";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Queue } from "bullmq";
 import { WebhookService } from "./webhook.service";
+import { WebhookProcessor } from "./webhook.processor";
+import { WebhookDeadLetterService } from "./webhook-dlq.service";
 import { WebhookEntity } from "../database/entities/webhook.entity";
 import { WebhookDeliveryEntity } from "../database/entities/webhook-delivery.entity";
 import { DatabaseModule } from "../database/database.module";
@@ -24,8 +26,9 @@ import { MetricsService } from "../metrics/metrics.service";
       name: "webhook",
     }),
   ],
-  providers: [WebhookService],
-  exports: [WebhookService],
+  controllers: [WebhookDlqController],
+  providers: [WebhookService, WebhookProcessor, WebhookDeadLetterService],
+  exports: [WebhookService, WebhookDeadLetterService],
 })
 export class WebhooksModule implements OnModuleInit {
   constructor(
