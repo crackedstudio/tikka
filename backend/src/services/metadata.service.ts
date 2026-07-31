@@ -176,6 +176,25 @@ export class MetadataService {
   }
 
   /**
+   * Get metadata by raffle_id, including archived/soft-deleted records.
+   * Returns null if no record ever existed for this raffle_id.
+   */
+  async getMetadataWithArchived(raffleId: number): Promise<RaffleMetadata | null> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('*')
+      .eq('raffle_id', raffleId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to fetch metadata for raffle ${raffleId}: ${error.message}`);
+    }
+
+    return data as RaffleMetadata | null;
+  }
+
+
+  /**
    * Full-text search over raffle metadata using PostgreSQL tsvector + ts_rank.
    * Delegates to the `search_raffles_ranked` RPC function which:
    *   - Matches via websearch_to_tsquery against the GIN-indexed search_vector column

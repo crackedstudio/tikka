@@ -115,9 +115,15 @@ export class RafflesController {
    */
   @Public()
   @Get(":id")
-  @ApiOperation({ summary: "Get raffle detail by ID" })
+  @ApiOperation({
+    summary: "Get raffle detail by ID",
+    description:
+      "Returns merged contract and off-chain details for active, ended, or cancelled raffles (200 OK). Returns 404 Not Found for unknown IDs and 410 Gone for soft-deleted or permanently removed raffles.",
+  })
   @ApiParam({ name: "id", description: "Internal raffle ID" })
-  @ApiResponse({ status: 200, description: "Raffle details retrieved successfully" })
+  @ApiResponse({ status: 200, description: "Raffle details retrieved successfully (active, ended, or cancelled)" })
+  @ApiResponse({ status: 404, description: "Raffle not found (unknown ID)" })
+  @ApiResponse({ status: 410, description: "Raffle has been soft-deleted or permanently removed" })
   @UseInterceptors(CacheHeadersInterceptor)
   @SetMetadata(CACHE_MAX_AGE_KEY, 30)
   async getById(@Param("id", ParseIntPipe) id: number) {

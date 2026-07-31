@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  GoneException,
   Injectable,
   NotFoundException,
   NotImplementedException,
@@ -116,6 +117,11 @@ export class RafflesService {
 
   /**
    * Get raffle detail by id. Merges contract data from indexer with off-chain metadata from Supabase.
+   *
+   * Status semantics:
+   *  - Active (`open`, `drawing`), Ended (`ended`, `finalized`), Cancelled (`cancelled`): 200 OK with status field
+   *  - Soft-deleted / permanently removed (`deleted`, `removed`, or soft-deleted metadata): 410 Gone
+   *  - Unknown ID (no indexer record, no metadata record): 404 Not Found
    */
   async getById(id: number): Promise<RaffleDetailResponse> {
     const [indexerData, metadata] = await Promise.all([
@@ -123,7 +129,21 @@ export class RafflesService {
       this.metadataService.getMetadata(id),
     ]);
 
+    // Check if indexer indicates raffle was soft-deleted or removed
+    if (
+      indexerData &&
+      typeof indexerData.status === 'string' &&
+      (indexerData.status.toLowerCase() === 'deleted' || indexerData.status.toLowerCase() === 'removed')
+    ) {
+      throw new GoneException(`Raffle ${id} has been deleted`);
+    }
+
     if (!indexerData && !metadata) {
+      // Check if metadata record existed but was soft-deleted
+      const archivedMetadata = await this.metadataService.getMetadataWithArchived(id);
+      if (archivedMetadata && archivedMetadata.deleted_at !== null) {
+        throw new GoneException(`Raffle ${id} has been deleted`);
+      }
       throw new NotFoundException(`Raffle ${id} not found`);
     }
 

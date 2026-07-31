@@ -217,6 +217,9 @@ import { RaffleStatus } from '../database/entities/raffle.entity';
 import { startDb, stopDb, DbContainerContext, CONTAINER_STARTUP_MS } from '../test/integration/helpers/db-container';
 
 describe('Snapshot CLI Integration', () => {
+  const hasDocker = process.env.RUN_DOCKER_INTEGRATION === '1';
+
+  (hasDocker ? describe : describe.skip)('with Docker', () => {
   let ctx: DbContainerContext;
   let tempDir: string;
 
@@ -224,6 +227,7 @@ describe('Snapshot CLI Integration', () => {
     ctx = await startDb();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tikka-snapshot-test-'));
   }, CONTAINER_STARTUP_MS);
+
 
   afterAll(async () => {
     await stopDb(ctx);
@@ -295,4 +299,5 @@ SNAPSHOT_STORAGE_URL=file://${tempDir}
     // Clean up .env.local to not pollute workspace
     fs.unlinkSync('.env.local');
   }, 30000); // give enough time for ts-node
+  });
 });

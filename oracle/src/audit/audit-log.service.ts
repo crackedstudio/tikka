@@ -2,7 +2,7 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams } from './audit.types';
+import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord } from './audit.types';
 import { SUPABASE_CLIENT } from './supabase.provider';
 
 @Injectable()

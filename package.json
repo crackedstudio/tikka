@@ -14,7 +14,7 @@
     "version-packages": "changeset version",
     "release": "changeset publish",
     "check:dependencies": "node scripts/check-dependencies.js",
-    "examples:check": "npm run examples:check --prefix sdk",
+    "db:check-drift": "npx tsx scripts/check-schema-drift.ts",
     "prepare": "husky"
   },
   "devDependencies": {

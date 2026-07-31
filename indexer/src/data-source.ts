@@ -10,6 +10,7 @@ import { WebhookEntity } from "./database/entities/webhook.entity";
 import { DeadLetterEventEntity } from "./database/entities/dead-letter-event.entity";
 import { ArchiveCheckpointEntity } from "./database/entities/archive-checkpoint.entity";
 import { WebhookDeliveryEntity } from "./database/entities/webhook-delivery.entity";
+import { WebhookDeadLetterEntity } from "./database/entities/webhook-dead-letter.entity";
 
 /**
  * Standalone DataSource for the TypeORM CLI.
@@ -41,6 +42,7 @@ const options: DataSourceOptions = {
     DeadLetterEventEntity,
     ArchiveCheckpointEntity,
     WebhookDeliveryEntity,
+    WebhookDeadLetterEntity,
   ],
   migrations: [__dirname + "/database/migrations/*{.ts,.js}"],
   synchronize: false,

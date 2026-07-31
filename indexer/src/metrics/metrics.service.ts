@@ -1,8 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MeterProvider } from '@opentelemetry/sdk-metrics';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-import { Counter, Gauge, Histogram, Meter, ObservableResult } from '@opentelemetry/api';
-import { HealthService } from '../health/health.service';
+import {
+  Counter,
+  Gauge,
+  Histogram,
+  Meter,
+  ObservableGauge,
+  ObservableResult,
+} from '@opentelemetry/api';
 import { DlqReason } from '../database/entities/dead-letter-event.entity';
 import { Queue } from 'bullmq';
 
@@ -13,6 +19,7 @@ interface QueueMetricsConfig {
 
 @Injectable()
 export class MetricsService {
+  private readonly logger = new Logger(MetricsService.name);
   private meter: Meter;
   private exporter: PrometheusExporter;
   private logger = new Logger(MetricsService.name);
@@ -67,11 +74,13 @@ export class MetricsService {
     });
 
     this.lagGauge = this.meter.createGauge('tikka_indexer_lag_ledgers', {
-      description: 'Current ledger lag behind the network',
+      description:
+        '[Deprecated alias of tikka_indexer_ingestion_lag_ledgers] Current ledger lag behind the Stellar network. Updated opportunistically when the SSE stream falls back to polling; prefer the canonical ingestion_lag_* gauges for new dashboards/alerts.',
     });
 
     this.indexerLedgerLagGauge = this.meter.createGauge('indexer_ledger_lag', {
-      description: 'Number of ledgers the indexer is behind the Stellar network tip',
+      description:
+        '[Deprecated alias of tikka_indexer_ingestion_lag_ledgers] Number of ledgers the indexer is behind the Stellar network tip.',
     });
 
     this.pollDurationHistogram = this.meter.createHistogram('tikka_indexer_poll_duration_seconds', {
@@ -221,6 +230,11 @@ export class MetricsService {
     this.reorgDetectedCounter.add(amount);
   }
 
+  /**
+   * Deprecated: prefer the canonical `tikka_indexer_ingestion_lag_ledgers`
+   * observable gauge. Retained so callers (e.g. LedgerPollerService) and
+   * existing PromQL alerts continue to work without modification.
+   */
   setLagLedgers(lag: number) {
     this.lagGauge.record(lag);
     this.indexerLedgerLagGauge.record(lag);
@@ -252,8 +266,7 @@ export class MetricsService {
    * we simulate it here to get the metrics string.
    */
   async getMetrics(): Promise<string> {
-    return new Promise((resolve, reject) => {
-
+    return new Promise((resolve) => {
       // Use a mock response object to capture the output from the exporter's handler
       const res = {
         setHeader: () => { },
