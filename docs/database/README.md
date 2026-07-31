@@ -1,5 +1,8 @@
 # Database Schema Ownership
 
+> **New:** See [migration-conventions.md](migration-conventions.md) for naming,
+> review rules, and the schema drift check workflow.
+
 ## Database Instances
 
 | Instance | Services | Access Method |
