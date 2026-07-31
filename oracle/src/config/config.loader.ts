@@ -154,13 +154,13 @@ export function loadOracleConfig(): OracleConfig {
     },
     supabase: process.env.SUPABASE_URL
       ? {
-          url: process.env.SUPABASE_URL,
-          serviceRoleKey:
-            process.env.SUPABASE_SERVICE_ROLE_KEY ||
-            process.env.SUPABASE_ANON_KEY ||
-            '',
-          anonKey: process.env.SUPABASE_ANON_KEY,
-        }
+        url: process.env.SUPABASE_URL,
+        serviceRoleKey:
+          process.env.SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.SUPABASE_ANON_KEY ||
+          '',
+        anonKey: process.env.SUPABASE_ANON_KEY,
+      }
       : undefined,
     alerting: {
       provider: (process.env.ALERTING_PROVIDER || 'none') as 'none' | 'pagerduty' | 'opsgenie',
