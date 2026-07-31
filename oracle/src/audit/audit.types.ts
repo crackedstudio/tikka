@@ -44,3 +44,42 @@ export interface RecordSubmissionParams {
   timestamp: Date;
   requestId?: string;
 }
+
+/**
+ * A structured record emitted whenever oracle nodes submit divergent values
+ * (i.e. consensus was not reached). Captured in the audit trail for investigation.
+ */
+export interface OracleDivergenceRecord {
+  /** The VRF request ID that triggered the round. */
+  requestId: string;
+  /** The raffle ID associated with this randomness round, if known. */
+  raffleId?: number;
+  /**
+   * Map of oracle ID → seed hash that oracle submitted.
+   * Allows reconstructing exactly which nodes disagreed.
+   */
+  submittedValueHashes: Record<string, string>;
+  /**
+   * Map of oracle ID → Unix ms timestamp of their submission.
+   * Populated from OracleSubmission.timestamp in the tracker path,
+   * and from the local clock in the broadcastAndCollect path.
+   */
+  oracleTimestamps: Record<string, number>;
+  /**
+   * Seed-hash → vote count breakdown across all responding oracles.
+   * Mirrors the seedGroups already computed by checkConsensus.
+   */
+  seedGroups: Record<string, number>;
+  /**
+   * The seed hash that received the plurality of votes (largest group),
+   * even though it did not satisfy consensusThreshold. Null when no
+   * submissions were received at all.
+   */
+  largestGroupHash: string | null;
+  /** Number of oracles that returned a result in this round. */
+  totalResponses: number;
+  /** The minimum agreement count required to reach consensus. */
+  consensusThreshold: number;
+  /** ISO 8601 timestamp when the divergence was detected. */
+  detectedAt: string;
+}

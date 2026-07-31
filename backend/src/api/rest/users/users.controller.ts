@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Res, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { FastifyReply } from 'fastify';
 import { Public } from '../../../auth/decorators/public.decorator';

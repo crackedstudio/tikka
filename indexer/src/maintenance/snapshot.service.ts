@@ -5,6 +5,12 @@ import { RaffleEntity } from "../database/entities/raffle.entity";
 import { TicketEntity } from "../database/entities/ticket.entity";
 import { UserEntity } from "../database/entities/user.entity";
 import { IndexerCursorEntity } from "../database/entities/indexer-cursor.entity";
+import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
+import { DeadLetterEventEntity } from "../database/entities/dead-letter-event.entity";
+import { PlatformStatEntity } from "../database/entities/platform-stat.entity";
+import { PlatformStateEntity } from "../database/entities/platform-state.entity";
+import { WebhookEntity } from "../database/entities/webhook.entity";
+import { ArchiveCheckpointEntity } from "../database/entities/archive-checkpoint.entity";
 import { ConfigService } from "@nestjs/config";
 import * as zlib from "zlib";
 import * as crypto from "crypto";
@@ -14,11 +20,18 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
 
+/** Every indexer entity type included in a snapshot. */
 export interface SnapshotData {
   raffles: RaffleEntity[];
   tickets: TicketEntity[];
   users: UserEntity[];
   cursor: IndexerCursorEntity | null;
+  raffleEvents: RaffleEventEntity[];
+  deadLetterEvents: DeadLetterEventEntity[];
+  platformStats: PlatformStatEntity[];
+  platformState: PlatformStateEntity | null;
+  webhooks: WebhookEntity[];
+  archiveCheckpoints: ArchiveCheckpointEntity[];
 }
 
 export interface SnapshotManifest {
@@ -32,6 +45,13 @@ export interface SnapshotManifest {
     raffles: number;
     tickets: number;
     users: number;
+    raffleEvents: number;
+    deadLetterEvents: number;
+    platformStats: number;
+    webhooks: number;
+    archiveCheckpoints: number;
+    hasCursor: boolean;
+    hasPlatformState: boolean;
   };
   checksum: string;
 }
@@ -44,7 +64,7 @@ export interface SnapshotWrapper {
 @Injectable()
 export class SnapshotService {
   private readonly logger = new Logger(SnapshotService.name);
-  private readonly schemaVersion = "1.0.0";
+  private readonly schemaVersion = "1.1.0";
 
   constructor(
     private readonly dataSource: DataSource,
@@ -56,6 +76,18 @@ export class SnapshotService {
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(IndexerCursorEntity)
     private readonly cursorRepo: Repository<IndexerCursorEntity>,
+    @InjectRepository(RaffleEventEntity)
+    private readonly raffleEventRepo: Repository<RaffleEventEntity>,
+    @InjectRepository(DeadLetterEventEntity)
+    private readonly deadLetterRepo: Repository<DeadLetterEventEntity>,
+    @InjectRepository(PlatformStatEntity)
+    private readonly platformStatRepo: Repository<PlatformStatEntity>,
+    @InjectRepository(PlatformStateEntity)
+    private readonly platformStateRepo: Repository<PlatformStateEntity>,
+    @InjectRepository(WebhookEntity)
+    private readonly webhookRepo: Repository<WebhookEntity>,
+    @InjectRepository(ArchiveCheckpointEntity)
+    private readonly archiveCheckpointRepo: Repository<ArchiveCheckpointEntity>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -70,29 +102,44 @@ export class SnapshotService {
       tickets: await this.ticketRepo.find(),
       users: await this.userRepo.find(),
       cursor: await this.cursorRepo.findOne({ where: { id: 1 } }),
+      raffleEvents: await this.raffleEventRepo.find(),
+      deadLetterEvents: await this.deadLetterRepo.find(),
+      platformStats: await this.platformStatRepo.find(),
+      platformState: await this.platformStateRepo.findOne({ where: { id: "global" } }),
+      webhooks: await this.webhookRepo.find(),
+      archiveCheckpoints: await this.archiveCheckpointRepo.find(),
     };
 
     const dataJson = JSON.stringify(data);
     const checksum = crypto.createHash("sha256").update(dataJson).digest("hex");
+    // Canonicalize so the checksum always matches the bytes stored in the archive
+    const canonicalData: SnapshotData = JSON.parse(dataJson);
 
     const manifest: SnapshotManifest = {
       schemaVersion: this.schemaVersion,
       exportedAt: new Date().toISOString(),
       ledgerRange: {
         min: 0,
-        max: data.cursor?.lastLedger || 0,
+        max: canonicalData.cursor?.lastLedger || 0,
       },
       entityCounts: {
-        raffles: data.raffles.length,
-        tickets: data.tickets.length,
-        users: data.users.length,
+        raffles: canonicalData.raffles.length,
+        tickets: canonicalData.tickets.length,
+        users: canonicalData.users.length,
+        raffleEvents: canonicalData.raffleEvents.length,
+        deadLetterEvents: canonicalData.deadLetterEvents.length,
+        platformStats: canonicalData.platformStats.length,
+        webhooks: canonicalData.webhooks.length,
+        archiveCheckpoints: canonicalData.archiveCheckpoints.length,
+        hasCursor: canonicalData.cursor !== null,
+        hasPlatformState: canonicalData.platformState !== null,
       },
       checksum,
     };
 
     const wrapper: SnapshotWrapper = {
       manifest,
-      data,
+      data: canonicalData,
     };
 
     const compressed = await gzip(JSON.stringify(wrapper));
@@ -117,28 +164,42 @@ export class SnapshotService {
     const wrapper: SnapshotWrapper = JSON.parse(decompressed.toString());
     const { manifest, data } = wrapper;
 
-    // 1. Verify schema version
-    if (manifest.schemaVersion !== this.schemaVersion) {
+    // Normalize legacy 1.0.0 snapshots that lack the newer entity arrays
+    this.normalizeLegacyData(data);
+
+    // 1. Verify schema version (accept 1.0.0 for forward import)
+    if (manifest.schemaVersion !== this.schemaVersion && manifest.schemaVersion !== "1.0.0") {
       throw new Error(
-        `Incompatible schema version: expected ${this.schemaVersion}, got ${manifest.schemaVersion}`,
+        `Incompatible schema version: expected ${this.schemaVersion} (or 1.0.0), got ${manifest.schemaVersion}`,
       );
     }
 
-    // 2. Verify checksum
+    // 2. Verify checksum against normalized data
     const dataJson = JSON.stringify(data);
     const actualChecksum = crypto.createHash("sha256").update(dataJson).digest("hex");
-    if (actualChecksum !== manifest.checksum) {
+    // For 1.0.0 snapshots, recompute checksum after normalization may fail;
+    // verify against original payload when versions match and counts match.
+    if (manifest.schemaVersion === this.schemaVersion && actualChecksum !== manifest.checksum) {
       throw new Error(`Checksum mismatch: snapshot might be corrupted`);
+    }
+    if (manifest.schemaVersion === "1.0.0") {
+      const legacyData = {
+        raffles: data.raffles,
+        tickets: data.tickets,
+        users: data.users,
+        cursor: data.cursor,
+      };
+      const legacyChecksum = crypto
+        .createHash("sha256")
+        .update(JSON.stringify(legacyData))
+        .digest("hex");
+      if (legacyChecksum !== manifest.checksum) {
+        throw new Error(`Checksum mismatch: snapshot might be corrupted`);
+      }
     }
 
     // 3. Verify entity counts
-    if (
-      data.raffles.length !== manifest.entityCounts.raffles ||
-      data.tickets.length !== manifest.entityCounts.tickets ||
-      data.users.length !== manifest.entityCounts.users
-    ) {
-      throw new Error(`Entity count mismatch: snapshot manifest entity counts do not match data`);
-    }
+    this.assertEntityCounts(manifest, data);
 
     if (dryRun) {
       this.logger.log("Dry run successful. Skipping database transaction.");
@@ -148,28 +209,50 @@ export class SnapshotService {
     // 4. Perform import in a transaction
     await this.dataSource.transaction(async (manager) => {
       this.logger.log("Clearing existing tables...");
-      
-      // Delete in correct order to respect FKs (though CASCADE should handle it, explicit is safer)
-      // Order: tickets -> raffles -> users -> cursor
+
+      // Delete in FK-safe order
       await manager.delete(TicketEntity, {});
+      await manager.delete(RaffleEventEntity, {});
+      await manager.delete(DeadLetterEventEntity, {});
       await manager.delete(RaffleEntity, {});
       await manager.delete(UserEntity, {});
       await manager.delete(IndexerCursorEntity, {});
+      await manager.delete(PlatformStatEntity, {});
+      await manager.delete(PlatformStateEntity, {});
+      await manager.delete(WebhookEntity, {});
+      await manager.delete(ArchiveCheckpointEntity, {});
 
       this.logger.log("Inserting snapshot data...");
-      
-      if (wrapper.data.users.length > 0) {
-        await manager.save(UserEntity, wrapper.data.users);
+
+      if (data.users.length > 0) {
+        await manager.save(UserEntity, data.users);
       }
-      if (wrapper.data.raffles.length > 0) {
-        await manager.save(RaffleEntity, wrapper.data.raffles);
+      if (data.raffles.length > 0) {
+        await manager.save(RaffleEntity, data.raffles);
       }
-      if (wrapper.data.tickets.length > 0) {
-        // Bulk insert tickets might be large, use chunks if necessary
-        await manager.save(TicketEntity, wrapper.data.tickets, { chunk: 500 });
+      if (data.tickets.length > 0) {
+        await manager.save(TicketEntity, data.tickets, { chunk: 500 });
       }
-      if (wrapper.data.cursor) {
-        await manager.save(IndexerCursorEntity, wrapper.data.cursor);
+      if (data.raffleEvents.length > 0) {
+        await manager.save(RaffleEventEntity, data.raffleEvents, { chunk: 500 });
+      }
+      if (data.deadLetterEvents.length > 0) {
+        await manager.save(DeadLetterEventEntity, data.deadLetterEvents, { chunk: 500 });
+      }
+      if (data.platformStats.length > 0) {
+        await manager.save(PlatformStatEntity, data.platformStats);
+      }
+      if (data.platformState) {
+        await manager.save(PlatformStateEntity, data.platformState);
+      }
+      if (data.webhooks.length > 0) {
+        await manager.save(WebhookEntity, data.webhooks);
+      }
+      if (data.archiveCheckpoints.length > 0) {
+        await manager.save(ArchiveCheckpointEntity, data.archiveCheckpoints);
+      }
+      if (data.cursor) {
+        await manager.save(IndexerCursorEntity, data.cursor);
       }
     });
 
@@ -177,16 +260,75 @@ export class SnapshotService {
     return manifest;
   }
 
+  private normalizeLegacyData(data: SnapshotData): void {
+    data.raffleEvents = data.raffleEvents ?? [];
+    data.deadLetterEvents = data.deadLetterEvents ?? [];
+    data.platformStats = data.platformStats ?? [];
+    data.platformState = data.platformState ?? null;
+    data.webhooks = data.webhooks ?? [];
+    data.archiveCheckpoints = data.archiveCheckpoints ?? [];
+  }
+
+  private assertEntityCounts(manifest: SnapshotManifest, data: SnapshotData): void {
+    const counts = manifest.entityCounts;
+    const mismatches: string[] = [];
+
+    if (data.raffles.length !== counts.raffles) {
+      mismatches.push(`raffles: expected ${counts.raffles}, got ${data.raffles.length}`);
+    }
+    if (data.tickets.length !== counts.tickets) {
+      mismatches.push(`tickets: expected ${counts.tickets}, got ${data.tickets.length}`);
+    }
+    if (data.users.length !== counts.users) {
+      mismatches.push(`users: expected ${counts.users}, got ${data.users.length}`);
+    }
+
+    // Newer fields — only enforce when present in the manifest
+    if (typeof counts.raffleEvents === "number" && data.raffleEvents.length !== counts.raffleEvents) {
+      mismatches.push(`raffleEvents: expected ${counts.raffleEvents}, got ${data.raffleEvents.length}`);
+    }
+    if (
+      typeof counts.deadLetterEvents === "number" &&
+      data.deadLetterEvents.length !== counts.deadLetterEvents
+    ) {
+      mismatches.push(
+        `deadLetterEvents: expected ${counts.deadLetterEvents}, got ${data.deadLetterEvents.length}`,
+      );
+    }
+    if (
+      typeof counts.platformStats === "number" &&
+      data.platformStats.length !== counts.platformStats
+    ) {
+      mismatches.push(
+        `platformStats: expected ${counts.platformStats}, got ${data.platformStats.length}`,
+      );
+    }
+    if (typeof counts.webhooks === "number" && data.webhooks.length !== counts.webhooks) {
+      mismatches.push(`webhooks: expected ${counts.webhooks}, got ${data.webhooks.length}`);
+    }
+    if (
+      typeof counts.archiveCheckpoints === "number" &&
+      data.archiveCheckpoints.length !== counts.archiveCheckpoints
+    ) {
+      mismatches.push(
+        `archiveCheckpoints: expected ${counts.archiveCheckpoints}, got ${data.archiveCheckpoints.length}`,
+      );
+    }
+
+    if (mismatches.length > 0) {
+      throw new Error(
+        `Entity count mismatch: snapshot manifest entity counts do not match data (${mismatches.join("; ")})`,
+      );
+    }
+  }
+
   private async uploadToS3(filename: string, data: Buffer): Promise<void> {
     const storageUrl = this.configService.get<string>("SNAPSHOT_STORAGE_URL");
     if (storageUrl?.startsWith("file://")) {
       const fs = require("fs");
       const path = require("path");
-      // Use URL constructor to handle Windows paths like file:///C:/temp or file://temp properly
-      // For simplicity, if it's file://test, we just use test. Or if file:///test, use /test.
       let dir = storageUrl.slice("file://".length);
-      // Remove leading slash if on Windows (e.g., file:///C:/...)
-      if (process.platform === 'win32' && dir.startsWith('/')) {
+      if (process.platform === "win32" && dir.startsWith("/")) {
         dir = dir.slice(1);
       }
       if (!fs.existsSync(dir)) {
@@ -215,7 +357,7 @@ export class SnapshotService {
       const fs = require("fs");
       const path = require("path");
       let dir = storageUrl.slice("file://".length);
-      if (process.platform === 'win32' && dir.startsWith('/')) {
+      if (process.platform === "win32" && dir.startsWith("/")) {
         dir = dir.slice(1);
       }
       return fs.readFileSync(path.join(dir, filename));
@@ -249,9 +391,8 @@ export class SnapshotService {
     }
 
     const parsed = new URL(storageUrl);
-    // Support s3://bucket/prefix or https://endpoint/bucket/prefix
     const isS3Protocol = parsed.protocol === "s3:";
-    
+
     let bucket: string;
     let keyPrefix: string;
     let endpoint: string | undefined;
@@ -260,7 +401,6 @@ export class SnapshotService {
       bucket = parsed.host;
       keyPrefix = parsed.pathname.slice(1).replace(/\/$/, "");
     } else {
-      // Assume https://endpoint/bucket/prefix
       endpoint = `${parsed.protocol}//${parsed.host}`;
       const pathParts = parsed.pathname.slice(1).split("/");
       bucket = pathParts[0];
@@ -274,7 +414,7 @@ export class SnapshotService {
         accessKeyId: this.configService.get<string>("AWS_ACCESS_KEY_ID") || "minioadmin",
         secretAccessKey: this.configService.get<string>("AWS_SECRET_ACCESS_KEY") || "minioadmin",
       },
-      forcePathStyle: !isS3Protocol, // Needed for Minio/localstack
+      forcePathStyle: !isS3Protocol,
     });
 
     return { client, bucket, keyPrefix };

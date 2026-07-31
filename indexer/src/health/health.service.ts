@@ -13,10 +13,18 @@ import {
   ArchiveIntegrityStatusService,
   ArchiveIntegrityStatusSnapshot,
 } from './archive-integrity-status.service';
+import {
+  LAG_THRESHOLD_DEFAULT,
+  LAG_ALERT_THRESHOLD_DEFAULT,
+  DLQ_PRESSURE_THRESHOLD_DEFAULT,
+} from './health.constants';
 
-export const LAG_THRESHOLD_DEFAULT = 100;
-export const LAG_ALERT_THRESHOLD_DEFAULT = 50;
-export const DLQ_PRESSURE_THRESHOLD_DEFAULT = 100;
+// Re-exported for backward compatibility — source of truth is health.constants.ts
+export {
+  LAG_THRESHOLD_DEFAULT,
+  LAG_ALERT_THRESHOLD_DEFAULT,
+  DLQ_PRESSURE_THRESHOLD_DEFAULT,
+} from './health.constants';
 
 export interface HealthResult {
   status: "ok" | "degraded";

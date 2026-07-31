@@ -296,6 +296,22 @@ export class CostEstimatorService {
   }
 
   /**
+   * Records a fee bump event.
+   */
+  recordFeeBump(raffleId: number, method: 'PRNG' | 'VRF', feeMultiplier: number): void {
+    this.metricsService.recordFeeBump(this.network, method);
+    this.emitAlert({
+      type: 'HIGH_FEE_DETECTED',
+      message: `Fee bumped to ${feeMultiplier}x for raffle ${raffleId}`,
+      severity: 'LOW',
+      details: {
+        actual: feeMultiplier,
+      },
+      timestamp: new Date(),
+    });
+  }
+
+  /**
    * Emits an alert for abnormal cost or submission issues.
    */
   private emitAlert(alert: CostAlert): void {

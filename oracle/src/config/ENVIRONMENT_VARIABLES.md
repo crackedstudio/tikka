@@ -149,6 +149,23 @@ This document describes all environment variables used by the Tikka Oracle servi
 - **Description**: GCP KMS key version
 - **Example**: `GCP_KEY_VERSION=1`
 
+### Key age / rotation tracking
+
+#### `ORACLE_KEY_CREATED_AT`
+- **Type**: ISO-8601 date or datetime
+- **Default**: None
+- **Required**: No (recommended)
+- **Description**: When the active oracle signing key was created or last rotated. Used by `config:verify` and startup to warn when the key is older than `ORACLE_KEY_MAX_AGE_DAYS`.
+- **Example**: `ORACLE_KEY_CREATED_AT=2026-07-27T00:00:00Z`
+- **See**: `docs/runbooks/oracle-key-rotation.md`
+
+#### `ORACLE_KEY_MAX_AGE_DAYS`
+- **Type**: Positive integer
+- **Default**: `90`
+- **Required**: No
+- **Description**: Maximum recommended key age in days. Exceeding this emits a **warning** (does not fail startup by itself).
+- **Example**: `ORACLE_KEY_MAX_AGE_DAYS=90`
+
 ---
 
 ## Queue Configuration

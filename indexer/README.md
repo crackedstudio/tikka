@@ -413,17 +413,21 @@ The indexer includes a robust archiving utility for managing `raffle_events` tab
 # Test archiving (dry-run, no changes)
 npm run archive:raffle-events
 
-# Production archiving (actually deletes records)
+# Production archiving (interactive — type "yes" when prompted)
 DRY_RUN=false npm run archive:raffle-events
 
+# Production / cron (explicit confirmation required)
+CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
+
 # Archive events older than 90 days
-RAFFLE_EVENTS_RETENTION_DAYS=90 DRY_RUN=false npm run archive:raffle-events
+RAFFLE_EVENTS_RETENTION_DAYS=90 CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 ```
 
 ### Key Features
 
 ✅ **Resumable Checkpointing** - Automatically resumes after interruptions  
 ✅ **Dry-Run Mode** - Test without modifying database  
+✅ **Delete Confirmation** - TTY prompt or `CONFIRM_DELETE=yes` before deletes  
 ✅ **Batch Limits** - Control processing with `MAX_BATCH` parameter  
 ✅ **Transactional Safety** - Atomic checkpoint updates with deletions  
 ✅ **Structured Logging** - JSON-formatted progress tracking  
@@ -436,6 +440,7 @@ RAFFLE_EVENTS_RETENTION_DAYS=90 DRY_RUN=false npm run archive:raffle-events
 | `BATCH_SIZE` | `500` | Records per batch |
 | `MAX_BATCH` | unlimited | Maximum batches per run |
 | `DRY_RUN` | `true` | Simulate without changes |
+| `CONFIRM_DELETE` | unset | Required `yes` for non-interactive deletes |
 | `RESUME` | `true` | Resume from checkpoint |
 
 ### Output
@@ -448,6 +453,7 @@ raffle_events_2026-05-30_batch0002.csv
 
 ### Documentation
 
+- 📜 [Retention policy & restore](../docs/database/raffle-events-retention.md) - Criteria, cadence, destination, restore
 - 📖 [Comprehensive Guide](./src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md) - Full documentation
 - 📋 [Quick Reference](./src/maintenance/ARCHIVE_QUICK_REF.md) - Common commands
 - 🔧 [Implementation Summary](./src/maintenance/ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details

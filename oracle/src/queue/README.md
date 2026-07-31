@@ -232,11 +232,16 @@ interface HealthStatus {
 3. If many in `retrying`: Review error logs
 4. Consider increasing `QUEUE_MAX_CONCURRENCY`
 
-### Dead-Lettered Jobs
+### Dead-Lettered Jobs & Quarantine
 1. Check `/queue/dead-letter` for details
 2. Review `lastError` field
 3. Fix root cause (RPC, fees, etc.)
 4. Use rescue CLI: `npm run oracle:rescue -- --request-id <id>`
+
+### Quarantined Jobs (Poison Messages)
+Jobs that crash the handler repeatedly (poison messages) or fail with non-retriable errors are moved to a quarantine list in Redis to prevent them from retrying forever and blocking the queue.
+- **Inspect**: Run `redis-cli lrange oracle:quarantine:randomness 0 -1` to view quarantined jobs, their payloads, and errors.
+- **Replay**: Fix the underlying payload or handler bug, then manually re-submit the request or use a script to re-insert the payload into the queue.
 
 ### Degraded Health
 1. Check `/queue/health` for specifics
