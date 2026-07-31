@@ -266,7 +266,7 @@ npx tsc --noEmit
 
 ### Project Root
 - [../README.md](../README.md) - Project overview
-- [../QUICK_START.md](../QUICK_START.md) - Getting started
+- [../docs/testing/notifications-quick-start.md](../docs/testing/notifications-quick-start.md) - Getting started
 
 ## 📞 Support
 

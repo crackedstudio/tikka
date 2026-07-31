@@ -21,6 +21,10 @@ describe('FreighterAdapter', () => {
     
     mockFreighterApi = await import('@stellar/freighter-api');
     jest.clearAllMocks();
+    // Restore isConnected after tests that delete it (API-unavailable case).
+    if (!mockFreighterApi.isConnected || typeof mockFreighterApi.isConnected !== 'function') {
+      mockFreighterApi.isConnected = jest.fn();
+    }
   });
 
   afterEach(() => {

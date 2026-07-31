@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { MAX_PAGE_LIMIT, DEFAULT_PAGE_LIMIT, PaginationQuerySchema } from '../../../../common/dto/pagination-query.dto';
 
-export const MAX_PAGE_LIMIT = 50;
+export { MAX_PAGE_LIMIT };
 
 const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
 const ASSET_CODE_RE = /^[A-Za-z0-9]+$/;
 
 /** Query params for GET /raffles */
-export const ListRafflesQuerySchema = z.object({
+export const ListRafflesQuerySchema = PaginationQuerySchema.extend({
   status: z
     .string()
     .max(50, 'status must be at most 50 characters')
@@ -29,17 +30,6 @@ export const ListRafflesQuerySchema = z.object({
     .max(12, 'asset code must be at most 12 characters')
     .regex(ASSET_CODE_RE, 'asset code must contain only alphanumeric characters')
     .optional(),
-  limit: z.coerce
-    .number({ invalid_type_error: 'limit must be a number' })
-    .int('limit must be an integer')
-    .min(1, 'limit must be at least 1')
-    .max(MAX_PAGE_LIMIT, `limit must not exceed ${MAX_PAGE_LIMIT}`)
-    .default(20),
-  offset: z.coerce
-    .number({ invalid_type_error: 'offset must be a number' })
-    .int('offset must be an integer')
-    .min(0, 'offset must be at least 0')
-    .default(0),
 });
 
 export class ListRafflesQueryDto {

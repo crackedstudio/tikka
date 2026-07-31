@@ -1,5 +1,5 @@
 import { OracleLoggerService, OracleLogFields } from '../logger/oracle-logger';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { RandomnessResult } from '../queue/queue.types';
@@ -7,6 +7,7 @@ import { FeeEstimatorService, FeeEstimate } from './fee-estimator.service';
 import { KeyService } from '../keys/key.service';
 import { CostEstimatorService } from './cost-estimator.service';
 import { ContractBuilders } from '../contract/contract.builders';
+import { MetricsService } from '../metrics/metrics.service';
 
 /**
  * Explicit transaction lifecycle states for state machine tracking
@@ -124,6 +125,7 @@ export class TxSubmitterService {
 
   private readonly maxAttempts: number;
   private readonly initialBackoffMs: number;
+  private readonly maxFeeBump: number;
   private readonly POLL_TIMEOUT_MS = 30000;
   private readonly POLL_INTERVAL_MS = 1000;
   private readonly alertWebhookUrl?: string;
@@ -134,6 +136,7 @@ export class TxSubmitterService {
     private readonly feeEstimator: FeeEstimatorService,
     private readonly keyService: KeyService,
     private readonly costEstimator: CostEstimatorService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {
     const primary =
       this.configService.get<string>('SOROBAN_RPC_URL') ||
@@ -161,6 +164,7 @@ export class TxSubmitterService {
 
     this.maxAttempts = this.configService.get<number>('TX_SUBMIT_MAX_ATTEMPTS', 5);
     this.initialBackoffMs = this.configService.get<number>('TX_SUBMIT_INITIAL_BACKOFF_MS', 1000);
+    this.maxFeeBump = this.configService.get<number>('TX_SUBMIT_MAX_FEE_BUMP', 10);
     this.alertWebhookUrl = this.configService.get<string>('TX_SUBMIT_ALERT_WEBHOOK_URL');
   }
 
@@ -178,6 +182,9 @@ export class TxSubmitterService {
     requestId: string,
     randomness: RandomnessResult,
   ): Promise<TransactionOutcome> {
+    // Main-loop heartbeat — updated on every submission attempt path.
+    this.metricsService?.recordComponentHeartbeat('submitter');
+
     const startTime = Date.now();
     const telemetry: TelemetryContext = {
       raffleId,
@@ -233,7 +240,11 @@ export class TxSubmitterService {
           // Handle retriable errors with backoff
           if (submitResult.shouldRetry) {
             if (submitResult.bumpFee) {
-              feeBump = Math.max(feeBump * 2, feeBump + 1);
+              const prevBump = feeBump;
+              feeBump = Math.min(Math.max(feeBump * 2, feeBump + 1), this.maxFeeBump);
+              if (feeBump > prevBump) {
+                this.costEstimator.recordFeeBump(telemetry.raffleId || 0, 'PRNG', feeBump);
+              }
               this.logTelemetry(telemetry, `Bumping fee multiplier to ${feeBump}x`);
             }
 
@@ -342,7 +353,7 @@ export class TxSubmitterService {
           this.logTelemetry(telemetry, 'Submission timeout, attempting hash recovery');
           // In some cases, the transaction may have been submitted despite timeout
           // We'll retry with backoff
-          return { shouldRetry: true, bumpFee: false };
+          return { shouldRetry: true, bumpFee: true };
         }
 
         return { shouldRetry: true, bumpFee: false };
@@ -355,7 +366,7 @@ export class TxSubmitterService {
       this.logTelemetry(telemetry, `Polling for confirmation: ${txHash}`);
 
       const outcome = await this.pollForConfirmationTyped(txHash, telemetry);
-      return { outcome, shouldRetry: outcome.retriable, bumpFee: false };
+      return { outcome, shouldRetry: outcome.retriable, bumpFee: outcome.status === 'TIMEOUT' };
     } catch (error: any) {
       const errorMessage = this.errorToString(error);
 
@@ -814,7 +825,9 @@ export class TxSubmitterService {
         const txHash = sendRes.hash || sendRes?.transactionHash || '';
         if (!txHash) {
           if (this.isInsufficientFeeError(JSON.stringify(sendRes))) {
-            feeBump = Math.max(feeBump * 2, feeBump + 1);
+            const prevBump = feeBump;
+            feeBump = Math.min(Math.max(feeBump * 2, feeBump + 1), this.maxFeeBump);
+            if (feeBump > prevBump) this.costEstimator.recordFeeBump(0, 'PRNG', feeBump);
           }
           lastError = new Error('sendTransaction returned no hash');
           await this.logRetryAndBackoff(method, attempt, lastError);
@@ -829,8 +842,10 @@ export class TxSubmitterService {
           return { txHash, ledger: (confirm.ledger as number) || 0, success: true, feePaid };
         }
         const confirmMessage = JSON.stringify(confirm);
-        if (this.isInsufficientFeeError(confirmMessage)) {
-          feeBump = Math.max(feeBump * 2, feeBump + 1);
+        if (this.isInsufficientFeeError(confirmMessage) || confirm?.status === 'TIMEOUT') {
+          const prevBump = feeBump;
+          feeBump = Math.min(Math.max(feeBump * 2, feeBump + 1), this.maxFeeBump);
+          if (feeBump > prevBump) this.costEstimator.recordFeeBump(0, 'PRNG', feeBump);
           this.costEstimator.recordSubmissionRetry(0, 'PRNG');
         }
         const failure = new Error(`${method} failed (status=${confirm?.status || 'UNKNOWN'})`);
@@ -843,8 +858,10 @@ export class TxSubmitterService {
       } catch (e: any) {
         const msg = e?.message || String(e);
         if (this.isRpcError(msg)) this.failoverRpc();
-        else if (this.isInsufficientFeeError(msg)) {
-          feeBump = Math.max(feeBump * 2, feeBump + 1);
+        else if (this.isInsufficientFeeError(msg) || this.isTimeoutError(msg)) {
+          const prevBump = feeBump;
+          feeBump = Math.min(Math.max(feeBump * 2, feeBump + 1), this.maxFeeBump);
+          if (feeBump > prevBump) this.costEstimator.recordFeeBump(0, 'PRNG', feeBump);
           this.costEstimator.recordSubmissionRetry(0, 'PRNG');
         }
         this.logger.error(`Error calling ${method} (attempt ${attempt}/${this.maxAttempts}): ${msg}`);

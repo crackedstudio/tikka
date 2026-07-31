@@ -3,6 +3,9 @@ import { MeterProvider } from '@opentelemetry/sdk-metrics';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { Counter, Gauge, Meter, ObservableResult } from '@opentelemetry/api';
 
+/** Oracle components that emit per-loop liveness heartbeats. */
+export type OracleHeartbeatComponent = 'listener' | 'queue' | 'submitter';
+
 @Injectable()
 export class MetricsService implements OnModuleInit {
   private meter: Meter;
@@ -12,10 +15,24 @@ export class MetricsService implements OnModuleInit {
   private estimatedFeeGauge: Gauge;
   private actualFeeCounter: Counter;
   private submissionOutcomeCounter: Counter;
+  private feeBumpCounter: Counter;
 
   // VRF metrics
   private vrfFailuresCounter: Counter;
   private vrfProofsCounter: Counter;
+
+  // Event listener gap / backfill metrics
+  private eventListenerGapCounter: Counter;
+  private eventListenerBackfillCounter: Counter;
+  private gapDetectionCount = 0;
+
+  // Per-component last-activity heartbeats (unix seconds)
+  private componentHeartbeatGauge: Gauge;
+  private readonly lastHeartbeatMs: Record<OracleHeartbeatComponent, number> = {
+    listener: 0,
+    queue: 0,
+    submitter: 0,
+  };
 
   constructor() {
     this.exporter = new PrometheusExporter({
@@ -43,6 +60,11 @@ export class MetricsService implements OnModuleInit {
       description: 'Total number of submissions by outcome',
     });
 
+    // Fee bump counter
+    this.feeBumpCounter = this.meter.createCounter('tikka_oracle_fee_bumps_total', {
+      description: 'Total number of times a transaction fee was bumped',
+    });
+
     // VRF failures with reason label
     this.vrfFailuresCounter = this.meter.createCounter('oracle_vrf_failures_total', {
       description: 'Total number of VRF proof generation failures',
@@ -52,6 +74,31 @@ export class MetricsService implements OnModuleInit {
     this.vrfProofsCounter = this.meter.createCounter('oracle_vrf_proofs_total', {
       description: 'Total number of successful VRF proof generations',
     });
+
+    // Gaps detected when the event listener reconnects and backfills
+    this.eventListenerGapCounter = this.meter.createCounter(
+      'oracle_event_listener_gaps_total',
+      {
+        description:
+          'Total number of event-stream gaps detected on reconnect/backfill',
+      },
+    );
+
+    this.eventListenerBackfillCounter = this.meter.createCounter(
+      'oracle_event_listener_backfill_events_total',
+      {
+        description: 'Total number of events recovered via backfill after a gap',
+      },
+    );
+
+    // Last-activity heartbeat per component (listener / queue / submitter)
+    this.componentHeartbeatGauge = this.meter.createGauge(
+      'tikka_oracle_component_heartbeat_unixtime',
+      {
+        description:
+          'Unix timestamp (seconds) of the last main-loop iteration for each oracle component',
+      },
+    );
 
     // Standard metrics
     this.meter.createObservableGauge('tikka_oracle_memory_usage_bytes', {
@@ -80,12 +127,50 @@ export class MetricsService implements OnModuleInit {
     this.submissionOutcomeCounter.add(1, { outcome, network, method });
   }
 
+  recordFeeBump(network: string, method: string) {
+    this.feeBumpCounter.add(1, { network, method });
+  }
+
   recordVrfFailure(reason: string) {
     this.vrfFailuresCounter.add(1, { reason });
   }
 
   recordVrfProofSuccess() {
     this.vrfProofsCounter.add(1);
+  }
+
+  /**
+   * Record a detected gap in the Horizon event stream (e.g. after reconnect backfill).
+   * @param backfilledEvents Number of events recovered during backfill (0 if ledger-only gap).
+   */
+  recordEventListenerGap(backfilledEvents = 0) {
+    this.gapDetectionCount += 1;
+    this.eventListenerGapCounter.add(1);
+    if (backfilledEvents > 0) {
+      this.eventListenerBackfillCounter.add(backfilledEvents);
+    }
+  }
+
+  /** Process-local count of gap detections (useful for unit tests). */
+  getGapDetectionCount(): number {
+    return this.gapDetectionCount;
+  }
+
+  /**
+   * Record that a component completed a main-loop iteration.
+   * Call this from the listener event path, queue worker process, and submitter path.
+   */
+  recordComponentHeartbeat(
+    component: OracleHeartbeatComponent,
+    atMs: number = Date.now(),
+  ): void {
+    this.lastHeartbeatMs[component] = atMs;
+    this.componentHeartbeatGauge.record(atMs / 1000, { component });
+  }
+
+  /** Process-local last heartbeat time in ms (useful for unit tests). */
+  getComponentHeartbeatMs(component: OracleHeartbeatComponent): number {
+    return this.lastHeartbeatMs[component];
   }
 
   /**

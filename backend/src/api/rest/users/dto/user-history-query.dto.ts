@@ -1,29 +1,3 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 
-export class UserHistoryQueryDto {
-  @ApiPropertyOptional({
-    description: 'Number of records to return',
-    minimum: 1,
-    maximum: 100,
-    default: 20,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 20;
-
-  @ApiPropertyOptional({
-    description: 'Number of records to skip',
-    minimum: 0,
-    default: 0,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset?: number = 0;
-}
+export class UserHistoryQueryDto extends PaginationQueryDto {}
