@@ -6,6 +6,7 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 
 **Consumers:** Frontend (client), third-party developers.
 
+**Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./DEPRECATION.md).
 ## Light vs full build
 
 Choose the full SDK when you need NestJS modules, dependency injection, wallet services, or the higher-level contract helpers that assume the framework runtime. Choose the light build when you need a browser-friendly entry point for low-level RPC access and lightweight types without the NestJS overhead.

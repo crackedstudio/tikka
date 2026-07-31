@@ -7,9 +7,10 @@ This document defines versioning, changelog, and deployment procedures for the T
 ### SDK (`@tikka/sdk`)
 - **Semantic Versioning**: `MAJOR.MINOR.PATCH`
 - **MAJOR**: Breaking changes to public APIs (Raffle, Ticket, Wallet, User, Network, Utils modules)
-- **MINOR**: New features, non-breaking additions
+- **MINOR**: New features, non-breaking additions, **or** marking public API as deprecated
 - **PATCH**: Bug fixes, internal improvements
 - **Pre-release**: `0.x.y` during development; increment MINOR for feature releases
+- **Deprecation**: Announce via JSDoc `@deprecated` + `CHANGELOG` `### Deprecated`, keep for at least one MINOR cycle, remove only in a subsequent MAJOR (see [sdk/DEPRECATION.md](../sdk/DEPRECATION.md))
 
 ### Apps (Client, Backend, Indexer, Oracle)
 - **Calendar Versioning**: `YYYY.MM.PATCH`
@@ -104,10 +105,11 @@ cd sdk && npm publish
 ### SDK Release (Manual)
 
 1. Update version in `sdk/package.json`
-2. Add entry to `CHANGELOG.md` (see template below)
-3. Tag commit: `sdk-v0.1.0`
-4. Publish to npm: `npm publish` (from `sdk/` directory)
-5. Update TypeDoc: `npm run docs`
+2. Add entry to `CHANGELOG.md` using the [SDK section template](../sdk/DEPRECATION.md#sdk-changelog-section-template) (also summarized below)
+3. Confirm deprecations/removals follow [sdk/DEPRECATION.md](../sdk/DEPRECATION.md)
+4. Tag commit: `sdk-v0.1.0`
+5. Publish to npm: `npm publish` (from `sdk/` directory)
+6. Update TypeDoc: `npm run docs`
 
 ### App Release (Client, Backend, Indexer, Oracle)
 
