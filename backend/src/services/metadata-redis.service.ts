@@ -97,4 +97,32 @@ export class MetadataRedisService implements OnModuleInit, OnModuleDestroy {
       /* best-effort */
     }
   }
+
+  async sAdd(key: string, member: string): Promise<void> {
+    if (!this.client) {
+      return;
+    }
+    try {
+      if (this.client.status === 'wait') {
+        await this.client.connect();
+      }
+      await this.client.sadd(key, member);
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  async sMembers(key: string): Promise<string[]> {
+    if (!this.client) {
+      return [];
+    }
+    try {
+      if (this.client.status === 'wait') {
+        await this.client.connect();
+      }
+      return await this.client.smembers(key);
+    } catch {
+      return [];
+    }
+  }
 }

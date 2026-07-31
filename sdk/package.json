@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "description": "NestJS SDK for Tikka Soroban contract interaction",
   "private": true,
+  "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -20,6 +22,11 @@
       "import": "./dist/write/index.write.js",
       "require": "./dist/write/index.write.js",
       "types": "./dist/write/index.write.d.ts"
+    },
+    "./light": {
+      "import": "./dist/light/index.light.js",
+      "require": "./dist/light/index.light.js",
+      "types": "./dist/light/index.light.d.ts"
     }
   },
   "bin": {
@@ -34,7 +41,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest",
+    "test": "jest --config jest.config.cjs",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
     "example:cli": "node bin/tikka.mjs",
@@ -43,9 +50,11 @@
     "example:buy-tickets": "ts-node examples/buy-tickets.ts",
     "example:listen-events": "ts-node examples/listen-events.ts",
     "example:offline-signing": "ts-node examples/offline-signing.ts",
+    "example:custom-wallet": "ts-node examples/custom-wallet.ts",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
+    "analyze:light": "node scripts/bundle-analysis/analyze.mjs",
     "size-check:legacy": "powershell (Get-Item dist/light/index.light.js).Length"
   },
   "size-limit": [
@@ -53,7 +62,29 @@
       "name": "@tikka/sdk/read",
       "path": "dist/read/index.read.js",
       "limit": "50 kB",
-      "gzip": true
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
+    },
+    {
+      "name": "@tikka/sdk light",
+      "path": "dist/light/index.light.js",
+      "limit": "25 kB",
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
     }
   ],
   "dependencies": {
@@ -62,11 +93,11 @@
     "@nestjs/common": "^10.4.0",
     "@nestjs/core": "^10.4.0",
     "@stellar/freighter-api": "^3.1.0",
-    "@stellar/stellar-sdk": "^14.5.0",
-    "bignumber.js": "^9.3.1",
+    "@stellar/stellar-sdk": "^16.1.0",
+    "bignumber.js": "^11.1.4",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
-    "inquirer": "^9.3.2",
+    "inquirer": "^14.0.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0"
   },
@@ -76,30 +107,17 @@
     "@size-limit/preset-small-lib": "^11.1.6",
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "eslint": "^10.0.2",
     "fast-check": "^4.7.0",
-    "jest": "^30.3.0",
+    "jest": "^30.4.2",
     "size-limit": "^11.1.6",
-    "ts-jest": "^29.4.6",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.18",
-    "typedoc-plugin-markdown": "4.11",
+    "typedoc-plugin-markdown": "4.12",
     "typescript": "^5.6.0"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "testEnvironment": "node"
   }
 }

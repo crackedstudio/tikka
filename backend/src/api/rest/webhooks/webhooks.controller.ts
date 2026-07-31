@@ -6,11 +6,13 @@ import {
   Param,
   Post,
   Put,
+  UseInterceptors,
   UsePipes,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { WebhookService } from '../../../services/webhook.service';
+import { WebhookSignatureVerificationInterceptor } from './webhook-signature-verification.interceptor';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
 import {
   CreateWebhookDto,
@@ -23,7 +25,7 @@ import {
 @ApiBearerAuth()
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(private readonly webhookService: WebhookService) {}
+  constructor(private readonly webhookService: WebhookService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new webhook subscription' })
@@ -86,5 +88,15 @@ export class WebhooksController {
     @Param('id') id: string,
   ) {
     return this.webhookService.getDeliveries(id, address);
+  }
+
+  @Get(':id/dead-letters')
+  @ApiOperation({ summary: 'Get permanently failed (dead letter) deliveries for a webhook' })
+  @ApiParam({ name: 'id', description: 'Webhook UUID' })
+  async getDeadLetters(
+    @CurrentUser('address') address: string,
+    @Param('id') id: string,
+  ) {
+    return this.webhookService.getDeadLetters(id, address);
   }
 }

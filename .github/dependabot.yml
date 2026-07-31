@@ -1,0 +1,57 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - client
+
+  - package-ecosystem: npm
+    directory: /sdk
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - sdk
+
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - backend
+
+  - package-ecosystem: npm
+    directory: /indexer
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - indexer
+
+  - package-ecosystem: npm
+    directory: /oracle
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - oracle
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docker
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - github-actions

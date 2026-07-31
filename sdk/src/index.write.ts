@@ -30,6 +30,11 @@ export * from './index.read';
 export { ContractService } from './contract/contract.service';
 export type { InvokeOptions, UnsignedTxResult, TxMemo } from './contract/contract.service';
 export { TransactionLifecycle } from './contract/lifecycle';
+export {
+  buildUnsignedOfflineTransaction,
+  signTransactionOffline,
+  verifyOfflineSignature,
+} from './contract/offline-signing';
 export type {
   SimulateResult,
   SubmitResult,
@@ -55,6 +60,7 @@ export { UserService } from './modules/user/user.service';
 export type {
   RaffleParams,
   CreateRaffleResult,
+  CreateRaffleEstimate,
   CancelRaffleResult,
   CancelRaffleParams,
 } from './modules/raffle/raffle.types';

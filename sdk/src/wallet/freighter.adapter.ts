@@ -17,9 +17,11 @@ import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
  */
 export class FreighterAdapter extends WalletAdapter {
   readonly name = WalletName.Freighter;
+  private connectedPublicKey: string | null = null;
 
   constructor(options: WalletAdapterOptions = {}) {
     super(options);
+    this.attemptAutoReconnect();
   }
 
   /* ------------------------------------------------------------------ */
@@ -31,14 +33,47 @@ export class FreighterAdapter extends WalletAdapter {
   }
 
   /* ------------------------------------------------------------------ */
+  /*  Connection                                                         */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Connects to Freighter. Attempts auto-reconnect first if already connected.
+   * This is optional - getPublicKey() will also work without explicit connect().
+   */
+  async connect(): Promise<void> {
+    this.assertInstalled();
+    
+    // If already auto-reconnected, we're done
+    if (this.connectedPublicKey) {
+      return;
+    }
+
+    // Attempt auto-reconnect
+    await this.attemptAutoReconnect();
+    
+    // If auto-reconnect didn't work, getPublicKey() will prompt the user
+    if (!this.connectedPublicKey) {
+      // Trigger connection by getting public key
+      await this.getPublicKey();
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /*  Public key                                                         */
   /* ------------------------------------------------------------------ */
 
   async getPublicKey(): Promise<string> {
     this.assertInstalled();
+    
+    // If already connected, return cached key without prompting
+    if (this.connectedPublicKey) {
+      return this.connectedPublicKey;
+    }
+    
     try {
       const freighterApi = await this.getFreighterApi();
       const { address } = await freighterApi.getAddress();
+      this.connectedPublicKey = address;
       return address;
     } catch (err: any) {
       if (this.isUserRejection(err)) {
@@ -194,5 +229,51 @@ export class FreighterAdapter extends WalletAdapter {
       msg.includes('user rejected') ||
       msg.includes('cancelled')
     );
+  }
+
+  /**
+   * Attempts to auto-reconnect if Freighter is already connected
+   * without showing a permission prompt to the user.
+   */
+  private async attemptAutoReconnect(): Promise<void> {
+    try {
+      if (!this.isAvailable()) return;
+
+      const freighterApi = await this.getFreighterApi();
+      
+      // Check if Freighter is already connected
+      if (typeof freighterApi.isConnected === 'function') {
+        const connected = await freighterApi.isConnected();
+        
+        if (connected) {
+          // Retrieve the public key without showing permission prompt
+          const { address } = await freighterApi.getAddress();
+          this.connectedPublicKey = address;
+          
+          // Emit reconnected event if the adapter supports events
+          this.emitReconnected();
+        }
+      }
+    } catch (error) {
+      // Silent failure - auto-reconnect is best-effort
+      // Don't log to avoid console noise on first load
+    }
+  }
+
+  /**
+   * Emits a reconnected event. Can be extended to support
+   * an event emitter pattern if needed by the client.
+   */
+  private emitReconnected(): void {
+    // For now, this is a placeholder for future event emitter integration
+    // The client can detect reconnection by checking if getPublicKey()
+    // returns immediately without user interaction
+  }
+
+  /**
+   * Disconnects the wallet and clears cached state
+   */
+  disconnect(): void {
+    this.connectedPublicKey = null;
   }
 }

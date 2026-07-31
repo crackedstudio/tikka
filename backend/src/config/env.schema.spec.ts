@@ -43,7 +43,7 @@ describe('env.schema validate()', () => {
     expect(result.SIWS_DOMAIN).toBe('tikka.io');
     expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
     expect(result.REDIS_URL).toBe('redis://localhost:6379');
-    expect(result.METADATA_CACHE_TTL_SECONDS).toBe(3600);
+    expect(result.METADATA_CACHE_TTL_SECONDS).toBe(300);
     expect(result.RAFFLE_CREATE_RATE_LIMIT).toBe(5);
     expect(result.RAFFLE_CREATE_RATE_WINDOW_SECONDS).toBe(600);
     expect(result.FEATURE_RAFFLE_TICKET_PURCHASE).toBe(false);
@@ -234,9 +234,9 @@ describe('env.schema validate()', () => {
     const result = validate(validEnv);
     expect(result.THROTTLE_DEFAULT_LIMIT).toBe(100);
     expect(result.THROTTLE_DEFAULT_TTL).toBe(60);
-    expect(result.THROTTLE_AUTH_LIMIT).toBe(10);
-    expect(result.THROTTLE_AUTH_TTL).toBe(60);
-    expect(result.THROTTLE_NONCE_LIMIT).toBe(30);
+    expect(result.THROTTLE_AUTH_LIMIT).toBe(5);
+    expect(result.THROTTLE_AUTH_TTL).toBe(900);
+    expect(result.THROTTLE_NONCE_LIMIT).toBe(10);
     expect(result.THROTTLE_NONCE_TTL).toBe(60);
   });
 

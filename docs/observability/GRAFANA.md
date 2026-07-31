@@ -14,7 +14,8 @@
 | Panel | Query | Type |
 |-------|-------|------|
 | Events Processed Rate | `rate(tikka_indexer_events_processed_total[5m])` | Timeseries |
-| Indexer Lag (Ledgers) | `tikka_indexer_lag_ledgers` | Timeseries |
+| Indexer Ingestion Lag (Ledgers) | `tikka_indexer_ingestion_lag_ledgers` | Timeseries (threshold: 50) |
+| Indexer Ingestion Lag (Seconds) | `tikka_indexer_ingestion_lag_seconds` | Timeseries (threshold: 90) |
 | Error Rate | `rate(tikka_indexer_errors_total[5m])` | Timeseries |
 | Memory Usage | `tikka_indexer_memory_usage_bytes` | Timeseries |
 
@@ -22,7 +23,8 @@
 
 | Panel | Query | Type | Thresholds |
 |-------|-------|------|------------|
-| Indexer Lag (Ledgers) | `tikka_indexer_lag_ledgers` | Gauge | 10 (yellow), 50 (red) |
+| Indexer Ingestion Lag (Ledgers) | `tikka_indexer_ingestion_lag_ledgers` | Gauge | 10 (yellow), 50 (red) |
+| Indexer Ingestion Lag (Seconds) | `tikka_indexer_ingestion_lag_seconds` | Gauge | 30 (yellow), 90 (red) |
 | Events Processed Rate (per min) | `sum by (event_type) (rate(tikka_indexer_events_processed_total[1m]))` | Timeseries | — |
 | Average Poll Duration | `rate(tikka_indexer_poll_duration_seconds_sum[1m]) / rate(tikka_indexer_poll_duration_seconds_count[1m])` | Timeseries | — |
 
@@ -116,14 +118,15 @@ This dashboard correlates events across backend, indexer, and oracle in a single
 | `rate(tikka_indexer_events_processed_total[5m])` | Indexer (:3002) |
 | `sum by (outcome) (rate(tikka_oracle_submission_outcome_total[5m]))` | Oracle (:3003) |
 
-### Panel: Lag Comparison
+### Panel: Ingestion Lag Comparison
 
 **Queries:**
 
 | Query | Source |
 |-------|--------|
-| `tikka_indexer_lag_ledgers` | Indexer (:3002) |
-| (future) `tikka_oracle_lag_ledgers` | Oracle (:3003) |
+| `tikka_indexer_ingestion_lag_ledgers` | Indexer (:3002) |
+| `tikka_indexer_ingestion_lag_seconds` | Indexer (:3002) |
+| (future) `tikka_oracle_ingestion_lag_ledgers` | Oracle (:3003) |
 
 ### Panel: Error Rate Comparison
 
@@ -186,13 +189,31 @@ scrape_configs:
 groups:
   - name: tikka-indexer-alerts
     rules:
-      - alert: IndexerFallingBehind
-        expr: tikka_indexer_lag_ledgers > 20
+      - alert: IndexerIngestionLagLedgers
+        expr: tikka_indexer_ingestion_lag_ledgers > 50
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "Indexer is lagging behind the Stellar network"
+          summary: "Indexer has fallen more than 50 ledgers behind the Stellar network tip"
+          description: "tikka_indexer_ingestion_lag_ledgers={{ $value }} ledgers for 5m. See docs/observability/INGESTION_LAG.md."
+
+      - alert: IndexerIngestionLagSeconds
+        expr: tikka_indexer_ingestion_lag_seconds > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Indexer is more than 90s behind the last closed network ledger"
+          description: "tikka_indexer_ingestion_lag_seconds={{ $value }}s for 5m. See docs/observability/INGESTION_LAG.md."
+
+      - alert: IndexerFallingBehind
+        # Deprecated alias of IndexerIngestionLagLedgers; retained so operators
+        # with pre-#1110 dashboards do not see a silent alert gap.
+        expr: tikka_indexer_lag_ledgers > 20
+        for: 5m
+        labels:
+          severity: critical
 
       - alert: IndexerHighLatency
         expr: rate(tikka_indexer_poll_duration_seconds_sum[5m]) / rate(tikka_indexer_poll_duration_seconds_count[5m]) > 10

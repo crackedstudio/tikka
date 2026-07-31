@@ -126,12 +126,11 @@ const NetworkWarning = () => {
             onMouseOver={(e) => (e.currentTarget.style.opacity = "0.85")}
             onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
           >
-            Switch to {required}
+            {buttonText}
           </button>
 
           <p style={{ color: "#6B7280", fontSize: "0.75rem", marginTop: "0.75rem" }}>
-            If your wallet doesn&apos;t support automatic switching, change the
-            network manually in your wallet extension and reconnect.
+            {message}
           </p>
         </div>
       </div>

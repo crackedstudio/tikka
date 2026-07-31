@@ -1,4 +1,4 @@
-import { redact } from './oracle-logger';
+import { redact, CorrelationContext, OracleLoggerService } from './oracle-logger';
 
 describe('redact()', () => {
   it('returns primitives unchanged (non-string)', () => {
@@ -73,5 +73,64 @@ describe('redact()', () => {
     expect(result.ORACLE_PRIVATE_KEY).toBe('[REDACTED]');
     expect(result.SUPABASE_SERVICE_ROLE_KEY).toBe('[REDACTED]');
     expect(result.DATABASE_URL).toBe('[REDACTED]');
+  });
+});
+
+describe('CorrelationContext', () => {
+  it('returns undefined outside of a run', () => {
+    expect(CorrelationContext.getCorrelationId()).toBeUndefined();
+  });
+
+  it('provides correlationId inside run()', () => {
+    CorrelationContext.run('job-42', () => {
+      expect(CorrelationContext.getCorrelationId()).toBe('job-42');
+    });
+  });
+
+  it('restores undefined after run() completes', () => {
+    CorrelationContext.run('job-99', () => {});
+    expect(CorrelationContext.getCorrelationId()).toBeUndefined();
+  });
+});
+
+describe('OracleLoggerService', () => {
+  let service: OracleLoggerService;
+  let captured: unknown[];
+
+  beforeEach(() => {
+    service = new OracleLoggerService();
+    captured = [];
+    // Spy on the internal winston logger
+    const winstonLogger = (service as any).winstonLogger;
+    jest.spyOn(winstonLogger, 'info').mockImplementation((entry: unknown) => { captured.push(entry); });
+    jest.spyOn(winstonLogger, 'warn').mockImplementation((entry: unknown) => { captured.push(entry); });
+    jest.spyOn(winstonLogger, 'error').mockImplementation((entry: unknown) => { captured.push(entry); });
+  });
+
+  it('emits a structured entry with required fields', () => {
+    service.log('hello', 'MyService');
+    const entry = captured[0] as Record<string, unknown>;
+    expect(entry).toMatchObject({ service: 'MyService', level: 'info', message: 'hello' });
+    expect(typeof entry.timestamp).toBe('string');
+  });
+
+  it('includes correlationId when inside CorrelationContext.run()', () => {
+    CorrelationContext.run('job-123', () => {
+      service.log('inside job', 'MyService');
+    });
+    const entry = captured[0] as Record<string, unknown>;
+    expect(entry.correlationId).toBe('job-123');
+  });
+
+  it('omits correlationId when outside CorrelationContext.run()', () => {
+    service.log('outside job', 'MyService');
+    const entry = captured[0] as Record<string, unknown>;
+    expect(entry).not.toHaveProperty('correlationId');
+  });
+
+  it('redacts sensitive fields in structured entries', () => {
+    service.log({ message: 'key info', privateKey: 'secret123' } as any, 'MyService');
+    const entry = captured[0] as Record<string, unknown>;
+    expect(entry.message).not.toContain('secret123');
   });
 });

@@ -51,6 +51,7 @@ async function bootstrap() {
       fileSize: MAX_UPLOAD_BYTES,
       files: 1,
     },
+    throwFileSizeLimit: true,
   });
 
   app.useGlobalInterceptors(new SentryInterceptor(), new RequestLoggingInterceptor());

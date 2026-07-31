@@ -74,6 +74,34 @@
         }
       ],
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "title": "VRF Proof Success/Failure Rate",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "custom": {
+            "stacking": { "mode": "normal" },
+            "fillOpacity": 30
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(oracle_vrf_proofs_total[5m])",
+          "legendFormat": "success"
+        },
+        {
+          "expr": "sum by (reason) (rate(oracle_vrf_failures_total[5m]))",
+          "legendFormat": "failure: {{reason}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
     }
   ]
 }

@@ -67,3 +67,113 @@ describe('UserService', () => {
     });
   });
 });
+
+describe('UserService.getWinnings', () => {
+  const WINNER = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW';
+
+  function buildService() {
+    const contractService = {
+      simulateReadOnly: jest.fn(),
+    } as unknown as jest.Mocked<ContractService>;
+    return { service: new UserService(contractService as any), contractService };
+  }
+
+  it('returns claimed: false for an unclaimed prize', async () => {
+    const { service, contractService } = buildService();
+
+    // First call: GET_USER_PARTICIPATION
+    contractService.simulateReadOnly
+      .mockResolvedValueOnce({
+        success: true,
+        value: {
+          total_raffles_entered: 1,
+          total_tickets_bought: 2,
+          total_raffles_won: 1,
+          raffle_ids: [42],
+        },
+      })
+      // Second call: GET_RAFFLE_DATA (for activity summary — winner present)
+      .mockResolvedValueOnce({
+        success: true,
+        value: {
+          creator: 'GCREATORAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+          status: 2, // Finalized
+          winner: WINNER,
+          prize_amount: '1000',
+          asset: 'XLM',
+          ticket_price: '100',
+          max_tickets: 50,
+          tickets_sold: 10,
+          end_time: Date.now() - 1000,
+          allow_multiple: false,
+          metadata_cid: '',
+        },
+      })
+      // Third call: GET_USER_TICKETS (for activity summary)
+      .mockResolvedValueOnce({ success: true, value: [1, 2] })
+      // Fourth call: GET_RAFFLE_DATA again (inside getWinnings claim check)
+      .mockResolvedValueOnce({
+        success: true,
+        value: {
+          winner: WINNER, // still the winner — not yet claimed
+          asset: 'XLM',
+        },
+      });
+
+    const result = await service.getWinnings(WINNER);
+
+    expect(result.success).toBe(true);
+    expect(result.value).toHaveLength(1);
+    expect(result.value![0]).toMatchObject({
+      raffleId: 42,
+      prizeAmount: '1000',
+      prizeAsset: 'XLM',
+      claimed: false,
+    });
+  });
+
+  it('returns claimed: true when the prize was already claimed', async () => {
+    const { service, contractService } = buildService();
+
+    contractService.simulateReadOnly
+      .mockResolvedValueOnce({
+        success: true,
+        value: {
+          total_raffles_entered: 1,
+          total_tickets_bought: 2,
+          total_raffles_won: 1,
+          raffle_ids: [42],
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        value: {
+          creator: 'GCREATORAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+          status: 2,
+          winner: WINNER,
+          prize_amount: '1000',
+          asset: 'XLM',
+          ticket_price: '100',
+          max_tickets: 50,
+          tickets_sold: 10,
+          end_time: Date.now() - 1000,
+          allow_multiple: false,
+          metadata_cid: '',
+        },
+      })
+      .mockResolvedValueOnce({ success: true, value: [1, 2] })
+      // Claim-check call: winner field is different — prize was claimed
+      .mockResolvedValueOnce({
+        success: true,
+        value: {
+          winner: 'GDIFFERENTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+          asset: 'XLM',
+        },
+      });
+
+    const result = await service.getWinnings(WINNER);
+
+    expect(result.success).toBe(true);
+    expect(result.value![0].claimed).toBe(true);
+  });
+});

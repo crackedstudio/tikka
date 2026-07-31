@@ -1,0 +1,15 @@
+export const fakeRaffleDetail = {
+  id: 123,
+  title: 'Test Raffle',
+  description: 'Demo raffle for end-to-end test',
+  creator: 'GTESTADDRESS1234567890ABCDEF',
+  status: 'open',
+  end_time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  ticket_price: '0.1',
+  max_tickets: 100,
+  tickets_sold: 0,
+  asset: 'XLM',
+  prize_amount: '100',
+  image_url: 'https://test.image/raffle.jpg',
+  created_at: new Date().toISOString(),
+};

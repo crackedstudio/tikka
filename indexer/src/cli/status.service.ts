@@ -4,7 +4,7 @@ import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity'
 import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
 import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
 import Redis from 'ioredis';
-import { LAG_THRESHOLD_DEFAULT } from '../health/health.service';
+import { LAG_THRESHOLD_DEFAULT } from '../health/health.constants';
 
 export interface DbPoolStats {
   total: number;
@@ -99,6 +99,7 @@ export async function fetchStatus(): Promise<StatusResult> {
   let lastProcessedAt: string | null = null;
   let pool: DbPoolStats | null = null;
   let checkpoint: CheckpointInfo | null = null;
+  let dlqTotal = 0;
 
   try {
     await ds.initialize();

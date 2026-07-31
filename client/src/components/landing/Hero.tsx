@@ -58,7 +58,8 @@ const Hero = ({ handleStartClick }: HeroProps) => {
                 <div className="w-full md:w-1/2 flex justify-center md:justify-end">
                     <img
                         src={dummyImage}
-                        alt="hero-img"
+                        alt=""
+                        role="presentation"
                         className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-full"
                     />
                 </div>

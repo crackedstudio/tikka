@@ -27,6 +27,7 @@ export interface MultiOracleConfig {
   totalOracles: number;
   oracleIds: string[];
   localOracleId: string;
+  consensusThreshold?: number;
 }
 
 export interface RandomnessRequestWithOracles {
@@ -41,6 +42,8 @@ export interface AggregatedRandomness {
   seed: string;
   proof: string;
   submittedBy: string[];
+  consensusReached?: boolean;
+  seedHash?: string;
 }
 
 export enum MultiOracleMode {
@@ -64,6 +67,8 @@ export interface SubmissionTracker {
   threshold: number;
   completed: boolean;
   aggregatedSeed?: string;
+  consensusTimeout?: NodeJS.Timeout;
+  consensusStartTime?: number;
 }
 
 /** Actions tracked in the oracle registry audit log. */

@@ -5,6 +5,12 @@ import { RaffleEntity } from '../database/entities/raffle.entity';
 import { TicketEntity } from '../database/entities/ticket.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { IndexerCursorEntity } from '../database/entities/indexer-cursor.entity';
+import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
+import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
+import { PlatformStatEntity } from '../database/entities/platform-stat.entity';
+import { PlatformStateEntity } from '../database/entities/platform-state.entity';
+import { WebhookEntity } from '../database/entities/webhook.entity';
+import { ArchiveCheckpointEntity } from '../database/entities/archive-checkpoint.entity';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import * as zlib from 'zlib';
@@ -21,11 +27,24 @@ describe('SnapshotService', () => {
   const mockTicketRepo = { find: jest.fn() };
   const mockUserRepo = { find: jest.fn() };
   const mockCursorRepo = { findOne: jest.fn() };
+  const mockRaffleEventRepo = { find: jest.fn() };
+  const mockDeadLetterRepo = { find: jest.fn() };
+  const mockPlatformStatRepo = { find: jest.fn() };
+  const mockPlatformStateRepo = { findOne: jest.fn() };
+  const mockWebhookRepo = { find: jest.fn() };
+  const mockArchiveCheckpointRepo = { find: jest.fn() };
 
   beforeEach(async () => {
     dataSource = {
       transaction: jest.fn(),
     } as any;
+
+    mockRaffleEventRepo.find.mockResolvedValue([]);
+    mockDeadLetterRepo.find.mockResolvedValue([]);
+    mockPlatformStatRepo.find.mockResolvedValue([]);
+    mockPlatformStateRepo.findOne.mockResolvedValue(null);
+    mockWebhookRepo.find.mockResolvedValue([]);
+    mockArchiveCheckpointRepo.find.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -35,6 +54,12 @@ describe('SnapshotService', () => {
         { provide: getRepositoryToken(TicketEntity), useValue: mockTicketRepo },
         { provide: getRepositoryToken(UserEntity), useValue: mockUserRepo },
         { provide: getRepositoryToken(IndexerCursorEntity), useValue: mockCursorRepo },
+        { provide: getRepositoryToken(RaffleEventEntity), useValue: mockRaffleEventRepo },
+        { provide: getRepositoryToken(DeadLetterEventEntity), useValue: mockDeadLetterRepo },
+        { provide: getRepositoryToken(PlatformStatEntity), useValue: mockPlatformStatRepo },
+        { provide: getRepositoryToken(PlatformStateEntity), useValue: mockPlatformStateRepo },
+        { provide: getRepositoryToken(WebhookEntity), useValue: mockWebhookRepo },
+        { provide: getRepositoryToken(ArchiveCheckpointEntity), useValue: mockArchiveCheckpointRepo },
         {
           provide: ConfigService,
           useValue: {
@@ -75,7 +100,7 @@ describe('SnapshotService', () => {
     const decompressed = zlib.gunzipSync(callArgs[1]);
     const wrapper: SnapshotWrapper = JSON.parse(decompressed.toString());
 
-    expect(wrapper.manifest.schemaVersion).toBe('1.0.0');
+    expect(wrapper.manifest.schemaVersion).toBe('1.1.0');
     expect(wrapper.manifest.ledgerRange.min).toBe(0);
     expect(wrapper.manifest.ledgerRange.max).toBe(1000);
     expect(wrapper.manifest.entityCounts.raffles).toBe(1);
@@ -181,5 +206,98 @@ describe('SnapshotService', () => {
 
     expect(result).toBeDefined();
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+import { execSync } from 'child_process';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
+import { RaffleStatus } from '../database/entities/raffle.entity';
+import { startDb, stopDb, DbContainerContext, CONTAINER_STARTUP_MS } from '../test/integration/helpers/db-container';
+
+describe('Snapshot CLI Integration', () => {
+  const hasDocker = process.env.RUN_DOCKER_INTEGRATION === '1';
+
+  (hasDocker ? describe : describe.skip)('with Docker', () => {
+  let ctx: DbContainerContext;
+  let tempDir: string;
+
+  beforeAll(async () => {
+    ctx = await startDb();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tikka-snapshot-test-'));
+  }, CONTAINER_STARTUP_MS);
+
+
+  afterAll(async () => {
+    await stopDb(ctx);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('should export to temp file, clear db, and import to restore all rows', async () => {
+    const ds = ctx.dataSource;
+    const userRepo = ds.getRepository(UserEntity);
+    const raffleRepo = ds.getRepository(RaffleEntity);
+    const ticketRepo = ds.getRepository(TicketEntity);
+
+    // 1. Seed data
+    await userRepo.save(userRepo.create({ address: 'G_TEST_USER', totalTicketsBought: 10 }));
+    await raffleRepo.save(raffleRepo.create({
+      id: 1,
+      creator: 'G_TEST_USER',
+      status: RaffleStatus.OPEN,
+      ticketPrice: '100',
+      maxTickets: 100,
+      asset: 'XLM',
+      endTime: new Date(),
+      createdLedger: 1000,
+    }));
+    await ticketRepo.save(ticketRepo.create({
+      id: 101,
+      raffleId: 1,
+      owner: 'G_TEST_USER',
+      purchaseTxHash: 'TX123',
+      purchasedAtLedger: 1005,
+    }));
+
+    // Generate env file for CLI scripts
+    const envContent = `
+DATABASE_URL=postgres://${ctx.container.getUsername()}:${ctx.container.getPassword()}@${ctx.container.getHost()}:${ctx.container.getMappedPort(5432)}/${ctx.container.getDatabase()}
+SNAPSHOT_STORAGE_URL=file://${tempDir}
+`;
+    fs.writeFileSync('.env.local', envContent.trim());
+
+    // 2. Export via CLI
+    execSync('npx ts-node src/cli/snapshot-export.ts', { stdio: 'inherit' });
+
+    // Find the exported file
+    const files = fs.readdirSync(tempDir);
+    const snapshotFile = files.find(f => f.startsWith('snapshot-') && f.endsWith('.json.gz'));
+    expect(snapshotFile).toBeDefined();
+
+    // 3. Clear database
+    await ds.query(`SET session_replication_role = 'replica'`);
+    await ds.query(`TRUNCATE TABLE tickets, users, raffles RESTART IDENTITY CASCADE`);
+    await ds.query(`SET session_replication_role = 'DEFAULT'`);
+
+    expect(await userRepo.count()).toBe(0);
+    expect(await raffleRepo.count()).toBe(0);
+    expect(await ticketRepo.count()).toBe(0);
+
+    // 4. Import via CLI
+    execSync(`npx ts-node src/cli/snapshot-import.ts ${snapshotFile}`, { stdio: 'inherit' });
+
+    // 5. Assert all rows are restored
+    expect(await userRepo.count()).toBe(1);
+    expect(await raffleRepo.count()).toBe(1);
+    expect(await ticketRepo.count()).toBe(1);
+
+    const user = await userRepo.findOneBy({ address: 'G_TEST_USER' });
+    expect(user).toBeDefined();
+    expect(user?.totalTicketsBought).toBe(10);
+    
+    // Clean up .env.local to not pollute workspace
+    fs.unlinkSync('.env.local');
+  }, 30000); // give enough time for ts-node
   });
 });

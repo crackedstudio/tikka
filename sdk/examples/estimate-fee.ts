@@ -23,18 +23,18 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { FeeEstimatorService } from '../src/fee-estimator/fee-estimator.service';
 import { ContractFn } from '../src/contract/bindings';
+import { TikkaNetwork } from '../src/network/network.config';
 
 async function main() {
-  const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error'],
-  });
-
-  const estimator = app.get(FeeEstimatorService);
-
-  const network = process.env.TIKKA_NETWORK ?? 'testnet';
+  const network = (process.env.TIKKA_NETWORK ?? 'testnet') as TikkaNetwork;
   const publicKey = process.env.TIKKA_PUBLIC_KEY;
   const raffleId = parseInt(process.env.TIKKA_RAFFLE_ID ?? '1', 10);
   const quantity = parseInt(process.env.TIKKA_QUANTITY ?? '1', 10);
+
+  const app = await NestFactory.createApplicationContext(
+    AppModule.forRoot({ network }),
+    { logger: ['error'] },
+  );
 
   if (!publicKey) {
     console.error('Error: TIKKA_PUBLIC_KEY is required');

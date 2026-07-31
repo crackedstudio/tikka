@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { api } from "../services/apiClient";
 import { API_CONFIG } from "../config/api";
 
@@ -14,15 +14,19 @@ interface RecentParticipantsProps {
   onOptimisticUpdate?: (address: string) => void;
 }
 
+export interface RecentParticipantsHandle {
+  addOptimisticParticipant: (address: string) => void;
+}
+
 const POLL_INTERVAL = 15000; // 15 seconds
 const MAX_DISPLAYED = 20;
 const ANIMATION_DURATION = 300; // ms
 
-const RecentParticipants = ({
+const RecentParticipants = forwardRef<RecentParticipantsHandle, RecentParticipantsProps>(({
   raffleId,
   currentUserAddress,
   onOptimisticUpdate,
-}: RecentParticipantsProps) => {
+}, ref) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -109,13 +113,10 @@ const RecentParticipants = ({
     onOptimisticUpdate?.(address);
   }, [onOptimisticUpdate]);
 
-  // Expose optimistic update to parent
-  useEffect(() => {
-    (window as any).__addOptimisticParticipant = addOptimisticParticipant;
-    return () => {
-      delete (window as any).__addOptimisticParticipant;
-    };
-  }, [addOptimisticParticipant]);
+  // Expose optimistic update to parent via ref
+  useImperativeHandle(ref, () => ({
+    addOptimisticParticipant,
+  }), [addOptimisticParticipant]);
 
   if (isLoading && participants.length === 0) {
     return (
@@ -169,7 +170,7 @@ const RecentParticipants = ({
       </div>
     </div>
   );
-};
+});
 
 interface ParticipantAvatarProps {
   address: string;

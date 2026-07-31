@@ -9,6 +9,7 @@ node_modules/
 # Production / Build
 /dist
 /build
+/scripts/bundle-analysis/out
 
 # Misc
 .DS_Store

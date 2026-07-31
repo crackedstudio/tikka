@@ -1,7 +1,13 @@
 import { Inject, Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from './supabase.provider';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import * as crypto from 'crypto';
+import {
+  WEBHOOK_DELIVERY_QUEUE,
+  WebhookDeliveryJobData,
+} from '../queues/webhook-delivery.constants';
 
 export interface Webhook {
   id: string;
@@ -26,6 +32,18 @@ export interface WebhookDelivery {
   created_at: string;
 }
 
+export interface WebhookDeadLetter {
+  id: string;
+  webhook_id: string;
+  target_url: string;
+  event_type: string;
+  payload: any;
+  error_message: string | null;
+  attempts_count: number;
+  last_attempt_at: string;
+  created_at: string;
+}
+
 export interface CreateWebhookPayload {
   ownerAddress: string;
   targetUrl: string;
@@ -40,8 +58,7 @@ export interface UpdateWebhookPayload {
 
 const TABLE = 'webhooks';
 const DELIVERIES_TABLE = 'webhook_deliveries';
-const MAX_FAILURES = 5;
-const MAX_RETRIES = 3;
+const DEAD_LETTERS_TABLE = 'webhook_dead_letters';
 
 @Injectable()
 export class WebhookService {
@@ -49,6 +66,7 @@ export class WebhookService {
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+    @InjectQueue(WEBHOOK_DELIVERY_QUEUE) private readonly deliveryQueue: Queue<WebhookDeliveryJobData>,
   ) {}
 
   /**
@@ -178,10 +196,31 @@ export class WebhookService {
   }
 
   /**
+   * Get dead letter records for a webhook
+   */
+  async getDeadLetters(webhookId: string, ownerAddress: string): Promise<WebhookDeadLetter[]> {
+    // Verify ownership
+    await this.getWebhook(webhookId, ownerAddress);
+
+    const { data, error } = await this.client
+      .from(DEAD_LETTERS_TABLE)
+      .select('*')
+      .eq('webhook_id', webhookId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw new Error(`Failed to fetch dead letters: ${error.message}`);
+    }
+
+    return (data as WebhookDeadLetter[]) || [];
+  }
+
+  /**
    * Main entry point to trigger webhooks for a specific event
+   * Enqueues a BullMQ job for each matching webhook instead of delivering synchronously.
    */
   async triggerWebhooks(eventType: string, payloadData: any): Promise<void> {
-    // Find all active webhooks that subscribe to this event
     const { data, error } = await this.client
       .from(TABLE)
       .select('*')
@@ -195,18 +234,9 @@ export class WebhookService {
 
     const webhooks = (data as Webhook[]) || [];
     if (webhooks.length === 0) {
-      return; // No webhooks to trigger
+      return;
     }
 
-    const payloadObj = {
-      event: eventType,
-      timestamp: new Date().toISOString(),
-      data: payloadData,
-    };
-    
-    const payloadString = JSON.stringify(payloadObj);
-
-    // Process all webhooks concurrently
     await Promise.allSettled(
       webhooks.map((webhook) => this.deliverWebhookWithRetries(webhook, eventType, payloadString))
     );
@@ -229,8 +259,8 @@ export class WebhookService {
 
     while (attempt <= MAX_RETRIES && !success) {
       if (attempt > 0) {
-        // Exponential backoff: 2s, 4s, 8s
-        const delayMs = Math.pow(2, attempt) * 1000;
+        const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
+        const delayMs = isTest ? 0 : Math.pow(2, attempt) * 1000;
         await new Promise((res) => setTimeout(res, delayMs));
       }
 
@@ -242,74 +272,8 @@ export class WebhookService {
             'X-Tikka-Signature': signature,
             'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
           },
-          body: payloadString,
-          // Set a reasonable timeout (fetch doesn't have native timeout, assuming standard node usage)
-          signal: AbortSignal.timeout(10000)
-        });
-
-        statusCode = response.status;
-        const text = await response.text();
-        responseBody = text ? text.substring(0, 1000) : null; // Limit response body size
-
-        if (response.ok) {
-          success = true;
-        } else {
-          errorMessage = `HTTP ${statusCode}`;
-        }
-      } catch (err: any) {
-        errorMessage = err.message || 'Network error';
-        if (err.name === 'TimeoutError') {
-          errorMessage = 'Request timed out';
-        }
-      }
-
-      attempt++;
-    }
-
-    // Log the delivery attempt in Supabase
-    await this.logDelivery(webhook.id, eventType, JSON.parse(payloadString), statusCode, responseBody, errorMessage, success);
-
-    if (success) {
-      // If previously failing, reset failure count
-      if (webhook.failure_count > 0) {
-        await this.client.from(TABLE).update({ failure_count: 0 }).eq('id', webhook.id);
-      }
-    } else {
-      // Increment failure count
-      const newFailureCount = webhook.failure_count + 1;
-      const updates: any = { failure_count: newFailureCount };
-      
-      // Disable webhook if it consistently fails
-      if (newFailureCount >= MAX_FAILURES) {
-        updates.is_active = false;
-        this.logger.warn(`Disabled webhook ${webhook.id} due to ${newFailureCount} consecutive failures.`);
-      }
-      
-      await this.client.from(TABLE).update(updates).eq('id', webhook.id);
-    }
-  }
-
-  private async logDelivery(
-    webhookId: string, 
-    eventType: string, 
-    payload: any, 
-    statusCode: number | null, 
-    responseBody: string | null, 
-    errorMessage: string | null, 
-    success: boolean
-  ) {
-    try {
-      await this.client.from(DELIVERIES_TABLE).insert({
-        webhook_id: webhookId,
-        event_type: eventType,
-        payload,
-        status_code: statusCode,
-        response_body: responseBody,
-        error_message: errorMessage,
-        success,
-      });
-    } catch (err) {
-      this.logger.error(`Failed to log delivery for webhook ${webhookId}`, err);
-    }
+        ),
+      ),
+    );
   }
 }
