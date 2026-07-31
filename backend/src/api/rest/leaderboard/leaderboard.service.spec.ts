@@ -86,7 +86,12 @@ describe('LeaderboardService', () => {
   });
 
   describe('deterministic ordering contract', () => {
+    beforeEach(() => {
+      indexer.getLeaderboard.mockResolvedValue(tiedMockData);
+    });
+
     it('preserves indexer entry ordering without re-sorting', async () => {
+      indexer.getLeaderboard.mockResolvedValue(tiedMockData);
       const result = await service.getLeaderboard({ by: 'wins', limit: 3 });
 
       expect(result.data.entries.map((e) => e.address)).toEqual([
@@ -97,9 +102,17 @@ describe('LeaderboardService', () => {
     });
 
     it('returns identical cached results across repeated calls', async () => {
+      const store = new Map<string, string>();
+      redis.get.mockImplementation((key) => Promise.resolve(store.get(key) ?? null));
+      redis.setEx.mockImplementation((key, _, val) => {
+        store.set(key, val);
+        return Promise.resolve(undefined);
+      });
+
       const first = await service.getLeaderboard({ by: 'wins', limit: 3 });
       expect(first.cacheHit).toBe(false);
 
+      redis.get.mockResolvedValue(JSON.stringify(tiedMockData));
       const second = await service.getLeaderboard({ by: 'wins', limit: 3 });
       expect(second.cacheHit).toBe(true);
       expect(second.data).toEqual(first.data);

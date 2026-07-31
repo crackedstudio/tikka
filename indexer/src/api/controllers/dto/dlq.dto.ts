@@ -1,8 +1,13 @@
+import { IsArray, IsOptional, IsString } from 'class-validator';
+
 export class DlqReplayRequestDto {
   /**
    * Optional array of event IDs to replay.
    * If omitted, all eligible DLQ entries will be replayed.
    */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   ids?: string[];
 }
 
