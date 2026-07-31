@@ -24,11 +24,7 @@ import {
   UserRaffleHistoryItemDto,
   UserRaffleHistoryResponseDto,
 } from "./dto/raffle.dto";
-
-export interface PaginationQuery {
-  limit?: string;
-  offset?: string;
-}
+import { PaginationQueryDto } from "./dto/query.dto";
 
 @ApiTags('users')
 @ApiSecurity('api-key')
@@ -55,9 +51,9 @@ export class UsersController {
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, type: UserLeaderboardResponseDto })
   @Get("leaderboard")
-  async leaderboard(@Query() query: PaginationQuery): Promise<UserLeaderboardResponseDto> {
-    const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
-    const offset = parseInt(query.offset ?? "0", 10);
+  async leaderboard(@Query() query: PaginationQueryDto): Promise<UserLeaderboardResponseDto> {
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
 
     // Cache only the default first page
     if (limit === 20 && offset === 0) {
@@ -172,10 +168,10 @@ export class UsersController {
   @Get("users/:address/history")
   async history(
     @Param("address") address: string,
-    @Query() query: PaginationQuery,
+    @Query() query: PaginationQueryDto,
   ): Promise<UserRaffleHistoryResponseDto> {
-    const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
-    const offset = parseInt(query.offset ?? "0", 10);
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
 
     // Get distinct raffle IDs for this user
     const ticketRows = await this.ticketRepo

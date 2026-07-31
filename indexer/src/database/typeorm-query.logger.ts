@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { Logger as NestLogger } from "@nestjs/common";
 import { Logger as TypeOrmLogger, QueryRunner } from "typeorm";
 import { MetricsService } from "../metrics/metrics.service";

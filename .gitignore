@@ -13,4 +13,10 @@ node_modules/
 dist/
 .env
 *.log
-.opencode
+
+# Local build / debug artifacts (do not commit)
+build*.txt
+debug_*.py
+fix_*.py
+PUSH_TO_BRANCH.sh
+PUSH_TO_BRANCH.bat

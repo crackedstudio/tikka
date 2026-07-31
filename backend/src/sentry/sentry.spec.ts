@@ -271,7 +271,7 @@ describe('buildSentryOptions — unit tests', () => {
 });
 
 describe('beforeSend — PII scrubbing', () => {
-  const VALID_WALLET = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R8S9T0U1V2W3X4';
+  const VALID_WALLET = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
 
   function getBeforeSend() {
     const opts = buildSentryOptions({
