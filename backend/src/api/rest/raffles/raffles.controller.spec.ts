@@ -309,6 +309,7 @@ describe('IdempotencyInterceptor — upsertMetadata idempotency', () => {
       },
     });
   });
+});
 
   it('returns cached response for duplicate request with same Idempotency-Key', (done) => {
     const cachedResponse = { raffleId: 42, title: 'Test Raffle' };
@@ -343,3 +344,4 @@ describe('IdempotencyInterceptor — upsertMetadata idempotency', () => {
     });
   });
 });
+

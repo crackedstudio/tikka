@@ -547,6 +547,18 @@ Indexer            Backend (Leaderboard Service)    Supabase DB    WebSocket/API
 
 ---
 
+## API Status Code Semantics (`GET /raffles/:id`)
+
+| Lifecycle State | On-Chain / DB Status | HTTP Status Code | Response Details |
+|---|---|---|---|
+| **Active** | `open`, `drawing` | `200 OK` | Detail response with `status: "open"` or `"drawing"` |
+| **Ended** | `ended`, `finalized` | `200 OK` | Detail response with `status: "ended"` or `"finalized"`, winner, and stats (viewable) |
+| **Cancelled** | `cancelled` | `200 OK` | Detail response with `status: "cancelled"` (viewable) |
+| **Deleted** | `deleted`, `removed`, or soft-deleted metadata | `410 Gone` | `Raffle {id} has been deleted` |
+| **Unknown** | Never existed | `404 Not Found` | `Raffle {id} not found` |
+
+---
+
 ## Key Cross-Package Interactions
 
 ### Client ↔ SDK

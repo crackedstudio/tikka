@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
+import { Public } from "../../../auth/decorators/public.decorator";
 import { SupportService } from "./support.service";
 import { SupportDto, SupportSchema } from "./dto/support.dto";
 import { createZodPipe } from "../raffles/pipes/zod-validation.pipe";
