@@ -9,6 +9,8 @@ import {
   OracleSubmission,
 } from './multi-oracle.types';
 import { RandomnessResult } from '../queue/queue.types';
+import { AuditLogService } from '../audit/audit-log.service';
+import { MetricsService } from '../metrics/metrics.service';
 import * as crypto from 'crypto';
 import * as http from 'http';
 import * as https from 'https';
@@ -26,6 +28,8 @@ export class MultiOracleCoordinatorService {
     private readonly logger: OracleLoggerService,
     private readonly oracleRegistry: OracleRegistryService,
     private readonly configService: ConfigService,
+    private readonly auditLog: AuditLogService,
+    private readonly metrics: MetricsService,
   ) {
     this.multiTimeoutMs =
       this.configService.get<number>('ORACLE_MULTI_TIMEOUT_MS') ?? 10_000;
@@ -96,7 +100,37 @@ export class MultiOracleCoordinatorService {
         seedGroups: consensusCheck.seedGroups,
         largestGroup: consensusCheck.largestGroupSize,
       });
-      
+
+      // Build per-oracle hash and timestamp maps from available results.
+      const submittedValueHashes: Record<string, string> = {};
+      const oracleTimestamps: Record<string, number> = {};
+      const now = Date.now();
+      for (const r of allResults) {
+        submittedValueHashes[r.id] = this.hashSeed(r.result.seed);
+        oracleTimestamps[r.id] = now;
+      }
+
+      // Derive the plurality hash (largest group) for the record.
+      const largestGroupHash =
+        Object.entries(consensusCheck.seedGroups).reduce<[string, number] | null>(
+          (best, [hash, count]) =>
+            best === null || count > best[1] ? [hash, count] : best,
+          null,
+        )?.[0] ?? null;
+
+      void this.auditLog.recordDivergence({
+        requestId,
+        submittedValueHashes,
+        oracleTimestamps,
+        seedGroups: consensusCheck.seedGroups,
+        largestGroupHash,
+        totalResponses: allResults.length,
+        consensusThreshold,
+        detectedAt: new Date().toISOString(),
+      });
+
+      this.metrics.recordDivergence(Object.keys(consensusCheck.seedGroups).length);
+
       // Fall back to local result if consensus fails
       return {
         aggregated: localResult,
@@ -294,6 +328,36 @@ export class MultiOracleCoordinatorService {
           consensusThreshold,
           seedGroups: consensusCheck.seedGroups,
         });
+
+        // Build per-oracle hash and timestamp maps from tracker submissions.
+        const submittedValueHashes: Record<string, string> = {};
+        const oracleTimestamps: Record<string, number> = {};
+        for (const sub of Array.from(tracker.submissions.values())) {
+          submittedValueHashes[sub.oracleId] = this.hashSeed(sub.seed);
+          oracleTimestamps[sub.oracleId] = sub.timestamp;
+        }
+
+        const largestGroupHash =
+          Object.entries(consensusCheck.seedGroups).reduce<[string, number] | null>(
+            (best, [hash, count]) =>
+              best === null || count > best[1] ? [hash, count] : best,
+            null,
+          )?.[0] ?? null;
+
+        void this.auditLog.recordDivergence({
+          requestId,
+          raffleId,
+          submittedValueHashes,
+          oracleTimestamps,
+          seedGroups: consensusCheck.seedGroups,
+          largestGroupHash,
+          totalResponses: tracker.submissions.size,
+          consensusThreshold,
+          detectedAt: new Date().toISOString(),
+        });
+
+        this.metrics.recordDivergence(Object.keys(consensusCheck.seedGroups).length);
+
         return { ready: false };
       }
 

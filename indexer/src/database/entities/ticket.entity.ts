@@ -32,6 +32,8 @@ import { RaffleEntity } from "./raffle.entity";
 @Entity("tickets")
 @Index("idx_tickets_raffle_id", ["raffleId"])
 @Index("idx_tickets_owner", ["owner"])
+@Index("idx_tickets_owner_raffle_id", ["owner", "raffleId"])
+@Index("idx_tickets_purchased_at_ledger", ["purchasedAtLedger"])
 @Index("idx_tickets_purchase_tx_hash", ["purchaseTxHash"], { unique: true })
 export class TicketEntity {
   /** Contract-assigned ticket ID — used as natural PK. */

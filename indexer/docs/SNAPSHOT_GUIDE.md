@@ -28,6 +28,13 @@ The manifest contains metadata used for validating the integrity and compatibili
   - `raffles`: `number`
   - `tickets`: `number`
   - `users`: `number`
+  - `raffleEvents`: `number`
+  - `deadLetterEvents`: `number`
+  - `platformStats`: `number`
+  - `webhooks`: `number`
+  - `archiveCheckpoints`: `number`
+  - `hasCursor`: `boolean`
+  - `hasPlatformState`: `boolean`
 - **`checksum`**: `string` — SHA-256 hash of the stringified `data` object to ensure it hasn't been corrupted.
 
 ### 3. Data Schema (`SnapshotData`)
@@ -37,6 +44,15 @@ Contains the raw entity arrays:
 - `tickets`: Array of `TicketEntity`
 - `users`: Array of `UserEntity`
 - `cursor`: The `IndexerCursorEntity` state (or `null`)
+- `raffleEvents`: Array of `RaffleEventEntity`
+- `deadLetterEvents`: Array of `DeadLetterEventEntity`
+- `platformStats`: Array of `PlatformStatEntity`
+- `platformState`: The `PlatformStateEntity` singleton (or `null`)
+- `webhooks`: Array of `WebhookEntity`
+- `archiveCheckpoints`: Array of `ArchiveCheckpointEntity`
+
+Schema version **1.1.0** includes all entity types above. Legacy **1.0.0** snapshots
+(only raffles/tickets/users/cursor) can still be imported.
 
 ## Usage
 
