@@ -39,6 +39,8 @@ Complete inventory of all metrics endpoints, Prometheus metrics, and health endp
 | `pushDelivery.providerOutage` | `PushNotificationService` | Provider outage count |
 | `pushDelivery.totalFailures` | `PushNotificationService` | Total failure count |
 
+For ingestion-lag alert thresholds and the runbook, see [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md).
+
 ### Monitor (DB-Backed) Fields
 
 | Entity | Fields |
@@ -73,7 +75,9 @@ Complete inventory of all metrics endpoints, Prometheus metrics, and health endp
 | `tikka_indexer_events_processed_total` | Counter | `event_type` | Total events processed by type |
 | `tikka_indexer_errors_total` | Counter | (none) | Total errors during polling or processing |
 | `tikka_indexer_reorg_detected_total` | Counter | (none) | Total ledger reorgs detected |
-| `tikka_indexer_lag_ledgers` | Gauge | (none) | Current ledger lag behind the network |
+| `tikka_indexer_lag_ledgers` | Gauge | (none) | **[Deprecated alias]** Ledger lag behind the network; kept for backward compatibility, prefer `tikka_indexer_ingestion_lag_ledgers`. |
+| `tikka_indexer_ingestion_lag_ledgers` | ObservableGauge | (none) | Ingestion lag in ledgers: `latest_network_ledger_sequence - cursor.lastLedger`. Refreshed every `LAG_PROBE_REFRESH_MS` (default 15s) via `LagProbeService`. **Alert when > `INDEXER_LAG_ALERT_THRESHOLD_LEDGERS` (default 50) for 5m (critical).** See [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md). |
+| `tikka_indexer_ingestion_lag_seconds` | ObservableGauge | (none) | Ingestion lag in seconds: `latest_network_ledger.closedAt - cursor.lastSavedAt`. Refreshed every `LAG_PROBE_REFRESH_MS` (default 15s). **Alert when > `INDEXER_LAG_ALERT_THRESHOLD_SECONDS` (default 90) for 5m (warning).** See [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md). |
 | `tikka_indexer_poll_duration_seconds` | Histogram | (none) | Duration of ledger polling cycles |
 | `tikka_indexer_memory_usage_bytes` | ObservableGauge | (none) | Current heap used |
 | `tikka_db_slow_query_total` | Counter | `query_hash` | Slow database queries |
@@ -103,7 +107,9 @@ scrape_configs:
 
 | Alert Name | Expression | Severity |
 |------------|-----------|----------|
-| `IndexerFallingBehind` | `tikka_indexer_lag_ledgers > 20` for 5m | critical |
+| `IndexerIngestionLagLedgers` | `tikka_indexer_ingestion_lag_ledgers > 50` for 5m | critical |
+| `IndexerIngestionLagSeconds` | `tikka_indexer_ingestion_lag_seconds > 90` for 5m | warning |
+| `IndexerFallingBehind` | `tikka_indexer_lag_ledgers > 20` for 5m (deprecated alias) | critical |
 | `IndexerHighLatency` | avg poll duration > 10s for 10m | warning |
 | `IndexerErrors` | error rate > 0.1/s for 2m | warning |
 | `IndexerQueueBacklog` | `tikka_indexer_queue_waiting > 100` for 5m | warning |
