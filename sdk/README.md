@@ -484,9 +484,19 @@ Browser-wallet integration demos. These require a browser environment (Albedo op
 
 > **Browser + wallet required** — not runnable via `ts-node` in a plain terminal.
 
+### [custom-wallet.ts](./examples/custom-wallet.ts)
+
+Minimal custom `WalletAdapter` implementation (local keypair stand-in). Documents the integrator contract and compiles via `npm run examples:check`.
+
+```bash
+npm run example:custom-wallet
+```
+
 ## Wallet Adapters
 
 The SDK provides a unified interface for multiple Stellar wallets. All adapters implement the same `WalletAdapter` interface with `getPublicKey()` and `signTransaction(xdr)` methods.
+
+> **Implementing a custom wallet?** See the full integrator contract — methods, expected errors, and signing flow — in [`WALLET_ADAPTER.md`](./WALLET_ADAPTER.md), plus the runnable [`examples/custom-wallet.ts`](./examples/custom-wallet.ts).
 
 ### Supported Wallets
 
@@ -497,6 +507,7 @@ The SDK provides a unified interface for multiple Stellar wallets. All adapters 
 | Albedo | Web-based | No extension required, popup-based |
 | LOBSTR | Browser extension | Large user base |
 | Rabet | Browser extension | Lightweight, open-source |
+| Custom | Your bridge / custody / HSM | Extend `WalletAdapter` — see docs above |
 
 ### Albedo Wallet
 
@@ -675,6 +686,64 @@ if (adapter.isAvailable()) {
   });
 }
 ```
+
+### Custom Wallet Adapter
+
+Extend `WalletAdapter` to plug in hardware signers, custody APIs, or any other Stellar wallet:
+
+```typescript
+import {
+  WalletAdapter,
+  WalletName,
+  SignTransactionResult,
+  WalletCapabilities,
+  TikkaSdkError,
+  TikkaSdkErrorCode,
+} from '@tikka/sdk';
+
+class MyWalletAdapter extends WalletAdapter {
+  readonly name = WalletName.Custom; // or any string id
+
+  isAvailable(): boolean {
+    return typeof (globalThis as any).myWallet !== 'undefined';
+  }
+
+  async getPublicKey(): Promise<string> {
+    if (!this.isAvailable()) {
+      throw new TikkaSdkError(
+        TikkaSdkErrorCode.WalletNotInstalled,
+        'MyWallet is not installed',
+      );
+    }
+    return (globalThis as any).myWallet.getPublicKey();
+  }
+
+  async signTransaction(
+    xdr: string,
+    opts?: { networkPassphrase?: string; accountToSign?: string },
+  ): Promise<SignTransactionResult> {
+    const networkPassphrase =
+      opts?.networkPassphrase ?? this.options.networkPassphrase;
+    const signedXdr = await (globalThis as any).myWallet.signTx(xdr, {
+      networkPassphrase,
+      accountToSign: opts?.accountToSign,
+    });
+    return { signedXdr };
+  }
+
+  getCapabilities(): WalletCapabilities {
+    return {
+      supportsGetPublicKey: true,
+      supportsSignTransaction: true,
+      supportsSignMessage: false,
+      supportsGetNetwork: false,
+    };
+  }
+}
+```
+
+Full contract (methods, error codes, signing flow): [`WALLET_ADAPTER.md`](./WALLET_ADAPTER.md).  
+Runnable demo: [`examples/custom-wallet.ts`](./examples/custom-wallet.ts) (`npm run example:custom-wallet`).
 
 ### Selecting Adapters
 
