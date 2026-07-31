@@ -50,7 +50,7 @@ describe("SnapshotController", () => {
       const filename = "snapshot-2024-01-01.zip";
       snapshotService.importSnapshot.mockResolvedValue(undefined);
 
-      const result = (await controller.import(filename)) as SnapshotImportResponseDto;
+      const result = (await controller.import({ filename })) as SnapshotImportResponseDto;
 
       // Verify DTO shape
       expect(result).toHaveProperty("message", "Snapshot imported successfully");
@@ -59,7 +59,7 @@ describe("SnapshotController", () => {
 
     it("should throw BadRequest when filename is missing", async () => {
       try {
-        await controller.import("");
+        await controller.import({ filename: "" });
         fail("Should have thrown HttpException");
       } catch (e) {
         expect(e).toBeInstanceOf(HttpException);
@@ -69,7 +69,7 @@ describe("SnapshotController", () => {
 
     it("should throw BadRequest when filename is null", async () => {
       try {
-        await controller.import(null as any);
+        await controller.import({ filename: null as any });
         fail("Should have thrown HttpException");
       } catch (e) {
         expect(e).toBeInstanceOf(HttpException);
@@ -83,7 +83,7 @@ describe("SnapshotController", () => {
       snapshotService.importSnapshot.mockRejectedValue(error);
 
       try {
-        await controller.import(filename);
+        await controller.import({ filename });
         fail("Should have thrown HttpException");
       } catch (e) {
         expect(e).toBeInstanceOf(HttpException);

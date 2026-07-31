@@ -9,6 +9,7 @@ import {
 import { CacheService } from "../cache/cache.service";
 import { CursorManagerService } from "../ingestor/cursor-manager.service";
 import { DlqService } from "../ingestor/dlq.service";
+import { LedgerPollerService } from "../ingestor/ledger-poller.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -179,6 +180,61 @@ describe("HealthService", () => {
 
     expect(result.status).toBe("degraded");
     expect(result.lag_ledgers).toBe(200);
+    expect(result.ingestion).toBe("idle"); // no poller injected in unit tests
+  });
+
+  it("getLiveness always returns ok (does not depend on lag or deps)", async () => {
+    await build({
+      dbQueryOk: false,
+      redisPingOk: false,
+      horizonLatestLedger: 5000,
+      cursorLastLedger: 1000,
+    });
+    expect(service.getLiveness()).toEqual({ status: "ok" });
+  });
+
+  it("getReadiness mirrors getHealth including stalled ingestion via lag", async () => {
+    await build({ horizonLatestLedger: 1200, cursorLastLedger: 1000 });
+    const ready = await service.getReadiness();
+    const health = await service.getHealth();
+    expect(ready).toEqual(health);
+    expect(ready.status).toBe("degraded");
+  });
+
+  it("marks ingestion stalled when poller heartbeat is stale while running", async () => {
+    const {
+      mockDataSource,
+      mockCacheService,
+      mockCursorManager,
+      mockDlqService,
+      mockConfigService,
+    } = makeMocks({ horizonLatestLedger: 1010, cursorLastLedger: 1000 });
+
+    const staleHeartbeat = {
+      getIngestionHeartbeat: jest.fn().mockReturnValue({
+        isRunning: true,
+        lastHeartbeatAt: new Date(Date.now() - 180_000),
+      }),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        HealthService,
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: CacheService, useValue: mockCacheService },
+        { provide: CursorManagerService, useValue: mockCursorManager },
+        { provide: DlqService, useValue: mockDlqService },
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: LedgerPollerService, useValue: staleHeartbeat },
+      ],
+    }).compile();
+
+    service = module.get<HealthService>(HealthService);
+    const result = await service.getHealth();
+
+    expect(result.ingestion).toBe("stalled");
+    expect(result.status).toBe("degraded");
+    expect(result.ingestion_heartbeat_age_ms).toBeGreaterThan(100_000);
   });
 
   it("should return status ok when lag equals exactly the threshold", async () => {

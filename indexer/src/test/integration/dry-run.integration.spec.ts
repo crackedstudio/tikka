@@ -52,9 +52,35 @@ describe('LedgerPoller Dry-Run (Integration)', () => {
       dispatchBatch: jest.fn().mockImplementation(async (items: any[]) => items.map((it) => ({ handlerName: 'mock', eventId: 'id', eventType: it.event.type, outcome: 'skipped', durationMs: 1 }))),
     } as any;
 
-    // Minimal metrics service using real implementation (needs HealthService stub)
-    const health = { report: jest.fn() } as any;
-    metrics = new MetricsService(health);
+    // Minimal metrics service using real implementation.
+    // As of issue #1110, the constructor takes the CursorManagerService and
+    // LagProbeService so that the new ingestion_lag_* ObservableGauge
+    // callbacks in MetricsService can resolve their dependencies. The dry-run
+    // integration spec never exercises those gauges — providing lightweight
+    // structural stubs is sufficient to keep the constructor contract honest.
+    const cursorManagerForMetrics = {
+      getStatus: jest.fn().mockReturnValue({
+        mode: 'RUNNING',
+        lastCheckpoint: {
+          sequence: 0,
+          ledgerHash: '',
+          processedEventCount: 0,
+          savedAt: new Date().toISOString(),
+          version: 1,
+        },
+        lastViolation: null,
+        startupIntegrityPassed: true,
+        uptimeMs: 0,
+      }),
+    } as any;
+    const lagProbeForMetrics = {
+      getNetworkTip: jest.fn().mockReturnValue({
+        sequence: null,
+        closedAt: null,
+        observedAt: new Date(0),
+      }),
+    } as any;
+    metrics = new MetricsService(cursorManagerForMetrics, lagProbeForMetrics);
 
     const reorgRollback = { rollback: jest.fn() } as any;
     const pipeline = { apply: jest.fn() } as any;

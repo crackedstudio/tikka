@@ -15,10 +15,15 @@ export class MetricsService implements OnModuleInit {
   private estimatedFeeGauge: Gauge;
   private actualFeeCounter: Counter;
   private submissionOutcomeCounter: Counter;
+  private feeBumpCounter: Counter;
 
   // VRF metrics
   private vrfFailuresCounter: Counter;
   private vrfProofsCounter: Counter;
+
+  // Multi-oracle divergence metrics
+  private oracleDivergenceCounter: Counter;
+  private divergenceCount = 0;
 
   // Event listener gap / backfill metrics
   private eventListenerGapCounter: Counter;
@@ -57,6 +62,11 @@ export class MetricsService implements OnModuleInit {
     // Submission outcomes (success, failure, retry)
     this.submissionOutcomeCounter = this.meter.createCounter('tikka_oracle_submission_outcome_total', {
       description: 'Total number of submissions by outcome',
+    });
+
+    // Fee bump counter
+    this.feeBumpCounter = this.meter.createCounter('tikka_oracle_fee_bumps_total', {
+      description: 'Total number of times a transaction fee was bumped',
     });
 
     // VRF failures with reason label
@@ -121,12 +131,32 @@ export class MetricsService implements OnModuleInit {
     this.submissionOutcomeCounter.add(1, { outcome, network, method });
   }
 
+  recordFeeBump(network: string, method: string) {
+    this.feeBumpCounter.add(1, { network, method });
+  }
+
   recordVrfFailure(reason: string) {
     this.vrfFailuresCounter.add(1, { reason });
   }
 
   recordVrfProofSuccess() {
     this.vrfProofsCounter.add(1);
+  }
+
+  /**
+   * Record an oracle divergence event.
+   *
+   * @param distinctGroups Number of distinct seed-hash groups observed in the round
+   *                       (always ≥ 2 when divergence occurs).
+   */
+  recordDivergence(distinctGroups: number): void {
+    this.divergenceCount += 1;
+    this.oracleDivergenceCounter.add(1, { distinct_groups: String(distinctGroups) });
+  }
+
+  /** Process-local count of divergence detections (useful for unit tests). */
+  getDivergenceCount(): number {
+    return this.divergenceCount;
   }
 
   /**

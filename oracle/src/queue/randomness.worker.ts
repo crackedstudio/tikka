@@ -94,7 +94,8 @@ export class RandomnessWorker {
           `exhausted all retry attempts. Manual intervention required.`,
         );
         this.checkDlqDepthAlert(job.data.raffleId);
-        throw new Error(`Dead-lettered: ${result.error}`);
+        await this.quarantineJob(job, new Error(`Dead-lettered: ${result.error}`));
+        return;
       } else {
         // Calculate backoff and schedule retry
         const backoffMs = this.stateManager.calculateBackoff(
@@ -112,13 +113,54 @@ export class RandomnessWorker {
         `[FAILED] Job ${job.id} for raffle ${job.data.raffleId}, request ${job.data.requestId} ` +
         `failed with non-retriable error: ${result.error}`,
       );
-      throw new Error(`Failed: ${result.error}`);
+      await this.quarantineJob(job, new Error(`Failed: ${result.error}`));
+      return;
     }
 
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
+    } catch (err: any) {
+      const maxRetries = this.stateManager.getConfig().maxRetries;
+      const attemptCount = job.attemptsMade + 1; // Include the current attempt
+
+      if (attemptCount >= maxRetries) {
+        if (job.data?.requestId) {
+          this.stateManager.transitionState(
+            job.data.requestId,
+            JobState.DEAD_LETTERED,
+            `Exhausted ${maxRetries} attempts due to handler crash`,
+            err.message
+          );
+        }
+        await this.quarantineJob(job, err);
+        return;
+      }
+      throw err; // Let Bull retry it
+    }
     }); // end CorrelationContext.run
+  }
+
+  private async quarantineJob(job: Job<RandomnessJobPayload>, error: any) {
+    const errorMsg = error?.message || String(error);
+    this.logger.error(`[QUARANTINE] Job ${job.id} (raffle ${job.data?.raffleId}) quarantined. Error: ${errorMsg}`);
+    this.healthService.recordQuarantine(job.data?.requestId || 'unknown', errorMsg);
+    
+    try {
+      const client = job.queue.client;
+      await client.rpush(
+        'oracle:quarantine:randomness',
+        JSON.stringify({
+          jobId: job.id,
+          data: job.data,
+          error: errorMsg,
+          stack: error?.stack,
+          quarantinedAt: new Date().toISOString()
+        })
+      );
+    } catch (redisError) {
+      this.logger.error(`Failed to push job ${job.id} to quarantine list in Redis: ${redisError}`);
+    }
   }
 
   private delay(ms: number): Promise<void> {

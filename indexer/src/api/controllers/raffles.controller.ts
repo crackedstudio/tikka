@@ -23,15 +23,7 @@ import {
   ParticipantDto,
   ParticipantListResponseDto,
 } from "./dto/participant.dto";
-
-export interface RaffleListQuery {
-  status?: string;
-  creator?: string;
-  asset?: string;
-  category?: string;
-  limit?: string;
-  offset?: string;
-}
+import { RaffleListQueryDto, ParticipantQueryDto } from "./dto/query.dto";
 
 @ApiTags('raffles')
 @ApiSecurity('api-key')
@@ -59,9 +51,9 @@ export class RafflesController {
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, type: RaffleListResponseDto })
   @Get()
-  async list(@Query() query: RaffleListQuery): Promise<RaffleListResponseDto> {
-    const limit = Math.min(parseInt(query.limit ?? "20", 10), 100);
-    const offset = parseInt(query.offset ?? "0", 10);
+  async list(@Query() query: RaffleListQueryDto): Promise<RaffleListResponseDto> {
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
 
     // Serve from cache when querying active raffles with no other filters
     const isActiveOnlyQuery =
@@ -156,14 +148,13 @@ export class RafflesController {
   @Get(":id/participants")
   async getParticipants(
     @Param("id", ParseIntPipe) id: number,
-    @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
+    @Query() query: ParticipantQueryDto,
   ): Promise<ParticipantListResponseDto> {
     const raffle = await this.raffleRepo.findOne({ where: { id } });
     if (!raffle) throw new NotFoundException(`Raffle ${id} not found`);
 
-    const parsedLimit = Math.min(parseInt(limit ?? "20", 10), 100);
-    const parsedOffset = parseInt(offset ?? "0", 10);
+    const parsedLimit = Math.min(query.limit ?? 20, 100);
+    const parsedOffset = query.offset ?? 0;
 
     // Aggregate tickets by owner: count tickets and get MIN(purchased_at_ledger) as purchased_at
     const qb = this.ticketRepo

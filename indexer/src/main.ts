@@ -1,11 +1,27 @@
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { initTracing, shutdownTracing } from './tracing/tracing';
 
 const logger = new Logger("Bootstrap");
 
 export async function bootstrap() {
+  initTracing();
+
   const app = await NestFactory.create(AppModule);
+
+  // ── Global validation pipe ─────────────────────────────────────────────────
+  // Rejects unknown/extra properties (whitelist) and auto-transforms payloads
+  // to class instances so class-validator decorators are enforced on every route.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // ── OpenAPI / Swagger ──────────────────────────────────────────────────────
   const swaggerConfig = new DocumentBuilder()
@@ -27,7 +43,13 @@ export async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
+  app.enableShutdownHooks();
+  process.once('beforeExit', () => {
+    void shutdownTracing();
+  });
+
   await app.listen(process.env.PORT ?? 3002);
+  logger.log(`Indexer listening on ${process.env.PORT ?? 3002}`);
 }
 
 bootstrap();

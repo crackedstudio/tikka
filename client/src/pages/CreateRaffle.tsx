@@ -7,6 +7,8 @@ import PricingStep from "../components/create-raffle/PricingStep";
 import DurationStep from "../components/create-raffle/DurationStep";
 import ReviewStep from "../components/create-raffle/ReviewStep";
 import LivePreview from "../components/create-raffle/LivePreview";
+import RestoreDraftModal from "../components/create-raffle/RestoreDraftModal";
+import { useRaffleDraft } from "../components/create-raffle/useRaffleDraft";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const CreateRaffle: React.FC = () => {
@@ -62,6 +64,19 @@ const CreateRaffle: React.FC = () => {
             active: currentStep === 4,
         },
     ];
+
+    const {
+        pendingDraft,
+        showRestoreModal,
+        restoreDraft,
+        discardDraft,
+        clearDraft,
+    } = useRaffleDraft({
+        formData,
+        currentStep,
+        setFormData,
+        setCurrentStep,
+    });
 
     const updateFormData = (data: Partial<RaffleFormData>) => {
         setFormData((prev) => ({ ...prev, ...data }));
@@ -129,7 +144,7 @@ const CreateRaffle: React.FC = () => {
             case 3:
                 return <DurationStep {...stepProps} />;
             case 4:
-                return <ReviewStep {...stepProps} />;
+                return <ReviewStep {...stepProps} onSubmitSuccess={clearDraft} />;
             default:
                 return <DetailsStep {...stepProps} />;
         }
@@ -137,6 +152,14 @@ const CreateRaffle: React.FC = () => {
 
     return (
         <div className="min-h-screen text-gray-900 dark:text-white">
+            {pendingDraft && (
+                <RestoreDraftModal
+                    open={showRestoreModal}
+                    draft={pendingDraft}
+                    onRestore={restoreDraft}
+                    onDiscard={discardDraft}
+                />
+            )}
             {/* Header */}
             <div className="w-full max-w-7xl mx-auto px-6 py-8">
                 <div className="mb-4">

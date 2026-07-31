@@ -222,7 +222,13 @@ export class FeeEstimatorService {
   private parseFeeResult(
     sim: rpc.Api.SimulateTransactionSuccessResponse,
   ): FeeEstimateResult {
-    const resourceFeeStroops = String(sim.minResourceFee ?? '0');
+    let resourceFeeStroops = String(sim.minResourceFee ?? '0');
+    let bn = new BigNumber(resourceFeeStroops);
+    if (bn.isNaN() || bn.isNegative()) {
+      resourceFeeStroops = '0';
+    } else {
+      resourceFeeStroops = bn.toFixed(0, BigNumber.ROUND_DOWN);
+    }
 
     // Extract per-resource consumption from the Soroban resource footprint.
     // `transactionData.resources()` returns an xdr.SorobanResources instance.
