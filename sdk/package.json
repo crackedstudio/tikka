@@ -35,7 +35,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest",
+    "test": "jest --config jest.config.cjs",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
     "example:cli": "node bin/tikka.mjs",
@@ -112,18 +112,5 @@
     "typedoc": "^0.28.18",
     "typedoc-plugin-markdown": "4.12",
     "typescript": "^5.6.0"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "testEnvironment": "node"
   }
 }
