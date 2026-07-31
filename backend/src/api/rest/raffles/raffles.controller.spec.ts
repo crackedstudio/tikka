@@ -263,110 +263,83 @@ describe('RafflesController — uploadImage', () => {
   });
 });
 
-describe('RafflesController — upsertMetadata idempotency', () => {
-  let controller: RafflesController;
-  let rafflesService: { upsertMetadata: jest.Mock };
+import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
+import { ExecutionContext } from '@nestjs/common';
+import { of } from 'rxjs';
+
+describe('IdempotencyInterceptor — upsertMetadata idempotency', () => {
+  let interceptor: IdempotencyInterceptor;
   let idempotencyService: {
     get: jest.Mock;
     lock: jest.Mock;
     resolve: jest.Mock;
   };
 
-  beforeEach(async () => {
-    rafflesService = {
-      upsertMetadata: jest.fn().mockResolvedValue({
-        raffleId: 42,
-        title: 'Test Raffle',
-        description: 'A test raffle',
-      }),
-    };
-
+  beforeEach(() => {
     idempotencyService = {
       get: jest.fn().mockResolvedValue(null),
       lock: jest.fn().mockResolvedValue(true),
       resolve: jest.fn().mockResolvedValue(undefined),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [RafflesController],
-      providers: [
-        { provide: RafflesService, useValue: rafflesService },
-        { provide: StorageService, useValue: {} },
-        { provide: IdempotencyService, useValue: idempotencyService },
-        { provide: SseService, useValue: {} },
-        { provide: MetadataRedisService, useValue: { isEnabled: jest.fn().mockReturnValue(false), get: jest.fn(), setEx: jest.fn() } },
-      ],
-    }).compile();
-
-    controller = module.get<RafflesController>(RafflesController);
+    interceptor = new IdempotencyInterceptor(idempotencyService as any);
   });
 
-  it('processes the first request and caches the response', async () => {
-    const payload = {
-      title: 'Test Raffle',
-      description: 'A test raffle',
+  function createMockContext(idempotencyKey?: string, walletAddress = 'GABC123') {
+    const req = {
+      headers: idempotencyKey ? { 'idempotency-key': idempotencyKey } : {},
+      user: { address: walletAddress },
     };
+    return {
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as unknown as ExecutionContext;
+  }
 
-    const result = await controller.upsertMetadata(42, 'GABC123', payload);
+  it('processes the first request and caches the response', (done) => {
+    const ctx = createMockContext('key-1');
+    const handler = { handle: () => of({ raffleId: 42, title: 'Test Raffle' }) };
 
-    expect(result).toEqual({
-      raffleId: 42,
-      title: 'Test Raffle',
-      description: 'A test raffle',
+    interceptor.intercept(ctx, handler).subscribe({
+      next: (result) => {
+        expect(result).toEqual({ raffleId: 42, title: 'Test Raffle' });
+        expect(idempotencyService.get).toHaveBeenCalledWith('GABC123', 'key-1');
+        expect(idempotencyService.lock).toHaveBeenCalledWith('GABC123', 'key-1');
+        expect(idempotencyService.resolve).toHaveBeenCalledWith('GABC123', 'key-1', { raffleId: 42, title: 'Test Raffle' });
+        done();
+      },
     });
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledWith(42, payload, 'GABC123');
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
   });
 
-  it('returns cached response for duplicate request with same Idempotency-Key', async () => {
-    const cachedResponse = {
-      raffleId: 42,
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
+  it('returns cached response for duplicate request with same Idempotency-Key', (done) => {
+    const cachedResponse = { raffleId: 42, title: 'Test Raffle' };
+    idempotencyService.get.mockResolvedValueOnce({ status: 'done', response: cachedResponse });
 
-    idempotencyService.get.mockResolvedValueOnce({
-      status: 'done',
-      response: cachedResponse,
+    const ctx = createMockContext('key-1');
+    const handler = { handle: jest.fn().mockReturnValue(of({ raffleId: 42 })) };
+
+    interceptor.intercept(ctx, handler).subscribe({
+      next: (result) => {
+        expect(result).toEqual(cachedResponse);
+        expect(handler.handle).not.toHaveBeenCalled();
+        expect(idempotencyService.lock).not.toHaveBeenCalled();
+        done();
+      },
     });
-
-    const payload = {
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
-
-    const result = await controller.upsertMetadata(42, 'GABC123', payload);
-
-    expect(result).toEqual(cachedResponse);
-    expect(rafflesService.upsertMetadata).not.toHaveBeenCalled();
-    expect(idempotencyService.lock).not.toHaveBeenCalled();
   });
 
-  it('does not call service method twice for same Idempotency-Key', async () => {
-    const cachedResponse = {
-      raffleId: 42,
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
+  it('does not call service method twice for same Idempotency-Key', (done) => {
+    const cachedResponse = { raffleId: 42, title: 'Test Raffle' };
+    idempotencyService.get.mockResolvedValueOnce({ status: 'done', response: cachedResponse });
 
-    // First request: no cache, will call service
-    idempotencyService.get.mockResolvedValueOnce(null);
-    
-    const payload = {
-      title: 'Test Raffle',
-      description: 'A test raffle',
-    };
+    const ctx = createMockContext('key-1');
+    const handler = { handle: jest.fn() };
 
-    await controller.upsertMetadata(42, 'GABC123', payload);
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1);
-
-    // Second request with same key: cache hit, won't call service
-    idempotencyService.get.mockResolvedValueOnce({
-      status: 'done',
-      response: cachedResponse,
+    interceptor.intercept(ctx, handler).subscribe({
+      next: (result) => {
+        expect(result).toEqual(cachedResponse);
+        expect(handler.handle).not.toHaveBeenCalled();
+        done();
+      },
     });
-
-    await controller.upsertMetadata(42, 'GABC123', payload);
-    expect(rafflesService.upsertMetadata).toHaveBeenCalledTimes(1); // Still only called once
   });
 });

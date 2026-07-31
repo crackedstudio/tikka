@@ -1,12 +1,16 @@
 import {
   ContractErrorType,
   InsufficientFundsError,
+  NetworkError,
   RaffleEndedError,
   RaffleFullError,
   RaffleNotFoundError,
   RpcError,
+  RpcTimeoutError,
   TikkaSdkError,
   TikkaSdkErrorCode,
+  TransactionRejectedError,
+  AuthError,
   UnauthorizedError,
   parseSorobanContractErrorCode,
   toTypedContractError,
@@ -166,5 +170,53 @@ describe("RpcError", () => {
       );
       expect(err.message).toContain("Unknown Error");
     });
+  });
+});
+
+describe("NetworkError", () => {
+  it("can be instantiated and has correct code", () => {
+    const err = new NetworkError("RPC nodes unreachable");
+    expect(err.name).toBe("NetworkError");
+    expect(err.code).toBe(TikkaSdkErrorCode.NetworkError);
+    expect(err.message).toBe("RPC nodes unreachable");
+  });
+
+  it("is instance of TikkaSdkError and Error", () => {
+    const err = new NetworkError("fail");
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(TikkaSdkError);
+    expect(err).toBeInstanceOf(NetworkError);
+  });
+});
+
+describe("TransactionRejectedError", () => {
+  it("can be instantiated and has correct code", () => {
+    const err = new TransactionRejectedError("tx rejected by network");
+    expect(err.name).toBe("TransactionRejectedError");
+    expect(err.code).toBe(TikkaSdkErrorCode.TransactionRejected);
+    expect(err.message).toBe("tx rejected by network");
+  });
+
+  it("is instance of TikkaSdkError and Error", () => {
+    const err = new TransactionRejectedError("fail");
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(TikkaSdkError);
+    expect(err).toBeInstanceOf(TransactionRejectedError);
+  });
+});
+
+describe("AuthError", () => {
+  it("can be instantiated and has correct code", () => {
+    const err = new AuthError("invalid SEP-10 token");
+    expect(err.name).toBe("AuthError");
+    expect(err.code).toBe(TikkaSdkErrorCode.AuthError);
+    expect(err.message).toBe("invalid SEP-10 token");
+  });
+
+  it("is instance of TikkaSdkError and Error", () => {
+    const err = new AuthError("fail");
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(TikkaSdkError);
+    expect(err).toBeInstanceOf(AuthError);
   });
 });
