@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, OnModuleDestroy } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
 import { MetricsController } from './metrics.controller';
 import { HealthModule } from '../health/health.module';
@@ -11,4 +11,10 @@ import { IngestorModule } from '../ingestor/ingestor.module';
   controllers: [MetricsController],
   exports: [MetricsService],
 })
-export class MetricsModule {}
+export class MetricsModule implements OnModuleDestroy {
+  constructor(private readonly metricsService: MetricsService) {}
+
+  onModuleDestroy() {
+    this.metricsService.stopQueueMetricsCollection();
+  }
+}

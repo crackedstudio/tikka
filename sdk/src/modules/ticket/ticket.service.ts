@@ -19,37 +19,19 @@ import { ContractResponse } from '../../contract/response';
 import { assertPositiveInt } from '../../utils/validation';
 import { TikkaSdkError, TikkaSdkErrorCode, toTypedSdkError } from '../../utils/errors';
 import { validateLifecycleTransition } from '../../contract/lifecycle';
+import {
+  assertValidRaffleId,
+  assertValidTicketQuantity,
+  InvalidTicketPurchaseError,
+  validateBuyTicketInputs,
+  validateBuyTicketsInputs,
+} from './purchase-validation';
 
 @Injectable()
 export class TicketService {
   private readonly submissionTracker = new Map<string, Set<string>>();
 
   constructor(private readonly contractService: ContractService) {}
-
-  /**
-   * Validates ticket purchase quantity constraints.
-   * @throws TikkaSdkError if quantity is invalid
-   */
-  private validateQuantity(quantity: number, fieldName = "quantity"): void {
-    if (!Number.isInteger(quantity)) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        `${fieldName} must be an integer, got ${quantity}`,
-      );
-    }
-    if (quantity < TICKET_CONSTRAINTS.MIN_QUANTITY) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        `${fieldName} must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}, got ${quantity}`,
-      );
-    }
-    if (quantity > TICKET_CONSTRAINTS.MAX_QUANTITY) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        `${fieldName} must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}, got ${quantity}`,
-      );
-    }
-  }
 
   /**
    * Checks for duplicate submission attempts.
@@ -119,8 +101,8 @@ export class TicketService {
     params: BuyTicketParams,
   ): Promise<ContractResponse<BuyTicketResult>> {
     const { raffleId, quantity } = params;
-    assertPositiveInt(raffleId, "raffleId");
-    this.validateQuantity(quantity);
+    // Reject invalid inputs client-side before any network call or tx build.
+    validateBuyTicketInputs({ raffleId, quantity });
 
     // Fetch current raffle state and validate before simulating/submitting.
     await this.assertRaffleOpenFor(ContractFn.BUY_TICKET, raffleId);
@@ -182,8 +164,8 @@ export class TicketService {
    */
   async buyTickets(params: BuyTicketsParams): Promise<ContractResponse<BuyTicketResult>> {
     const { raffleId, count, maxPricePerTicket } = params;
-    assertPositiveInt(raffleId, 'raffleId');
-    this.validateQuantity(count, 'count');
+    // Reject invalid inputs (incl. wrong asset precision) before any network call.
+    validateBuyTicketsInputs({ raffleId, count, maxPricePerTicket });
 
     // Fetch current raffle state and validate before simulating/submitting.
     await this.assertRaffleOpenFor(ContractFn.BUY_TICKET, raffleId);
@@ -370,33 +352,30 @@ export class TicketService {
   ): Promise<ContractResponse<BuyBatchResult>> {
     const { purchases, memo } = params;
 
-    // Validate inputs
+    // Validate inputs at the module boundary (before any network / tx build).
     if (!purchases || purchases.length === 0) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        "Purchases array cannot be empty",
+      throw new InvalidTicketPurchaseError(
+        'purchases',
+        'Purchases array cannot be empty',
       );
     }
 
     if (purchases.length > TICKET_CONSTRAINTS.MAX_BATCH_SIZE) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
+      throw new InvalidTicketPurchaseError(
+        'purchases',
         `Batch size cannot exceed ${TICKET_CONSTRAINTS.MAX_BATCH_SIZE}, got ${purchases.length}`,
       );
     }
 
-    // Validate each purchase
     purchases.forEach((purchase, index) => {
       try {
-        assertPositiveInt(purchase.raffleId, `purchases[${index}].raffleId`);
-        this.validateQuantity(
-          purchase.quantity,
-          `purchases[${index}].quantity`,
-        );
+        assertValidRaffleId(purchase.raffleId);
+        assertValidTicketQuantity(purchase.quantity, 'quantity');
       } catch (err) {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.InvalidParams,
+        throw new InvalidTicketPurchaseError(
+          'purchases',
           `Invalid purchase at index ${index}: ${err instanceof Error ? err.message : String(err)}`,
+          err,
         );
       }
     });

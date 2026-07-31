@@ -261,6 +261,31 @@ export async function apiRequest<T = any>(
 }
 
 /**
+ * Calculate the retry delay for a given attempt index using exponential backoff.
+ * Returns Math.min(500 * 2^attempt, 10_000) milliseconds.
+ */
+export function retryDelay(attempt: number): number {
+  return Math.min(500 * Math.pow(2, attempt), 10_000);
+}
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Determines whether a failed request should be retried.
+ * Only idempotent GET requests are retried — and only on network errors or 5xx responses.
+ */
+function shouldRetry(method: string, _error: unknown, response?: Response): boolean {
+  if (method.toUpperCase() !== 'GET') return false;
+  if (response === undefined) return true; // network error / no response
+  return response.status >= 500 && response.status <= 599;
+}
+
+/**
  * Convenience methods for common HTTP verbs
  */
 export const api = {
