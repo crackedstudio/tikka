@@ -106,6 +106,7 @@ To regenerate locally: `cd sdk && npm run docs`
 
 - **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — Full ecosystem specification with diagrams, data flows, contract interface, and API design
 - **[RAFFLE_LIFECYCLE.md](./docs/RAFFLE_LIFECYCLE.md)** — Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
+- **[RANDOMNESS_SCHEME.md](./docs/RANDOMNESS_SCHEME.md)** — Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
 
 ## Release & Versioning
 

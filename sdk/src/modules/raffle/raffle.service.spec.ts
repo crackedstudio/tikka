@@ -24,7 +24,11 @@ describe("RaffleService", () => {
     feeEstimator = {
       estimate: jest.fn(),
       estimateFee: jest.fn(),
-      estimateFromResourceFee: jest.fn(),
+      estimateFromResourceFee: jest.fn().mockReturnValue({
+        xlm: "0.0005100",
+        stroops: "5100",
+        resources: {} as any,
+      }),
     } as any;
 
     service = new RaffleService(contractService, feeEstimator);
@@ -47,7 +51,7 @@ describe("RaffleService", () => {
         assembledXdr: "unsigned-xdr",
         networkPassphrase: "passphrase",
       });
-      feeEstimator.estimate.mockResolvedValue({
+      feeEstimator.estimateFee.mockResolvedValue({
         xlm: "0.0005123",
         stroops: "5123",
         resources: {} as any,
@@ -55,12 +59,10 @@ describe("RaffleService", () => {
 
       const result = await service.estimateCreate(params);
 
-      expect(contractService.simulate).toHaveBeenCalledWith(
-        ContractFn.CREATE_RAFFLE,
-        expect.any(Array),
-        expect.anything(),
-      );
-      expect(feeEstimator.estimate).toHaveBeenCalledWith(expect.anything());
+      expect(feeEstimator.estimateFee).toHaveBeenCalledWith({
+        method: ContractFn.CREATE_RAFFLE,
+        params: expect.any(Array),
+      });
       expect(result).toEqual({ xlm: "0.0005123", stroops: "5123" });
     });
   });
@@ -82,7 +84,7 @@ describe("RaffleService", () => {
         assembledXdr: "unsigned-xdr",
         networkPassphrase: "passphrase",
       });
-      feeEstimator.estimate.mockResolvedValue({
+      feeEstimator.estimateFromResourceFee.mockReturnValue({
         xlm: "0.0005100",
         stroops: "5100",
         resources: {} as any,
@@ -102,7 +104,7 @@ describe("RaffleService", () => {
         expect.any(Array),
         expect.anything(),
       );
-      expect(feeEstimator.estimate).toHaveBeenCalledWith(expect.anything());
+      expect(feeEstimator.estimateFromResourceFee).toHaveBeenCalledWith("5000");
       expect(contractService.sign).toHaveBeenCalledWith(
         "unsigned-xdr",
         "passphrase",
@@ -224,6 +226,23 @@ describe("RaffleService", () => {
   });
 
   describe("cancel", () => {
+    beforeEach(() => {
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: "SUCCESS" as const,
+        value: {
+          ticket_price: "10",
+          max_tickets: 100,
+          end_time: BigInt(Math.floor(Date.now() / 1000) + 86400),
+          allow_multiple: true,
+          asset: "XLM",
+          asset_issuer: "",
+          status: 0, // Open
+          tickets_sold: 0,
+          creator: "GCREATOR",
+        },
+      });
+    });
+
     it("should invoke CANCEL_RAFFLE", async () => {
       const mockInvokeResult = {
         status: "SUCCESS" as const,
@@ -293,7 +312,7 @@ describe("RaffleService", () => {
         assembledXdr: "unsigned-xdr",
         networkPassphrase: "passphrase",
       });
-      feeEstimator.estimate.mockResolvedValue({
+      feeEstimator.estimateFromResourceFee.mockReturnValue({
         xlm: "0.0005100",
         stroops: "5100",
         resources: {} as any,
@@ -325,7 +344,7 @@ describe("RaffleService", () => {
         assembledXdr: "unsigned-xdr",
         networkPassphrase: "passphrase",
       });
-      feeEstimator.estimate.mockResolvedValue({
+      feeEstimator.estimateFromResourceFee.mockReturnValue({
         xlm: "0.0005100",
         stroops: "5100",
         resources: {} as any,

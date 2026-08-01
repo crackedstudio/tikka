@@ -19,6 +19,9 @@ export class TicketProcessor {
   /**
    * Called when a TicketPurchased event is indexed.
    * Inserts tickets idempotently and updates the raffle's ticketsSold count.
+   *
+   * Idempotent: if any ticket row already exists for `txHash`, the whole
+   * handler is a no-op (no double-count of tickets_sold / user stats).
    */
   async handleTicketPurchased(
     raffleId: number,
@@ -33,6 +36,18 @@ export class TicketProcessor {
       `Handling TicketPurchased for raffle ${raffleId} by ${buyer}`,
     );
 
+    const alreadyApplied = await queryRunner.manager
+      .createQueryBuilder(TicketEntity, "t")
+      .where("t.purchase_tx_hash = :txHash", { txHash })
+      .getExists();
+
+    if (alreadyApplied) {
+      this.logger.debug(
+        `TicketPurchased ${txHash} already applied for raffle ${raffleId}, skipping`,
+      );
+      return;
+    }
+
     for (const ticketId of ticketIds) {
       await queryRunner.manager
         .createQueryBuilder()
@@ -46,7 +61,7 @@ export class TicketProcessor {
           purchaseTxHash: txHash,
           refunded: false,
         })
-        .onConflict(`("purchase_tx_hash", "raffle_id") DO NOTHING`)
+        .orIgnore()
         .execute();
     }
 
@@ -72,14 +87,18 @@ export class TicketProcessor {
     await this.cacheService.invalidateRaffleDetail(raffleId.toString());
     await this.cacheService.invalidateUserProfile(buyer);
 
-    await this.webhookService.dispatch(
-      "TicketPurchased",
-      { raffleId, buyer, ticketIds, totalCost, timestamp: new Date() }
-    );
+    await this.webhookService.dispatch("TicketPurchased", {
+      raffleId,
+      buyer,
+      ticketIds,
+      totalCost,
+      timestamp: new Date(),
+    });
   }
 
   /**
    * Called when a TicketRefunded event is indexed.
+   * Idempotent: conditional update only touches rows that are not yet refunded.
    */
   async handleTicketRefunded(
     raffleId: number,
@@ -100,10 +119,13 @@ export class TicketProcessor {
         refunded: true,
         refundTxHash: txHash,
       })
-      .where("id = :ticketId AND raffle_id = :raffleId", {
-        ticketId,
-        raffleId,
-      })
+      .where(
+        "id = :ticketId AND raffle_id = :raffleId AND refunded = false",
+        {
+          ticketId,
+          raffleId,
+        },
+      )
       .execute();
 
     await this.userProcessor.handleTicketRefunded(

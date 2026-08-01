@@ -5,6 +5,16 @@ expected workflow for pull requests.
 
 ## How to Contribute
 
+### Backend migration workflow
+
+If your change touches the backend database schema, make sure the migration files are valid before submitting a PR. From the backend folder, run:
+
+```bash
+npm run migrations:check
+```
+
+This validates the migration numbering and filename format, and it helps prevent schema drift from reaching deployment. Create new migrations as `database/migrations/NNN_name.sql` with a zero-padded sequence and a `snake_case` name.
+
 1. Fork the repo and create a feature branch:
 
 ```bash

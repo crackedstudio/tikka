@@ -58,9 +58,15 @@ CREATE TABLE archive_checkpoints (
 # Dry-run (default) - simulates archiving without modifications
 npm run archive:raffle-events
 
-# Production run - actually archives and deletes records
+# Production run (interactive TTY — type "yes" when prompted)
 DRY_RUN=false npm run archive:raffle-events
+
+# Production / cron — CONFIRM_DELETE=yes required when not on a TTY
+CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 ```
+
+Destructive runs refuse to start unless deletion is confirmed. See
+[`docs/database/raffle-events-retention.md`](../../../docs/database/raffle-events-retention.md).
 
 ### Configuration Options
 
@@ -72,6 +78,7 @@ All options are configured via environment variables:
 | `BATCH_SIZE` | `500` | Records per batch |
 | `MAX_BATCH` | `unlimited` | Maximum batches to process in one run |
 | `DRY_RUN` | `true` | Simulate without database modifications |
+| `CONFIRM_DELETE` | unset | Must be `yes` for non-interactive deletes |
 | `RESUME` | `true` | Resume from checkpoint if available |
 
 ### Common Scenarios
@@ -94,8 +101,9 @@ npm run archive:raffle-events
 #### 2. Production Archiving
 
 ```bash
-# Archive events older than 90 days
+# Archive events older than 90 days (CONFIRM_DELETE required non-interactively)
 RAFFLE_EVENTS_RETENTION_DAYS=90 \
+CONFIRM_DELETE=yes \
 DRY_RUN=false \
 npm run archive:raffle-events
 ```
@@ -107,6 +115,7 @@ npm run archive:raffle-events
 RAFFLE_EVENTS_RETENTION_DAYS=30 \
 BATCH_SIZE=1000 \
 MAX_BATCH=10 \
+CONFIRM_DELETE=yes \
 DRY_RUN=false \
 npm run archive:raffle-events
 ```
@@ -117,6 +126,7 @@ npm run archive:raffle-events
 
 ```bash
 # Automatically resumes from last checkpoint
+CONFIRM_DELETE=yes \
 DRY_RUN=false \
 RESUME=true \
 npm run archive:raffle-events
@@ -131,6 +141,7 @@ npm run archive:raffle-events
 
 ```bash
 # Start from beginning, ignoring existing checkpoints
+CONFIRM_DELETE=yes \
 DRY_RUN=false \
 RESUME=false \
 npm run archive:raffle-events
@@ -390,6 +401,7 @@ cat archives/*.csv | grep -v "^id," | cut -d',' -f1 | sort | uniq -d
 # Archive and upload to S3
 
 # Run archiving
+CONFIRM_DELETE=yes \
 DRY_RUN=false \
 RAFFLE_EVENTS_RETENTION_DAYS=90 \
 npm run archive:raffle-events
@@ -407,8 +419,8 @@ rm -f ./archives/*.csv
 ### Automated Scheduling
 
 ```bash
-# Cron job (daily at 2 AM)
-0 2 * * * cd /app && DRY_RUN=false MAX_BATCH=50 npm run archive:raffle-events >> /var/log/archive.log 2>&1
+# Cron job (daily at 2 AM) — CONFIRM_DELETE required for non-interactive deletes
+0 2 * * * cd /app && CONFIRM_DELETE=yes DRY_RUN=false MAX_BATCH=50 npm run archive:raffle-events >> /var/log/archive.log 2>&1
 ```
 
 ## Testing
@@ -450,7 +462,7 @@ A: The second run will wait for the first to complete (row-level lock on checkpo
 A: Yes, but it will create a new checkpoint and start fresh.
 
 **Q: How do I restore archived data?**  
-A: Use standard CSV import tools or write a custom import script.
+A: Follow the step-by-step restore in [`docs/database/raffle-events-retention.md`](../../../docs/database/raffle-events-retention.md) (locate CSVs → staging `\copy` → `INSERT … ON CONFLICT (tx_hash) DO NOTHING`).
 
 **Q: What if I need to archive other tables?**  
 A: The checkpoint system supports multiple job types. Extend the archiver for new tables.

@@ -5,8 +5,8 @@ export class CreateWebhookDeliveries1760000000000 implements MigrationInterface 
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `CREATE TABLE "webhook_deliveries" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        `CREATE TABLE "webhook_deliveries" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "webhookUrl" character varying NOT NULL,
         "eventType" character varying NOT NULL,
         "payload" jsonb NOT NULL,
@@ -20,6 +20,6 @@ export class CreateWebhookDeliveries1760000000000 implements MigrationInterface 
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE "webhook_deliveries"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "webhook_deliveries"`);
   }
 }

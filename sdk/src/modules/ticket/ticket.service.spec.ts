@@ -4,6 +4,7 @@ import { ContractFn } from '../../contract/bindings';
 import { BuyTicketParams, RefundTicketParams, BuyBatchParams, BuyTicketsParams, TICKET_CONSTRAINTS } from './ticket.types';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 import { RaffleStatus } from '../../contract/bindings';
+import { InvalidTicketPurchaseError } from './purchase-validation';
 
 describe('TicketService', () => {
   let service: TicketService;
@@ -67,27 +68,54 @@ describe('TicketService', () => {
 
     it('should throw if raffleId is invalid', async () => {
       const params: BuyTicketParams = { raffleId: 0, quantity: 1 };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
       await expect(service.buy(params)).rejects.toThrow('raffleId must be a positive integer');
+      expect(contractService.simulateReadOnly).not.toHaveBeenCalled();
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity is not an integer', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: 1.5 };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
       await expect(service.buy(params)).rejects.toThrow('quantity must be an integer');
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity is zero', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: 0 };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
       await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity is negative', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: -5 };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
       await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity exceeds maximum', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: TICKET_CONSTRAINTS.MAX_QUANTITY + 1 };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
       await expect(service.buy(params)).rejects.toThrow(`quantity must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`);
+      expect(contractService.invoke).not.toHaveBeenCalled();
+    });
+
+    it('should accept quantity at max boundary without building until after validation', async () => {
+      const params: BuyTicketParams = {
+        raffleId: 1,
+        quantity: TICKET_CONSTRAINTS.MAX_QUANTITY,
+      };
+      contractService.invoke.mockResolvedValue({
+        success: true,
+        value: [1],
+        transactionHash: 'tx',
+        ledger: 1,
+        feeCharged: '1',
+      });
+      await service.buy(params);
+      expect(contractService.invoke).toHaveBeenCalled();
     });
 
     it('should detect duplicate submissions', async () => {
@@ -213,6 +241,20 @@ describe('TicketService', () => {
       };
 
       await expect(service.buyTickets(params)).rejects.toThrow(`count must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`);
+      expect(contractService.invoke).not.toHaveBeenCalled();
+    });
+
+    it('should throw typed error for wrong maxPricePerTicket asset precision', async () => {
+      const params: BuyTicketsParams = {
+        raffleId: 1,
+        count: 1,
+        maxPricePerTicket: '1.5',
+      };
+
+      await expect(service.buyTickets(params)).rejects.toThrow(InvalidTicketPurchaseError);
+      await expect(service.buyTickets(params)).rejects.toThrow(/wrong asset precision/);
+      expect(contractService.simulateReadOnly).not.toHaveBeenCalled();
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
   });
 

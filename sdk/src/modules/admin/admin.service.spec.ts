@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdminService } from './admin.service';
 import { ContractService } from '../../contract/contract.service';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -10,6 +11,7 @@ describe('AdminService', () => {
     const mockContractService = {
       invoke: jest.fn(),
       simulateReadOnly: jest.fn(),
+      getPublicKey: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -128,20 +130,19 @@ describe('AdminService', () => {
     it('should allow creator to cancel their own raffle', async () => {
       const creatorAddress = 'GCREATOR1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB';
       contractService.getPublicKey.mockResolvedValue(creatorAddress);
-      contractService.simulateReadOnly
-        .mockResolvedValueOnce({
-          status: 'SUCCESS' as const,
-          value: {
-            creator: creatorAddress,
-            status: 0, // Open
-          },
-        })
-        .mockResolvedValueOnce({
-          status: 'SUCCESS' as const,
-          value: undefined,
-          txHash: 'mno345',
-          ledger: 104,
-        });
+      contractService.simulateReadOnly.mockResolvedValueOnce({
+        success: true,
+        value: {
+          creator: creatorAddress,
+          status: 0, // Open
+        },
+      });
+      contractService.invoke.mockResolvedValue({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'mno345',
+        ledger: 104,
+      });
 
       const result = await service.cancelRaffle(1);
 
@@ -158,22 +159,22 @@ describe('AdminService', () => {
       contractService.getPublicKey.mockResolvedValue(callerAddress);
       contractService.simulateReadOnly
         .mockResolvedValueOnce({
-          status: 'SUCCESS' as const,
+          success: true,
           value: {
             creator: creatorAddress,
             status: 0, // Open
           },
         })
         .mockResolvedValueOnce({
-          status: 'SUCCESS' as const,
+          success: true,
           value: adminAddress,
-        })
-        .mockResolvedValueOnce({
-          status: 'SUCCESS' as const,
-          value: undefined,
-          txHash: 'pqr678',
-          ledger: 105,
         });
+      contractService.invoke.mockResolvedValue({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'pqr678',
+        ledger: 105,
+      });
 
       const result = await service.cancelRaffle(2);
 
@@ -188,16 +189,21 @@ describe('AdminService', () => {
       const callerAddress = 'GOTHER1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB';
 
       contractService.getPublicKey.mockResolvedValue(callerAddress);
-      contractService.simulateReadOnly.mockResolvedValueOnce({
-        status: 'SUCCESS' as const,
-        value: {
-          creator: creatorAddress,
-          status: 0, // Open
-        },
-      });
+      contractService.simulateReadOnly
+        .mockResolvedValueOnce({
+          success: true,
+          value: {
+            creator: creatorAddress,
+            status: 0, // Open
+          },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          value: 'GADMIN1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB',
+        });
 
-      await expect(service.cancelRaffle(3)).rejects.toThrow(TikkaSdkError);
       await expect(service.cancelRaffle(3)).rejects.toMatchObject({
+        name: 'TikkaSdkError',
         code: TikkaSdkErrorCode.Unauthorized,
       });
 
@@ -206,7 +212,7 @@ describe('AdminService', () => {
 
     it('should return error response if raffle data fetch fails', async () => {
       contractService.simulateReadOnly.mockResolvedValueOnce({
-        status: 'ERROR' as const,
+        success: false,
         error: 'Raffle not found',
       });
 

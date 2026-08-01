@@ -10,6 +10,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
 import { ApiModule } from "./api/api.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
+import { TracingModule } from "./tracing/tracing.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MaintenanceModule } from "./maintenance/maintenance.module";
       // Pick up .env.local in development; Railway / Fly inject real env vars
       envFilePath: [".env.local", ".env"],
     }),
+    TracingModule,
     // TypeORM connection + entity registration + auto-migrations
     DatabaseModule,
     // Redis cache layer

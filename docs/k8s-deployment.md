@@ -123,13 +123,42 @@ See `oracle/k8s/examples/` for AWS KMS (IRSA) and GCP KMS (Workload Identity) de
 
 ## Health checks
 
-All services expose `GET /health`. The readiness probe gates traffic; the liveness probe restarts unhealthy pods.
+Most services expose `GET /health`. The indexer splits Kubernetes-style probes:
 
-| Service | Port | Readiness delay | Liveness delay |
-|---------|------|----------------|----------------|
-| backend | 3001 | 5s | 30s |
-| indexer | 3002 | 10s | 30s |
-| oracle  | 3003 | 10s | 30s |
+| Probe | Indexer path | Meaning |
+|-------|--------------|---------|
+| **Liveness** | `GET /health/live` | Process is up — always 200 while Nest can serve HTTP. Does **not** fail on lag, DLQ, Redis, or stalled ingestion. |
+| **Readiness** | `GET /health/ready` | Safe to receive traffic — checks DB, Redis, cursor integrity, DLQ pressure, archive integrity, lag, and ingestion heartbeat. Returns **503** when degraded. |
+| **Diagnostics** | `GET /health` | Same payload / 503 semantics as readiness (CLI and backwards compatibility). |
+
+Stalled ingestion (high ledger lag or a stale poller heartbeat) flips **readiness only**, so Kubernetes stops routing traffic without restarting the pod.
+
+Indexer probe example (`indexer/kubernetes/deployment.yaml`):
+
+```yaml
+startupProbe:
+  httpGet:
+    path: /health/ready
+    port: 3002
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 3002
+  initialDelaySeconds: 10
+  periodSeconds: 5
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 3002
+  initialDelaySeconds: 30
+  periodSeconds: 10
+```
+
+| Service | Port | Readiness path | Liveness path | Readiness delay | Liveness delay |
+|---------|------|----------------|---------------|-----------------|----------------|
+| backend | 3001 | `/health` | `/health` | 5s | 30s |
+| indexer | 3002 | `/health/ready` | `/health/live` | 10s | 30s |
+| oracle  | 3003 | `/health` | `/health` | 10s | 30s |
 
 ---
 
