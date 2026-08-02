@@ -59,6 +59,6 @@
   },
   "optionalDependencies": {
     "@aws-sdk/client-kms": "^3.0.0",
-    "@google-cloud/kms": "^4.0.0"
+    "@google-cloud/kms": "^5.7.0"
   }
 }
