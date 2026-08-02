@@ -4,6 +4,32 @@
 
 This repository is the **Tikka ecosystem**: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a **separate repo/folder** and are not included here.
 
+## Architecture
+
+For a comprehensive overview of the system design, data flows, and component responsibilities, please see the **[Architecture Documentation](./docs/ARCHITECTURE.md)**.
+
+```mermaid
+flowchart TD
+    Client[Client App]
+    SDK[Tikka SDK]
+    API[Backend API]
+    Indexer[Indexer]
+    Oracle[Oracle]
+    Chain[Stellar Chain / Contracts]
+    Supabase[(Supabase)]
+
+    Chain -->|Events| Indexer
+    Indexer -->|Decoded Data| API
+    API -->|Merged Data| Client
+    Supabase -->|Off-chain Metadata| API
+    
+    Oracle -->|Submits Randomness| Chain
+    
+    Client -->|Writes via| SDK
+    SDK -->|Transactions| Chain
+    SDK -->|Reads/Writes| API
+```
+
 ## Packages
 
 | Package | Role |
