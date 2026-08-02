@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch, type SortOption } from "../hooks/useSearch";
 import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import RaffleCard from "../components/cards/RaffleCard";
-import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
+import RaffleCardSkeleton from "../components/cards/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
@@ -122,8 +122,9 @@ const SearchPage: React.FC = () => {
                 />
             )}
 
-            {!isLoading && !error && results.length === 0 && query && (
+            {!isLoading && !error && results.length === 0 && (query || selectedCategories.length > 0) && (
                 <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-500">
+                    {/* Animated Icon */}
                     <div className="relative mb-6">
                         <div className="absolute inset-0 rounded-full bg-[#FE3796]/20 animate-ping"></div>
                         <div className="relative bg-white dark:bg-[#11172E] p-6 rounded-full border border-gray-200 dark:border-white/10">
@@ -137,34 +138,31 @@ const SearchPage: React.FC = () => {
 
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No raffles found</h3>
                     <p className="text-gray-400 text-center max-w-xs mb-8">
-                        We couldn't find anything matching <span className="text-pink-600 dark:text-[#FE3796]">"{query}"</span>.
+                        We couldn't find anything matching {query ? <span className="text-pink-600 dark:text-[#FE3796]">"{query}"</span> : 'your filters'}.
                         Try a different keyword or category.
                     </p>
 
-      {error && !isLoading && (
-        <ErrorMessage title="Search failed" message={error.message} />
-      )}
+                    <button
+                        onClick={() => navigate("/home")}
+                        className="px-8 py-3 rounded-xl bg-[#FE3796] hover:brightness-110 transition-all font-medium text-sm shadow-lg shadow-[#FE3796]/20"
+                    >
+                        Go Back
+                    </button>
+                </div>
+            )}
 
-      {!isLoading && !error && results.length === 0 && query && (
-        <div className="flex items-center justify-center py-20 animate-in fade-in duration-300">
-          <p className="text-center text-lg text-gray-600 dark:text-gray-300">
-            No raffles match "{query}". Try different keywords.
-          </p>
+            {!isLoading && !error && results.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {results.map((raffle) => (
+                        <RaffleCard
+                            key={raffle.id}
+                            viewModel={toRaffleCardViewModel(raffle)}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
-      )}
-
-      {!isLoading && !error && results.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {results.map((raffle) => (
-            <RaffleCard
-              key={raffle.id}
-              viewModel={toRaffleCardViewModel(raffle)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default SearchPage;

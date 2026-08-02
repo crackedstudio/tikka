@@ -8,10 +8,10 @@ import { useRaffles } from "../hooks/useRaffles";
 import { fetchRaffles } from "../services/raffleService";
 import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
 import type { ApiRaffleListItem } from "../types/types";
-import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { useTranslation } from "react-i18next";
 import { mergeRafflesById } from "./mergeRafflesById";
+import RaffleCardSkeleton from "../components/cards/RaffleCardSkeleton";
 
 const PAGE_SIZE = 6;
 const SCROLL_CACHE_KEY = "home_scroll_state";
