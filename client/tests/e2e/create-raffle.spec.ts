@@ -5,21 +5,7 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sampleImage = path.resolve(__dirname, '../../src/assets/svg/logo.svg');
 
-const fakeRaffleDetail = {
-  id: 123,
-  title: 'Test Raffle',
-  description: 'Demo raffle for end-to-end test',
-  creator: 'GTESTADDRESS1234567890ABCDEF',
-  status: 'open',
-  end_time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  ticket_price: '0.1',
-  max_tickets: 100,
-  tickets_sold: 0,
-  asset: 'XLM',
-  prize_amount: '100',
-  image_url: 'https://placekitten.com/800/450',
-  created_at: new Date().toISOString(),
-};
+import { fakeRaffleDetail } from '../../src/test/fixtures';
 
 test.describe('Raffle creation flow', () => {
   test('goes through wizard and navigates to raffle details', async ({ page }) => {

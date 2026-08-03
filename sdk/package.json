@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -21,6 +22,11 @@
       "import": "./dist/write/index.write.js",
       "require": "./dist/write/index.write.js",
       "types": "./dist/write/index.write.d.ts"
+    },
+    "./light": {
+      "import": "./dist/light/index.light.js",
+      "require": "./dist/light/index.light.js",
+      "types": "./dist/light/index.light.d.ts"
     }
   },
   "bin": {
@@ -35,7 +41,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest",
+    "test": "jest --config jest.config.cjs",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
     "example:cli": "node bin/tikka.mjs",
@@ -44,9 +50,11 @@
     "example:buy-tickets": "ts-node examples/buy-tickets.ts",
     "example:listen-events": "ts-node examples/listen-events.ts",
     "example:offline-signing": "ts-node examples/offline-signing.ts",
+    "example:custom-wallet": "ts-node examples/custom-wallet.ts",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
+    "analyze:light": "node scripts/bundle-analysis/analyze.mjs",
     "size-check:legacy": "powershell (Get-Item dist/light/index.light.js).Length"
   },
   "size-limit": [
@@ -54,7 +62,29 @@
       "name": "@tikka/sdk/read",
       "path": "dist/read/index.read.js",
       "limit": "50 kB",
-      "gzip": true
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
+    },
+    {
+      "name": "@tikka/sdk light",
+      "path": "dist/light/index.light.js",
+      "limit": "25 kB",
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
     }
   ],
   "dependencies": {

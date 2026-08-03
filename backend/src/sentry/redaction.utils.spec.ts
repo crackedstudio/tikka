@@ -112,14 +112,14 @@ describe('hashWallet', () => {
 
 describe('redactWalletAddresses', () => {
   it('replaces a Stellar public key (56 base32 chars) with its hash', () => {
-    const key = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R8S9T0U1V2W3X4';
+    const key = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
     const result = redactWalletAddresses(`user ${key} made a purchase`);
     expect(result).not.toContain(key);
     expect(result).toMatch(/^user [0-9a-f]{16} made a purchase$/);
   });
 
   it('replaces a Stellar secret seed (S…) with its hash', () => {
-    const seed = 'SBRDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R8S9T0U1V2W3X4';
+    const seed = 'SBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
     const result = redactWalletAddresses(`secret: ${seed}`);
     expect(result).not.toContain(seed);
     expect(result).toMatch(/^secret: [0-9a-f]{16}$/);
@@ -159,14 +159,14 @@ describe('scrubPii', () => {
   });
 
   it('hashes Stellar wallet addresses in string values', () => {
-    const wallet = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R8S9T0U1V2W3X4';
+    const wallet = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
     const result = scrubPii({ address: wallet }) as Record<string, unknown>;
     expect(result.address).not.toBe(wallet);
     expect(result.address).toMatch(/^[0-9a-f]{16}$/);
   });
 
   it('recursively scrubs nested objects', () => {
-    const wallet = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R8S9T0U1V2W3X4';
+    const wallet = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
     const result = scrubPii({
       outer: { email: 'a@b.com', data: { wallet } },
     }) as any;
@@ -188,7 +188,7 @@ describe('scrubPii', () => {
 });
 
 describe('scrubSentryEvent', () => {
-  const VALID_WALLET = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R8S9T0U1V2W3X4';
+  const VALID_WALLET = 'GBRFDEK53ZB2TEJNDA223GK5C45XZS7K2V3N4M5P6Q7R7S7T7U7V7W7X';
 
   it('redacts authorization header', () => {
     const event = {
@@ -255,7 +255,7 @@ describe('scrubSentryEvent', () => {
       contexts: { user: { email: 'bob@example.com' } },
     } as any;
     const result = scrubSentryEvent(event);
-    expect(result.contexts!.user.email).toBe('[REDACTED]');
+    expect((result.contexts!.user as any).email).toBe('[REDACTED]');
   });
 
   it('does not mutate the original event', () => {

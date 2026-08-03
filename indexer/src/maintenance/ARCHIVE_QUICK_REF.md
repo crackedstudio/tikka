@@ -6,24 +6,27 @@
 # Test (dry-run)
 npm run archive:raffle-events
 
-# Production
+# Production (interactive TTY — type "yes" when prompted)
 DRY_RUN=false npm run archive:raffle-events
+
+# Production (non-interactive / cron — explicit confirmation required)
+CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 ```
 
 ## Common Commands
 
 ```bash
 # Archive events older than 60 days
-RAFFLE_EVENTS_RETENTION_DAYS=60 DRY_RUN=false npm run archive:raffle-events
+RAFFLE_EVENTS_RETENTION_DAYS=60 CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 
 # Process only 10 batches
-MAX_BATCH=10 DRY_RUN=false npm run archive:raffle-events
+MAX_BATCH=10 CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 
 # Larger batches for faster processing
-BATCH_SIZE=2000 DRY_RUN=false npm run archive:raffle-events
+BATCH_SIZE=2000 CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 
 # Start fresh (ignore checkpoints)
-RESUME=false DRY_RUN=false npm run archive:raffle-events
+RESUME=false CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 ```
 
 ## Environment Variables
@@ -34,6 +37,7 @@ RESUME=false DRY_RUN=false npm run archive:raffle-events
 | `BATCH_SIZE` | `500` | Records per batch |
 | `MAX_BATCH` | unlimited | Max batches per run |
 | `DRY_RUN` | `true` | Simulate without changes |
+| `CONFIRM_DELETE` | unset | Must be `yes` for non-interactive deletes |
 | `RESUME` | `true` | Resume from checkpoint |
 
 ## Output
@@ -60,12 +64,14 @@ psql -c "SELECT * FROM archive_checkpoints WHERE job_type='raffle_events' ORDER 
 | Disk full | Use `MAX_BATCH` to limit files per run |
 | Not resuming | Check `RESUME=true` and checkpoint status |
 | Stuck | Check for long-running transactions in database |
+| Aborted without CONFIRM_DELETE | Set `CONFIRM_DELETE=yes` or confirm at the TTY prompt |
 
 ## Safety Checklist
 
 - [ ] Run dry-run first
 - [ ] Check disk space
 - [ ] Verify retention days
+- [ ] Confirm deletes (`CONFIRM_DELETE=yes` or interactive prompt)
 - [ ] Schedule during low-traffic period
 - [ ] Monitor progress
 - [ ] Backup CSV files after completion
@@ -74,10 +80,12 @@ psql -c "SELECT * FROM archive_checkpoints WHERE job_type='raffle_events' ORDER 
 
 ✅ Resumable after interruptions  
 ✅ Dry-run simulation  
+✅ Delete confirmation before removals  
 ✅ Batch limits  
 ✅ Transactional safety  
 ✅ Structured logging  
 
 ## Full Documentation
 
-See [ARCHIVE_RAFFLE_EVENTS_GUIDE.md](./ARCHIVE_RAFFLE_EVENTS_GUIDE.md) for complete documentation.
+- Retention / restore (ops): [`docs/database/raffle-events-retention.md`](../../../docs/database/raffle-events-retention.md)
+- Guide: [ARCHIVE_RAFFLE_EVENTS_GUIDE.md](./ARCHIVE_RAFFLE_EVENTS_GUIDE.md)

@@ -21,6 +21,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly MEM_CRIT_THRESHOLD = 90;
   private readonly MEM_MONITOR_INTERVAL_MS = 60_000;
 
+  private memMonitorTimer?: NodeJS.Timeout;
+
   private cacheStats: Record<CacheBucket, CacheStats> = {
     raffles: { hits: 0, misses: 0, requests: 0 },
     users: { hits: 0, misses: 0, requests: 0 },
@@ -51,7 +53,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('Redis cache service connected');
     });
 
-    setInterval(() => {
+    this.memMonitorTimer = setInterval(() => {
       this.monitorMemoryUsage().catch((error) => {
         this.logger.error('Redis memory monitoring failed', error.stack);
       });
@@ -59,6 +61,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
+    clearInterval(this.memMonitorTimer);
     this.redis.disconnect();
     this.logger.log('Redis cache service disconnected');
   }

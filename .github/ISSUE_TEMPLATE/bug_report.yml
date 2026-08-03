@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible problem in the app or service
+title: "[bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a bug. Please include as much detail as possible so it can be reproduced and triaged quickly.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+      placeholder: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: List the steps needed to reproduce the issue.
+      placeholder: |
+        1. Open the app
+        2. Go to ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+      placeholder: The app should ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+      placeholder: Instead, the app ...
+    validations:
+      required: true
+  - type: dropdown
+    id: workspace
+    attributes:
+      label: Affected workspace
+      description: Select the area that is affected.
+      options:
+        - Backend
+        - Client
+        - Indexer
+        - Oracle
+        - SDK
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, browser, runtime, or deployment context if relevant.
+      placeholder: Node version, Docker, browser, etc.
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add logs, screenshots, or anything else that may help.
+      placeholder: Attach screenshots or paste relevant logs here.

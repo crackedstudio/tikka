@@ -105,7 +105,20 @@ Response:
 }
 ```
 
+## HTTP Status Semantics by Lifecycle State (`GET /raffles/:id`)
+
+Clients must be able to distinguish between active, ended/cancelled, soft-deleted/permanently removed, and non-existent raffles:
+
+| Lifecycle State | On-Chain / Metadata State | HTTP Status Code | Response Body / Behavior |
+|-----------------|---------------------------|------------------|--------------------------|
+| **Active** | `open`, `drawing` | `200 OK` | Merged raffle detail object with `status` field. |
+| **Ended / Finalized** | `ended`, `finalized` | `200 OK` | Merged raffle detail object with `status` field. Viewable so clients can view winner and stats. |
+| **Cancelled** | `cancelled` | `200 OK` | Merged raffle detail object with `status` field. Viewable so clients can view cancellation state. |
+| **Deleted / Soft-Deleted** | `deleted`, `removed` on-chain, or `deleted_at != null` in metadata | `410 Gone` | Exception payload `{ statusCode: 410, message: "Raffle {id} has been deleted", error: "Gone" }`. |
+| **Unknown ID** | No indexer or metadata record ever created | `404 Not Found` | Exception payload `{ statusCode: 404, message: "Raffle {id} not found", error: "Not Found" }`. |
+
 ## Response Schema
+
 
 ### Freshness Fields (Added to All Raffle Responses)
 ```typescript
