@@ -154,8 +154,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.7(@types/react@18.3.31)
       '@types/sharp':
-        specifier: 0.31.1
-        version: 0.31.1
+        specifier: 0.32.0
+        version: 0.32.0(@types/node@22.19.15)
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
@@ -1989,8 +1989,9 @@ packages:
   '@types/serve-static@2.2.0':
     resolution: {integrity: sha512-8mam4H1NHLtu7nmtalF7eyBH14QyOASmcxHhSfEoRyr0nP/YdoesEtU+uSRvMe96TW/HPTtkoKqQLl53N7UXMQ==}
 
-  '@types/sharp@0.31.1':
-    resolution: {integrity: sha512-5nWwamN9ZFHXaYEincMSuza8nNfOof8nmO+mcI+Agx1uMUk4/pQnNIcix+9rLPXzKrm1pS34+6WRDbDV0Jn7ag==}
+  '@types/sharp@0.32.0':
+    resolution: {integrity: sha512-OOi3kL+FZDnPhVzsfD37J88FNeZh6gQsGcLc95NbeURRGvmSjeXiDcyWzF2o3yh/gQAUn2uhh/e+CPCa5nwAxw==}
+    deprecated: This is a stub types definition. sharp provides its own type definitions, so you do not need this installed.
 
   '@types/shimmer@1.2.0':
     resolution: {integrity: sha512-UE7oxhQLLd9gub6JKIAhDq06T0F6FnztwMNRvYgjeQSBeMc1ZG/tA47EwfduvkuQS8apbkM/lpLpWsaCeYsXVg==}
@@ -7122,9 +7123,11 @@ snapshots:
       '@types/http-errors': 2.0.5
       '@types/node': 22.19.15
 
-  '@types/sharp@0.31.1':
+  '@types/sharp@0.32.0(@types/node@22.19.15)':
     dependencies:
-      '@types/node': 22.19.15
+      sharp: 0.35.3(@types/node@22.19.15)
+    transitivePeerDependencies:
+      - '@types/node'
 
   '@types/shimmer@1.2.0': {}
 
