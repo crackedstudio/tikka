@@ -206,7 +206,7 @@ jobs:
             }
 
       - name: Create GitHub Issue on failure
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const title = `Backup workflow failed — ${new Date().toISOString().split('T')[0]}`;
