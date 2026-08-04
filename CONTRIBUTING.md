@@ -67,6 +67,19 @@ cp .env.example .env
 pnpm dev
 ```
 
+## Package manager policy
+
+Use pnpm for every package root in this repository so each package has a single canonical lockfile:
+
+- Root package: pnpm
+- Client workspace: pnpm
+- Backend workspace: pnpm
+- SDK workspace: pnpm
+- Indexer workspace: pnpm
+- Oracle workspace: pnpm
+
+Use the package manager that matches the package root you are working in. Do not add or commit npm lockfiles such as package-lock.json in these directories.
+
 - The client uses Vite and expects the backend at `http://localhost:3001` by default.
 - Run tests with:
 
