@@ -18,7 +18,7 @@
     "storage:cleanup-orphans": "ts-node scripts/cleanup-orphan-images.ts"
   },
   "dependencies": {
-    "@fastify/helmet": "^13.0.2",
+    "@fastify/helmet": "^13.1.0",
     "@fastify/multipart": "^10.1.0",
     "@nestjs/bullmq": "^10.2.3",
     "@nestjs/common": "^10.4.0",
