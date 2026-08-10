@@ -33,7 +33,7 @@
     "@stellar/stellar-sdk": "^14.5.0",
     "@supabase/supabase-js": "^2.111.0",
     "bull": "^4.16.5",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.4.2",
     "nest-winston": "^1.10.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
