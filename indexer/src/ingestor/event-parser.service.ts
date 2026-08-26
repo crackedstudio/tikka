@@ -6,15 +6,15 @@ import { IEventParser, RawSorobanEvent } from "./event-parser.interface";
 import { resolveSchemaVersion } from "./handlers/schema-version";
 
 /**
- * Extensible Event Parser Service (V2)
+ * Extensible event parser service.
  * Uses a dynamic registry system to support multiple contracts and custom event handlers.
  *
  * This is the single, canonical parser for the ingestion pipeline; it
  * implements the {@link IEventParser} contract.
  */
 @Injectable()
-export class EventParserV2Service implements IEventParser {
-  private readonly logger = new Logger(EventParserV2Service.name);
+export class EventParserService implements IEventParser {
+  private readonly logger = new Logger(EventParserService.name);
 
   constructor(private readonly handlerRegistry: EventHandlerRegistry) {}
 

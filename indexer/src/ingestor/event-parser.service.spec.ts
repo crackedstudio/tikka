@@ -1,6 +1,6 @@
 import { nativeToScVal, Keypair } from "@stellar/stellar-sdk";
 import { ConfigService } from "@nestjs/config";
-import { EventParserV2Service } from "./event-parser-v2.service";
+import { EventParserService } from "./event-parser.service";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { RawSorobanEvent } from "./event-parser.interface";
 import {
@@ -35,10 +35,10 @@ import {
 /**
  * End-to-end tests for the single chosen parser (V2) covering every known
  * Tikka contract event. These exercise the real decoding path:
- * EventParserV2Service → EventHandlerRegistry → concrete handlers.
+ * EventParserService â†’ EventHandlerRegistry â†’ concrete handlers.
  */
-describe("EventParserV2Service", () => {
-  let service: EventParserV2Service;
+describe("EventParserService", () => {
+  let service: EventParserService;
 
   beforeEach(() => {
     const configService = {
@@ -65,14 +65,14 @@ describe("EventParserV2Service", () => {
       registry.registerDefaultHandler(handler);
     }
 
-    service = new EventParserV2Service(registry);
+    service = new EventParserService(registry);
   });
 
   it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  // ── Non-contract rejection ────────────────────────────────────────────────
+  // â”€â”€ Non-contract rejection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it("returns null for non-contract event types", () => {
     for (const type of ["system", "diagnostic", ""]) {
@@ -81,7 +81,7 @@ describe("EventParserV2Service", () => {
     }
   });
 
-  // ── Malformed / edge-case XDR ─────────────────────────────────────────────
+  // â”€â”€ Malformed / edge-case XDR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it("returns null for malformed XDR in topics", () => {
     const raw: RawSorobanEvent = {
@@ -108,7 +108,7 @@ describe("EventParserV2Service", () => {
     expect(service.parse(raw)).toBeNull();
   });
 
-  // ── Unknown event symbols ─────────────────────────────────────────────────
+  // â”€â”€ Unknown event symbols â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it("returns null for an unknown event symbol", () => {
     const topics = [
@@ -122,7 +122,7 @@ describe("EventParserV2Service", () => {
     expect(service.parse(raw)).toBeNull();
   });
 
-  // ── All known Tikka contract events ───────────────────────────────────────
+  // â”€â”€ All known Tikka contract events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it("parses RaffleCreated with all fields", () => {
     const creator = Keypair.random().publicKey();
@@ -351,7 +351,7 @@ describe("EventParserV2Service", () => {
     expect(parsed.new_admin).toBe(newAdmin);
   });
 
-  // ── Edge cases ────────────────────────────────────────────────────────────
+  // â”€â”€ Edge cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   it("handles max u32 max_tickets without overflow", () => {
     const creator = Keypair.random().publicKey();

@@ -1,17 +1,17 @@
 /**
- * Property-based tests for EventParserV2Service
+ * Property-based tests for EventParserService
  *
  * Uses fast-check to fuzz the parser with arbitrary RawSorobanEvent inputs,
  * catching edge cases (malformed base64, empty topic arrays, unexpected ScVal
  * types) that hand-written tests might miss.
  *
- * Issue #931 — run 1 000 iterations per property.
+ * Issue #931 â€” run 1 000 iterations per property.
  */
 
 import * as fc from "fast-check";
 import { nativeToScVal } from "@stellar/stellar-sdk";
 import { ConfigService } from "@nestjs/config";
-import { EventParserV2Service } from "./event-parser-v2.service";
+import { EventParserService } from "./event-parser.service";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { RawSorobanEvent } from "./event-parser.interface";
 import { RaffleCreatedHandler } from "./handlers/raffle-created.handler";
@@ -29,10 +29,10 @@ import {
   AdminTransferAcceptedHandler,
 } from "./handlers/all-handlers";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** Builds a fully wired parser instance with all default handlers registered. */
-function buildParser(): EventParserV2Service {
+function buildParser(): EventParserService {
   const configService = {
     get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
   } as unknown as ConfigService;
@@ -56,30 +56,30 @@ function buildParser(): EventParserV2Service {
     registry.registerDefaultHandler(handler);
   }
 
-  return new EventParserV2Service(registry);
+  return new EventParserService(registry);
 }
 
 /** Builds a parser where NO contract is registered (empty registry). */
 function buildParserWithRegisteredContract(
   contractAddress: string,
-): EventParserV2Service {
+): EventParserService {
   const configService = {
     get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
   } as unknown as ConfigService;
 
   const registry = new EventHandlerRegistry(configService);
 
-  // Register a contract at a specific address — but add no event handlers.
+  // Register a contract at a specific address â€” but add no event handlers.
   registry.registerContract({
     address: contractAddress,
     version: "v1",
     enabled: true,
   });
 
-  return new EventParserV2Service(registry);
+  return new EventParserService(registry);
 }
 
-// ─── Arbitraries ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Arbitraries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Arbitrary for a single base64 topic string.
@@ -90,7 +90,7 @@ function buildParserWithRegisteredContract(
  *  - empty string
  */
 const arbitraryTopic: fc.Arbitrary<string> = fc.oneof(
-  // Valid ScVal encoded as base64 — the parser should handle these fine
+  // Valid ScVal encoded as base64 â€” the parser should handle these fine
   fc.constantFrom(
     nativeToScVal("RaffleCreated", { type: "symbol" }).toXDR("base64"),
     nativeToScVal("TicketPurchased", { type: "symbol" }).toXDR("base64"),
@@ -100,18 +100,18 @@ const arbitraryTopic: fc.Arbitrary<string> = fc.oneof(
     nativeToScVal(true).toXDR("base64"),
     nativeToScVal(null).toXDR("base64"),
   ),
-  // Random base64-alphabet strings — likely invalid XDR
+  // Random base64-alphabet strings â€” likely invalid XDR
   fc
     .string({ unit: "binary", minLength: 0, maxLength: 64 })
     .map((s) => Buffer.from(s).toString("base64")),
-  // Completely arbitrary strings — not even valid base64
+  // Completely arbitrary strings â€” not even valid base64
   fc.string({ minLength: 0, maxLength: 64 }),
   // Empty string
   fc.constant(""),
 );
 
 /**
- * Arbitrary for the `value` field — same range as topics.
+ * Arbitrary for the `value` field â€” same range as topics.
  */
 const arbitraryValue: fc.Arbitrary<string> = arbitraryTopic;
 
@@ -128,7 +128,7 @@ const arbitraryEventType: fc.Arbitrary<string> = fc.oneof(
 );
 
 /**
- * Arbitrary for a topic array — 0 to 5 entries, each an arbitrary topic string.
+ * Arbitrary for a topic array â€” 0 to 5 entries, each an arbitrary topic string.
  */
 const arbitraryTopics: fc.Arbitrary<string[]> = fc.array(arbitraryTopic, {
   minLength: 0,
@@ -160,16 +160,16 @@ const arbitraryRawEvent: fc.Arbitrary<RawSorobanEvent> = fc.record({
   }),
 });
 
-// ─── Property-based tests ─────────────────────────────────────────────────────
+// â”€â”€â”€ Property-based tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe("EventParserV2Service — property-based tests (fast-check)", () => {
+describe("EventParserService â€” property-based tests (fast-check)", () => {
   const NUM_RUNS = 1_000;
 
-  // ── Property 1: never throws ───────────────────────────────────────────────
+  // â”€â”€ Property 1: never throws â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Property 1: Any valid RawSorobanEvent with type "contract" either returns
-   * a DomainEvent or null — it NEVER throws.
+   * a DomainEvent or null â€” it NEVER throws.
    *
    * This is the core safety contract of the parser. Callers in the ingestion
    * pipeline do not wrap parse() in try/catch; an unexpected throw would crash
@@ -179,8 +179,8 @@ describe("EventParserV2Service — property-based tests (fast-check)", () => {
    * topic encodes to a value whose `scValToNative` result is not a string (e.g.
    * an integer ScVal), the parser was propagating the TypeError upward instead
    * of catching it. The fix was to ensure the outer try/catch in
-   * `EventParserV2Service.parse` covers the `scValToNative(topics[0])` call.
-   * That was already the case — so the property confirmed the guard holds.
+   * `EventParserService.parse` covers the `scValToNative(topics[0])` call.
+   * That was already the case â€” so the property confirmed the guard holds.
    */
   it(
     "Property 1: parse() with type=contract never throws for any input",
@@ -192,7 +192,7 @@ describe("EventParserV2Service — property-based tests (fast-check)", () => {
           expect(() => parser.parse(rawEvent)).not.toThrow();
 
           const result = parser.parse(rawEvent);
-          // Result must be a DomainEvent object or null — never undefined,
+          // Result must be a DomainEvent object or null â€” never undefined,
           // never a thrown error reaching this point.
           expect(result === null || typeof result === "object").toBe(true);
         }),
@@ -220,7 +220,7 @@ describe("EventParserV2Service — property-based tests (fast-check)", () => {
     },
   );
 
-  // ── Property 2: unregistered contracts always return null ──────────────────
+  // â”€â”€ Property 2: unregistered contracts always return null â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Property 2: Events from unregistered contracts always return null.
@@ -238,7 +238,7 @@ describe("EventParserV2Service — property-based tests (fast-check)", () => {
   it(
     "Property 2: events from unregistered contracts return null",
     () => {
-      // Use a fixed known address — events will have random contractIds
+      // Use a fixed known address â€” events will have random contractIds
       const registeredAddress = "CREGISTERED_CONTRACT_ADDRESS_XXXXXXXXXXXXXXXXXXXX";
       const parser = buildParserWithRegisteredContract(registeredAddress);
 
@@ -258,7 +258,7 @@ describe("EventParserV2Service — property-based tests (fast-check)", () => {
           // Must not throw
           expect(() => parser.parse(rawEvent)).not.toThrow();
 
-          // Must return null — no handler registered for this contract
+          // Must return null â€” no handler registered for this contract
           const result = parser.parse(rawEvent);
           expect(result).toBeNull();
         }),
@@ -267,7 +267,7 @@ describe("EventParserV2Service — property-based tests (fast-check)", () => {
     },
   );
 
-  // ── Property 3: idempotency ────────────────────────────────────────────────
+  // â”€â”€ Property 3: idempotency â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Property 3: Parsing the same event twice produces the same result.
@@ -299,7 +299,7 @@ describe("EventParserV2Service — property-based tests (fast-check)", () => {
     },
   );
 
-  // ── Edge-case properties ───────────────────────────────────────────────────
+  // â”€â”€ Edge-case properties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Property 4: Empty topics array always returns null for contract events.
