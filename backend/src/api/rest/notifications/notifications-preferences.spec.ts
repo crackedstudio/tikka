@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
-import { NotificationService } from '../../../services/notification.service';
-import { PushNotificationService } from '../../../services/push-notification.service';
+import { NotificationService } from '../../../services/notifications/notification.service';
+import { PushNotificationService } from '../../../services/notifications/push-notification.service';
 
 describe('NotificationsController - Preferences', () => {
   let controller: NotificationsController;

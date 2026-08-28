@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GeoMiddleware } from './geo.middleware';
-import { GeoService } from '../services/geo.service';
+import { GeoService } from '../services/geo/geo.service';
 import { FastifyRequest, FastifyReply } from 'fastify';
 
 describe('GeoMiddleware', () => {

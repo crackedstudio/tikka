@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 import {
   IndexerService,
   IndexerPlatformStats,

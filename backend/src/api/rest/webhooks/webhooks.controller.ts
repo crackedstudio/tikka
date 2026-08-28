@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
-import { WebhookService } from '../../../services/webhook.service';
+import { WebhookService } from '../../../services/webhooks/webhook.service';
 import { WebhookSignatureVerificationInterceptor } from './webhook-signature-verification.interceptor';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
 import {

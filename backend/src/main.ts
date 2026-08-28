@@ -1,4 +1,4 @@
-import { Logger } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import {
@@ -57,6 +57,13 @@ async function bootstrap() {
   app.useGlobalInterceptors(new SentryInterceptor(), new RequestLoggingInterceptor());
   app.useGlobalFilters(new BaseExceptionFilter());
   app.enableShutdownHooks();
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   await app.listen(env.server.port, "0.0.0.0");
   logger.log(`Application is running on: ${await app.getUrl()}`);

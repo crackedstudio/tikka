@@ -91,7 +91,8 @@
         "functions": 50,
         "lines": 60
       }
-    }
+    },
+    "setupFiles": ["../test/jest-setup.ts"]
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsService } from './notifications.service';
-import { NotificationService } from '../../../services/notification.service';
-import { PushNotificationService } from '../../../services/push-notification.service';
+import { NotificationService } from '../../../services/notifications/notification.service';
+import { PushNotificationService } from '../../../services/notifications/push-notification.service';
 import { NotFoundException } from '@nestjs/common';
 
 describe('NotificationsService', () => {

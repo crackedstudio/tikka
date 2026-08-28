@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { env } from '../config/env.config';
-import { PushNotificationService, DeliveryMetrics } from '../services/push-notification.service';
+import { PushNotificationService, DeliveryMetrics } from '../services/notifications/push-notification.service';
 import { MaintenanceModeService } from '../maintenance/maintenance-mode.service';
 
 export interface HealthResult {

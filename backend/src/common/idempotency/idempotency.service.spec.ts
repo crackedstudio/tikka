@@ -10,9 +10,10 @@ const mockRedisInstance = {
   quit: jest.fn(),
 };
 
-jest.mock('ioredis', () => {
-  return jest.fn().mockImplementation(() => mockRedisInstance);
-});
+jest.mock('ioredis', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => mockRedisInstance),
+}));
 
 describe('IdempotencyService', () => {
   let service: IdempotencyService;

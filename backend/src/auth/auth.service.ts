@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/nestjs';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, createHmac } from 'crypto';
 import { SiwsService } from './siws.service';
-import { SUPABASE_CLIENT } from '../services/supabase.provider';
+import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '../config/env.config';
 

@@ -18,6 +18,7 @@ import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
 import { env } from "../../../config/env.config";
+import { UpsertMetadataPayload } from "../../../services/metadata/metadata.service";
 import {
   ListRafflesQuerySchema,
   ListRafflesQueryDto,
@@ -31,6 +32,18 @@ import {
 } from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
+import {
+  ALLOWED_UPLOAD_MIME_TYPES,
+  AllowedUploadMimeType,
+  MAX_UPLOAD_IMAGE_HEIGHT,
+  MAX_UPLOAD_IMAGE_PIXELS,
+  MAX_UPLOAD_IMAGE_WIDTH,
+  MAX_UPLOAD_BYTES,
+} from "../../../config/upload.config";
+import { StorageService } from "../../../services/storage/storage.service";
+import { MetadataRedisService } from "../../../services/metadata/metadata-redis.service";
+import { SseService } from "../../../services/notifications/sse.service";
+import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
@@ -38,9 +51,8 @@ import { Throttle } from "@nestjs/throttler";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
 import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
 import { SetMetadata } from "@nestjs/common";
-backend-Split-the-572-line-raffles-controller-by-responsibility-#1334-FIX
-
 import sharp, { type Metadata } from "sharp";
+import { detectFileTypeFromBuffer } from "../../../utils/detect-file-type";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
@@ -126,6 +138,9 @@ export class RafflesController {
     @Param("id", ParseIntPipe) id: number,
     @Query() query: ParticipantListQueryDto,
   ) {
+    if (query.since != null) {
+      return this.rafflesService.getRecentParticipants(id, query.since);
+    }
     return this.rafflesService.getParticipants(id, query.limit, query.offset);
   }
 
@@ -213,7 +228,6 @@ export class RafflesController {
   ) {
     return this.rafflesService.purchaseTickets(raffleId, payload, address);
   }
- backend-Split-the-572-line-raffles-controller-by-responsibility-#1334-FIX
 
 
   /**
@@ -273,8 +287,7 @@ export class RafflesController {
       throw error;
     }
 
-    const { fileTypeFromBuffer } = await (eval('import("file-type")') as Promise<any>);
-    const detectedFileType = await fileTypeFromBuffer(buffer);
+    const detectedFileType = await detectFileTypeFromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {

@@ -83,7 +83,7 @@ describe('env.server', () => {
 // auth
 // -----------------------------------------------------------------------
 describe('env.auth', () => {
-  it('returns defaults when env vars are absent', () => {
+  it('throws when JWT_SECRET is absent', () => {
     setEnv({
       JWT_SECRET: undefined,
       JWT_EXPIRES_IN: undefined,
@@ -92,8 +92,19 @@ describe('env.auth', () => {
       ADMIN_TOKEN: undefined,
       ADMIN_IP_ALLOWLIST: undefined,
     });
+    expect(() => getEnv().auth).toThrow('JWT_SECRET must be set and at least 32 characters long');
+  });
+
+  it('returns defaults for optional auth vars when JWT_SECRET is set', () => {
+    setEnv({
+      JWT_SECRET: 'a'.repeat(32),
+      JWT_EXPIRES_IN: undefined,
+      SIWS_DOMAIN: undefined,
+      SIWS_NONCE_TTL_SECONDS: undefined,
+      ADMIN_TOKEN: undefined,
+      ADMIN_IP_ALLOWLIST: undefined,
+    });
     const auth = getEnv().auth;
-    expect(auth.jwtSecret).toBe('dev-secret-change-in-production');
     expect(auth.jwtExpiresIn).toBe('7d');
     expect(auth.siwsDomain).toBe('tikka.io');
     expect(auth.siwsNonceTtlSeconds).toBe(300);
