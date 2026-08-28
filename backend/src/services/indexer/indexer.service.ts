@@ -1,6 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { captureIngestionError } from '../sentry/sentry';
+import { captureIngestionError } from '../../sentry/sentry';
 import { BackfillLock } from './backfill-lock';
 
 // ── Response types aligned with indexer API (ARCHITECTURE §3) ─────────────────

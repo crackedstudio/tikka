@@ -9,9 +9,9 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import {
   AllowedUploadMimeType,
   RAFFLE_IMAGE_BUCKET,
-} from '../config/upload.config';
+} from '../../config/upload.config';
 import { SUPABASE_CLIENT } from './supabase.provider';
-import { ImageOptimizerService } from './image-optimizer.service';
+import { ImageOptimizerService } from '../metadata/image-optimizer.service';
 
 export interface UploadRaffleImageInput {
   fileBuffer: Buffer;

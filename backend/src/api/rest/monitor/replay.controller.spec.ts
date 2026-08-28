@@ -1,5 +1,5 @@
 import { ReplayController } from './replay.controller';
-import { ReplayService, ReplayJobConfig } from '../../../services/replay.service';
+import { ReplayService, ReplayJobConfig } from '../../../services/indexer/replay.service';
 import { AdminGuard } from './admin.guard';
 import { ConfigService } from '@nestjs/config';
 import { MonitorService } from './monitor.service';

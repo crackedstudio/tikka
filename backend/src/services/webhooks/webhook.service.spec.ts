@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { WebhookService, Webhook, WebhookDelivery } from './webhook.service';
-import { SUPABASE_CLIENT } from './supabase.provider';
-import { WEBHOOK_DELIVERY_QUEUE } from '../queues/webhook-delivery.constants';
+import { SUPABASE_CLIENT } from '../storage/supabase.provider';
+import { WEBHOOK_DELIVERY_QUEUE } from '../../queues/webhook-delivery.constants';
 import { Queue } from 'bullmq';
 import { getQueueToken } from '@nestjs/bullmq';
 

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SupportService, SupportTicket } from './support.service';
-import { SUPABASE_CLIENT } from '../../../services/supabase.provider';
-import { EmailTemplateService } from '../../../services/email-template.service';
+import { SUPABASE_CLIENT } from '../../../services/storage/supabase.provider';
+import { EmailTemplateService } from '../../../services/metadata/email-template.service';
 import { NotFoundException } from '@nestjs/common';
 
 const mockTicket: SupportTicket = {

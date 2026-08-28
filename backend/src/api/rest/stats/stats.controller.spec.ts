@@ -4,7 +4,7 @@ import { StatsService, TransparencyStats, VerifyResult } from './stats.service';
 import {
   IndexerPlatformStats,
   IndexerTransparencyEntry,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 
 describe('StatsController', () => {
   let controller: StatsController;
@@ -232,12 +232,7 @@ describe('StatsController', () => {
 
       service.verifyDraw.mockResolvedValue(mockResult);
 
-      const result = await controller.verifyDraw(
-        testPayload.oracle_public_key,
-        testPayload.request_id,
-        testPayload.proof,
-        testPayload.seed,
-      );
+      const result = await controller.verifyDraw({ ...testPayload });
 
       expect(result.valid).toBe(true);
       expect(result.reason).toBeUndefined();
@@ -251,12 +246,10 @@ describe('StatsController', () => {
 
       service.verifyDraw.mockResolvedValue(mockResult);
 
-      const result = await controller.verifyDraw(
-        testPayload.oracle_public_key,
-        testPayload.request_id,
-        'invalid-proof',
-        testPayload.seed,
-      );
+      const result = await controller.verifyDraw({
+        ...testPayload,
+        proof: 'invalid-proof',
+      });
 
       expect(result.valid).toBe(false);
       expect(result.reason).toBe('Invalid proof signature');
@@ -268,12 +261,7 @@ describe('StatsController', () => {
       service.verifyDraw.mockResolvedValue(mockResult);
 
       // NestJS controller with @HttpCode(200) returns 200
-      const result = await controller.verifyDraw(
-        testPayload.oracle_public_key,
-        testPayload.request_id,
-        testPayload.proof,
-        testPayload.seed,
-      );
+      const result = await controller.verifyDraw({ ...testPayload });
 
       expect(result).toBeDefined();
     });
@@ -287,12 +275,10 @@ describe('StatsController', () => {
       service.verifyDraw.mockResolvedValue(mockResult);
 
       // Should still return 200, not 500
-      const result = await controller.verifyDraw(
-        'not-hex',
-        testPayload.request_id,
-        testPayload.proof,
-        testPayload.seed,
-      );
+      const result = await controller.verifyDraw({
+        ...testPayload,
+        oracle_public_key: 'not-hex',
+      });
 
       expect(result.valid).toBe(false);
     });
@@ -300,12 +286,7 @@ describe('StatsController', () => {
     it('should pass all 4 parameters to service', async () => {
       service.verifyDraw.mockResolvedValue({ valid: false });
 
-      await controller.verifyDraw(
-        testPayload.oracle_public_key,
-        testPayload.request_id,
-        testPayload.proof,
-        testPayload.seed,
-      );
+      await controller.verifyDraw({ ...testPayload });
 
       expect(service.verifyDraw).toHaveBeenCalledWith(
         testPayload.oracle_public_key,
@@ -323,12 +304,10 @@ describe('StatsController', () => {
 
       service.verifyDraw.mockResolvedValue(mockResult);
 
-      const result = await controller.verifyDraw(
-        testPayload.oracle_public_key,
-        testPayload.request_id,
-        testPayload.proof,
-        'wrong-seed',
-      );
+      const result = await controller.verifyDraw({
+        ...testPayload,
+        seed: 'wrong-seed',
+      });
 
       expect(result.valid).toBe(false);
       expect(result.reason).toContain('Seed');
@@ -342,12 +321,10 @@ describe('StatsController', () => {
 
       service.verifyDraw.mockResolvedValue(mockResult);
 
-      const result = await controller.verifyDraw(
-        'malformed-key',
-        testPayload.request_id,
-        testPayload.proof,
-        testPayload.seed,
-      );
+      const result = await controller.verifyDraw({
+        ...testPayload,
+        oracle_public_key: 'malformed-key',
+      });
 
       expect(result.reason).toBeDefined();
       expect(typeof result.reason).toBe('string');
@@ -356,12 +333,12 @@ describe('StatsController', () => {
     it('should accept hex-encoded strings', async () => {
       service.verifyDraw.mockResolvedValue({ valid: false });
 
-      await controller.verifyDraw(
-        '0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
-        'req-hex-encoded',
-        '0x1234567890abcdef',
-        '0xfedcba0987654321',
-      );
+      await controller.verifyDraw({
+        oracle_public_key: '0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+        request_id: 'req-hex-encoded',
+        proof: '0x1234567890abcdef',
+        seed: '0xfedcba0987654321',
+      });
 
       expect(service.verifyDraw).toHaveBeenCalled();
     });
@@ -371,12 +348,7 @@ describe('StatsController', () => {
 
       service.verifyDraw.mockResolvedValue(mockResult);
 
-      await controller.verifyDraw(
-        testPayload.oracle_public_key,
-        testPayload.request_id,
-        testPayload.proof,
-        testPayload.seed,
-      );
+      await controller.verifyDraw({ ...testPayload });
 
       // In real scenario with caching, second call would use cache
       // Service mock doesn't implement caching, but verifyDraw in service does

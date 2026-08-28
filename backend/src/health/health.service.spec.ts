@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthService } from './health.service';
-import { PushNotificationService } from '../services/push-notification.service';
+import { PushNotificationService } from '../services/notifications/push-notification.service';
 import { MaintenanceModeService } from '../maintenance/maintenance-mode.service';
 
 const originalFetch = global.fetch;

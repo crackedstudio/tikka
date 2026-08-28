@@ -1,5 +1,5 @@
-import { PinningService } from './pinning.service';
-import { env } from '../config/env.config';
+import { PinningService, PinningError } from './pinning.service';
+import { env } from '../../config/env.config';
 import { RaffleMetadata } from './metadata.service';
 
 describe('PinningService', () => {
@@ -36,7 +36,7 @@ describe('PinningService', () => {
     jest.restoreAllMocks();
   });
 
-  it('should return null if IPFS pinning is disabled', async () => {
+  it('throws PinningError when IPFS pinning is disabled', async () => {
     storageSpy.mockReturnValue({
       enableIpfsPinning: false,
       pinataJwt: 'mock-jwt-token',
@@ -45,12 +45,11 @@ describe('PinningService', () => {
       ipfsGatewayUrl: 'https://ipfs.io/ipfs/',
     });
 
-    const result = await service.pin(mockMetadata);
-    expect(result).toBeNull();
+    await expect(service.pin(mockMetadata)).rejects.toThrow(PinningError);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('should return null if Pinata credentials are missing', async () => {
+  it('throws PinningError when Pinata credentials are missing', async () => {
     storageSpy.mockReturnValue({
       enableIpfsPinning: true,
       pinataJwt: undefined,
@@ -59,8 +58,7 @@ describe('PinningService', () => {
       ipfsGatewayUrl: 'https://ipfs.io/ipfs/',
     });
 
-    const result = await service.pin(mockMetadata);
-    expect(result).toBeNull();
+    await expect(service.pin(mockMetadata)).rejects.toThrow(PinningError);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -117,7 +115,7 @@ describe('PinningService', () => {
     );
   });
 
-  it('should return null and log error if Pinata API response is not ok', async () => {
+  it('throws PinningError when Pinata API response is not ok', async () => {
     const mockResponse = {
       ok: false,
       status: 401,
@@ -125,18 +123,14 @@ describe('PinningService', () => {
     };
     fetchSpy.mockResolvedValue(mockResponse as any);
 
-    const result = await service.pin(mockMetadata);
-
-    expect(result).toBeNull();
+    await expect(service.pin(mockMetadata)).rejects.toThrow(PinningError);
     expect(fetchSpy).toHaveBeenCalled();
   });
 
-  it('should return null and log error if fetch throws a network error', async () => {
+  it('throws PinningError when fetch throws a network error', async () => {
     fetchSpy.mockRejectedValue(new Error('Network disconnected'));
 
-    const result = await service.pin(mockMetadata);
-
-    expect(result).toBeNull();
+    await expect(service.pin(mockMetadata)).rejects.toThrow(PinningError);
     expect(fetchSpy).toHaveBeenCalled();
   });
 });

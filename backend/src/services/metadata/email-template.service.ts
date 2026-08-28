@@ -10,7 +10,7 @@ import {
   renderEmailTemplate,
   type EmailTemplateName,
   type EmailTemplateRegistry,
-} from "../emails";
+} from "../../emails";
 
 @Injectable()
 export class EmailTemplateService {

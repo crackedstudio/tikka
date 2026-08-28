@@ -5,7 +5,7 @@ import {
   EMAIL_TEMPLATE_REQUIRED_FIELDS,
   type EmailTemplateName,
   type EmailTemplateRegistry,
-} from "../emails";
+} from "../../emails";
 
 const TEMPLATE_FIXTURES: {
   [K in EmailTemplateName]: {

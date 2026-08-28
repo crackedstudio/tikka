@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { SUPABASE_CLIENT } from "../../../services/supabase.provider";
-import { EmailTemplateService } from "../../../services/email-template.service";
+import { SUPABASE_CLIENT } from "../../../services/storage/supabase.provider";
+import { EmailTemplateService } from "../../../services/metadata/email-template.service";
 import { SupportDto } from "./dto/support.dto";
 
 export interface SupportTicket {

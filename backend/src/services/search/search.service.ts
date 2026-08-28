@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { MetadataService, RaffleMetadata } from './metadata.service';
-import { IndexerService, IndexerRaffleData } from './indexer.service';
+import { MetadataService, RaffleMetadata } from '../metadata/metadata.service';
+import { IndexerService, IndexerRaffleData } from '../indexer/indexer.service';
 
 export interface SearchResult {
   id: number;

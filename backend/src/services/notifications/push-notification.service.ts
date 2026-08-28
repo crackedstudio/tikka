@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_CLIENT } from './supabase.provider';
-import { env } from '../config/env.config';
+import { SUPABASE_CLIENT } from '../storage/supabase.provider';
+import { env } from '../../config/env.config';
 import * as admin from 'firebase-admin';
 
 const TABLE = 'push_tokens';

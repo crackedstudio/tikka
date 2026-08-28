@@ -1,7 +1,7 @@
 import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_CLIENT } from './supabase.provider';
+import { SUPABASE_CLIENT } from '../storage/supabase.provider';
 import { MetadataRedisService } from './metadata-redis.service';
 import { MetadataCacheMetricsService } from './metadata-cache-metrics.service';
 

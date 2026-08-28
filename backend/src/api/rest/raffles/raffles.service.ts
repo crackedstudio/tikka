@@ -12,16 +12,16 @@ import {
   MetadataService,
   RaffleMetadata,
   UpsertMetadataPayload,
-} from '../../../services/metadata.service';
-import { PinningService } from '../../../services/pinning.service';
+} from '../../../services/metadata/metadata.service';
+import { PinningService } from '../../../services/metadata/pinning.service';
 import {
   IndexerService,
   IndexerRaffleData,
   IndexerListRafflesFilters,
   IndexerListRafflesResponse,
   IndexerParticipantListResponse,
-} from '../../../services/indexer.service';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
+} from '../../../services/indexer/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 import { PurchaseTicketPayload } from './dto';
 
 /** Merged raffle detail: contract data + off-chain metadata */
@@ -237,17 +237,44 @@ export class RafflesService {
   }
 
   /**
-   * Get recent participants for a raffle.
-   * Returns list of participant addresses with timestamps, optionally filtered by 'since' timestamp.
+   * Get recent participants for a raffle since a client timestamp.
+   * Paginates through indexer ticket-holder aggregates until all pages are scanned.
    */
   async getRecentParticipants(
     raffleId: number,
     sinceTimestamp: number = 0,
+    maxResults = 100,
   ): Promise<Array<{ address: string; timestamp: number }>> {
-    // TODO: Query blockchain events or database for ticket purchases
-    // For now, return empty array as placeholder
-    // This will be populated by the indexer service once ticket purchase events are indexed
-    return [];
+    const pageSize = 100;
+    let offset = 0;
+    let total = Number.POSITIVE_INFINITY;
+    const matches: Array<{ address: string; timestamp: number }> = [];
+
+    while (offset < total && matches.length < maxResults) {
+      const page = await this.indexerService.getRaffleParticipants(raffleId, pageSize, offset);
+      total = page.total ?? page.participants.length;
+
+      for (const participant of page.participants) {
+        const timestampMs =
+          participant.purchased_at > 1_000_000_000_000
+            ? participant.purchased_at
+            : participant.purchased_at * 1000;
+
+        if (timestampMs > sinceTimestamp) {
+          matches.push({ address: participant.address, timestamp: timestampMs });
+        }
+      }
+
+      if (page.participants.length === 0) {
+        break;
+      }
+
+      offset += page.participants.length;
+    }
+
+    return matches
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, maxResults);
   }
 
   /**

@@ -25,7 +25,7 @@ import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
 import { env } from "../../../config/env.config";
-import { UpsertMetadataPayload } from "../../../services/metadata.service";
+import { UpsertMetadataPayload } from "../../../services/metadata/metadata.service";
 import {
   ListRafflesQuerySchema,
   ListRafflesQueryDto,
@@ -46,9 +46,9 @@ import {
   MAX_UPLOAD_IMAGE_WIDTH,
   MAX_UPLOAD_BYTES,
 } from "../../../config/upload.config";
-import { StorageService } from "../../../services/storage.service";
-import { MetadataRedisService } from "../../../services/metadata-redis.service";
-import { SseService } from "../../../services/sse.service";
+import { StorageService } from "../../../services/storage/storage.service";
+import { MetadataRedisService } from "../../../services/metadata/metadata-redis.service";
+import { SseService } from "../../../services/notifications/sse.service";
 import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
@@ -58,8 +58,8 @@ import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.
 import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
 import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
 import { SetMetadata } from "@nestjs/common";
-import * as fileType from "file-type";
 import sharp, { type Metadata } from "sharp";
+import { detectFileTypeFromBuffer } from "../../../utils/detect-file-type";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
@@ -150,6 +150,9 @@ export class RafflesController {
     @Param("id", ParseIntPipe) id: number,
     @Query() query: ParticipantListQueryDto,
   ) {
+    if (query.since != null) {
+      return this.rafflesService.getRecentParticipants(id, query.since);
+    }
     return this.rafflesService.getParticipants(id, query.limit, query.offset);
   }
 
@@ -295,7 +298,7 @@ export class RafflesController {
       throw error;
     }
 
-    const detectedFileType = await fileType.fromBuffer(buffer);
+    const detectedFileType = await detectFileTypeFromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {

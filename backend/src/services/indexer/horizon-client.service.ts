@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Horizon } from '@stellar/stellar-sdk';
-import { env } from '../config/env.config';
+import { env } from '../../config/env.config';
 import {
   HorizonLedgerData,
   HorizonTransactionRecord,
