@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { SiwsService } from './siws.service';
-import { SUPABASE_CLIENT } from '../services/supabase.provider';
+import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
 import { env } from '../config/env.config';
 
 // ---------------------------------------------------------------------------

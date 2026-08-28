@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PushNotificationService, DeliveryFailureClass } from './push-notification.service';
-import { SUPABASE_CLIENT } from './supabase.provider';
-import { env } from '../config/env.config';
+import { SUPABASE_CLIENT } from '../storage/supabase.provider';
+import { env } from '../../config/env.config';
 import * as admin from 'firebase-admin';
 
 // Mock the config module so env.fcm.enabled can be toggled per-test.
 // The real env object is frozen/getter-based and cannot be mutated directly.
-jest.mock('../config/env.config', () => ({
+jest.mock('../../config/env.config', () => ({
   env: {
     fcm: {
       enabled: false,

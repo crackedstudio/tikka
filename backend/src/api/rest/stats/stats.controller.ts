@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query } from '@nestj
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { StatsService } from './stats.service';
+import { VerifyDrawBodyDto, VerifyDrawQueryDto } from './dto/verify-draw.dto';
 
 @ApiTags('Stats')
 @Controller('stats')
@@ -26,18 +27,18 @@ export class StatsController {
   /** POST /stats/verify — Verify a VRF draw result with 60-second caching. */
   @Post('verify')
   @HttpCode(HttpStatus.OK)
-  async verifyDraw(
-    @Body('oracle_public_key') oraclePublicKey: string,
-    @Body('request_id') requestId: string,
-    @Body('proof') proof: string,
-    @Body('seed') seed: string,
-  ) {
-    return this.statsService.verifyDraw(oraclePublicKey, requestId, proof, seed);
+  async verifyDraw(@Body() body: VerifyDrawBodyDto) {
+    return this.statsService.verifyDraw(
+      body.oracle_public_key,
+      body.request_id,
+      body.proof,
+      body.seed,
+    );
   }
 
   /** GET /stats/verify?txHash=:hash — Verify a VRF draw result by its transaction hash. */
   @Get('verify')
-  async verifyDrawByTxHash(@Query('txHash') txHash: string) {
-    return this.statsService.verifyByTxHash(txHash);
+  async verifyDrawByTxHash(@Query() query: VerifyDrawQueryDto) {
+    return this.statsService.verifyByTxHash(query.txHash);
   }
 }

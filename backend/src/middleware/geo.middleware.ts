@@ -1,6 +1,6 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { GeoService } from '../services/geo.service';
+import { GeoService } from '../services/geo/geo.service';
 
 /**
  * GeoMiddleware — resolves the client's country from their IP address

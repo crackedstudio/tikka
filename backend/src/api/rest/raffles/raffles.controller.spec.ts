@@ -5,20 +5,19 @@ import {
 } from '@nestjs/common';
 import { RafflesController } from './raffles.controller';
 import { RafflesService } from './raffles.service';
-import { StorageService } from '../../../services/storage.service';
+import { StorageService } from '../../../services/storage/storage.service';
 import { IdempotencyService } from '../../../common/idempotency/idempotency.service';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
-import { SseService } from '../../../services/sse.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
+import { SseService } from '../../../services/notifications/sse.service';
 import {
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_IMAGE_HEIGHT,
   MAX_UPLOAD_IMAGE_WIDTH,
 } from '../../../config/upload.config';
-import * as fileType from 'file-type';
 import sharp from 'sharp';
 
-jest.mock('file-type', () => ({
-  fromBuffer: jest.fn(),
+jest.mock('../../../utils/detect-file-type', () => ({
+  detectFileTypeFromBuffer: jest.fn(),
 }));
 
 jest.mock('sharp', () => ({
@@ -26,7 +25,10 @@ jest.mock('sharp', () => ({
   default: jest.fn(),
 }));
 
-const mockFileTypeFromBuffer = fileType.fromBuffer as jest.MockedFunction<typeof fileType.fromBuffer>;
+const mockFileTypeFromBuffer = jest.requireMock('../../../utils/detect-file-type')
+  .detectFileTypeFromBuffer as jest.MockedFunction<
+  (buffer: Uint8Array | ArrayBuffer) => Promise<{ ext: string; mime: string } | undefined>
+>;
 const mockSharp = sharp as unknown as jest.Mock;
 
 function createMockFile(
@@ -309,7 +311,6 @@ describe('IdempotencyInterceptor — upsertMetadata idempotency', () => {
       },
     });
   });
-});
 
   it('returns cached response for duplicate request with same Idempotency-Key', (done) => {
     const cachedResponse = { raffleId: 42, title: 'Test Raffle' };

@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
-import { AllowedUploadMimeType } from '../config/upload.config';
+import { AllowedUploadMimeType } from '../../config/upload.config';
 import * as crypto from 'crypto';
-import { MetricsService } from './metrics.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 export interface ImageVariant {
   buffer: Buffer;

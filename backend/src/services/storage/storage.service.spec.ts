@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InternalServerErrorException } from '@nestjs/common';
 import { StorageService } from './storage.service';
-import { ImageOptimizerService } from './image-optimizer.service';
+import { ImageOptimizerService } from '../metadata/image-optimizer.service';
 import { SUPABASE_CLIENT } from './supabase.provider';
-import { RAFFLE_IMAGE_BUCKET } from '../config/upload.config';
+import { RAFFLE_IMAGE_BUCKET } from '../../config/upload.config';
 
 const mockUpload = jest.fn();
 const mockRemove = jest.fn();

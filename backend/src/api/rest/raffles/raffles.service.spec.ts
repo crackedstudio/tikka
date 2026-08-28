@@ -1,11 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RafflesService } from './raffles.service';
-import { IndexerService } from '../../../services/indexer.service';
-import { MetadataService } from '../../../services/metadata.service';
-import { PinningService } from '../../../services/pinning.service';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
-import { MetadataService } from '../../../services/metadata.service';
-import { PinningService } from '../../../services/pinning.service';
+import { IndexerService } from '../../../services/indexer/indexer.service';
+import { MetadataService } from '../../../services/metadata/metadata.service';
+import { PinningService } from '../../../services/metadata/pinning.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 import { ConfigService } from '@nestjs/config';
 
 describe('RafflesService', () => {
@@ -16,22 +14,12 @@ describe('RafflesService', () => {
   let metadataService: jest.Mocked<MetadataService>;
   let pinningService: jest.Mocked<PinningService>;
 
-  let metadataService: {
-    getMetadata: jest.Mock;
-    getMetadataWithArchived: jest.Mock;
-  };
-
   beforeEach(async () => {
     indexerService = {
       getRaffle: jest.fn(),
       listRaffles: jest.fn(),
       getRaffleParticipants: jest.fn(),
     } as any;
-
-    metadataService = {
-      getMetadata: jest.fn().mockResolvedValue(null),
-      getMetadataWithArchived: jest.fn().mockResolvedValue(null),
-    };
 
     redis = {
       isEnabled: jest.fn(),
@@ -40,12 +28,9 @@ describe('RafflesService', () => {
       del: jest.fn(),
     } as any;
 
-    configService = {
-      get: jest.fn(),
-    } as any;
-
     metadataService = {
-      getMetadata: jest.fn(),
+      getMetadata: jest.fn().mockResolvedValue(null),
+      getMetadataWithArchived: jest.fn().mockResolvedValue(null),
       getBatchMetadata: jest.fn(),
       upsertMetadata: jest.fn(),
       updateMetadataCid: jest.fn(),
@@ -56,6 +41,10 @@ describe('RafflesService', () => {
 
     pinningService = {
       pin: jest.fn(),
+    } as any;
+
+    configService = {
+      get: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -70,6 +59,54 @@ describe('RafflesService', () => {
     }).compile();
 
     service = module.get<RafflesService>(RafflesService);
+  });
+
+  describe('getRecentParticipants', () => {
+    it('returns empty array when indexer has no participants', async () => {
+      indexerService.getRaffleParticipants.mockResolvedValue({
+        participants: [],
+        total: 0,
+        limit: 100,
+        offset: 0,
+      });
+
+      await expect(service.getRecentParticipants(1, 0)).resolves.toEqual([]);
+    });
+
+    it('returns participants from a single indexer page', async () => {
+      indexerService.getRaffleParticipants.mockResolvedValue({
+        participants: [
+          { address: 'GABC', tickets_count: 2, purchased_at: 1_700_000_000 },
+          { address: 'GDEF', tickets_count: 1, purchased_at: 1_600_000_000 },
+        ],
+        total: 2,
+        limit: 100,
+        offset: 0,
+      });
+
+      const result = await service.getRecentParticipants(1, 1_650_000_000_000);
+      expect(result).toEqual([{ address: 'GABC', timestamp: 1_700_000_000_000 }]);
+    });
+
+    it('paginates through indexer pages and filters by since timestamp', async () => {
+      indexerService.getRaffleParticipants
+        .mockResolvedValueOnce({
+          participants: [{ address: 'GOLD', tickets_count: 1, purchased_at: 1_700_000_000 }],
+          total: 2,
+          limit: 1,
+          offset: 0,
+        })
+        .mockResolvedValueOnce({
+          participants: [{ address: 'GNEW', tickets_count: 1, purchased_at: 1_800_000_000 }],
+          total: 2,
+          limit: 1,
+          offset: 1,
+        });
+
+      const result = await service.getRecentParticipants(1, 1_750_000_000_000, 10);
+      expect(result).toEqual([{ address: 'GNEW', timestamp: 1_800_000_000_000 }]);
+      expect(indexerService.getRaffleParticipants).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('getById', () => {

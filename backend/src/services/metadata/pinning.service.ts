@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { env } from '../config/env.config';
+import { env } from '../../config/env.config';
 import type { RaffleMetadata } from './metadata.service';
 
 export class PinningError extends Error {

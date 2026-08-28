@@ -72,7 +72,8 @@
     "transform": {
       "^.+\\.(t|j)sx?$": "ts-jest"
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFiles": ["../test/jest-setup.ts"]
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",

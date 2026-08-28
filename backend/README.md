@@ -4,6 +4,10 @@ API layer that merges indexer data with Supabase metadata; handles auth (Sign In
 
 **Stack:** NestJS, Fastify, Supabase, Redis.
 
+## Documentation
+
+- **[Request validation](../docs/backend/validation.md)** — global `ValidationPipe`, Zod schemas, DTO inventory, and endpoint checklist
+
 ## Raffles API
 
 ### GET /raffles

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { env } from '../config/env.config';
+import { env } from '../../config/env.config';
 
 /**
  * Response shape from ip-api.com (free tier, no API key required).

@@ -1,6 +1,6 @@
 import { Inject, Injectable, ConflictException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_CLIENT } from './supabase.provider';
+import { SUPABASE_CLIENT } from '../storage/supabase.provider';
 
 /** Notification subscription record */
 export interface NotificationSubscription {

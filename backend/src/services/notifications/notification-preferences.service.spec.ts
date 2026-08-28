@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationService } from './notification.service';
-import { SUPABASE_CLIENT } from './supabase.provider';
+import { SUPABASE_CLIENT } from '../storage/supabase.provider';
 
 describe('NotificationService - Preferences', () => {
   let service: NotificationService;
