@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import * as fc from 'fast-check';
-import { AuthProvider, useAuthContext } from './AuthProvider';
+import { AuthProvider } from './AuthProvider';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -55,12 +55,6 @@ afterEach(() => {
 
 // ── Helper: render AuthProvider and get context ───────────────────────────────
 
-function TestConsumer({ onContext }: { onContext: (ctx: ReturnType<typeof useAuthContext>) => void }) {
-  const ctx = useAuthContext();
-  onContext(ctx);
-  return null;
-}
- 
 // ── P11: Wallet disconnect triggers logout ────────────────────────────────────
 
 describe('P11: Wallet disconnect triggers logout', () => {

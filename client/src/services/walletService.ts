@@ -197,13 +197,6 @@ function getProgrammaticNetworkSwitcher(walletType: string): ((network: string) 
   return undefined;
 }
 
-async function openWalletSettings(walletType: string): Promise<void> {
-  const settingsUrl = getWalletSettingsUrl(walletType);
-  if (settingsUrl && typeof window !== "undefined") {
-    window.open(settingsUrl, "_blank");
-  }
-}
-
 /**
  * Gets the capabilities of the currently selected or detected wallet.
  * Returns a default profile if no wallet is detected.
@@ -287,8 +280,8 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
     return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
   }
 
-  return new Promise(async (resolve) => {
-    const kit = await getKit();
+  const kit = await getKit();
+  return new Promise((resolve) => {
     kit.openModal({
       onWalletSelected: async (option: any) => {
         try {
@@ -428,25 +421,25 @@ export async function attemptAutoReconnect(): Promise<{ success: boolean; addres
       // Check if Freighter extension is available
       if (typeof window === "undefined" || !(window as any).freighter) {
         return { success: false };
-      }
-
-      try {
-        // Try to get freighter API
-        const freighterApi = await import('@stellar/freighter-api');
-        
-        // Check if already connected
-        if (typeof freighterApi.isConnected === 'function') {
-          const connected = await freighterApi.isConnected();
-          
-          if (connected) {
-            // Set the wallet without showing modal
-            const selectedWalletId = getSelectedWalletId();
-            if (!selectedWalletId) {
-              await setWallet(FREIGHTER_ID);
-            }
+      }          try {
+            // Check if Freighter is available via the window object
+            const g = window as unknown as Record<string, unknown>;
+            const freighterApi = g.freighter as { isConnected?: () => Promise<boolean> } | undefined;
             
-            // Get the address
-            const address = await getAccountAddress();
+            // Check if already connected
+            if (freighterApi && typeof freighterApi.isConnected === 'function') {
+              const connected = await freighterApi.isConnected();
+              
+              if (connected) {
+                // Set the wallet without showing modal
+                const selectedWalletId = getSelectedWalletId();
+                if (!selectedWalletId) {
+                  const kit = await getKit();
+                  await setWallet(kit.selectedWalletId ?? 'freighter');
+                }
+                
+                // Get the address
+                const address = await getAccountAddress();
             
             if (address) {
               return { success: true, address };

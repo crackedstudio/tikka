@@ -1,16 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { attemptAutoReconnect } from './walletService';
 
-// Mock @stellar/freighter-api
-vi.mock('@stellar/freighter-api', () => ({
-  isConnected: vi.fn(),
-  getAddress: vi.fn(),
-}));
-
 // Mock stellar-wallets-kit
 vi.mock('@creit.tech/stellar-wallets-kit', () => ({
   StellarWalletsKit: vi.fn().mockImplementation(() => ({
-    getAddress: vi.fn(),
+    getAddress: vi.fn().mockResolvedValue({ address: 'GAUTO123' }),
     setWallet: vi.fn(),
     disconnect: vi.fn(),
   })),
@@ -23,9 +17,11 @@ describe('walletService - Auto-reconnect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    localStorage.removeItem('selectedWalletId');
+    localStorage.removeItem('tikka_last_connected_wallet');
     
     // Setup window.freighter mock
-    (global as any).window = {
+    (globalThis as any).window = {
       freighter: {},
       localStorage: {
         getItem: vi.fn((key: string) => localStorage.getItem(key)),
@@ -42,10 +38,10 @@ describe('walletService - Auto-reconnect', () => {
 
   it('should attempt to reconnect Freighter if it was last connected', async () => {
     localStorage.setItem('tikka_last_connected_wallet', 'freighter');
+    localStorage.setItem('selectedWalletId', 'freighter');
     
-    const mockFreighterApi = await import('@stellar/freighter-api');
-    (mockFreighterApi.isConnected as any).mockResolvedValue(true);
-    (mockFreighterApi.getAddress as any).mockResolvedValue({ address: 'GAUTO123' });
+    // Mock window.freighter.isConnected
+    (globalThis as any).window.freighter.isConnected = vi.fn().mockResolvedValue(true);
 
     const result = await attemptAutoReconnect();
     
@@ -56,8 +52,7 @@ describe('walletService - Auto-reconnect', () => {
   it('should return false if Freighter is not connected', async () => {
     localStorage.setItem('tikka_last_connected_wallet', 'freighter');
     
-    const mockFreighterApi = await import('@stellar/freighter-api');
-    (mockFreighterApi.isConnected as any).mockResolvedValue(false);
+    (globalThis as any).window.freighter.isConnected = vi.fn().mockResolvedValue(false);
 
     const result = await attemptAutoReconnect();
     
@@ -67,8 +62,7 @@ describe('walletService - Auto-reconnect', () => {
   it('should handle errors gracefully', async () => {
     localStorage.setItem('tikka_last_connected_wallet', 'freighter');
     
-    const mockFreighterApi = await import('@stellar/freighter-api');
-    (mockFreighterApi.isConnected as any).mockRejectedValue(new Error('Connection failed'));
+    (globalThis as any).window.freighter.isConnected = vi.fn().mockRejectedValue(new Error('Connection failed'));
 
     const result = await attemptAutoReconnect();
     
@@ -85,7 +79,7 @@ describe('walletService - Auto-reconnect', () => {
 
   it('should return false if Freighter extension is not available', async () => {
     localStorage.setItem('tikka_last_connected_wallet', 'freighter');
-    delete (global as any).window.freighter;
+    delete (globalThis as any).window.freighter;
 
     const result = await attemptAutoReconnect();
     

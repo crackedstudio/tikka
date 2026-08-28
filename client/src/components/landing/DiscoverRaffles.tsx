@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 const DiscoverRaffles = () => {
     const { t } = useTranslation();
-    const { raffles, error, isLoading } = useRaffles({ status: "open" });
+    const { raffles, error, status } = useRaffles({ status: "open" });
 
     return (
         <section className="w-full">
@@ -34,7 +34,7 @@ const DiscoverRaffles = () => {
 
                 {/* Content */}
                 <div className="mt-8">
-                    {isLoading ? (
+                    {status.isLoading ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                             {[1, 2, 3].map((i) => (
                                 <RaffleCardSkeleton key={i} />

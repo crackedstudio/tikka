@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Leaderboard from "./Leaderboard";
-import * as leaderboardService from "../services/leaderboardService";
+
 
 // Mock the useLeaderboard hook
 vi.mock("../hooks/useLeaderboard", () => ({

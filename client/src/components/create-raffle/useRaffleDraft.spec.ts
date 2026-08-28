@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { Dispatch, SetStateAction } from "react";
+import type { SetStateAction } from "react";
 import { useRaffleDraft } from "./useRaffleDraft";
 import {
   EMPTY_RAFFLE_FORM,
