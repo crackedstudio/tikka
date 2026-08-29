@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { Processor, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -22,13 +22,26 @@ const MAX_FAILURES = 5;
   },
 })
 @Injectable()
-export class WebhookDeliveryWorker extends WorkerHost {
+export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationShutdown {
   private readonly logger = new Logger(WebhookDeliveryWorker.name);
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
   ) {
     super();
+  }
+
+  /**
+   * Called by NestJS on SIGTERM (requires app.enableShutdownHooks()).
+   * Delegates to BullMQ Worker.close() which:
+   *  1. Stops picking up new jobs
+   *  2. Waits for in-flight jobs to finish (or fail)
+   *  3. Closes the Redis connection
+   */
+  async onApplicationShutdown(): Promise<void> {
+    this.logger.log('WebhookDeliveryWorker shutting down — draining in-flight jobs…');
+    await (this as any).worker?.close();
+    this.logger.log('WebhookDeliveryWorker shut down cleanly');
   }
 
   async process(job: Job<WebhookDeliveryJobData>): Promise<void> {

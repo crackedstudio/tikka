@@ -20,7 +20,10 @@ spec:
       labels:
         app: tikka-backend
     spec:
-      terminationGracePeriodSeconds: 30
+      # Must exceed the longest BullMQ job + drain time.
+      # Webhook deliveries have a 10 s HTTP timeout; allow buffer for
+      # backoff retries and Redis close handshake.
+      terminationGracePeriodSeconds: 45
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
