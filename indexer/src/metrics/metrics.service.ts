@@ -11,6 +11,7 @@ import {
 } from '@opentelemetry/api';
 import { DlqReason } from '../database/entities/dead-letter-event.entity';
 import { Queue } from 'bullmq';
+import { HealthService } from '../health/health.service';
 
 interface QueueMetricsConfig {
   name: string;
@@ -22,7 +23,6 @@ export class MetricsService {
   private readonly logger = new Logger(MetricsService.name);
   private meter: Meter;
   private exporter: PrometheusExporter;
-  private logger = new Logger(MetricsService.name);
 
   private eventsProcessedCounter: Counter;
   private errorsCounter: Counter;
@@ -168,19 +168,20 @@ export class MetricsService {
   private startQueueMetricsCollection(name: string, queue: Queue): void {
     const collectMetrics = async () => {
       try {
-        const [waiting, active, completed, failed, delayed, paused] = await Promise.all([
+        const [waiting, active, completed, failed, delayed, isPaused] = await Promise.all([
           queue.getWaitingCount(),
           queue.getActiveCount(),
           queue.getCompletedCount(),
           queue.getFailedCount(),
           queue.getDelayedCount(),
-          queue.getPausedCount(),
+          queue.isPaused(),
         ]);
+        const paused = isPaused ? 1 : 0;
 
         // Get oldest job timestamp
         let oldestJobAge = 0;
         const waitingJobs = await queue.getJobs(['waiting'], 0, 0);
-        if (waitingJobs.length > 0 && waitingJobs[0].timestamp) {
+        if (waitingJobs.length > 0 && waitingJobs[0]?.timestamp) {
           oldestJobAge = (Date.now() - waitingJobs[0].timestamp) / 1000;
         }
 
@@ -195,7 +196,7 @@ export class MetricsService {
         this.queueOldestJobAgeGauge.record(oldestJobAge, labels);
         this.queueTotalGauge.record(waiting + active + completed + failed + delayed + paused, labels);
       } catch (error) {
-        this.logger.warn(`Failed to collect metrics for queue "${name}": ${error.message}`);
+        this.logger.warn(`Failed to collect metrics for queue "${name}": ${(error as Error).message}`);
       }
     };
 
