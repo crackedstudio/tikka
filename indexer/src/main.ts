@@ -1,16 +1,21 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
+import { Logger as NestLogger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { initTracing, shutdownTracing } from './tracing/tracing';
+import { RequestLoggerService } from './common/request-logger.service';
 
-const logger = new Logger("Bootstrap");
+const logger = new NestLogger("Bootstrap");
 
 export async function bootstrap() {
   initTracing();
 
   const app = await NestFactory.create(AppModule);
+
+  // Route all `Logger` output through a logger that stamps the active
+  // `x-request-id` correlation id onto every line.
+  app.useLogger(new RequestLoggerService());
 
   // ── Global validation pipe ─────────────────────────────────────────────────
   // Rejects unknown/extra properties (whitelist) and auto-transforms payloads

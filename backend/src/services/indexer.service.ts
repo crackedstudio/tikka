@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { captureIngestionError } from '../sentry/sentry';
 import { BackfillLock } from './backfill-lock';
+import { getRequestIdHeaders, REQUEST_ID_HEADER } from '../middleware/request-context';
 
 // ── Response types aligned with indexer API (ARCHITECTURE §3) ─────────────────
 
@@ -234,6 +235,12 @@ export class IndexerService {
     try {
       const res = await fetch(url, {
         ...init,
+        headers: {
+          ...(init?.headers as Record<string, string> | undefined),
+          // Propagate the backend's correlation id so the indexer can attach
+          // it to its own logs for the same logical operation.
+          ...getRequestIdHeaders(),
+        },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

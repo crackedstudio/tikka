@@ -9,6 +9,7 @@ import { Observable, finalize } from 'rxjs';
 import { env } from '../config/env.config';
 import * as Sentry from '@sentry/node';
 import { REQUEST_ID_HEADER } from './request-id.middleware';
+import { getRequestId } from './request-context';
 
 const DEFAULT_REDACT_FIELDS = [
   'authorization',
@@ -69,8 +70,10 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<HttpRequestLike>();
     const response = context.switchToHttp().getResponse<HttpResponseLike>();
     const startedAt = Date.now();
-    
-    const requestId = request.headers?.[REQUEST_ID_HEADER] as string;
+
+    // Prefer the id bound to the async context (set by RequestIdMiddleware);
+    // fall back to the raw header for non-HTTP or edge cases.
+    const requestId = getRequestId() ?? (request.headers?.[REQUEST_ID_HEADER] as string);
 
     // Set Sentry context with request ID
     if (requestId) {

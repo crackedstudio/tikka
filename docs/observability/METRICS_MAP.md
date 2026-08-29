@@ -200,9 +200,38 @@ Events flow across services. Use these fields to correlate:
 
 | Correlation Key | Backend | Indexer | Oracle |
 |----------------|---------|---------|--------|
-| `requestId` | Log field, Sentry tag | — | Log field (`TelemetryContext`) |
+| `x-request-id` (header) | Generated per request, logged + echoed on response | Read from inbound header, stamped on every log line | Read from inbound header / peer `x-request-id` into `correlationId` |
+| `requestId` | Log field, Sentry tag, error-response body | Log field (same value as `x-request-id`) | Log field (`correlationId`), queue metadata |
 | `raffleId` | DB field (`oracle_jobs`) | — | Log field, queue metadata |
 | `txHash` | DB field (`oracle_jobs`) | — | Log field, `TransactionOutcome` |
 | `ledger` | Log field | Log field, metric context | Queue metadata |
 | `eventType` | — | Metric label (`event_type`) | — |
 | `jobId` | DB field | — | Queue metadata |
+
+### Trace header propagation
+
+The canonical correlation id is **`x-request-id`** (W3C-style request id; not the
+full `traceparent`, but compatible with it). Propagation path:
+
+1. **Backend** — `RequestIdMiddleware` generates an `x-request-id` if the caller
+   did not supply one, stores it in an `AsyncLocalStorage` request context, and
+   echoes it on the response. `RequestLoggingInterceptor` and
+   `BaseExceptionFilter` attach it to every log line and to the error-response
+   body (`requestId`), so a user-reported id maps straight back to backend logs.
+2. **Backend → Indexer** — `IndexerService` forwards the active `x-request-id`
+   as a request header on every `fetch` call. The indexer's
+   `RequestIdMiddleware` reuses that id (falling back to a generated one) and the
+   indexer's `RequestLoggerService` stamps it on every log line, so a single id
+   spans backend + indexer for one logical operation.
+3. **Indexer outbound** — webhook fan-out forwards the same `x-request-id` to
+   downstream webhook consumers.
+4. **Oracle** — the draw's `request_id` arrives from the on-chain event (and, for
+   multi-oracle, peer `/vrf/compute` calls forward `x-request-id`). The event
+   listener runs the draw handler inside `CorrelationContext.run(requestId, …)`
+   and the randomness worker uses `requestId` as its `correlationId`, so every
+   oracle log for that draw carries the same id.
+
+> To correlate a failed raffle draw end-to-end: take the `requestId` from the
+> backend error response, then grep backend, indexer, and oracle logs for that
+> value (backend/indexer: `x-request-id` / `requestId`; oracle: `correlationId`
+> and `request_id` fields).

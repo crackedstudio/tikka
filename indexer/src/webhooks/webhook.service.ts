@@ -6,6 +6,7 @@ import { Queue } from "bullmq";
 import { WebhookEntity } from "../database/entities/webhook.entity";
 import { WebhookDeliveryEntity } from "../database/entities/webhook-delivery.entity";
 import { TracingService } from "../tracing/tracing.service";
+import { getRequestIdHeaders } from "../common/request-context";
 
 export interface WebhookPayload {
   eventType: string;
@@ -92,6 +93,8 @@ export class WebhookService {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              // Propagate the request id to downstream webhook consumers.
+              ...getRequestIdHeaders(),
             },
             body: JSON.stringify(payload),
             signal: AbortSignal.timeout(5000),
