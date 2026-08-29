@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { useRaffle } from "../hooks/useRaffles";
 import { useAuth } from "../hooks/useAuth";
+import { useRafflePageData } from "../hooks/useRafflePageData";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import VerifiedBadge from "../components/VerifiedBadge";
@@ -45,17 +45,24 @@ const RafflePage = () => {
     const recentParticipantsRef = useRef<RecentParticipantsHandle>(null);
 
     const raffleId = id ? parseInt(id) : 0;
-    const { raffle, isLoading, error } = useRaffle(raffleId);
+    const { data, purchaseTickets } = useRafflePageData(raffleId);
 
     const handleTicketPurchase = () => {
+        // Only purchasable once the raffle data has loaded
+        if (data.status !== "ready") return;
         // Add optimistic update for current user
         if (address && recentParticipantsRef.current) {
             recentParticipantsRef.current.addOptimisticParticipant(address);
         }
-        console.log("Buying tickets:", ticketCount);
+        // A successful purchase invalidates the raffle detail/list + user profile keys
+        purchaseTickets.mutate({
+            raffleId,
+            ticketCount,
+            maxPricePerTicket: data.raffle.ticketPrice,
+        });
     };
 
-    if (isLoading) {
+    if (data.status === "loading") {
         return (
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-8 animate-in fade-in duration-500">
                 <div className="flex items-center space-x-4">
@@ -80,12 +87,12 @@ const RafflePage = () => {
         );
     }
 
-    if (error || !raffle) {
+    if (data.status === "error") {
         return (
             <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-20 flex flex-col items-center">
                 <ErrorMessage
-                    title={error ? t("raffle.errorLoading") : t("raffle.notFound")}
-                    message={error?.message || t("raffle.notFoundMessage")}
+                    title={t("raffle.errorLoading")}
+                    message={data.error.message || t("raffle.notFoundMessage")}
                 />
                 <button
                     onClick={() => navigate("/home")}
@@ -98,13 +105,14 @@ const RafflePage = () => {
         );
     }
 
+    const raffle = data.raffle;
+
     const {
         description,
         image,
         ticketPriceFormatted,
         prizeValue,
         prizeCurrency,
-        countdown,
         progress,
         entries,
         maxTickets,
