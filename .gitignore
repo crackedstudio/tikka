@@ -13,6 +13,7 @@ node_modules/
 dist/
 .env
 *.log
+logs/
 
 # Local build / debug artifacts (do not commit)
 build*.txt

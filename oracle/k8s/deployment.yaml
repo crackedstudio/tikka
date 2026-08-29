@@ -43,6 +43,8 @@ spec:
           secret:
             secretName: tikka-oracle-age-key
             defaultMode: 0400
+        - name: logs
+          emptyDir: {}
       containers:
         - name: tikka-oracle
           image: ghcr.io/crackedstudio/tikka-oracle:latest
@@ -56,10 +58,14 @@ spec:
           env:
             - name: SOPS_AGE_KEY_FILE
               value: /run/secrets/age.key
+            - name: LOG_DIR
+              value: /var/log/oracle
           volumeMounts:
             - name: age-key
               mountPath: /run/secrets
               readOnly: true
+            - name: logs
+              mountPath: /var/log/oracle
           resources:
             requests:
               cpu: "100m"
