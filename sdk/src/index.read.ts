@@ -58,6 +58,7 @@ export type { UserParticipation, GetParticipationParams } from './modules/user/u
 // ── Read-only service classes ────────────────────────────────────────────────
 export { ReadOnlyRaffleService } from './modules/raffle/raffle.read.service';
 export { ReadOnlyUserService } from './modules/user/user.read.service';
+export { TicketReadService } from './modules/ticket/ticket.read.service';
 
 // ── Utils ────────────────────────────────────────────────────────────────────
 export * from './utils';
