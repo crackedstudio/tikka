@@ -52,7 +52,6 @@ const Navbar = ({ onStart }: { onStart?: () => void }) => {
 
             // Only search if we aren't on detail/create pages
             const isForbiddenPage =
-                location.pathname === "/details" ||
                 location.pathname.startsWith("/raffles/") ||
                 location.pathname === "/create" ||
                 location.pathname === "/leaderboard" ||

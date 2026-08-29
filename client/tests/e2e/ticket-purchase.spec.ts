@@ -175,7 +175,7 @@ test.describe("Ticket purchase flow", () => {
             await gotoHome(page);
             // The <Link> wraps the card image/content
             await page.getByRole("link").first().click();
-            await expect(page).toHaveURL(/\/details\?raffle=\d+/);
+            await expect(page).toHaveURL(/\/raffles\/\d+/);
         });
 
         test("Continue button on success modal navigates to the raffle detail page", async ({
@@ -185,7 +185,7 @@ test.describe("Ticket purchase flow", () => {
             await clickFirstEnterButton(page);
             await waitForSuccessModal(page);
             await page.getByTestId("success-continue-btn").click();
-            await expect(page).toHaveURL(/\/details\?raffle=\d+/);
+            await expect(page).toHaveURL(/\/raffles\/\d+/);
         });
     });
 });

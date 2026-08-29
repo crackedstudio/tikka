@@ -42,7 +42,7 @@ test.describe('Raffle Flows', () => {
 
   test('Buying a ticket executes successfully', async ({ page }) => {
     // Navigate to a details page
-    await page.goto('/details?raffle=99');
+    await page.goto('/raffles/99');
 
     // Mock contract network call for ticket purchase
     await page.route('**/api/contract/buy', async (route) => {
