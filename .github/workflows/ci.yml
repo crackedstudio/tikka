@@ -97,6 +97,9 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
+      - name: Check bundle-size budget
+        run: pnpm exec size-limit
+        continue-on-error: false
       
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
