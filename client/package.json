@@ -26,7 +26,7 @@
     "dependencies": {
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
         "@sentry/react": "^10.62.0",
-        "@stellar/freighter-api": "^3.1.0",
+        "@stellar/freighter-api": "^6.0.1",
         "@stellar/stellar-sdk": "^14.4.3",
         "@supabase/supabase-js": "^2.76.1",
         "@tailwindcss/vite": "^4.1.13",
