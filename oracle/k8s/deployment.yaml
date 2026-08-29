@@ -24,7 +24,10 @@ spec:
       labels:
         app: tikka-oracle
     spec:
-      terminationGracePeriodSeconds: 30
+      # Must exceed the longest Bull job + drain time.
+      # VRF submissions can take several seconds on-chain; allow buffer
+      # for commit-reveal cycles and Redis close handshake.
+      terminationGracePeriodSeconds: 45
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

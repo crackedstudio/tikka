@@ -18,6 +18,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: WinstonModule.createLogger({ instance: createOracleLogger() }),
   });
+
+  // Enable NestJS lifecycle hooks so SIGTERM triggers onApplicationShutdown
+  // on all providers (workers drain in-flight jobs before exit).
+  app.enableShutdownHooks();
+
   await app.listen(process.env.PORT ?? 3003);
 }
 bootstrap();

@@ -185,4 +185,23 @@ describe('WebhookDeliveryWorker', () => {
       );
     });
   });
+
+  describe('onApplicationShutdown', () => {
+    it('should call worker.close() to drain in-flight jobs', async () => {
+      const closeMock = jest.fn().mockResolvedValue(undefined);
+      // WorkerHost stores the BullMQ worker on a protected property
+      (worker as any).worker = { close: closeMock };
+
+      await worker.onApplicationShutdown();
+
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not throw if worker is not yet initialised', async () => {
+      // Simulate shutdown before the worker property is assigned
+      (worker as any).worker = undefined;
+
+      await expect(worker.onApplicationShutdown()).resolves.toBeUndefined();
+    });
+  });
 });
