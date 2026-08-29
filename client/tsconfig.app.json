@@ -27,6 +27,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+    "noUncheckedIndexedAccess": true,
 
     /* RELEVANT FIXES BELOW */
     "allowSyntheticDefaultImports": true,
