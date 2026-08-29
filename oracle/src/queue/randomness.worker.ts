@@ -14,10 +14,10 @@ import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coor
 import { PriorityClassifierService } from './priority-classifier.service';
 import { AuditLogService } from '../audit/audit-log.service';
 import { AlertingService } from '../health/alerting.service';
-import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
-import { Job } from 'bull';
+import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed, InjectQueue } from '@nestjs/bull';
+import { Job, Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MetricsService } from '../metrics/metrics.service';
 
@@ -25,12 +25,15 @@ const DLQ_DEPTH_ALERT_DEDUP_KEY = 'dlq-depth-threshold';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
-export class RandomnessWorker {
+export class RandomnessWorker implements OnApplicationShutdown {
 
   private readonly vrfThresholdXlm: number;
   private readonly dlqDepthAlertThreshold: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
+  private shuttingDown = false;
+  private readonly activeJobPromises = new Map<string, Promise<void>>();
+  private readonly shutdownTimeoutMs: number;
 
   constructor(
     private readonly logger: OracleLoggerService,
@@ -48,6 +51,7 @@ export class RandomnessWorker {
     private readonly auditLogService: AuditLogService,
     private readonly alertingService: AlertingService,
     @Optional() private readonly metricsService?: MetricsService,
+    @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -55,11 +59,18 @@ export class RandomnessWorker {
     this.dlqDepthAlertThreshold = Number(
       this.configService.get<string>('DLQ_DEPTH_ALERT_THRESHOLD', '5'),
     );
+    this.shutdownTimeoutMs = Number(
+      this.configService.get<string>('ORACLE_SHUTDOWN_HARD_TIMEOUT_MS', '25000'),
+    );
   }
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
-    return CorrelationContext.run(String(job.id), async () => {
+    if (this.shuttingDown) {
+      throw new Error('Oracle shutting down — rejecting job for retry');
+    }
+
+    const jobPromise = CorrelationContext.run(String(job.id), async () => {
     // Main-loop heartbeat — updated on every job the queue worker picks up.
     this.metricsService?.recordComponentHeartbeat('queue');
 
@@ -139,6 +150,65 @@ export class RandomnessWorker {
       throw err; // Let Bull retry it
     }
     }); // end CorrelationContext.run
+
+    this.activeJobPromises.set(String(job.id), jobPromise);
+    try {
+      await jobPromise;
+    } finally {
+      this.activeJobPromises.delete(String(job.id));
+    }
+  }
+
+  async onApplicationShutdown(signal?: string): Promise<void> {
+    this.logger.log(
+      `Shutdown initiated (${signal}) — pausing queue and draining active jobs`,
+    );
+    this.shuttingDown = true;
+
+    try {
+      await this.randomnessQueue?.pause(true, true);
+    } catch (err) {
+      this.logger.warn(`Failed to pause randomness queue during shutdown: ${err}`);
+    }
+
+    const activePromises = Array.from(this.activeJobPromises.values());
+
+    if (activePromises.length === 0) {
+      this.logger.log('No active jobs to drain');
+      return;
+    }
+
+    this.logger.log(`Waiting for ${activePromises.length} active job(s) to finish`);
+
+    const timeoutPromise = new Promise<void>((resolve) =>
+      setTimeout(resolve, this.shutdownTimeoutMs),
+    );
+
+    await Promise.race([Promise.all(activePromises), timeoutPromise]);
+
+    const remaining = this.activeJobPromises.size;
+    if (remaining > 0) {
+      this.logger.warn(
+        `Shutdown timeout exceeded — ${remaining} job(s) still in-flight. These will be retried or require rescue.`,
+      );
+      try {
+        await this.alertingService.fire({
+          severity: 'critical',
+          summary: `Oracle shutdown stranded ${remaining} active randomness job(s)`,
+          details: `Signal: ${signal}. Jobs may require rescue intervention.`,
+          dedupKey: 'oracle-shutdown-stranded-jobs',
+          context: {
+            oracle_id: process.env.LOCAL_ORACLE_ID || 'oracle-001',
+          },
+        });
+      } catch (alertErr) {
+        this.logger.error(
+          `Failed to fire shutdown stranded-jobs alert: ${alertErr}`,
+        );
+      }
+    } else {
+      this.logger.log('All active jobs drained successfully');
+    }
   }
 
   private async quarantineJob(job: Job<RandomnessJobPayload>, error: any) {
