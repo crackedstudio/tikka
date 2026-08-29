@@ -10,8 +10,8 @@ import {
   getUserSubscriptions,
   unsubscribeFromRaffle,
   type UserSubscription,
-} from '../../services/notificationService';
-import { useAuthContext } from '../../providers';
+} from '../services/notificationService';
+import { useAuthContext } from '../providers/AuthProvider';
 
 export interface UseUserSubscriptionsReturn {
   subscriptions: UserSubscription[];
