@@ -58,7 +58,6 @@ import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.
 import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
 import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
 import { SetMetadata } from "@nestjs/common";
-import * as fileType from "file-type";
 import sharp, { type Metadata } from "sharp";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
@@ -295,7 +294,8 @@ export class RafflesController {
       throw error;
     }
 
-    const detectedFileType = await fileType.fromBuffer(buffer);
+    const { fileTypeFromBuffer } = await (eval('import("file-type")') as Promise<any>);
+    const detectedFileType = await fileTypeFromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {

@@ -75,6 +75,7 @@ export class WebhookService {
       },
       async () => run(),
     );
+  }
 
   private async deliverWithRetry(
     url: string,

@@ -18,6 +18,7 @@ import {
   LAG_THRESHOLD_DEFAULT,
   LAG_ALERT_THRESHOLD_DEFAULT,
   DLQ_PRESSURE_THRESHOLD_DEFAULT,
+  INGESTION_HEARTBEAT_STALE_MS_DEFAULT,
 } from './health.constants';
 
 // Re-exported for backward compatibility — source of truth is health.constants.ts
@@ -25,7 +26,12 @@ export {
   LAG_THRESHOLD_DEFAULT,
   LAG_ALERT_THRESHOLD_DEFAULT,
   DLQ_PRESSURE_THRESHOLD_DEFAULT,
+  INGESTION_HEARTBEAT_STALE_MS_DEFAULT,
 } from './health.constants';
+
+export interface LivenessResult {
+  status: "ok" | "degraded";
+}
 
 export interface HealthResult {
   status: "ok" | "degraded";

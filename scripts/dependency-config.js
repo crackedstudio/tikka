@@ -82,5 +82,14 @@ module.exports = {
       reason: 'Backend uses pinned fast-check 3.22.0; client/sdk use 4.7, oracle uses 4.6, indexer uses 3.23.2',
       packages: ['backend', 'client', 'indexer', 'oracle', 'sdk'],
     },
+    
+    /**
+     * typeorm: Major version mismatch requiring coordinated migration
+     * backend on 0.3.x, indexer on 1.1.x
+     */
+    'typeorm': {
+      reason: 'Backend uses TypeORM 0.3.x; indexer upgraded to 1.1.x; major migration pending for backend',
+      packages: ['backend', 'indexer'],
+    },
   },
 };
