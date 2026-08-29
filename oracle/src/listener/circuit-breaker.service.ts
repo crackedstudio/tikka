@@ -1,9 +1,10 @@
-import { OracleLoggerService } from '../logger/oracle-logger';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CircuitState } from './circuit-breaker.types';
+import { CircuitBreaker } from '@tikka/sdk/network';
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { HealthService } from '../health/health.service';
 import { AlertingService } from '../health/alerting.service';
+import { CircuitState } from './circuit-breaker.types';
 
 export { CircuitState };
 
@@ -31,17 +32,16 @@ function parsePositiveInt(raw: string | undefined, varName: string, logger: Orac
   return parsed;
 }
 
+/**
+ * Thin Nest wrapper around the shared, framework-free {@link CircuitBreaker}
+ * from the SDK core. It owns nothing but the Nest/Prometheus concerns:
+ * config parsing, logging, health status and alerting. The state machine itself
+ * ("one implementation") lives in the SDK and is shared with the RPC client.
+ */
 @Injectable()
 export class CircuitBreakerService {
-  
-
-  private state: CircuitState = 'closed';
-  private consecutiveFailures = 0;
-  private openedAt: number | null = null;
-  private lastFailureAt: number | null = null;
-  private probeAllowed = false;
+  private readonly breaker: CircuitBreaker;
   private readonly config: CircuitBreakerConfig;
-  private readonly nowFn: () => number;
 
   constructor(
     private readonly logger: OracleLoggerService,
@@ -50,8 +50,6 @@ export class CircuitBreakerService {
     private readonly alertingService: AlertingService,
     nowFn?: () => number,
   ) {
-    this.nowFn = nowFn ?? Date.now;
-
     const rawThreshold = this.configService.get<string>('ORACLE_CB_FAILURE_THRESHOLD');
     const rawTimeout = this.configService.get<string>('ORACLE_CB_RESET_TIMEOUT_MS');
 
@@ -59,6 +57,19 @@ export class CircuitBreakerService {
       failureThreshold: parsePositiveInt(rawThreshold, 'ORACLE_CB_FAILURE_THRESHOLD', this.logger, DEFAULT_FAILURE_THRESHOLD),
       resetTimeoutMs: parsePositiveInt(rawTimeout, 'ORACLE_CB_RESET_TIMEOUT_MS', this.logger, DEFAULT_RESET_TIMEOUT_MS),
     };
+
+    this.breaker = new CircuitBreaker({
+      failureThreshold: this.config.failureThreshold,
+      resetTimeoutMs: this.config.resetTimeoutMs,
+      now: nowFn ?? Date.now,
+      hooks: {
+        onStateChange: (from, to, info) => this.onTransition(from, to, info),
+        onAttemptSuppressed: (remainingMs) =>
+          this.logger.debug(
+            `Circuit is open. Attempt suppressed. Remaining cooldown: ${remainingMs}ms.`,
+          ),
+      },
+    });
   }
 
   /**
@@ -66,37 +77,7 @@ export class CircuitBreakerService {
    * Handles open → half-open transition when the reset timeout has elapsed.
    */
   canAttempt(): boolean {
-    if (this.state === 'closed') {
-      return true;
-    }
-
-    if (this.state === 'open') {
-      const elapsed = this.nowFn() - (this.openedAt ?? 0);
-      if (elapsed >= this.config.resetTimeoutMs) {
-        // Transition to half-open and allow the first probe
-        this.state = 'half-open';
-        this.probeAllowed = true;
-        this.logger.log(
-          `Circuit transitioned open → half-open. Allowing probe attempt.`,
-        );
-        // Consume the probe slot
-        this.probeAllowed = false;
-        return true;
-      }
-
-      const remaining = this.config.resetTimeoutMs - elapsed;
-      this.logger.debug(
-        `Circuit is open. Attempt suppressed. Remaining cooldown: ${remaining}ms.`,
-      );
-      return false;
-    }
-
-    // half-open
-    if (this.probeAllowed) {
-      this.probeAllowed = false;
-      return true;
-    }
-    return false;
+    return this.breaker.canAttempt();
   }
 
   /**
@@ -104,48 +85,50 @@ export class CircuitBreakerService {
    * half-open → closed, or keeps closed. Resets consecutive failures.
    */
   recordSuccess(): void {
-    if (this.state === 'half-open') {
-      this.state = 'closed';
-      this.logger.log('Circuit transitioned half-open → closed. Connection recovered.');
-      void this.alertingService.resolve(CIRCUIT_BREAKER_ALERT_DEDUP_KEY);
-    }
-    // closed stays closed
-    this.consecutiveFailures = 0;
+    this.breaker.recordSuccess();
+    // Matches the previous behaviour: closed state health is refreshed on success.
     this.healthService.updateCircuitState('closed');
   }
 
   /**
    * Call after a failed SSE connection attempt.
    * closed: increment failures, open at threshold.
-   * half-open: re-open immediately.
+   * half-open: re-open immediately (failed probe).
    */
   recordFailure(): void {
-    this.lastFailureAt = this.nowFn();
+    this.breaker.recordFailure();
+  }
 
-    if (this.state === 'closed') {
-      this.consecutiveFailures++;
-      if (this.consecutiveFailures >= this.config.failureThreshold) {
-        this.state = 'open';
-        this.openedAt = this.nowFn();
-        this.logger.warn(
-          `Circuit transitioned closed → open after ${this.consecutiveFailures} consecutive failures ` +
-          `(threshold: ${this.config.failureThreshold}, resetTimeout: ${this.config.resetTimeoutMs}ms).`,
-        );
-        this.healthService.updateCircuitState('open');
-        this.fireCircuitOpenAlert(
-          `Circuit breaker OPEN after ${this.consecutiveFailures} consecutive failures`,
-        );
-      }
+  private onTransition(
+    from: CircuitState,
+    to: CircuitState,
+    info: { consecutiveFailures: number; threshold: number; resetTimeoutMs: number },
+  ): void {
+    if (from === 'closed' && to === 'open') {
+      this.logger.warn(
+        `Circuit transitioned closed → open after ${info.consecutiveFailures} consecutive failures ` +
+        `(threshold: ${info.threshold}, resetTimeout: ${info.resetTimeoutMs}ms).`,
+      );
+      this.healthService.updateCircuitState('open');
+      this.fireCircuitOpenAlert(
+        `Circuit breaker OPEN after ${info.consecutiveFailures} consecutive failures`,
+      );
       return;
     }
 
-    if (this.state === 'half-open') {
-      this.state = 'open';
-      this.openedAt = this.nowFn();
-      this.probeAllowed = false;
-      this.logger.warn(
-        `Circuit transitioned half-open → open. Probe attempt failed. Circuit re-opened.`,
-      );
+    if (from === 'open' && to === 'half-open') {
+      this.logger.log('Circuit transitioned open → half-open. Allowing probe attempt.');
+      return;
+    }
+
+    if (from === 'half-open' && to === 'closed') {
+      this.logger.log('Circuit transitioned half-open → closed. Connection recovered.');
+      void this.alertingService.resolve(CIRCUIT_BREAKER_ALERT_DEDUP_KEY);
+      return;
+    }
+
+    if (from === 'half-open' && to === 'open') {
+      this.logger.warn('Circuit transitioned half-open → open. Probe attempt failed. Circuit re-opened.');
       this.healthService.updateCircuitState('open');
       this.fireCircuitOpenAlert('Circuit breaker re-OPENED after failed half-open probe');
     }
@@ -157,7 +140,7 @@ export class CircuitBreakerService {
       summary,
       details:
         `threshold=${this.config.failureThreshold}, resetTimeoutMs=${this.config.resetTimeoutMs}, ` +
-        `consecutiveFailures=${this.consecutiveFailures}`,
+        `consecutiveFailures=${this.breaker.getFailureCount()}`,
       dedupKey: CIRCUIT_BREAKER_ALERT_DEDUP_KEY,
       context: {
         oracle_id: process.env.LOCAL_ORACLE_ID || 'oracle-001',
@@ -169,26 +152,21 @@ export class CircuitBreakerService {
    * Returns 0 if already elapsed or the circuit is not open.
    */
   getRemainingCooldownMs(): number {
-    if (this.state !== 'open' || this.openedAt === null) {
-      return 0;
-    }
-    const elapsed = this.nowFn() - this.openedAt;
-    const remaining = this.config.resetTimeoutMs - elapsed;
-    return remaining > 0 ? remaining : 0;
+    return this.breaker.getRemainingCooldownMs();
   }
 
   /** Returns the current circuit state. */
   getState(): CircuitState {
-    return this.state;
+    return this.breaker.getState();
   }
 
   /** Returns the current consecutive failure count. */
   getFailureCount(): number {
-    return this.consecutiveFailures;
+    return this.breaker.getFailureCount();
   }
 
-  /** Returns the timestamp of when the circuit was opened, or null if not open. */
+  /** Returns the timestamp of when the circuit last failed, or null if never. */
   getLastFailureAt(): number | null {
-    return this.lastFailureAt;
+    return this.breaker.getLastFailureAt();
   }
 }

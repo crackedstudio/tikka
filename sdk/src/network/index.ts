@@ -1,5 +1,6 @@
 export * from './network-config.error';
 export * from './network.config';
+export * from './circuit-breaker';
 export * from './network.module';
 export * from './rpc.service';
 export * from './mock-rpc.service';
