@@ -31,6 +31,7 @@ jobs:
           filters: |
             client:
               - 'client/**'
+              - 'backend/openapi.json'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
@@ -86,6 +87,15 @@ jobs:
         run: node scripts/check-contrast.js
         continue-on-error: false
       
+      - name: Check generated API types are up to date
+        run: |
+          pnpm run generate:types
+          if ! git diff --exit-code src/types/api.generated.ts; then
+            echo "❌ api.generated.ts is stale — run 'pnpm generate:types' and commit the result"
+            exit 1
+          fi
+        continue-on-error: false
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
