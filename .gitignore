@@ -16,6 +16,7 @@ dist/
 logs/
 
 # Local build / debug artifacts (do not commit)
+test_output*.txt
 build*.txt
 debug_*.py
 fix_*.py
