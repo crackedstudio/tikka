@@ -35,12 +35,7 @@ import { useTranslation } from "react-i18next";
 import { CountdownTimer } from "../components/ui/CountdownTimer";
 import RaffleWinnerBanner from "../components/RaffleWinnerBanner";
 import { TicketService } from "../services/ticketService";
-
-const Skeleton = ({ className }: { className?: string }) => (
-  <div
-    className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`}
-  />
-);
+import Skeleton from "../components/ui/Skeleton";
 
 const RafflePage = () => {
     const { t } = useTranslation();
