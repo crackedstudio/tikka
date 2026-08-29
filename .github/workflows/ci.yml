@@ -23,6 +23,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       indexer: ${{ steps.filter.outputs.indexer }}
       oracle: ${{ steps.filter.outputs.oracle }}
+      database: ${{ steps.filter.outputs.database }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -50,10 +51,14 @@ jobs:
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
             oracle:
-              - 'oracle/**'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - '.github/workflows/ci.yml'
+            - 'oracle/**'
+            - 'package.json'
+            - 'pnpm-workspace.yaml'
+            - '.github/workflows/ci.yml'
+          database:
+            - 'indexer/src/database/**'
+            - 'backend/**'
+            - '.github/workflows/ci.yml'
 
   # Client package
   client:
@@ -300,6 +305,60 @@ jobs:
           retention-days: 7
 
 
+  # Database Migration Checks
+  migration-check:
+    name: Database - Migration Rollback & Drift Check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.database == 'true'
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: tikka_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:password@localhost:5432/tikka_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 8
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Check schema drift
+        run: |
+          if ! pnpm run db:check-drift; then
+            echo "::error title=Schema Drift Detected::Migrations do not match entity definitions. See docs/database/ for runbook."
+            exit 1
+          fi
+          
+      - name: Check migration rollback
+        working-directory: ./indexer
+        run: |
+          if ! pnpm run migration:rollback-check; then
+            echo "::error title=Migration Rollback Failed::Every migration must be reversible. See docs/database/ for rollback runbook instructions."
+            exit 1
+          fi
+
   # Secret scanning - blocks PRs that contain verified secrets
   security-scan:
     name: Secret Scanning (TruffleHog)
@@ -463,7 +522,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [commitlint, client, sdk, backend, indexer, oracle, security-scan, lighthouse]
+    needs: [commitlint, client, sdk, backend, indexer, oracle, security-scan, lighthouse, migration-check]
     if: always()
     steps:
       - name: Check all jobs status
@@ -482,7 +541,8 @@ jobs:
              ! check_status "${{ needs.indexer.result }}" || \
              ! check_status "${{ needs.oracle.result }}" || \
              ! check_status "${{ needs.security-scan.result }}" || \
-             ! check_status "${{ needs.lighthouse.result }}"; then
+             ! check_status "${{ needs.lighthouse.result }}" || \
+             ! check_status "${{ needs.migration-check.result }}"; then
             echo "❌ One or more packages failed CI checks"
             exit 1
           fi
