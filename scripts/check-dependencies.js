@@ -28,6 +28,7 @@ const SHARED_FRAMEWORKS = [
   'fast-check',
   'rxjs',
   'reflect-metadata',
+  'zod', // Added: must match across all packages
 ];
 
 // Root packages to analyze
@@ -138,6 +139,7 @@ function collectDependencies() {
  */
 function checkMismatches(collected) {
   const mismatches = [];
+  const mustMatchList = exceptions.mustMatch || [];
   
   SHARED_FRAMEWORKS.forEach(framework => {
     const versions = {};
@@ -160,12 +162,14 @@ function checkMismatches(collected) {
     if (Object.keys(versions).length > 1) {
       // Check if the mismatch is allowed
       const isAllowed = exceptions.allowed[framework];
+      const isMustMatch = mustMatchList.includes(framework);
       
       mismatches.push({
         framework,
         versions,
         packages,
         allowed: isAllowed || false,
+        mustMatch: isMustMatch,
       });
     }
   });
@@ -220,8 +224,13 @@ function formatReport(collected, mismatches) {
     report += 'VERSION MISMATCHES:\n';
     report += '─'.repeat(70) + '\n';
     
-    mismatches.forEach(({ framework, versions, packages, allowed }) => {
-      const status = allowed ? '[ALLOWED]' : '[MISMATCH]';
+    mismatches.forEach(({ framework, versions, packages, allowed, mustMatch }) => {
+      let status = '[MISMATCH]';
+      if (mustMatch) {
+        status = '[MUST MATCH - VIOLATION]';
+      } else if (allowed) {
+        status = '[ALLOWED]';
+      }
       report += `${status} ${framework}\n`;
       
       Object.entries(versions).forEach(([version, pkgs]) => {
@@ -256,8 +265,8 @@ function main() {
   
   console.log(report);
   
-  // Exit with error if unflagged mismatches found
-  const unflaggedMismatches = mismatches.filter(m => !m.allowed);
+  // Exit with error if unflagged mismatches found or mustMatch violations
+  const unflaggedMismatches = mismatches.filter(m => !m.allowed || m.mustMatch);
   if (unflaggedMismatches.length > 0) {
     console.error(`\n❌ Found ${unflaggedMismatches.length} unflagged version mismatch(es)!\n`);
     process.exit(1);
