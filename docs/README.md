@@ -4,14 +4,14 @@ This is the canonical index for all documentation in the repository.
 
 ## Cross-cutting documentation
 
-- [ARCHITECTURE.mdd](./ARCHITECTURE.md) - Full ecosystem specification with diagrams, data flows, contract interface, and API design.
-- [RAFFLE_LIFECYCLE.mdd](./RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update.
-- [RANDOMNESS_SCHEHE.mdd](./RANDOMNESS_SCHEME.md) - Randomness scheme, trust assumptions, and verification.
-- [RELEASE.mdd](./RELEASE.md) - Release policy, versioning, and changelog procedures.
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Full ecosystem specification with diagrams, data flows, contract interface, and API design.
+- [RAFFLE_LIFECYCLE.md](./RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update.
+- [RANDOMNESS_SCHEME.md](./RANDOMNESS_SCHEME.md) - Randomness scheme, trust assumptions, and verification.
+- [RELEASE.md](./RELEASE.md) - Release policy, versioning, and changelog procedures.
 
 ## Contributing
 
-- [MODULE_BOUNDARIES.mdd](./contributing/MODULE_BOUNDARIES.md) - Module boundary and package ownership guidance.
+- [MODULE_BOUNDARIES.md](./contributing/MODULE_BOUNDARIES.md) - Module boundary and package ownership guidance.
 
 ## Package documentation
 
