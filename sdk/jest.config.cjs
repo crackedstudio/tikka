@@ -14,10 +14,20 @@ module.exports = {
       },
     ],
   },
-  // stellar-sdk@16 pulls ESM-only deps (@noble/*, uint8array-extras, …).
+  // stellar-sdk@16 pulls ERM-only deps (@noble/*, uint8array-extras, …).
   // Transform those (and their pnpm-nested copies) so Jest can load them.
   transformIgnorePatterns: [
-    '/node_modules/(?!.*(uint8array-extras|@noble|@stellar|@scure|base32\\.js)/)',
+    '/node_modules/(?!.*((uint8array-extras|@noble|@stellar|@scure|base32\\.js)/),
   ],
   testEnvironment: 'node',
+  coverageReporters: ['lcov', 'text'],
+  coverageDirectory: '../coverage',
+  coverageThreshold: {
+    global: {
+      statements: 50,
+      branches: 30,
+      functions: 40,
+      lines: 50,
+    },
+  },
 };
