@@ -98,6 +98,14 @@ jobs:
         run: pnpm run build
         continue-on-error: false
       
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+        continue-on-error: false
+      
+      - name: Run e2e accessibility tests
+        run: pnpm run test:e2e -- --grep "Accessibility"
+        continue-on-error: false
+      
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
