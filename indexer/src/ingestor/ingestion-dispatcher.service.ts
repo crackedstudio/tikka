@@ -5,7 +5,7 @@ import { TicketProcessor } from "../processors/ticket.processor";
 import { AdminProcessor } from "../processors/admin.processor";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { DomainEvent } from "./event.types";
-import { DeadLetterQueueService } from "./dead-letter-queue.service";
+import { DlqService } from "./dlq.service";
 import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 import { DlqReason } from "../database/entities/dead-letter-event.entity";
 import {
@@ -40,7 +40,7 @@ export class IngestionDispatcherService {
     private readonly raffleProcessor: RaffleProcessor,
     private readonly ticketProcessor: TicketProcessor,
     private readonly adminProcessor: AdminProcessor,
-    @Optional() private readonly deadLetterQueue?: DeadLetterQueueService,
+    @Optional() private readonly dlqService?: DlqService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
     // Keep last so unit tests that construct with positional DLQ args stay valid.
     @Optional() private readonly tracing?: TracingService,
@@ -277,7 +277,7 @@ export class IngestionDispatcherService {
   }): Promise<void> {
     this.pipeline?.apply(PipelineTransition.HANDLER_FAILURE);
 
-    await this.deadLetterQueue?.enqueue({
+    await this.dlqService?.enqueue({
       handlerName: params.handlerName,
       eventId: params.eventId,
       eventType: params.event.type,
