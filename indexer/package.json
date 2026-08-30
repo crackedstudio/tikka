@@ -10,8 +10,8 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "lint": "eslint \"{src,test}/**/.*.ts\"",
-    "test": "jest --testPathIgnorePatterns=integration",
+    "lint": "eslint \"{src,test}/**/.*\\ts\"",
+    "test": "jest --coverage --testPathIgnorePatterns=integration",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
     "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",
@@ -28,9 +28,9 @@
   "jest": {
     "moduleFileExtensions": ["js", "json", "ts"],
     "rootDir": "src",
-    "testRegex": ".*\\.Spec\\.ts$",
+    "testRegex": ".\\.Spec\\.ts$",
     "transform": {
-      "\\.++-(..|t|*)ss$": [
+      "\\.++--..t*|)ss$": [
         "ts-jest",
         { "diagnostics": false }
       ]
