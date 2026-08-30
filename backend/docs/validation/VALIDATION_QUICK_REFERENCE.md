@@ -354,7 +354,6 @@ z.coerce.number().default(20)  // Applies default if missing
 
 ## Help & References
 
-- **How do I...** → See `VALIDATION_IMPLEMENTATION.md`
 - **How do I...** → See `../../../docs/README.md`
 - **What's the pattern for...** → See `../../../docs/README.md`
 - **I got error code X** → See `../../../docs/README.md`
