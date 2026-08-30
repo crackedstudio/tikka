@@ -91,8 +91,16 @@ jobs:
         continue-on-error: false
       
       - name: Run unit tests
-        run: pnpm run test:unit
+        run: pnpm run test:unit -- --coverage
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-client
+          path: client/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
@@ -137,8 +145,16 @@ jobs:
         continue-on-error: false
       
       - name: Run tests
-        run: pnpm run test
+        run: pnpm run test -- --coverage
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-sdk
+          path: sdk/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
@@ -187,10 +203,18 @@ jobs:
         continue-on-error: false
       
       - name: Run tests (mocked)
-        run: pnpm run test
+        run: pnpm run test -- --coverage
         env:
           NODE_ENV: test
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-backend
+          path: backend/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
@@ -235,10 +259,18 @@ jobs:
         continue-on-error: false
       
       - name: Run unit tests (network tests excluded)
-        run: pnpm run test
+        run: pnpm run test -- --coverage
         env:
           NODE_ENV: test
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-indexer
+          path: indexer/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
@@ -283,10 +315,18 @@ jobs:
         continue-on-error: false
       
       - name: Run tests (mocked)
-        run: pnpm run test
+        run: pnpm run test -- --coverage
         env:
           NODE_ENV: test
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-oracle
+          path: oracle/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
@@ -466,6 +506,73 @@ jobs:
     needs: [commitlint, client, sdk, backend, indexer, oracle, security-scan, lighthouse]
     if: always()
     steps:
+      - name: Download coverage - client
+        if: needs.client.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-client
+          path: coverage/client
+      - name: Download coverage - sdk
+        if: needs.sdk.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-sdk
+          path: coverage/sdk
+      - name: Download coverage - backend
+        if: needs.backend.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-backend
+          path: coverage/backend
+      - name: Download coverage - indexer
+        if: needs.indexer.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-indexer
+          path: coverage/indexer
+      - name: Download coverage - oracle
+        if: needs.oracle.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-oracle
+          path: coverage/oracle
+      - name: Generate coverage summary
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const packages = [
+              { name: 'client', file: 'coverage/client/lcov.info', threshold: 80 },
+              { name: 'sdk', file: 'coverage/sdk/lcov.info', threshold: 80 },
+              { name: 'backend', file: 'coverage/backend/lcov.info', threshold: 70 },
+              { name: 'indexer', file: 'coverage/indexer/lcov.info', threshold: 60 },
+              { name: 'oracle', file: 'coverage/oracle/lcov.info', threshold: 70 }
+            ];
+            const rows = [];
+            let gateFailed = false;
+            for (const pkg of packages) {
+              const coverageFile = path.join(process.cwd(), pkg.file);
+              if (!fs.existsSync(coverageFile)) {
+                rows.push(`| ${pkg.name} | N/A | ${pkg.threshold}% | N/A |`);
+                continue;
+              }
+              const lcov = fs.readFileSync(coverageFile, 'utf8');
+              let found = 0;
+              let hit = 0;
+              for (const line of lcov.split('\n')) {
+                if (line.startsWith('LF:')) found += parseInt(line.slice(3), 10);
+                if (line.startsWith('LH:')) hit += parseInt(line.slice(3), 10);
+              }
+              const pct = found ? (hit / found) * 100 : 0;
+              const ok = pct >= pkg.threshold;
+              if (!ok) gateFailed = true;
+              rows.push(`| ${pkg.name} | ${pct.toFixed(2)}% | ${pkg.threshold}% | ${ok ? '✅' : '❌'} |`);
+            }
+            const table = `## Coverage\n\n| Package | Lines | Threshold | Status |\n| --- | ---: | ---: | --- |\n${rows.join('\n')}\n`;
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, table);
+            if (gateFailed) core.setFailed('Coverage is below the ratchet threshold in one or more packages.');
       - name: Check all jobs status
         run: |
           check_status() {
