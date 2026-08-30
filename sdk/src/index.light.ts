@@ -13,8 +13,21 @@
  * main SDK entrypoint (`@tikka/sdk`).
  */
 export { RpcService } from './light/rpc.service';
-export { resolveNetworkConfig, DEFAULT_RPC_CONFIG } from './network/network.config';
-export type { RpcConfig } from './network/network.config';
+export {
+  resolveNetworkConfig,
+  DEFAULT_RPC_CONFIG,
+  DEFAULT_RETRY_CONFIG,
+  classifySorobanRpcError,
+  buildRetryConfig,
+} from './network/network.config';
+export type {
+  RpcConfig,
+  RetryConfig,
+  RetryDecision,
+  RetryFailureClass,
+  RetryJitter,
+  RetryAttemptInfo,
+} from './network/network.config';
 export type { NetworkConfig as LightNetworkConfig } from './types';
 export type { ContractResponse } from './contract/response';
 export * from './types';
