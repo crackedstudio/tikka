@@ -14,9 +14,20 @@ dist/
 .env
 *.log
 
+# OS files
+.DS_Store
+
 # Local build / debug artifacts (do not commit)
 build*.txt
+*-output.txt
+*_output.txt
+*.tsbuildinfo
 debug_*.py
 fix_*.py
 PUSH_TO_BRANCH.sh
 PUSH_TO_BRANCH.bat
+
+# Test / CI run artifacts (do not commit)
+logs/
+playwright-report/
+test-results/
