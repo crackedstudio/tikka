@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import type { LeaderboardSortBy } from "../services/leaderboardService";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import EmptyState from "../components/ui/EmptyState";
 
 const Leaderboard: React.FC = () => {
+  const { t } = useTranslation();
   const [sortBy, setSortBy] = useState<LeaderboardSortBy>("wins");
   const [limit] = useState(100);
 
@@ -27,7 +29,7 @@ const Leaderboard: React.FC = () => {
     <div className="min-h-screen text-gray-900 dark:text-white">
       <div className="w-full max-w-7xl mx-auto px-6 py-8">
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">
-          Leaderboard
+          {t("leaderboard.title")}
         </h1>
 
         {/* Sort Options */}
@@ -40,7 +42,7 @@ const Leaderboard: React.FC = () => {
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
-            By Wins
+            {t("leaderboard.sortByWins")}
           </button>
           <button
             onClick={() => setSortBy("volume")}
@@ -50,7 +52,7 @@ const Leaderboard: React.FC = () => {
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
-            By Volume
+            {t("leaderboard.sortByVolume")}
           </button>
           <button
             onClick={() => setSortBy("tickets")}
@@ -60,7 +62,7 @@ const Leaderboard: React.FC = () => {
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
-            By Tickets
+            {t("leaderboard.sortByTickets")}
           </button>
         </div>
 
@@ -69,12 +71,12 @@ const Leaderboard: React.FC = () => {
           <div className="text-center py-12">
             <div className="w-12 h-12 border-4 border-gray-600 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
             <h3 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
-              Loading Leaderboard...
+              {t("leaderboard.loading")}
             </h3>
           </div>
         ) : error ? (
           <ErrorMessage
-            title="Error Loading Leaderboard"
+            title={t("leaderboard.errorTitle")}
             message={error.message}
             onRetry={refetch}
             disabled={isLoading}
@@ -86,8 +88,8 @@ const Leaderboard: React.FC = () => {
                 <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>
             }
-            title="No Leaderboard Data Yet"
-            hint="The leaderboard will populate as users participate in raffles."
+            title={t("leaderboard.emptyTitle")}
+            hint={t("leaderboard.emptyHint")}
           />
         ) : (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -96,24 +98,24 @@ const Leaderboard: React.FC = () => {
                 <thead className="bg-gray-100 dark:bg-gray-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      Rank
+                      {t("leaderboard.rank")}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      Address
+                      {t("leaderboard.address")}
                     </th>
                     {sortBy === "wins" && (
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Wins
+                        {t("leaderboard.wins")}
                       </th>
                     )}
                     {sortBy === "volume" && (
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Volume (XLM)
+                        {t("leaderboard.volume")}
                       </th>
                     )}
                     {sortBy === "tickets" && (
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Tickets
+                        {t("leaderboard.tickets")}
                       </th>
                     )}
                   </tr>
