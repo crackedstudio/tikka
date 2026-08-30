@@ -4,6 +4,10 @@ API layer that merges indexer data with Supabase metadata; handles auth (Sign In
 
 **Stack:** NestJS, Fastify, Supabase, Redis.
 
+## Documentation
+
+All project documentation is indexed in [`../docs/README.md`](../docs/README.md). Operational runbooks live in `../docs/runbooks/` and architectural decisions in `../docs/adr/`.
+
 ## Raffles API
 
 ### GET /raffles
