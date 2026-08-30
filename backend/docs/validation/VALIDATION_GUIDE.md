@@ -1,6 +1,8 @@
 # Request Validation Guide
 
 > **Goal:** All request bodies and query parameters are validated with Zod; invalid input is rejected with clear 400 responses.
+>
+> **Canonical:** This guide is the single source of truth for request validation in `backend/` and supersedes all other `VALIDATION_*.md` files. See [docs/README.md](../../../docs/README.md) for the documentation index.
 
 ---
 
@@ -359,4 +361,4 @@ describe('Zod Validation Pipe', () => {
 
 - [Zod Documentation](https://zod.dev)
 - [NestJS Pipes](https://docs.nestjs.com/pipes)
-- [Validation Middleware](docs/ARCHITECTURE.md#validation-pipe)
+- [Validation Middleware](../../../docs/ARCHITECTURE.md#validation-pipe)
