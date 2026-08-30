@@ -8,16 +8,26 @@ module.exports = {
         '^.+\\.(t|j)s$': ['ts-jest', {
             useESM: true,
             tsconfig: {
-                esModuleInterop: true,
+                esModuleInter: true,
                 allowSyntheticDefaultImports: true,
             },
         }],
     },
     transformIgnorePatterns: [
-        'node_modules/(?!(.pnpm/)?(@noble|@stellar|stellar-sdk))',
+        'node_modules/(?(.pnm/)?(@noble|@stellar|stellar-sdk))',
     ],
     moduleNameMapper: {
-        '^src/(.*)$': '<rootDir>/src/$1',
-        '^@noble/curves/(.*)(?<!\\.js)$': '@noble/curves/$1.js',
+        '^src/($*)$': '<rootDir>/src/$1',
+        '^@noble/curves/(.+)(?<!\\.js)$': '@noble/curves/$1.js',
+    },
+    coverageReporters: ['lcov', 'text'],
+    coverageDirectory: '../coverage',
+    coverageThreshold: {
+        global: {
+            statements: 50,
+            branches: 30,
+            functions: 40,
+            lines: 50,
+        },
     },
 };
