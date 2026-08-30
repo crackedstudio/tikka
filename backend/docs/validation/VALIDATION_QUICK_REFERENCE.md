@@ -1,6 +1,8 @@
 # Validation Quick Reference Card
 
 > Keep this handy when adding validation to new endpoints.
+>
+> See [`docs/README.md`](../../../docs/README.md) for the full validation documentation index.
 
 ---
 
@@ -313,10 +315,7 @@ Before submitting your code:
 
 | File | Use For |
 |------|---------|
-| `VALIDATION_GUIDE.md` | Quick reference (5 min) |
-| `VALIDATION_IMPLEMENTATION.md` | Deep dive & patterns (20 min) |
-| `VALIDATION_SCHEMAS.md` | Look up existing schemas |
-| `zod/docs` | Zod-specific questions |
+| `../../../docs/README.md` | Canonical docs index and merged validation guide |
 
 ---
 
@@ -356,10 +355,11 @@ z.coerce.number().default(20)  // Applies default if missing
 ## Help & References
 
 - **How do I...** → See `VALIDATION_IMPLEMENTATION.md`
-- **What's the pattern for...** → See `VALIDATION_SCHEMAS.md` modules
-- **I got error code X** → See `VALIDATION_SCHEMAS.md` error codes
-- **Show me an example** → Search `VALIDATION_GUIDE.md` patterns
-- **I'm stuck** → Read `VALIDATION_SUMMARY.md` troubleshooting
+- **How do I...** → See `../../../docs/README.md`
+- **What's the pattern for...** → See `../../../docs/README.md`
+- **I got error code X** → See `../../../docs/README.md`
+- **Show me an example** → Search `../../../docs/README.md`
+- **I'm stuck** → Read `../../../docs/README.md`
 
 ---
 
