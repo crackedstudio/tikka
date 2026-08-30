@@ -11,6 +11,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest --config jest.config.js --testMatch='**/test/e2e-*.spec.ts'",
     "test:e2e:mocked": "jest --config jest.config.js --testPathPatterns='e2e-oracle-flow|e2e-rescue-flow'",
