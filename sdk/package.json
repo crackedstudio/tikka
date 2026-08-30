@@ -2,8 +2,15 @@
   "name": "@tikka/sdk",
   "version": "0.1.0",
   "description": "NestJS SDK for Tikka Soroban contract interaction",
-  "private": true,
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crackedstudio/tikka.git",
+    "directory": "sdk"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,

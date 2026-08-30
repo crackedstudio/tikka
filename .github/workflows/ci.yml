@@ -491,11 +491,43 @@ jobs:
         if: github.event_name == 'push'
         run: pnpm exec commitlint --from HEAD~1 --to HEAD
 
+  # Check that PRs touching sdk/src include a changeset
+  changeset-check:
+    name: SDK Changeset Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify changeset for SDK changes
+        run: |
+          git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || true
+          SDK_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^sdk/src/' || true)
+          if [ -n "$SDK_CHANGES" ]; then
+            echo "SDK source files modified:"
+            echo "$SDK_CHANGES"
+            echo ""
+            CHANGESET_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^\.changeset/.*\.md$' | grep -v 'README.md' || true)
+            if [ -z "$CHANGESET_FILES" ]; then
+              echo "❌ Error: PR modifies files in sdk/src/ but does not contain a changeset file in .changeset/!"
+              echo "Please run 'pnpm changeset' locally and commit the generated changeset file."
+              exit 1
+            else
+              echo "✅ Found changeset file(s):"
+              echo "$CHANGESET_FILES"
+            fi
+          else
+            echo "✅ No changes to sdk/src/. Changeset check skipped."
+          fi
+
   # Summary job - fails if any package fails
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [commitlint, client, sdk, backend, indexer, oracle, security-scan, lighthouse]
+    needs: [commitlint, changeset-check, client, sdk, backend, indexer, oracle, security-scan, lighthouse]
     if: always()
     steps:
       - name: Check all jobs status
@@ -508,6 +540,7 @@ jobs:
           }
           
           if ! check_status "${{ needs.commitlint.result }}" || \
+             ! check_status "${{ needs.changeset-check.result }}" || \
              ! check_status "${{ needs.client.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \
              ! check_status "${{ needs.backend.result }}" || \
