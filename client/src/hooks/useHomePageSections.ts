@@ -97,15 +97,21 @@ export function usePlatformStats(): SectionState<PlatformStats> {
     try {
       const response = await fetch('/api/stats/platform');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const json = await response.json();
+      const json = (await response.json()) as {
+        total_raffles?: number;
+        total_tickets?: number;
+        total_volume_xlm?: string;
+        unique_participants?: number;
+        prizes_distributed_xlm?: string;
+      };
       setState(prev => ({
         ...prev,
         data: {
-          totalRaffles: json.total_raffles,
-          totalTickets: json.total_tickets,
-          totalVolumeXlm: json.total_volume_xlm,
-          uniqueParticipants: json.unique_participants,
-          prizesDistributedXlm: json.prizes_distributed_xlm,
+          totalRaffles: json.total_raffles ?? 0,
+          totalTickets: json.total_tickets ?? 0,
+          totalVolumeXlm: json.total_volume_xlm ?? '0',
+          uniqueParticipants: json.unique_participants ?? 0,
+          prizesDistributedXlm: json.prizes_distributed_xlm ?? '0',
         },
         loading: false,
       }));
@@ -146,15 +152,15 @@ export function useLeaderboardPreview(): SectionState<LeaderboardEntry[]> {
     try {
       const response = await fetch('/api/leaderboard?limit=5&by=wins');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const json = await response.json();
+      const json = (await response.json()) as { entries?: Array<Record<string, unknown>> };
       setState(prev => ({
         ...prev,
-        data: json.entries.map((e: any, i: number) => ({
-          address: e.address,
-          totalTickets: e.total_tickets,
-          totalWins: e.total_wins,
-          totalVolumeXlm: e.total_volume_xlm,
-          rank: i + 1,
+        data: (json.entries ?? []).map((entry, index) => ({
+          address: typeof entry.address === 'string' ? entry.address : '',
+          totalTickets: typeof entry.total_tickets === 'number' ? entry.total_tickets : undefined,
+          totalWins: typeof entry.total_wins === 'number' ? entry.total_wins : undefined,
+          totalVolumeXlm: typeof entry.total_volume_xlm === 'string' ? entry.total_volume_xlm : undefined,
+          rank: index + 1,
         })),
         loading: false,
       }));

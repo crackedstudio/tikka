@@ -18,7 +18,7 @@ vi.mock("../hooks/useWallet", () => ({
 
 // Mock child components
 vi.mock("../components/cards/RaffleDetailsCard", () => ({
-    default: ({ title }: any) => <div data-testid="raffle-details-card">{title}</div>,
+    default: ({ title }: { title: string }) => <div data-testid="raffle-details-card">{title}</div>,
 }));
 
 vi.mock("../components/RaffleMetadataSection", () => ({
@@ -50,7 +50,7 @@ vi.mock("../components/ui/Breadcrumbs", () => ({
 }));
 
 vi.mock("../components/ui/ErrorMessage", () => ({
-    default: ({ title, message }: any) => (
+    default: ({ title, message }: { title: string; message: string }) => (
         <div data-testid="error-message">
             <h2>{title}</h2>
             <p>{message}</p>
@@ -59,7 +59,7 @@ vi.mock("../components/ui/ErrorMessage", () => ({
 }));
 
 vi.mock("react-helmet-async", () => ({
-    Helmet: ({ children }: any) => <div>{children}</div>,
+    Helmet: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 const mockRaffle: FormattedRaffle = {

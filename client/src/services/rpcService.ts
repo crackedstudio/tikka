@@ -1,6 +1,9 @@
 import { STELLAR_CONFIG } from "../config/stellar";
 
-let _server: any = null;
+type RpcServerMethod = (...args: unknown[]) => unknown;
+type RpcServer = Record<string, RpcServerMethod | unknown>;
+
+let _server: RpcServer | null = null;
 let _initPromise: Promise<void> | null = null;
 
 async function ensureServer() {
@@ -13,20 +16,20 @@ async function ensureServer() {
   await _initPromise;
 }
 
-function createServerProxy(): Record<string, any> {
-  return new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (prop === "then") return undefined;
-        return async (...args: any[]) => {
-          await ensureServer();
-          const value = (_server as any)[prop];
-          return typeof value === "function" ? value.call(_server, ...args) : value;
-        };
-      },
+function createServerProxy(): Record<string, RpcServerMethod> {
+  return new Proxy({} as Record<string, RpcServerMethod>, {
+    get(_target, prop) {
+      if (prop === "then") return undefined;
+      return async (...args: unknown[]) => {
+        await ensureServer();
+        const value = _server != null ? (_server[String(prop)] as RpcServerMethod | undefined) : undefined;
+        if (typeof value === "function") {
+          return value.call(_server, ...args);
+        }
+        return value;
+      };
     },
-  ) as any;
+  });
 }
 
 export const sorobanRpcServer = createServerProxy();

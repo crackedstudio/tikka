@@ -560,11 +560,11 @@ describe('AddToCalendar Component', () => {
 
             if (dtstart && dtend) {
                 const startTime = new Date(
-                    (dtstart.replace('DTSTART:', '') as any)
+                    String(dtstart.replace('DTSTART:', ''))
                         .replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')
                 );
                 const endTime = new Date(
-                    (dtend.replace('DTEND:', '') as any)
+                    String(dtend.replace('DTEND:', ''))
                         .replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')
                 );
                 const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);

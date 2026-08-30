@@ -1,5 +1,5 @@
 import LandingLayout from "./layouts/LandingLayout";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { Routes, Route } from "react-router-dom";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
@@ -29,7 +29,7 @@ const OracleAdmin = lazy(() => import("./pages/OracleAdmin"));
 
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 
-const LazyRoute = ({ Component }: { Component: React.LazyExoticComponent<any> }) => (
+const LazyRoute = ({ Component }: { Component: ComponentType }) => (
     <ErrorBoundary>
         <Suspense fallback={<Spinner />}>
             <Component />

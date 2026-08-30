@@ -98,7 +98,7 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: Record<string, any>): Promise<T> {
+async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
     headers: {

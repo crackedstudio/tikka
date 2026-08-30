@@ -27,7 +27,7 @@ describe('useHomePageSections - Independent Section Loading', () => {
 
   describe('Partial API Failures', () => {
     it('loads featured raffles even when recent fails', async () => {
-      (global.fetch as any).mockImplementation((url: string) => {
+      vi.mocked(global.fetch).mockImplementation((url: string) => {
         if (url.includes('featured')) {
           return Promise.resolve({
             ok: true,
@@ -48,7 +48,7 @@ describe('useHomePageSections - Independent Section Loading', () => {
     });
 
     it('renders platform stats even when leaderboard fails', async () => {
-      (global.fetch as any).mockImplementation((url: string) => {
+      vi.mocked(global.fetch).mockImplementation((url: string) => {
         if (url.includes('stats')) {
           return Promise.resolve({
             ok: true,
@@ -76,7 +76,7 @@ describe('useHomePageSections - Independent Section Loading', () => {
 
   describe('Successful Mixed Data', () => {
     it('loads all sections with valid data', async () => {
-      (global.fetch as any).mockImplementation((url: string) => {
+      vi.mocked(global.fetch).mockImplementation((url: string) => {
         if (url.includes('featured')) {
           return Promise.resolve({
             ok: true,
@@ -117,7 +117,7 @@ describe('useHomePageSections - Independent Section Loading', () => {
   describe('Retry Mechanism', () => {
     it('retries loading on user request', async () => {
       let callCount = 0;
-      (global.fetch as any).mockImplementation(async () => {
+      vi.mocked(global.fetch).mockImplementation(async () => {
         callCount++;
         if (callCount === 1) {
           throw new Error('Network error');
@@ -147,10 +147,10 @@ describe('useHomePageSections - Independent Section Loading', () => {
 
   describe('Error Handling', () => {
     it('captures HTTP errors', async () => {
-      (global.fetch as any).mockResolvedValue({
+      vi.mocked(global.fetch).mockResolvedValue({
         ok: false,
         status: 404,
-      });
+      } as Response);
 
       const { result } = renderHook(() => useFeaturedRaffles());
 
@@ -163,7 +163,7 @@ describe('useHomePageSections - Independent Section Loading', () => {
     });
 
     it('captures network errors', async () => {
-      (global.fetch as any).mockRejectedValue(new Error('Network timeout'));
+      vi.mocked(global.fetch).mockRejectedValue(new Error('Network timeout'));
 
       const { result } = renderHook(() => useLeaderboardPreview());
 
@@ -177,7 +177,7 @@ describe('useHomePageSections - Independent Section Loading', () => {
 
   describe('Section Reordering', () => {
     it('sections are independent and can be reordered in UI', async () => {
-      (global.fetch as any).mockImplementation((url: string) => {
+      vi.mocked(global.fetch).mockImplementation((url: string) => {
         if (url.includes('featured')) {
           return Promise.resolve({
             ok: true,

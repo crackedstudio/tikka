@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import LazyImage from "./LazyImage";
-import { generateBlurPlaceholder } from "../utils/imageOptimization";
 
 interface ImageCarouselProps {
     images: string[];
@@ -17,44 +16,13 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
 
     const minSwipeDistance = 50;
 
-    // If only one image, show it without carousel
-    if (images.length === 1) {
-        return (
-            <>
-                <div 
-                    className="w-full rounded-3xl overflow-hidden cursor-pointer"
-                    onClick={() => {
-                        setLightboxOpen(true);
-                    }}
-                >
-                    <LazyImage
-                        src={images[0]}
-                        alt={alt}
-                        aspectRatio={16/9}
-                        containerClassName="w-full"
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        blurUp={true}
-                    />
-                </div>
-                {lightboxOpen && (
-                    <Lightbox
-                        images={images}
-                        currentIndex={0}
-                        onClose={() => setLightboxOpen(false)}
-                        onIndexChange={() => {}}
-                    />
-                )}
-            </>
-        );
-    }
-
-    const handlePrev = () => {
+    const handlePrev = useCallback(() => {
         setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
-    };
+    }, [images.length]);
 
-    const handleNext = () => {
+    const handleNext = useCallback(() => {
         setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
-    };
+    }, [images.length]);
 
     const onTouchStart = (e: React.TouchEvent) => {
         setTouchEnd(null);
@@ -82,7 +50,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (lightboxOpen) return; // Let Lightbox handle keyboard when open
-            
+
             if (e.key === "ArrowLeft") {
                 handlePrev();
             } else if (e.key === "ArrowRight") {
@@ -92,7 +60,37 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [currentIndex, lightboxOpen]);
+    }, [handleNext, handlePrev, lightboxOpen]);
+
+    if (images.length === 1) {
+        return (
+            <>
+                <div
+                    className="w-full rounded-3xl overflow-hidden cursor-pointer"
+                    onClick={() => {
+                        setLightboxOpen(true);
+                    }}
+                >
+                    <LazyImage
+                        src={images[0]}
+                        alt={alt}
+                        aspectRatio={16/9}
+                        containerClassName="w-full"
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        blurUp={true}
+                    />
+                </div>
+                {lightboxOpen && (
+                    <Lightbox
+                        images={images}
+                        currentIndex={0}
+                        onClose={() => setLightboxOpen(false)}
+                        onIndexChange={() => {}}
+                    />
+                )}
+            </>
+        );
+    }
 
     return (
         <>
@@ -256,7 +254,7 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [currentIndex]);
+    }, [currentIndex, handleNext, handlePrev, onClose]);
 
     return (
         <div
