@@ -1,6 +1,7 @@
 import LandingLayout from "./layouts/LandingLayout";
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
+import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { logger } from "./utils/logger";
@@ -29,12 +30,43 @@ const OracleAdmin = lazy(() => import("./pages/OracleAdmin"));
 
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 
-const LazyRoute = ({ Component }: { Component: React.LazyExoticComponent<any> }) => (
-    <ErrorBoundary>
-        <Suspense fallback={<Spinner />}>
-            <Component />
-        </Suspense>
-    </ErrorBoundary>
+interface RouteFallback {
+    title: string;
+    message: string;
+}
+
+const DEFAULT_FALLBACK: RouteFallback = {
+    title: "Something went wrong",
+    message:
+        "This page failed to load. You can try again, or return to the home page.",
+};
+
+const RAFFLE_FALLBACK: RouteFallback = {
+    title: "We couldn't load this raffle",
+    message:
+        "The raffle you're looking for may have been removed or there was a network issue. Please try again.",
+};
+
+const LazyRoute = ({
+    Component,
+    fallback = DEFAULT_FALLBACK,
+}: {
+    Component: React.LazyExoticComponent<any>;
+    fallback?: RouteFallback;
+}) => (
+    <QueryErrorResetBoundary>
+        {({ reset }) => (
+            <ErrorBoundary
+                title={fallback.title}
+                message={fallback.message}
+                onReset={reset}
+            >
+                <Suspense fallback={<Spinner />}>
+                    <Component />
+                </Suspense>
+            </ErrorBoundary>
+        )}
+    </QueryErrorResetBoundary>
 );
 
 function App() {
@@ -68,11 +100,11 @@ function App() {
                     <Route index element={<LazyRoute Component={LandingPage} />} />
                     <Route path="home" element={<LazyRoute Component={Home} />} />
                     <Route path="search" element={<LazyRoute Component={SearchPage} />} />
-                    <Route path="details" element={<LazyRoute Component={RaffleDetails} />} />
-                    <Route path="raffles/:id" element={<LazyRoute Component={RafflePage} />} />
+                    <Route path="details" element={<LazyRoute Component={RaffleDetails} fallback={RAFFLE_FALLBACK} />} />
+                    <Route path="raffles/:id" element={<LazyRoute Component={RafflePage} fallback={RAFFLE_FALLBACK} />} />
                     <Route path="create" element={<LazyRoute Component={CreateRaffle} />} />
                     <Route path="leaderboard" element={<LazyRoute Component={Leaderboard} />} />
-                    <Route path="my-raffles" element={<LazyRoute Component={MyRaffles} />} />
+                    <Route path="my-raffles" element={<LazyRoute Component={MyRaffles} fallback={RAFFLE_FALLBACK} />} />
                     <Route path="creators/:address" element={<LazyRoute Component={CreatorProfile} />} />
                     <Route path="winner-demo" element={<LazyRoute Component={WinnerDemo} />} />
                     <Route path="settings" element={<LazyRoute Component={Settings} />} />

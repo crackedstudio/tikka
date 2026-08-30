@@ -14,6 +14,9 @@ importers:
       '@sentry/react':
         specifier: ^10.62.0
         version: 10.71.0(react@19.2.8)
+      '@stellar/freighter-api':
+        specifier: ^3.1.0
+        version: 3.1.0
       '@stellar/stellar-sdk':
         specifier: ^14.4.3
         version: 14.6.1
@@ -77,9 +80,15 @@ importers:
       tailwindcss:
         specifier: ^4.1.13
         version: 4.3.3
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+      zustand:
+        specifier: ^5.0.15
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
       '@eslint/js':
         specifier: ^9.33.0
@@ -1964,6 +1973,9 @@ packages:
 
   '@stablelib/x25519@1.0.3':
     resolution: {integrity: sha512-KnTbKmUhPhHavzobclVJQG5kuivH+qDLpe84iRqX3CLrKp881cF160JvXJ+hjn1aMyCwYOKeIZefIH/P5cJoRw==}
+
+  '@stellar/freighter-api@3.1.0':
+    resolution: {integrity: sha512-hsoZwAR/jNVIt8ee6aHYcRKVk09hDLHmsfK2nUfqHUo7LuHtuHI59y/mDyrT4bp/qlklGZNd2nr0hRJyjau8WQ==}
 
   '@stellar/freighter-api@5.0.0':
     resolution: {integrity: sha512-MydzLg+WpSzmws24uUs4mVME2LPN8xhUWkwyGEP0N1Hr519swC6I/W7K6cdVBzghBiVv7f/vvGFNT+0p1a33Vg==}
@@ -6382,6 +6394,24 @@ packages:
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
+  zustand@5.0.15:
+    resolution: {integrity: sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+      immer: '>=9.0.6'
+      react: '>=18.0.0'
+      use-sync-external-store: '>=1.2.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+      use-sync-external-store:
+        optional: true
+
 snapshots:
 
   '@adobe/css-tools@4.5.0': {}
@@ -8544,6 +8574,11 @@ snapshots:
       '@stablelib/keyagreement': 1.0.1
       '@stablelib/random': 1.0.2
       '@stablelib/wipe': 1.0.1
+
+  '@stellar/freighter-api@3.1.0':
+    dependencies:
+      buffer: 6.0.3
+      semver: 7.8.5
 
   '@stellar/freighter-api@5.0.0':
     dependencies:
@@ -13710,3 +13745,9 @@ snapshots:
   zod@3.23.8: {}
 
   zod@4.4.3: {}
+
+  zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)):
+    optionalDependencies:
+      '@types/react': 19.2.18
+      react: 19.2.8
+      use-sync-external-store: 1.6.0(react@19.2.8)
