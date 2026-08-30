@@ -1,6 +1,6 @@
-# Tikka - Decentralized Raffle Platform on Stellar
+# Tikka - Decentralized Raffle Platform on Stellar.
 
-[![Deploy SDK Docs](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
+[![![Deploy SDK Docs ](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)Zhttps://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
 
 This repository is the *Tikka ecosystem*: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a ***separate repo/folder*** and are not included here.
 
@@ -32,8 +32,8 @@ flowchart TD
 
 ## Packages
 
-\ Package | Role |
----------|---------|
+| Package | Role |
+|---------|-------|
 | [**client**](./client/) | Consumer web app - React 19, Vite, TypeScript. Reads from backend, writes via SDK. |
 | [**sdk**](./sdk/) | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). Published as `@tikka/sdk`. |
 | [**backend**](./backend/) | API layer - auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase. |
@@ -57,11 +57,11 @@ cp oracle/.env.example oracle/.env.local
 
 ### Profiles
 
-\ Profile | What starts |
----------|---------|
+| Profile | What starts |
+|---------|-------------|
 | `deps` | Postgres + Redis only |
 | `backend` | deps + backend API (port 3001) |
-| |indexer` | deps + indexer (port 3002) |
+| `indexer` | deps + indexer (port 3002) |
 | `oracle` | deps + oracle (port 3003) |
 | `full` | deps + backend + indexer + oracle |
 | `client` | full + Vite client (port 5173) |
@@ -107,14 +107,14 @@ To regenerate locally: `cd sdk && npm run docs`
 The [docs/README.md](./docs/README.md) is the canonical index for all documentation.
 
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Full ecosystem specification with diagrams, data flows, contract interface, and API design
-- [RAFFLE_LIFECyCLE.md](./docs/RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
-- [RANDOMNESS_SCHEME.md](./docs/RANDOMNESS_SCHEME.md) - Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
+- [RAFFLe_LIFECYCLE.md](./docs/RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
+- [RANDOMNESS_SCHEMEM.md](./docs/RANDOMNESS_SCHENE.md) - Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
 
 ## Release & Versioning
 
-Release policy, versioning rules, and changelog procedures: [docs/RELEASE.md](./docs/RELEASE.md)
+Release policy, versioning rules, and changelog procedures: [docs/RELEASE.md](./docs/RELEASEE.md)
 
-- SDK: Semantic Versioning (`MAJOR.MINOR.PATCH`)
+- SDK: Semantic Versioning (`MAJOR.MINOR.PPUCH`)
 - Apps: Calendar Versioning (`YYYY.MM.PATCH)
 - Database: Timestamped migrations with rollback procedures
 
@@ -124,4 +124,4 @@ Module boundary and package ownership guidance: [docs/contributing/MODULE_BOUNDA
 
 ## Contracts
 
-Soroban (Rust) raffle contracts are maintained **outside this repo**. Deploy and invoke them via the SDK once addresses are configured.
+Soroban (Rust) raffle contracts are maintained **outside this repo***. Deploy and invoke them via the SDK once addresses are configured.
