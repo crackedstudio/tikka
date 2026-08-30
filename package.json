@@ -7,10 +7,11 @@
     "sdk",
     "backend",
     "indexer",
-    "oracle"
+    "oracle",
+    "types"
   ],
   "scripts": {
-    "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle",
+    "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle && npm install --prefix types",
     "build": "npm run build --prefix client && npm run build --prefix sdk && npm run build --prefix backend && npm run build --prefix indexer && npm run build --prefix oracle",
     "build:client": "npm run build --prefix client",
     "build:sdk": "npm run build --prefix sdk",

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { supabase, RAFFLE_METADATA_TABLE } from "../config/supabase";
 import { api } from "./apiClient";
 import { API_CONFIG } from "../config/api";
-import type { RaffleMetadata, SupabaseRaffleRecord } from "../types/types";
+import type { RaffleMetadata, SupabaseRaffleRecord } from "../types/raffle";
 
 export const RaffleMetadataSchema = z.object({
   title: z.string().min(1, "Title is required"),

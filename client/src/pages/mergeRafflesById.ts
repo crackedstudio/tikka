@@ -1,4 +1,4 @@
-import type { ApiRaffleListItem } from "../types/types";
+import type { ApiRaffleListItem } from "../types/raffle";
 
 /**
  * Merge paginated raffle lists into a single list keyed by id.

@@ -1,5 +1,5 @@
 import React from "react";
-import type { LivePreviewProps } from "../../types/types";
+import type { LivePreviewProps } from "../../types/forms";
 import {
   formatDuration,
   formatPrice,

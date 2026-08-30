@@ -1,5 +1,5 @@
 import React from "react";
-import type { StepComponentProps } from "../../types/types";
+import type { StepComponentProps } from "../../types/forms";
 
 const PricingStep: React.FC<StepComponentProps> = ({
     formData,

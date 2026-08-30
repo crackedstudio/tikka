@@ -1,4 +1,4 @@
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 
 export const RAFFLE_DRAFT_STORAGE_KEY = "tikka-create-raffle-draft";
 export const RAFFLE_DRAFT_DEBOUNCE_MS = 500;

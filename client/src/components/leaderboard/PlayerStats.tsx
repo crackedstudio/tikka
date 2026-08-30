@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import type {
     PlayerStats as PlayerStatsType,
     Achievement,
-} from "../../types/types";
+} from "../../types/leaderboard";
 
 interface PlayerStatsProps {
     stats: PlayerStatsType;

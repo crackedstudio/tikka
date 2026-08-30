@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { ApiRaffleListItem } from '../types/types';
+import type { ApiRaffleListItem } from '../types/raffle';
 
 export interface SectionState<T> {
   data: T | null;

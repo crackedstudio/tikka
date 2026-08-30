@@ -4,11 +4,13 @@ import type {
   ApiRaffleListItem,
   ApiRaffleListResponse,
   ApiRaffleDetail,
-  ApiUserProfile,
-  ApiUserHistoryResponse,
   RaffleListFilters,
   FormattedRaffle,
-} from "../types/types";
+} from "../types/raffle";
+import type {
+  ApiUserProfile,
+  ApiUserHistoryResponse,
+} from "../types/user";
 
 // --- Helper Functions ---
 

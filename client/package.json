@@ -32,6 +32,7 @@
         "@tailwindcss/vite": "^4.1.13",
         "@tanstack/react-query": "^5.101.1",
         "@tanstack/react-query-devtools": "^5.101.1",
+        "@tikka/types": "workspace:*",
         "@vercel/analytics": "^1.5.0",
         "@vercel/speed-insights": "^1.2.0",
         "canvas-confetti": "^1.9.4",

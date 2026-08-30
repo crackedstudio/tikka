@@ -1,0 +1,24 @@
+{
+  "name": "@tikka/types",
+  "version": "0.1.0",
+  "description": "Shared domain types used across Tikka packages",
+  "private": true,
+  "license": "Apache-2.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./raffle": "./src/raffle.ts",
+    "./contract": "./src/contract.ts",
+    "./events": "./src/events.ts",
+    "./ticket": "./src/ticket.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+}
