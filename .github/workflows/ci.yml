@@ -143,6 +143,18 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
+
+      - name: Build read and light entry points
+        run: pnpm run build:read && pnpm run build:light
+        continue-on-error: false
+
+      - name: API surface report check
+        run: |
+          pnpm exec api-extractor run --config api-extractor.json
+          pnpm exec api-extractor run --config api-extractor.read.json
+          pnpm exec api-extractor run --config api-extractor.write.json
+          pnpm exec api-extractor run --config api-extractor.light.json
+        continue-on-error: false
       
       - name: Generate docs
         run: pnpm run docs
