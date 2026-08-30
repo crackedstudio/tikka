@@ -1,6 +1,8 @@
 # Validation Schemas Inventory
 
 > Complete index of all Zod validation schemas used throughout the Tikka backend.
+>
+> **Consolidated:** This document is the canonical validation schema reference and supersedes `VALIDATION_GUIDE.md` and `VALIDATION_IMPLEMENTATION.md`. See the [docs index](../../../docs/README.md).
 
 ---
 
@@ -447,6 +449,5 @@ async create(@Body() payload: MyFeatureDto) {
 
 ## Related Documentation
 
-- [VALIDATION_GUIDE.md](./VALIDATION_GUIDE.md) — Quick start guide
-- [VALIDATION_IMPLEMENTATION.md](./VALIDATION_IMPLEMENTATION.md) — Detailed reference
-- [ARCHITECTURE.md](../docs/ARCHITECTURE.md) — System architecture overview
+- [Documentation Index](../../../docs/README.md) — Consolidated documentation home
+- [ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) — System architecture overview
