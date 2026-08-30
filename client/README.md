@@ -272,7 +272,7 @@ npm install
 cp .env.example .env
 ```
 
-Then edit `.env` with your actual values. See [DEVELOPMENT.md](docs/DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
+Then edit `.env` with your actual values. See [DEVELOPMENT.md](../docs/DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
 
 ### Environment variables
 
@@ -312,7 +312,7 @@ VITE_USE_DEMO_DATA=true
 VITE_DEBUG_MODE=true
 ```
 
-> **Note:** For complete environment setup including Stellar testnet and Supabase configuration, see the [Development Guide](docs/DEVELOPMENT.md).
+> **Note:** For complete environment setup including Stellar testnet and Supabase configuration, see the [Development Guide](../docs/DEVELOPMENT.md).
 
 4. **Start development server**
 
