@@ -2,7 +2,7 @@
 
 > **Goal:** All request bodies and query parameters are validated with Zod; invalid input is rejected with clear 400 responses.
 >
-> **Canonical:** This guide is the single source of truth for request validation in `backend/` and supersedes all other `VALIDATION_*.md` files. See [docs/README.md](../../../docs/README.md) for the documentation index.
+> **Canonical:** This guide is the single source of truth for request validation in `backend/`; all other `VALIDATION_*.md` files have been consolidated here or moved to [docs/archive/](../../../docs/archive/). See [docs/README.md](../../../docs/README.md) for the documentation index.
 
 ---
 
