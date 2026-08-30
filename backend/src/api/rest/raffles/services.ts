@@ -1,11 +1,5 @@
 // Shared Types & Entities
-export interface Raffle {
-  id: string;
-  title: string;
-  ticketPrice: number;
-  status: 'active' | 'completed' | 'paused';
-  createdAt: Date;
-}
+import { Raffle } from "@tikka/types";
 
 // ==============================================================================
 // 1. RAFFLES QUERY SERVICE (Read Paths)
@@ -43,7 +37,7 @@ export class RafflesQueryService implements IRafflesQueryService {
 export interface IRafflesCommandService {
   createRaffle(title: string, ticketPrice: number): Promise<Raffle>;
   purchaseTicket(raffleId: string, userId: string): Promise<boolean>;
-  updateStatus(id: string, status: 'active' | 'completed' | 'paused'): Promise<Raffle>;
+  updateStatus(id: string, status: "open" as any | 'completed' | 'paused'): Promise<Raffle>;
 }
 
 export class RafflesCommandService implements IRafflesCommandService {
@@ -55,10 +49,10 @@ export class RafflesCommandService implements IRafflesCommandService {
 
   async createRaffle(title: string, ticketPrice: number): Promise<Raffle> {
     const newRaffle: Raffle = {
-      id: Math.random().toString(36).substring(7),
+      id: Math.floor(Math.random() * 1000000),
       title,
-      ticketPrice,
-      status: 'active',
+      ticketPrice: ticketPrice.toString(), asset: "XLM", maxTickets: 100, ticketsSold: 0, endTime: Date.now() + 86400000, winner: null, winningTicketId: null, prizeAmount: null, createdLedger: 0, finalizedLedger: null, metadataCid: null, creator: "mock",
+      status: "open" as any,
       createdAt: new Date(),
     };
     this.dbMock.push(newRaffle);
@@ -72,7 +66,7 @@ export class RafflesCommandService implements IRafflesCommandService {
     return true;
   }
 
-  async updateStatus(id: string, status: 'active' | 'completed' | 'paused'): Promise<Raffle> {
+  async updateStatus(id: string, status: "open" as any | 'completed' | 'paused'): Promise<Raffle> {
     const raffle = this.dbMock.find(r => r.id === id);
     if (!raffle) throw new Error('Raffle target not found');
     raffle.status = status;

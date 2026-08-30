@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * Contract Service
  *
@@ -68,7 +69,7 @@ export class ContractService {
    * Handle contract errors and convert to user-friendly messages
    */
   private static handleError(error: unknown, operation: string): ContractError {
-    console.error(`❌ ContractService.${operation}:`, error);
+    logger.error(`❌ ContractService.${operation}:`, error);
 
     const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -265,7 +266,7 @@ export class ContractService {
     raffleId: number,
   ): Promise<ContractResponse<ContractRaffleData>> {
     try {
-      console.log(
+      logger.log(
         `📖 ContractService.getRaffleData: Fetching raffle ${raffleId}`,
       );
 
@@ -318,7 +319,7 @@ export class ContractService {
         prizeDistributed: parsedResult?.prizeDistributed || false,
       };
 
-      console.log(`✅ ContractService.getRaffleData: Success`, raffleData);
+      logger.log(`✅ ContractService.getRaffleData: Success`, raffleData);
 
       return {
         success: true,
@@ -338,7 +339,7 @@ export class ContractService {
    */
   static async getActiveRaffleIds(): Promise<ContractResponse<number[]>> {
     try {
-      console.log(
+      logger.log(
         "📖 ContractService.getActiveRaffleIds: Fetching active raffles",
       );
 
@@ -371,7 +372,7 @@ export class ContractService {
         ? parsedResult
         : [];
 
-      console.log(
+      logger.log(
         `✅ ContractService.getActiveRaffleIds: Found ${activeIds.length} active raffles`,
       );
 
@@ -393,7 +394,7 @@ export class ContractService {
    */
   static async getAllRaffleIds(): Promise<ContractResponse<number[]>> {
     try {
-      console.log("📖 ContractService.getAllRaffleIds: Fetching all raffles");
+      logger.log("📖 ContractService.getAllRaffleIds: Fetching all raffles");
 
       const contract = this.getContract();
       const operation = contract.call(
@@ -422,7 +423,7 @@ export class ContractService {
       const parsedResult = result ? scValToNative(result) : [];
       const allIds: number[] = Array.isArray(parsedResult) ? parsedResult : [];
 
-      console.log(
+      logger.log(
         `✅ ContractService.getAllRaffleIds: Found ${allIds.length} total raffles`,
       );
 
@@ -447,7 +448,7 @@ export class ContractService {
     raffleId: number,
   ): Promise<ContractResponse<ContractUserParticipation | null>> {
     try {
-      console.log(
+      logger.log(
         `📖 ContractService.getUserParticipation: User ${userAddress} in raffle ${raffleId}`,
       );
 
@@ -504,7 +505,7 @@ export class ContractService {
         participationTime: parsedResult.participationTime || 0,
       };
 
-      console.log(
+      logger.log(
         `✅ ContractService.getUserParticipation: Success`,
         participation,
       );
@@ -582,7 +583,7 @@ export class ContractService {
     options?: PipelineOptions,
   ): Promise<PipelineResult> {
     if (import.meta.env.VITE_TEST_MODE === "true") {
-      console.log(
+      logger.log(
         "✍️ ContractService.createRaffle (test mode): Mocked success",
         params,
       );

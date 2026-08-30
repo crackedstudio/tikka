@@ -10,13 +10,16 @@
     "oracle"
   ],
   "scripts": {
-    "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle",
-    "build": "npm run build --prefix client && npm run build --prefix sdk && npm run build --prefix backend && npm run build --prefix indexer && npm run build --prefix oracle",
-    "build:client": "npm run build --prefix client",
-    "build:sdk": "npm run build --prefix sdk",
-    "build:backend": "npm run build --prefix backend",
-    "build:indexer": "npm run build --prefix indexer",
-    "build:oracle": "npm run build --prefix oracle",
+    "install:all": "pnpm install",
+    "build": "pnpm -r --stream build",
+    "build:client": "pnpm --filter client build",
+    "build:sdk": "pnpm --filter sdk build",
+    "build:backend": "pnpm --filter backend build",
+    "build:indexer": "pnpm --filter indexer build",
+    "build:oracle": "pnpm --filter oracle build",
+    "lint": "pnpm -r --stream lint",
+    "test": "pnpm -r --stream test",
+    "typecheck": "pnpm -r --stream typecheck",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",
@@ -43,5 +46,9 @@
     "node": ">=20",
     "pnpm": ">=9"
   },
-  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+  "pnpm": {
+    "overrides": {
+      "@stellar/stellar-sdk": "^16.1.0"
+    }
+  }
 }

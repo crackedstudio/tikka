@@ -83,7 +83,7 @@ export class ReadOnlyRaffleService {
     return {
       raffleId,
       creator: raw.creator ?? '',
-      status: raw.status ?? RaffleStatus.Open,
+      status: raw.status ?? RaffleStatus.OPEN,
       ticketPrice: String(raw.ticket_price ?? '0'),
       maxTickets: Number(raw.max_tickets ?? 0),
       ticketsSold: Number(raw.tickets_sold ?? 0),

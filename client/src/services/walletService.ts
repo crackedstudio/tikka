@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import type { WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 
 const SELECTED_WALLET_ID = "selectedWalletId";
@@ -269,7 +270,7 @@ export async function getAccountAddress(): Promise<string | null> {
     const { address } = await kit.getAddress();
     return address;
   } catch (error) {
-    console.error("Error getting account address:", error);
+    logger.error("Error getting account address:", error);
     return null;
   }
 }
@@ -341,7 +342,7 @@ export async function getNetwork(): Promise<string | null> {
     const { network } = await kit.getNetwork();
     return parsePassphrase(network); // Returns "testnet" or "public"
   } catch (error) {
-    console.error("Error getting network:", error);
+    logger.error("Error getting network:", error);
     return null;
   }
 }
@@ -478,7 +479,7 @@ export async function setNetwork(network: string): Promise<void> {
       await switcher(targetNetwork);
       return;
     } catch (error) {
-      console.warn("Programmatic network switch failed:", error);
+      logger.warn("Programmatic network switch failed:", error);
     }
   }
 
@@ -500,7 +501,7 @@ export async function promptNetworkSwitch(targetNetwork: string): Promise<void> 
     return;
   }
 
-  console.warn(`Please switch your wallet to ${prettyNetworkName(targetNetwork)} manually.`);
+  logger.warn(`Please switch your wallet to ${prettyNetworkName(targetNetwork)} manually.`);
 }
 
 // ─── Typed signing result ─────────────────────────────────────────────────────

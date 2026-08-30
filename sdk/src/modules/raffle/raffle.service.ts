@@ -1,3 +1,13 @@
+import { RaffleStatus } from "@tikka/types";
+function mapContractStatus(status: number): RaffleStatus {
+  switch(status) {
+    case 0: return RaffleStatus.OPEN;
+    case 1: return RaffleStatus.DRAWING;
+    case 2: return RaffleStatus.FINALIZED;
+    case 3: return RaffleStatus.CANCELLED;
+    default: return RaffleStatus.OPEN;
+  }
+}
 import { Injectable } from "@nestjs/common";
 import { ContractService } from "../../contract/contract.service";
 import { ContractFn } from "../../contract/bindings";
@@ -172,7 +182,7 @@ export class RaffleService {
     assertPositiveInt(params.raffleId, "raffleId");
 
     const current = await this.get(params.raffleId);
-    if (current.success && current.value!.status !== RaffleStatus.Open) {
+    if (current.success && current.value!.status !== RaffleStatus.OPEN) {
       throw new RaffleStateError(
         params.raffleId,
         current.value!.status,
@@ -204,7 +214,7 @@ export class RaffleService {
     assertPositiveInt(params.raffleId, "raffleId");
 
     const current = await this.get(params.raffleId);
-    if (current.success && current.value!.status !== RaffleStatus.Open) {
+    if (current.success && current.value!.status !== RaffleStatus.OPEN) {
       throw new RaffleStateError(
         params.raffleId,
         current.value!.status,
@@ -238,7 +248,7 @@ export class RaffleService {
     if (!res.success) return res as any;
 
     const data = res.value!;
-    if (data.status !== RaffleStatus.Finalized || !data.winner) {
+    if (data.status !== RaffleStatus.FINALIZED || !data.winner) {
       return { success: true, value: null };
     }
 
@@ -293,7 +303,7 @@ export class RaffleService {
     return {
       raffleId,
       creator: raw.creator ?? raw.Creator ?? "",
-      status: raw.status ?? raw.Status ?? 0,
+      status: mapContractStatus(raw.status ?? raw.Status ?? 0),
       ticketPrice: String(raw.ticket_price ?? raw.ticketPrice ?? "0"),
       maxTickets: Number(raw.max_tickets ?? raw.maxTickets ?? 0),
       ticketsSold: Number(raw.tickets_sold ?? raw.ticketsSold ?? 0),

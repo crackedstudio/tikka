@@ -100,7 +100,7 @@ Auto-generated TypeDoc reference for `@tikka/sdk`:
 **[crackedstudio.github.io/tikka](https://crackedstudio.github.io/tikka)**
 
 Covers all public APIs organized by module: Raffle · Ticket · Wallet · User · Network · Utils.
-To regenerate locally: `cd sdk && npm run docs`
+To regenerate locally: `cd sdk && pnpm run docs`
 
 ## Documentation
 

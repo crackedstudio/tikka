@@ -20,7 +20,7 @@ describe('TicketService', () => {
       invoke: jest.fn(),
       simulateReadOnly: jest.fn().mockResolvedValue({
         success: true,
-        value: { status: RaffleStatus.Open },
+        value: { status: RaffleStatus.OPEN },
       }),
       wallet: mockWallet,
     } as any;

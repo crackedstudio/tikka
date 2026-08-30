@@ -10,7 +10,7 @@ const ENDING_SOON_THRESHOLD_S = 24 * 60 * 60;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type RaffleStatus = "live" | "ending-soon" | "finalized" | "cancelled";
+export type CardStatus = "live" | "ending-soon" | "finalized" | "cancelled";
 
 export interface RaffleCardViewModel {
     raffleId: number;
@@ -19,7 +19,7 @@ export interface RaffleCardViewModel {
     description: string;
     /** Always non-empty: falls back to FALLBACK_IMAGE when the API returns null. */
     imageUrl: string;
-    status: RaffleStatus;
+    status: CardStatus;
     /** Human-readable label: "Live" | "Ending Soon" | "Finalized" | "Cancelled" */
     statusLabel: string;
     /** Pre-formatted price+asset string, e.g. "10.000 XLM". */
@@ -46,14 +46,14 @@ export interface RaffleCardViewModel {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<RaffleStatus, string> = {
+const STATUS_LABELS: Record<CardStatus, string> = {
     live: "Live",
     "ending-soon": "Ending Soon",
     finalized: "Finalized",
     cancelled: "Cancelled",
 };
 
-function deriveStatus(apiStatus: string, endTimeUnix: number): RaffleStatus {
+function deriveStatus(apiStatus: string, endTimeUnix: number): CardStatus {
     const s = apiStatus.toLowerCase();
     if (s === "finalized") return "finalized";
     if (s === "cancelled") return "cancelled";
@@ -61,7 +61,7 @@ function deriveStatus(apiStatus: string, endTimeUnix: number): RaffleStatus {
     return remaining <= ENDING_SOON_THRESHOLD_S ? "ending-soon" : "live";
 }
 
-function deriveButtonText(status: RaffleStatus): string {
+function deriveButtonText(status: CardStatus): string {
     if (status === "live" || status === "ending-soon") return "Enter Raffle";
     if (status === "finalized") return "View Winner";
     return "Cancelled";

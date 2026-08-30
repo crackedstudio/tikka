@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -52,7 +53,7 @@ const RafflePage = () => {
         if (address && recentParticipantsRef.current) {
             recentParticipantsRef.current.addOptimisticParticipant(address);
         }
-        console.log("Buying tickets:", ticketCount);
+        logger.log("Buying tickets:", ticketCount);
     };
 
     if (isLoading) {

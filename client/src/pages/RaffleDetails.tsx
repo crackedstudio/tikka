@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useParams, useSearchParams } from "react-router-dom";
 import { useWalletContext } from "../providers";
 import { useRaffleDetailsData } from "../hooks/useRaffleDetailsData";
@@ -103,7 +104,7 @@ const RaffleDetails = () => {
                 prizeCurrency={raffle.prizeCurrency}
                 endTime={raffle.endTime}
                 onEnter={() => {
-                    console.log("Raffle CTA:", raffle.status, raffle.id);
+                    logger.log("Raffle CTA:", raffle.status, raffle.id);
                 }}
             />
 

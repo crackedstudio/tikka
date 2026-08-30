@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import React from "react";
 import { Link } from "react-router-dom";
 import { ProgressBar } from "../ui/ProgressBar";
@@ -112,7 +113,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
             ticketPrice={ticketPrice}
             onSuccess={() => onEnter?.()}
             onError={(error) => {
-                console.error("Error purchasing ticket:", error);
+                logger.error("Error purchasing ticket:", error);
                 alert(error);
             }}
         >
