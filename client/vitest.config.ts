@@ -10,11 +10,17 @@ export default defineConfig({
     coverage: {
       provider: 'istanbul',
       reporter: ['text', 'lcov'],
+      thresholds: {
+        statements: 70,
+        branches: 50,
+        functions: 60,
+        lines: 70,
+      },
     },
   },
   resolve: {
     alias: {
-      'virtual:pwa-register/react': path.resolve(__dirname, 'src/test-utils/virtual-pwa-register.ts'),
+      'virtual:pregister/react': path.resolve(__dirname, 'src/test-utils/virtual-pwa-register.ts'),
     },
   },
 });
