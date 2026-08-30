@@ -272,7 +272,7 @@ npm install
 cp .env.example .env
 ```
 
-Then edit `.env` with your actual values. See [DEVELOPMENT.md](../docs/DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
+Then edit `.env` with your actual values. See the [Development Guide](../docs/DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
 
 ### Environment variables
 
