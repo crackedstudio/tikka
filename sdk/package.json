@@ -34,7 +34,7 @@
   },
   "scripts": {
     "cli": "node bin/tikka.cjs",
-    "build": "nest build",
+    "build": "nest build && pnpm run build:read && pnpm run build:light",
     "build:read": "tsc -p tsconfig.read.json",
     "build:light": "tsc -p tsconfig.light.json",
     "start": "nest start",
@@ -54,12 +54,25 @@
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
-    "analyze:light": "node scripts/bundle-analysis/analyze.mjs",
-    "size-check:legacy": "powershell (Get-Item dist/light/index.light.js).Length"
+    "analyze:light": "node scripts/bundle-analysis/analyze.mjs"
   },
   "size-limit": [
     {
-      "name": "@tikka/sdk/read",
+      "name": "@tikka/sdk light",
+      "path": "dist/light/index.light.js",
+      "limit": "25 kB",
+      "gzip": true,
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
+    },
+    {
+      "name": "@tikka/sdk read",
       "path": "dist/read/index.read.js",
       "limit": "50 kB",
       "gzip": true,
@@ -73,9 +86,9 @@
       ]
     },
     {
-      "name": "@tikka/sdk light",
-      "path": "dist/light/index.light.js",
-      "limit": "25 kB",
+      "name": "@tikka/sdk full",
+      "path": "dist/index.js",
+      "limit": "150 kB",
       "gzip": true,
       "ignore": [
         "@nestjs/common",
