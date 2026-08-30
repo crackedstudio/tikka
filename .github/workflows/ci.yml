@@ -91,7 +91,7 @@ jobs:
         continue-on-error: false
       
       - name: Run unit tests
-        run: pnpm run test:unit -- --coverage
+        run: pnpm run test:unit -- --coverage --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.branches=80 --coverage.thresholds.statements=80
         continue-on-error: false
 
       - name: Upload coverage artifact
@@ -145,7 +145,7 @@ jobs:
         continue-on-error: false
       
       - name: Run tests
-        run: pnpm run test -- --coverage
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         continue-on-error: false
 
       - name: Upload coverage artifact
@@ -203,7 +203,7 @@ jobs:
         continue-on-error: false
       
       - name: Run tests (mocked)
-        run: pnpm run test -- --coverage
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
           NODE_ENV: test
         continue-on-error: false
@@ -259,7 +259,7 @@ jobs:
         continue-on-error: false
       
       - name: Run unit tests (network tests excluded)
-        run: pnpm run test -- --coverage
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
           NODE_ENV: test
         continue-on-error: false
@@ -315,7 +315,7 @@ jobs:
         continue-on-error: false
       
       - name: Run tests (mocked)
-        run: pnpm run test -- --coverage
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
           NODE_ENV: test
         continue-on-error: false
@@ -359,6 +359,37 @@ jobs:
           extra_args: >-
             --only-verified
             --exclude-paths .trufflehog-exclude
+
+  ci-summary:
+    name: Coverage Summary
+    runs-on: ubuntu-latest
+    needs: [client, sdk, backend, indexer, oracle]
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: coverage
+          pattern: coverage-*
+      - name: Generate coverage table
+        run: |
+          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Lines | Functions | Branches |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|-----------|----------|" >> $GITHUB_STEP_SUMMARY
+          for artifact in coverage/coverage-*; do
+            pkg=${artifact#coverage/coverage-}
+            lcov=$(find "$artifact" -name lcov.info -print -quit)
+            if [ -f "$lcov" ]; then
+              lines=$(awk -F: '/^LF:/{lf+=$2}/^LH:/{lh+=$2}END{printf "%.1f%%", (lf>0?100*lh/lf:0)}' "$lcov")
+              functions=$(awk -F: '/^FNF:/{fnf+=$2}/^FNH:/{fnh+=$2}END{printf "%.1f%%", (fnf>0?100*fnh/fnf:0)}' "$lcov")
+              branches=$(awk -F: '/^BRF:/{brf+=$2}/^BRH:/{brh+=$2}END{printf "%.1f%%", (brf>0?100*brh/brf:0)}' "$lcov")
+              echo "| $pkg | $lines | $functions | $branches |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $pkg | N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
 
   # Lighthouse CI for client performance budgets
   lighthouse:
