@@ -6,7 +6,7 @@ API layer that merges indexer data with Supabase metadata; handles auth (Sign In
 
 ## Documentation
 
-All project documentation is indexed in [`../docs/README.md`](../docs/README.md). Operational runbooks live in `../docs/runbooks/` and architectural decisions in `../docs/adr/`.
+All project documentation is indexed in [`../docs/README.md`](../docs/README.md). Operational runbooks live in `../docs/runbooks/` and architectural decisions in `../docs/adr/`. Package roots must contain only `README.md` and, if needed, `OPERATIONAL.md`; all other package-root docs are moved to `docs/` or archived in `docs/archive/`.
 
 ## Raffles API
 
