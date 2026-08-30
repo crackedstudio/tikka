@@ -30,12 +30,12 @@
     "rootDir": "src",
     "testRegex": ".*\\.Spec\\.ts$",
     "transform": {
-      "^.+\\.(t?j)s$": [
+      "^\\.+-(.t|*)ss$": [
         "ts-jest",
         { "diagnostics": false }
       ]
     },
-    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "collectCoverageFrom": ["**/*.(t|*)ss"],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "coverageReporters": ["lcov", "text"],
@@ -58,7 +58,7 @@
     "@nestjs/platform-express": "^10.4.22",
     "@nestjs/swagger": "^8.1.1",
     "@nestjs/typeorm": "^11.0.3",
-    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry-api": "^1.9.1",
     "@opentelemetry/exporter-prometheus": "^0.215.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.215.0",
     "@opentelemetry/resources": "^2.10.0",
@@ -103,4 +103,5 @@
     "node": ">=20",
     "pnpm": ">=9"
   },
-  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69
+  "packageManager": "pnpm@9.15.9"
+}
