@@ -162,14 +162,18 @@ function checkMismatches(collected) {
     
     // Check if this framework is in multiple packages
     if (Object.keys(versions).length > 1) {
+      // A framework in `mustMatch` can never drift — it is a hard mismatch
+      // regardless of whether it also appears in the `allowed` list.
+      const isMustMatch = Boolean(exceptions.mustMatch && exceptions.mustMatch[framework]);
       // Check if the mismatch is allowed
-      const isAllowed = exceptions.allowed[framework];
-      
+      const isAllowed = (exceptions.allowed && exceptions.allowed[framework]) || false;
+
       mismatches.push({
         framework,
         versions,
         packages,
-        allowed: isAllowed || false,
+        allowed: isAllowed && !isMustMatch,
+        mustMatch: isMustMatch,
       });
     }
   });
@@ -224,8 +228,15 @@ function formatReport(collected, mismatches) {
     report += 'VERSION MISMATCHES:\n';
     report += '─'.repeat(70) + '\n';
     
-    mismatches.forEach(({ framework, versions, packages, allowed }) => {
-      const status = allowed ? '[ALLOWED]' : '[MISMATCH]';
+    mismatches.forEach(({ framework, versions, packages, allowed, mustMatch }) => {
+      let status;
+      if (mustMatch && !allowed) {
+        status = '[MUST MATCH]';
+      } else if (allowed) {
+        status = '[ALLOWED]';
+      } else {
+        status = '[MISMATCH]';
+      }
       report += `${status} ${framework}\n`;
       
       Object.entries(versions).forEach(([version, pkgs]) => {
