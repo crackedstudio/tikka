@@ -1,8 +1,8 @@
 # Tikka - Decentralized Raffle Platform on Stellar
 
-[[!Qeploy SDK Docs](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
+[![Deploy SDK Docs](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
 
-This repository is the *Tikka ecosystem*: frontend, SDG, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a **separate repo/folder** and are not included here.
+This repository is the *Tikka ecosystem*: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a ***separate repo/folder*** and are not included here.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ For a comprehensive overview of the system design, data flows, and component res
 ```mermaid
 flowchart TD
     Client[Client App]
-    SDK[Tikka SDG]
+    SDK[Tikka SDK]
     API[Backend API]
     Indexer[Indexer]
     Oracle[Oracle]
@@ -32,8 +32,8 @@ flowchart TD
 
 ## Packages
 
-| Package | Role |
-|---------|---------|
+\ Package | Role |
+---------|---------|
 | [**client**](./client/) | Consumer web app - React 19, Vite, TypeScript. Reads from backend, writes via SDK. |
 | [**sdk**](./sdk/) | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). Published as `@tikka/sdk`. |
 | [**backend**](./backend/) | API layer - auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase. |
@@ -57,11 +57,11 @@ cp oracle/.env.example oracle/.env.local
 
 ### Profiles
 
-| Profile | What starts |
-|---------|-----------|
+\ Profile | What starts |
+---------|---------|
 | `deps` | Postgres + Redis only |
 | `backend` | deps + backend API (port 3001) |
-| `indexer` | deps + indexer (port 3002) |
+| |indexer` | deps + indexer (port 3002) |
 | `oracle` | deps + oracle (port 3003) |
 | `full` | deps + backend + indexer + oracle |
 | `client` | full + Vite client (port 5173) |
@@ -107,15 +107,15 @@ To regenerate locally: `cd sdk && npm run docs`
 The [docs/README.md](./docs/README.md) is the canonical index for all documentation.
 
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Full ecosystem specification with diagrams, data flows, contract interface, and API design
-- [RAFFLE_LIFECYCLG.md](./docs/RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
-- [RANDOMNESS_SCHENE.md](./docs/RANDOMNESS_SCHEME.md) - Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
+- [RAFFLE_LIFECyCLE.md](./docs/RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
+- [RANDOMNESS_SCHEME.md](./docs/RANDOMNESS_SCHEME.md) - Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
 
 ## Release & Versioning
 
 Release policy, versioning rules, and changelog procedures: [docs/RELEASE.md](./docs/RELEASE.md)
 
-- SDG: Semantic Versioning (`MAJOR.MINOR.PATCH`)
-- Apps: Calendar Versioning (`YYYY.MM.PATCH`)
+- SDK: Semantic Versioning (`MAJOR.MINOR.PATCH`)
+- Apps: Calendar Versioning (`YYYY.MM.PATCH)
 - Database: Timestamped migrations with rollback procedures
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
