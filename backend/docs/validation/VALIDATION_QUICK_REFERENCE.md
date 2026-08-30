@@ -1,6 +1,8 @@
 # Validation Quick Reference Card
 
-> Keep this handy when adding validation to new endpoints.
+> **Archived:** This quick reference has been consolidated into the canonical
+> [Validation Guide](../../../docs/README.md). The content below is preserved
+> for historical reference only; the current version lives in `docs/README.md`.
 >
 > See [`docs/README.md`](../../../docs/README.md) for the full validation documentation index.
 
