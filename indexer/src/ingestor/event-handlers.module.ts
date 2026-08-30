@@ -4,6 +4,7 @@ import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { EventParserV2Service } from "./event-parser-v2.service";
 import { EVENT_PARSER } from "./event-parser.interface";
 import { IEventHandler } from "./event-handler.interface";
+import { ContractEventTopic } from "./event.types";
 import {
   assertValidEventHandlerConfig,
   buildValidationContext,
@@ -76,21 +77,28 @@ export class EventHandlersModule implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Register all default handlers
-    const handlers: IEventHandler[] = [
-      this.raffleCreatedHandler,
-      this.ticketPurchasedHandler,
-      this.raffleFinalizedHandler,
-      this.drawTriggeredHandler,
-      this.randomnessRequestedHandler,
-      this.randomnessReceivedHandler,
-      this.raffleCancelledHandler,
-      this.ticketRefundedHandler,
-      this.contractPausedHandler,
-      this.contractUnpausedHandler,
-      this.adminTransferProposedHandler,
-      this.adminTransferAcceptedHandler,
-    ];
+    // Register all default handlers, keyed by contract event topic.
+    //
+    // The record is typed `Record<ContractEventTopic, IEventHandler>`: adding
+    // a topic to the DomainEvent union without registering a default handler
+    // for it here fails the build — the event cannot be parsed until it is
+    // handled.
+    const handlersByTopic: Record<ContractEventTopic, IEventHandler> = {
+      RaffleCreated: this.raffleCreatedHandler,
+      TicketPurchased: this.ticketPurchasedHandler,
+      RaffleFinalized: this.raffleFinalizedHandler,
+      DrawTriggered: this.drawTriggeredHandler,
+      RandomnessRequested: this.randomnessRequestedHandler,
+      RandomnessReceived: this.randomnessReceivedHandler,
+      RaffleCancelled: this.raffleCancelledHandler,
+      TicketRefunded: this.ticketRefundedHandler,
+      ContractPaused: this.contractPausedHandler,
+      ContractUnpaused: this.contractUnpausedHandler,
+      AdminTransferProposed: this.adminTransferProposedHandler,
+      AdminTransferAccepted: this.adminTransferAcceptedHandler,
+    };
+
+    const handlers: IEventHandler[] = Object.values(handlersByTopic);
 
     for (const handler of handlers) {
       this.registry.registerDefaultHandler(handler);

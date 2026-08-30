@@ -23,6 +23,19 @@ export interface DeadLetterEvent {
   failedAt: string;
 }
 
+/**
+ * Reads the contract address off a raw DLQ event payload without `any`.
+ * Raw events are untyped at this boundary (they may be re-hydrated JSON).
+ */
+function readContractId(rawEvent: unknown): string {
+  const record =
+    rawEvent !== null && typeof rawEvent === "object"
+      ? (rawEvent as Record<string, unknown>)
+      : {};
+  const id = record.contractId ?? record.contract_id;
+  return typeof id === "string" && id.length > 0 ? id : "unknown";
+}
+
 @Injectable()
 export class DeadLetterQueueService {
   private readonly logger = new Logger(DeadLetterQueueService.name);
@@ -37,9 +50,9 @@ export class DeadLetterQueueService {
 
     // Update gauge for this contract address based on current in-memory queue.
     // (DLQ depth metric is for observability; in-memory DLQ should remain consistent.)
-    const contractAddress = (record.rawEvent as any)?.contractId ?? 'unknown';
+    const contractAddress = readContractId(record.rawEvent);
     const depth = this.records.filter(
-      (r) => ((r.rawEvent as any)?.contractId ?? 'unknown') === contractAddress,
+      (r) => readContractId(r.rawEvent) === contractAddress,
     ).length;
     this.metrics?.setDlqDepth(contractAddress, depth);
 
@@ -59,7 +72,7 @@ export class DeadLetterQueueService {
       // Clear all gauges we touched (best-effort). For in-memory DLQ we can only
       // recompute depth for the current records (which becomes empty after clear).
       const touchedContracts = new Set(
-        this.records.map((r) => ((r.rawEvent as any)?.contractId ?? 'unknown')),
+        this.records.map((r) => readContractId(r.rawEvent)),
       );
       this.records.length = 0;
       for (const contractAddress of touchedContracts) {
