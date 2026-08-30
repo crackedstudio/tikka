@@ -543,19 +543,20 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
+            // Ratchet policy: coverageThreshold is set just below current coverage; lower only with a docs/testing update.
             const packages = [
-              { name: 'client', file: 'coverage/client/lcov.info', threshold: 80 },
-              { name: 'sdk', file: 'coverage/sdk/lcov.info', threshold: 80 },
-              { name: 'backend', file: 'coverage/backend/lcov.info', threshold: 70 },
-              { name: 'indexer', file: 'coverage/indexer/lcov.info', threshold: 60 },
-              { name: 'oracle', file: 'coverage/oracle/lcov.info', threshold: 70 }
+              { name: 'client', file: 'coverage/client/lcov.info', coverageThreshold: 80 },
+              { name: 'sdk', file: 'coverage/sdk/lcov.info', coverageThreshold: 80 },
+              { name: 'backend', file: 'coverage/backend/lcov.info', coverageThreshold: 70 },
+              { name: 'indexer', file: 'coverage/indexer/lcov.info', coverageThreshold: 60 },
+              { name: 'oracle', file: 'coverage/oracle/lcov.info', coverageThreshold: 70 }
             ];
             const rows = [];
             let gateFailed = false;
             for (const pkg of packages) {
               const coverageFile = path.join(process.cwd(), pkg.file);
               if (!fs.existsSync(coverageFile)) {
-                rows.push(`| ${pkg.name} | N/A | ${pkg.threshold}% | N/A |`);
+                rows.push(`| ${pkg.name} | N/A | ${pkg.coverageThreshold}% | N/A |`);
                 continue;
               }
               const lcov = fs.readFileSync(coverageFile, 'utf8');
@@ -566,9 +567,9 @@ jobs:
                 if (line.startsWith('LH:')) hit += parseInt(line.slice(3), 10);
               }
               const pct = found ? (hit / found) * 100 : 0;
-              const ok = pct >= pkg.threshold;
+              const ok = pct >= pkg.coverageThreshold;
               if (!ok) gateFailed = true;
-              rows.push(`| ${pkg.name} | ${pct.toFixed(2)}% | ${pkg.threshold}% | ${ok ? '✅' : '❌'} |`);
+              rows.push(`| ${pkg.name} | ${pct.toFixed(2)}% | ${pkg.coverageThreshold}% | ${ok ? '✅' : '❌'} |`);
             }
             const table = `## Coverage\n\n| Package | Lines | Threshold | Status |\n| --- | ---: | ---: | --- |\n${rows.join('\n')}\n`;
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, table);
