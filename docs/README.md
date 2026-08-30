@@ -5,7 +5,7 @@ This is the canonical index for all documentation in the repository.
 ## Cross-cutting documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Full ecosystem specification with diagrams, data flows, contract interface, and API design.
-- [RAFFLE_LIFECYCLE.md](./RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update.
+- [RAFFLE_LIFECycle.md](./RAFFLE_LIFECycle.md) - Complete raffle lifecycle guide from creation through leaderboard update.
 - [RANDOMNESS_SCHEME.md](./RANDOMNESS_SCHEME.md) - Randomness scheme, trust assumptions, and verification.
 - [RELEASE.md](./RELEASE.md) - Release policy, versioning, and changelog procedures.
 
