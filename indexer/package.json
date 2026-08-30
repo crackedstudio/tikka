@@ -12,6 +12,7 @@
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest --testPathIgnorePatterns=integration",
+    "typecheck": "tsc --noEmit",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
     "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",

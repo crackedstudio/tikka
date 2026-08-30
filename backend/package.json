@@ -11,6 +11,7 @@
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest",
+    "typecheck": "tsc --noEmit",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "generate:openapi": "ts-node scripts/generate-openapi.ts",
     "validate:openapi": "pnpm run generate:openapi && npx swagger-cli validate openapi.json",
