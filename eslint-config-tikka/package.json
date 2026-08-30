@@ -1,0 +1,30 @@
+{
+  "name": "eslint-config-tikka",
+  "version": "0.0.0",
+  "description": "Shared ESLint flat config for the Tikka monorepo (base, node, react)",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./base": "./base.js",
+    "./node": "./node.js",
+    "./react": "./react.js"
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.68.0"
+  },
+  "peerDependencies": {
+    "eslint": "^10.9.1"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

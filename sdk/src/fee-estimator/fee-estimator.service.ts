@@ -223,7 +223,7 @@ export class FeeEstimatorService {
     sim: rpc.Api.SimulateTransactionSuccessResponse,
   ): FeeEstimateResult {
     let resourceFeeStroops = String(sim.minResourceFee ?? '0');
-    let bn = new BigNumber(resourceFeeStroops);
+    const bn = new BigNumber(resourceFeeStroops);
     if (bn.isNaN() || bn.isNegative()) {
       resourceFeeStroops = '0';
     } else {

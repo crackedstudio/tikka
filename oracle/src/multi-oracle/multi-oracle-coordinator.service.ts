@@ -591,7 +591,7 @@ export class MultiOracleCoordinatorService {
   private xorSeeds(seeds: string[]): string {
     if (!seeds.length) return Buffer.alloc(32).toString('hex');
 
-    let result = Buffer.from(seeds[0], 'hex');
+    const result = Buffer.from(seeds[0], 'hex');
 
     for (let i = 1; i < seeds.length; i++) {
       const buf = Buffer.from(seeds[i], 'hex');
