@@ -5,7 +5,7 @@ import RaffleCreatedSuccess from "./modals/RaffleCreatedSuccess";
 import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { MetadataService } from "../services/metadataService";
-import { createRaffle } from "../services/contractService";
+import { createRaffle } from "../services/sdkClient";
 import { useAuthContext } from "../providers";
 import type { PipelineProgressEvent } from "../services/transactionPipeline";
 
