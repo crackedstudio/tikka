@@ -1,11 +1,11 @@
 # Stage 1: Build
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS builder
 
 # Check for pnpm-lock.yaml and use it
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.15.9
 
 # Copy package management files
 COPY package.json pnpm-lock.yaml ./
@@ -18,12 +18,12 @@ COPY . .
 RUN pnpm run build
 
 # Stage 2: Production
-FROM node:22-alpine AS runner
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runner
 
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.15.9
 
 # Copy only production dependencies
 COPY package.json pnpm-lock.yaml ./
