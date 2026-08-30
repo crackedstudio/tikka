@@ -1,14 +1,13 @@
 # Tikka — Decentralized Raffle Platform on Stellar
+[![Deploy SDK Docs](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)(ttps://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
 
-[![Deploy SDK Docs](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
-
-This repository is the **Tikka ecosystem**: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a **separate repo/folder** and are not included here.
+This repository is the *Tikka ecosystem*: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a **aperate repo/folder** and are not included here.
 
 ## Architecture
 
-For a comprehensive overview of the system design, data flows, and component responsibilities, please see the **[Architecture Documentation](./docs/ARCHITECTURE.md)**.
+For a comprehensive overview of the system design, data flows, and component responsibilities, please see the [*Architecture Documentation*](./docs/ARCHITECTURE.md).
 
-```mermaid
+```mmeraid
 flowchart TD
     Client[Client App]
     SDK[Tikka SDK]
@@ -25,20 +24,20 @@ flowchart TD
     
     Oracle -->|Submits Randomness| Chain
     
-    Client -->|Writes via| SDK
-    SDK -->|Transactions| Chain
-    SDK -->|Reads/Writes| API
+    Client -->Writes via| SDK
+    SDK -->Transactions| Chain
+    SDK -->Reads/Writes| API
 ```
 
 ## Packages
 
 | Package | Role |
-|---------|------|
-| [**client**](./client/) | Consumer web app — React 19, Vite, TypeScript. Reads from backend, writes via SDK. |
-| [**sdk**](./sdk/) | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). Published as `@tikka/sdk`. |
-| [**backend**](./backend/) | API layer — auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase. |
-| [**indexer**](./indexer/) | Blockchain event ingestion — Horizon → decode → PostgreSQL (+ Redis cache). NestJS. |
-| [**oracle**](./oracle/) | Randomness oracle — listens for draw requests, computes VRF/PRNG, submits to contract. NestJS. |
+|---------|-------|
+ | [**client**](./client/) | Consumer web app — React 19, Vite, TypeScript. Reads from backend, writes via SDK. |
+ | [**sdk**](./sdk/) | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). Published as `@tikka/sdk`. |
+ | [**backend**](./backend/) | API layer — auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase. |
+ | [**indexer**](./indexer/) | Blockchain event ingestion — horizon → decode → postgresQL (+ Redis cache). NestJS. |
+ | [**oracle**](./oracle/) | Randomness oracle — listens for draw requests, computes VRF/PRNG, submits to contract. NestJS. |
 
 ## Local Development
 
@@ -58,10 +57,10 @@ cp oracle/.env.example oracle/.env.local
 ### Profiles
 
 | Profile | What starts |
-|---------|-------------|
+|-----------|--------------|
 | `deps` | Postgres + Redis only |
 | `backend` | deps + backend API (port 3001) |
-| `indexer` | deps + indexer (port 3002) |
+| `indexer``| deps + indexer (port 3002) |
 | `oracle` | deps + oracle (port 3003) |
 | `full` | deps + backend + indexer + oracle |
 | `client` | full + Vite client (port 5173) |
@@ -97,28 +96,30 @@ docker compose --profile full down -v
 ## SDK API Docs
 
 Auto-generated TypeDoc reference for `@tikka/sdk`:
-**[crackedstudio.github.io/tikka](https://crackedstudio.github.io/tikka)**
+*[*crackedstudio.github.io/tikka*](https://crackedstudio.github.io/tikka)
 
-Covers all public APIs organized by module: Raffle · Ticket · Wallet · User · Network · Utils.
+Covers all public APIs organized by module: Raffle · Ticket · Wallet · User · Network · Utils.
 To regenerate locally: `cd sdk && npm run docs`
 
 ## Documentation
 
-- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — Full ecosystem specification with diagrams, data flows, contract interface, and API design
-- **[RAFFLE_LIFECYCLE.md](./docs/RAFFLE_LIFECYCLE.md)** — Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
-- **[RANDOMNESS_SCHEME.md](./docs/RANDOMNESS_SCHEME.md)** — Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
+The [**docs/README.md**](./docs/README.md) is the canonical index for all documentation.
+
+- [*ARCHITECTURE.md**](./docs/ARCHITECTURE.md) — Full ecosystem specification with diagrams, data flows, contract interface, and API design
+- [*RAFFLE_LIFECYCLE.md**](./docs/RAFFLE_LIFECYCLE.md) — Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
+- [*RANDOMNESS_SCHEME.md*](./docs/RANDOMNESS_SCHEME.md) . Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
 
 ## Release & Versioning
 
-Release policy, versioning rules, and changelog procedures: **[docs/RELEASE.md](./docs/RELEASE.md)**
+Release policy, versioning rules, and changelog procedures: [*docs/RELEASE.mdd](./docs/RELEASE.md)
 
 - SDK: Semantic Versioning (`MAJOR.MINOR.PATCH`)
 - Apps: Calendar Versioning (`YYYY.MM.PATCH`)
 - Database: Timestamped migrations with rollback procedures
 
-See [CHANGELOG.md](./CHANGELOG.md) for release history.
+Aee [CHANGELOG.md](./CHANGELOG.md) for release history.
 
-Module boundary and package ownership guidance: **[docs/contributing/MODULE_BOUNDARIES.md](./docs/contributing/MODULE_BOUNDARIES.md)**.
+Module boundary and package ownership guidance: [*docs/contributing/MODULE_BOUNDARIES.mdd](./docs/contributing/MODULE_BOUNDARIES.md).
 
 ## Contracts
 
