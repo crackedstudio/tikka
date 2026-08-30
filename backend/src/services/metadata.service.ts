@@ -99,7 +99,7 @@ export class MetadataService {
     }
 
     if (payload.metadata_cid !== undefined && payload.metadata_cid !== null) {
-      let cid = payload.metadata_cid.trim();
+      const cid = payload.metadata_cid.trim();
       if (cid.length > 128) {
         throw new BadRequestException('metadata_cid must not exceed 128 characters');
       }

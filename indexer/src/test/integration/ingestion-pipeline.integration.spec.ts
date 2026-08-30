@@ -321,7 +321,7 @@ describe('Full lifecycle: Created → Purchased → Finalized', () => {
     await ticketProcessor.handleTicketPurchased(1, BUYER_ADDRESS, [1, 2], '20000000', 1010, mockTxHash(100));
     await ticketProcessor.handleTicketPurchased(1, BUYER2_ADDRESS, [3], '10000000', 1011, mockTxHash(101));
 
-    let raffle = await raffleRepo.findOneBy({ id: 1 });
+    const raffle = await raffleRepo.findOneBy({ id: 1 });
     expect(raffle!.ticketsSold).toBe(3);
 
     const buyer1 = await userRepo.findOneBy({ address: BUYER_ADDRESS });

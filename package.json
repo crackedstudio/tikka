@@ -7,7 +7,8 @@
     "sdk",
     "backend",
     "indexer",
-    "oracle"
+    "oracle",
+    "eslint-config-tikka"
   ],
   "scripts": {
     "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle",
