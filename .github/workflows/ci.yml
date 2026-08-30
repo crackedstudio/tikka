@@ -136,6 +136,10 @@ jobs:
         run: pnpm run lint
         continue-on-error: false
       
+      - name: Typecheck
+        run: pnpm run typecheck
+        continue-on-error: false
+      
       - name: Run tests
         run: pnpm run test
         continue-on-error: false
@@ -232,6 +236,10 @@ jobs:
       
       - name: Lint
         run: pnpm run lint
+        continue-on-error: false
+      
+      - name: Typecheck
+        run: pnpm run typecheck
         continue-on-error: false
       
       - name: Run unit tests (network tests excluded)

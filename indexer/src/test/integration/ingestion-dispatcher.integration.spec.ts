@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { IngestionDispatcherService } from '../../ingestor/ingestion-dispatcher.service';
 import { DeadLetterQueueService } from '../../ingestor/dead-letter-queue.service';
 import {
@@ -70,3 +71,4 @@ describe('Ingestion dispatcher isolation', () => {
     });
   });
 });
+

@@ -34,6 +34,7 @@
   },
   "scripts": {
     "cli": "node bin/tikka.cjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "nest build",
     "build:read": "tsc -p tsconfig.read.json",
     "build:light": "tsc -p tsconfig.light.json",

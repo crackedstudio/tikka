@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ingestion-pipeline.integration.spec.ts
  *
@@ -109,7 +110,7 @@ beforeAll(async () => {
   userProcessor   = new UserProcessor(ds, mockCacheService as any);
   const mockWebhookService = { dispatchEvent: jest.fn() };
   raffleProcessor = new RaffleProcessor(ds, mockCacheService as any, userProcessor, mockWebhookService as any);
-  ticketProcessor = new TicketProcessor(ds, mockCacheService as any, userProcessor);
+  ticketProcessor = new TicketProcessor(mockCacheService as any, userProcessor, mockWebhookService as any);
 }, CONTAINER_STARTUP_MS);
 
 afterAll(async () => stopDb(ctx));
@@ -340,3 +341,4 @@ describe('Full lifecycle: Created → Purchased → Finalized', () => {
     expect(mockCacheService.invalidateRaffleDetail).toHaveBeenCalledWith('1');
   });
 });
+

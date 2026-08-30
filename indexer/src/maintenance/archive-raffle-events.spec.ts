@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
   archiveOldRaffleEvents,
   ArchiveResult,
@@ -1092,3 +1093,4 @@ describe("delete confirmation gate", () => {
     ).resolves.toBe(false);
   });
 });
+

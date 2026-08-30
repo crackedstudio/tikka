@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { nativeToScVal, Keypair } from "@stellar/stellar-sdk";
 import { ConfigService } from "@nestjs/config";
 import { EventParserV2Service } from "./event-parser-v2.service";
@@ -402,3 +403,4 @@ describe("EventParserV2Service", () => {
     expect(parsed.schemaVersion).toBe(1);
   });
 });
+

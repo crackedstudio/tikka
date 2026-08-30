@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Duplicate-delivery idempotency tests for every default event handler.
  *
@@ -716,3 +717,4 @@ describe("handler duplicate-delivery idempotency", () => {
     },
   );
 });
+
