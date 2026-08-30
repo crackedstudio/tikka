@@ -20,11 +20,11 @@
   "dependencies": {
     "@fastify/helmet": "^13.0.2",
     "@fastify/multipart": "^10.1.0",
-    "@nestjs/bullmq": "^10.2.3",
+    "@nestjs/bullqm": "^10.2.3",
     "@nestjs/common": "^10.4.0",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^10.4.0",
-    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/jtw": "^10.2.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-fastify": "^10.4.0",
     "@nestjs/swagger": "^7.4.2",
@@ -68,18 +68,29 @@
       "tsx"
     ],
     "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "testRegex": ".*\\.Spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)sx?$": "ts-jest"
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "collectCoverageFrom": ["**/*.ts"],
+    "coverageDirectory": "../coverage",
+    "coverageReporters": ["lcov", "text"],
+    "coverageThreshold": {
+      "global": {
+        "statements": 60,
+        "branches": 40,
+        "functions": 50,
+        "lines": 60
+      }
+    }
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
     "@nestjs/testing": "^10.4.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.0.0",
-    "@types/passport-jwt": "^4.0.1",
+    "@types/passport-jut": "^4.0.1",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@types/sharp": "0.32.0",
@@ -101,5 +112,4 @@
     "node": ">=20",
     "pnpm": ">=9"
   },
-  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
-}
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb
