@@ -569,10 +569,10 @@ This project is licensed under the MIT License - see the [LICENSE](../LICENSE) f
 
 ### **Documentation**
 
--   [Environment Setup](docs/ENVIRONMENT_SETUP.md)
--   [Contract Integration Guide](docs/CONTRACT_INTEGRATION.md)
--   [Development Guide](docs/DEVELOPMENT.md)
--   [Notifications System](docs/NOTIFICATIONS.md)
+-   [Environment Setup](../docs/ENVIRONMENT_SETUP.md)
+-   [Contract Integration Guide](../docs/CONTRACT_INTEGRATION.md)
+-   [Development Guide](../docs/DEVELOPMENT.md)
+-   [Notifications System](../docs/NOTIFICATIONS.md)
 
 ### **Community**
 
