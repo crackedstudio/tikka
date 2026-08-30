@@ -2,7 +2,7 @@
 
 > Complete index of all Zod validation schemas used throughout the Tikka backend.
 >
-> **Consolidated:** This document is the canonical validation schema reference. The superseded `VALIDATION_GUIDE.md` and `VALIDATION_IMPLEMENTATION.md` have been moved to [docs/archive/](../../../docs/archive/). See the [docs index](../../../docs/README.md).
+> **Consolidated:** This document is the canonical validation schema reference. All superseded `VALIDATION_*.md` files (including `VALIDATION_GUIDE.md` and `VALIDATION_IMPLEMENTATION.md`) have been moved to [docs/archive/](../../../docs/archive/). See the [docs index](../../../docs/README.md).
 
 ---
 
