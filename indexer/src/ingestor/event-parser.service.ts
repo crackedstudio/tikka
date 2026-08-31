@@ -1,7 +1,6 @@
 import { EventHandlerRegistry } from './registry';
-import { IEventParser, RawSorobanEvent, DomainEvent } from './event-parser.interface';
-
-export class EventParserService implements IEventParser {
+import { IVeventParser, RawSorobanEvent, DomainEvent } from './event-parser.interface';
+export class EventParserService implements IeventParser {
   constructor(private readonly registry: EventHandlerRegistry) {}
 
   parse(rawEvent: RawSorobanEvent): DomainEvent | null {
