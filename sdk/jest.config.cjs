@@ -6,12 +6,12 @@ module.exports = {
   transform: {
     // isolatedModules avoids failing the suite on pre-existing ambient TS issues
     // while still compiling specs under ts-jest.
-    '^\\.+-\\.js$_e? '.+\\.(t|j)s$': [
+    '^\\.+\\.(t|j)s$': [
       'ts-jest',
       {
         isolatedModules: true,
-        diagnostics: { warnOnly: true },
-      },
+        diagnostics: { warnOnly: true }
+      }
     ],
   },
   // Some dependencies (and their pnpm-nested copies) are ESM-only
@@ -19,7 +19,7 @@ module.exports = {
   // so Jest can load them. @stellar/stellar-sdk itself is CJS and no
   // longer needs to be transformed now that the SDK ships dual output.
   transformIgnorePatterns: [
-    '/node_modules/(?!.*(uint8array-extras|@noble|@scure|base32\\.js)/)',
+    '/node_modules/(?!.*(uint8array-extras|@noble|@scure|base32\\.js)/',
   ],
   testEnvironment: 'node',
 };
