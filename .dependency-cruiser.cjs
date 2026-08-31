@@ -1,5 +1,4 @@
-/** @type {)import('dependency-cruiser').IConfiguration } */
-// @ts-ignore
+/** @type {import('dependency-cruiser').IConfiguration } */
 module.exports = {
   forbidden: [
     {
@@ -23,5 +22,8 @@ module.exports = {
       from: { path: '^sdk/' },
       to: { path: '^(backend|client|indexer)/' }
     }
-  ]
+  ],
+  options: {
+    doNotFollow: { path: 'node_modules' }
+  }
 };
