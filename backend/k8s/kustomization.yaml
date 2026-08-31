@@ -1,0 +1,93 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Backend overlay. The Deployment, Service, HPA, and PDB structure lives in
+# ../../k8s/base; this file supplies only what is genuinely backend-specific.
+#
+#   kubectl apply -k backend/k8s
+#
+namespace: tikka
+
+labels:
+  - pairs:
+      app: tikka-backend
+    includeSelectors: true
+
+resources:
+  - ../../k8s/base
+  - configmap.yaml
+
+images:
+  - name: ghcr.io/crackedstudio/tikka-service
+    newName: ghcr.io/crackedstudio/tikka-backend
+    newTag: latest
+
+# Names are patched rather than derived with namePrefix/nameSuffix so the
+# objects already running in the cluster keep their exact names — no orphaned
+# HPA or PDB to clean up after this refactor lands.
+patches:
+  - target:
+      kind: Deployment
+      name: tikka
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-backend
+      - op: replace
+        path: /spec/template/spec/containers/0/name
+        value: tikka-backend
+      - op: add
+        path: /spec/template/spec/containers/0/ports
+        value:
+          - containerPort: 3001
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom
+        value:
+          - configMapRef:
+              name: tikka-backend-config
+          - secretRef:
+              name: tikka-backend-secrets
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: BACKEND_SHUTDOWN_HARD_TIMEOUT_MS
+            value: "25000"
+      - op: replace
+        path: /spec/template/spec/containers/0/startupProbe/httpGet/port
+        value: 3001
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/httpGet/port
+        value: 3001
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/httpGet/port
+        value: 3001
+
+  - target:
+      kind: Service
+      name: tikka
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-backend
+      - op: replace
+        path: /spec/ports/0/targetPort
+        value: 3001
+
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: tikka-hpa
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-backend-hpa
+      - op: replace
+        path: /spec/scaleTargetRef/name
+        value: tikka-backend
+
+  - target:
+      kind: PodDisruptionBudget
+      name: tikka-pdb
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-backend-pdb
