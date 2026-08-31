@@ -299,7 +299,6 @@ jobs:
           path: oracle/dist
           retention-days: 7
 
-
   # Enforce module boundaries across packages
   module-boundaries:
     name: Module Boundaries
@@ -349,6 +348,20 @@ jobs:
       - name: Enforce module boundaries
         run: pnpm exec depcruise --config .dependency-cruiser.js . || (echo "Module boundary violation. See docs/contributing/MODULE_BOUNDARIES.md"; exit 1)
 
+  # Observability assets - dashboard queries must resolve to metrics the code emits
+  observability:
+    name: Observability - Validate Dashboard Metrics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+
+      - name: Validate dashboard and alert queries against METRICS_MAP.md
+        run: node scripts/check-dashboard-metrics.js
 
   # Secret scanning - blocks PRs that contain verified secrets
   security-scan:
@@ -513,7 +526,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [commitlint, module-boundaries, client, sdk, backend, indexer, oracle, security-scan, lighthouse]
+    needs: [commitlint, module-boundaries, client, sdk, backend, indexer, oracle, observability, security-scan, lighthouse]
     if: always()
     steps:
       - name: Check all jobs status
@@ -532,6 +545,7 @@ jobs:
              ! check_status "${{ needs.backend.result }}" || \
              ! check_status "${{ needs.indexer.result }}" || \
              ! check_status "${{ needs.oracle.result }}" || \
+             ! check_status "${{ needs.observability.result }}" || \
              ! check_status "${{ needs.security-scan.result }}" || \
              ! check_status "${{ needs.lighthouse.result }}"; then
             echo "❌ One or more packages failed CI checks"

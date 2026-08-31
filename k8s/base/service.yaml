@@ -1,15 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: tikka-backend
-  namespace: tikka
+  name: tikka
   labels:
-    app: tikka-backend
+    app: tikka
 spec:
   selector:
-    app: tikka-backend
+    app: tikka
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 3001
+      targetPort: 8080
   type: ClusterIP
