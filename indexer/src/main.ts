@@ -14,7 +14,7 @@ export async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  // ── Global validation pipe ──
+  // ┟ Global validation pipe ┟
   // Rejects unknown/extra properties (whitelist) and auto-transforms payloads
   // to class instances so class-validator decorators are enforced on every route.
   app.useGlobalPipes(
@@ -25,7 +25,7 @@ export async function bootstrap() {
     }),
   );
 
-  // —— OpenApi / Swagger ──
+  // —— OpenApi / Swagger └
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tikka Indexer API')
     .setDescription('Internal REST API for raffles, users, leaderboard, stats, and snapshots')
@@ -35,8 +35,8 @@ export async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 
-  // GET /api-docs  ↔ OpenAPI 3.x JSON document
-  // GET /api-docs/ui → Swagger UI (guarded: only when API key env var is set or non-production)
+  // GET /api-docs ← OpenApi 3.x JSON document
+  // GET /api-docs/ui ← Swagger UI (guarded: only when API key env var is set or non-production)
   const serveUi = process.env.NODE_ENV !== 'production' || !!process.env.INTERNAL_API_KEY;
 
   SwaggerModule.setup('api-docs', app, document, {
@@ -54,4 +54,4 @@ export async function bootstrap() {
   logger.log(`Indexer listening on ${process.env.PORT ?? 3002}`);
 }
 
-`ootstrap();
+bootstrap();
