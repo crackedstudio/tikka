@@ -28,6 +28,8 @@ Every entity in `indexer/src/database/entities/` carries an `@owner indexer` doc
 - [IndexerCursor Entity](#indexercursor-entity)
 - [DeadLetterEvent Entity (DLQ)](#deadletterevent-entity-dlq)
 - [Recalculation Safety](#recalculation-safety)
+- [Migration Ownership Rules](#migration-ownership-rules)
+- [References](#references)
 
 ---
 
@@ -37,6 +39,7 @@ Every entity in `indexer/src/database/entities/` carries an `@owner indexer` doc
 **Table**: `raffles`  
 **Purpose**: Represents a single raffle as tracked by the indexer.
 **Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -79,6 +82,7 @@ Every entity in `indexer/src/database/entities/` carries an `@owner indexer` doc
 **Table**: `tickets`  
 **Purpose**: Represents a single raffle ticket purchased by a user.
 **Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -110,6 +114,7 @@ Every entity in `indexer/src/database/entities/` carries an `@owner indexer` doc
 **Table**: `users`  
 **Purpose**: Aggregated per-user participation statistics.
 **Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -158,6 +163,7 @@ UPDATE users u SET
 **Table**: `raffle_events`  
 **Purpose**: Raw log of every Tikka contract event ingested from the Stellar ledger. Acts as an audit trail and is the **source of truth** for all processors.
 **Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -193,6 +199,7 @@ Old events can be safely archived and deleted after a retention period (default:
 **Table**: `platform_stats`  
 **Purpose**: Daily platform-wide aggregate statistics.
 **Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -221,6 +228,7 @@ All fields can be safely recalculated from the `raffles` and `tickets` tables. T
 **Table**: `indexer_cursor`  
 **Purpose**: Singleton row tracking the last processed ledger and reorg detection state.
 **Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -254,6 +262,7 @@ UPDATE indexer_cursor SET last_ledger = 0, last_paging_token = '', ledger_hashes
 **Table**: `dead_letter_events`  
 **Purpose**: Stores events that failed to process, with retry and replay support.
 **Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
