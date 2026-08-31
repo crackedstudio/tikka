@@ -321,6 +321,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check root dependencies are not misplaced
+        run: node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); const d=p.dependencies||{}; const bad=['@pinata/sdk','react-router-dom'].filter(x=>d[x]); if(bad.length){console.error('Misplaced root dependencies: '+bad.join(', ')+' in package.json. Move them to the appropriate package. See docs/contributing/MODULE_BOUNDARIES.md'); process.exit(1);}"
       - name: Enforce module boundaries
         run: pnpm exec depcruise --config .dependency-cruiser.js . || (echo "Module boundary violation. See docs/contributing/MODULE_BOUNDARIES.md"; exit 1)
 
