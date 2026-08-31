@@ -4,7 +4,7 @@
  * so bundlers can produce a smaller initial chunk.
  */
 
-export * from './wallet';
-export * from './network';
-export * from './utils';
-export * from './auth/sep10';
+export * from './wallet.js';
+export * from './network.js';
+export * from './utils.js';
+export * from './auth/sep10.js';
