@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useWallet, normalizeNetworkName } from "./useWallet";
-import * as walletService from "../services/walletService";
+import * as walletSdk from "../../../sdk/src/wallet";
 import { useAuthStore } from "../store/useAuthStore";
 
-vi.mock("../services/walletService", () => ({
+vi.mock("../../../sdk/src/wallet", () => ({
   getWalletAdapter: vi.fn(),
 }));
 
@@ -21,7 +21,7 @@ vi.mock("../store/useAuthStore", () => ({
 
 describe("useWallet", () => {
   beforeEach(() => {
-    viclearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("connects using the SDK adapter", async () => {
@@ -31,17 +31,17 @@ describe("useWallet", () => {
       disconnect: vi.fn(),
       signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
     };
-    vi.mocked(walletService.getWalletAdapter).mockReturnValue(adapter as any);
-
+    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as any);
+    
     const { result } = renderHook(() => useWallet());
-
+    
     await act(async () => {
       await result.current.connect("mock");
     });
-
-    expect(walletService.getWalletAdapter).toHaveBeenCalledWith("mock");
+    
+    expect(walletSdk.getWalletAdapter).toHaveBeenCalledWith("mock");
     expect(adapter.connect).toHaveBeenCalledOnce();
-    expect(result.current.isConnected).toBe();
+    expect(result.current.isConnected).toBe(true);
     expect(result.current.address).toBe("GABCDEF");
     expect(result.current.network).toBe("testnet");
   });
@@ -53,17 +53,17 @@ describe("useWallet", () => {
       disconnect: vi.fn().mockResolvedValue(undefined),
       signTransaction: vi.fn(),
     };
-    vi.mocked(walletService.getWalletAdapter).mockReturnValue(adapter as any);
-
+    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as any);
+    
     const { result } = renderHook(() => useWallet());
-
+    
     await act(async () => {
       await result.current.connect("mock");
     });
     await act(async () => {
       await result.current.disconnect();
     });
-
+    
     expect(adapter.disconnect).toHaveBeenCalledOnce();
     expect(result.current.isConnected).toBe(false);
     expect(result.current.address).toBe(null);
@@ -77,19 +77,19 @@ describe("useWallet", () => {
       disconnect: vi.fn(),
       signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
     };
-    vi.mocked(walletService.getWalletAdapter).mockReturnValue(adapter as any);
-
+    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as any);
+    
     const { result } = renderHook(() => useWallet());
-
+    
     await act(async () => {
       await result.current.connect("mock");
     });
-
+    
     let signed: string = "";
     await act(async () => {
       signed = await result.current.signTransaction("xdr-to-sign");
     });
-
+    
     expect(adapter.signTransaction).toHaveBeenCalledWith("xdr-to-sign", {
       networkPassphrase: "Test SDF Network ; September 2015",
       address: "GABCDEF",
