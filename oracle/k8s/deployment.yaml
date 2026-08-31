@@ -56,6 +56,8 @@ spec:
           env:
             - name: SOPS_AGE_KEY_FILE
               value: /run/secrets/age.key
+            - name: ORACLE_SHUTDOWN_HARD_TIMEOUT_MS
+              value: "25000"
           volumeMounts:
             - name: age-key
               mountPath: /run/secrets
