@@ -323,6 +323,29 @@ jobs:
 
       - name: Check root dependencies are not misplaced
         run: node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); const d=p.dependencies||{}; const bad=Object.keys(d); if(bad.length){console.error('Misplaced root dependencies: '+bad.join(', ')+' in package.json. Move them to the appropriate package. See docs/contributing/MODULE_BOUNDARIES.md'); process.exit(1);}"
+      - name: Write dependency-cruiser config
+        run: |
+          cat > .dependency-cruiser.js <<'EOF'
+          module.exports = {
+            forbidden: [
+              {
+                name: 'client-not-import-backend-indexer',
+                from: { path: '^client/' },
+                to: { path: '^(backend|indexer)/' },
+              },
+              {
+                name: 'indexer-not-import-backend',
+                from: { path: '^indexer/' },
+                to: { path: '^backend/' },
+              },
+              {
+                name: 'sdk-not-import-apps',
+                from: { path: '^sdk/' },
+                to: { path: '^(client|backend|indexer|oracle)/' },
+              },
+            ],
+          };
+          EOF
       - name: Enforce module boundaries
         run: pnpm exec depcruise --config .dependency-cruiser.js . || (echo "Module boundary violation. See docs/contributing/MODULE_BOUNDARIES.md"; exit 1)
 
