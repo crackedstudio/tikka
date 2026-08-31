@@ -7,8 +7,8 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc -b && vite build",
-        "analyze": "ANALYZE=1 vite build",
-        "lint": "eslint .",
+        "analyze": "ANYALZE=1 vite build",
+        "lint": "eslint . && pnpm run check:boundaries",
         "typecheck": "tsc --noEmit -p tsconfig.app.json",
         "check:locales": "node scripts/check-locales.js",
         "pretest": "pnpm run check:locales",
@@ -21,7 +21,8 @@
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed",
         "lighthouse": "lhci autorun",
-        "lighthouse:local": "pnpm run build && lhci autorun"
+        "lighthouse:local": "pnpm run build && lhci autorun",
+        "check:boundaries": "depcruise --config package.json src"
     },
     "dependencies": {
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
@@ -64,6 +65,7 @@
         "@types/react-dom": "^19.1.7",
         "@vitejs/plugin-react": "^5.0.0",
         "cross-env": "^10.1.0",
+        "dependency-cruiser": "^16.0.0",
         "eslint": "^9.33.0",
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
@@ -71,7 +73,7 @@
         "globals": "^16.3.0",
         "jsdom": "^22.1.0",
         "msw": "^2.14.6",
-        "rollup-plugin-visualizer": "^7.0.1",
+        "rollplug-visualizer": "^7.0.1",
         "typescript": "~5.8.3",
         "typescript-eslint": "^8.39.1",
         "vite": "^7.1.2",
@@ -82,5 +84,33 @@
         "node": ">=20",
         "pnpm": ">=9"
     },
-    "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+    "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40ee4228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcc2531",
+    "dependency-cruiser": {
+        "forbidden": [
+            {
+                "name": "client-no-backend",
+                "severity": "error",
+                "comment": "Forbidden cross-package import. See docs/contributing/MODULE_BOUNDARIES.md",
+                "from": { "path": "^src/" },
+                "to": { "path": "(\\.\\/backend/|\\.\\/indexer/|/backend/|/indexer/);" }
+            },
+            {
+                "name": "indexer-no-backend",
+                "severity": "error",
+                "comment": "Forbidden cross-package import. See docs/contributing/MODULE_BOUNDARIES.md",
+                "from": { "path": "(\\.\\/indexer/|/indexer/)" },
+                "to": { "path": "(\\.\\/backend/|/backend/)" }
+            },
+            {
+                "name": "sdk-no-app",
+                "severity": "error",
+                "comment": "Forbidden cross-package import. See docs/contributing/MODULE_BOUNDARIES.md",
+                "from": { "path": "(\\.\\/sdk/|/sdk/)" },
+                "to": { "path": "(\\.\\/client/|\\.\\/backend/|\\.\\/indexer/|/client/|/backend/|/indexer/)" }
+            }
+        ],
+        "options": {
+            "doNotFollow": { "path": "node_modules" }
+        }
+    }
 }
