@@ -1,5 +1,5 @@
 /** @owner indexer */
 import { Entity } from 'typeorm';
 
-Entity('participant')
+@Entity('participant')
 export class Participant {}
