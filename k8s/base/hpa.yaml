@@ -1,15 +1,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: tikka-oracle-hpa
-  namespace: tikka
+  name: tikka-hpa
   labels:
-    app: tikka-oracle
+    app: tikka
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: tikka-oracle
+    name: tikka
   minReplicas: 2
   maxReplicas: 10
   metrics:
