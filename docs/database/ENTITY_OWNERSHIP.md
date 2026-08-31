@@ -1,0 +1,1 @@
+Entity ownership: indexer owns all entities.
