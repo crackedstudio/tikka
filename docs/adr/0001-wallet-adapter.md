@@ -1,3 +1,1 @@
-# ADR 0001
-
-Use SDK wallet adapters.
+# ADR 0001: Use SDK wallet adapters.
