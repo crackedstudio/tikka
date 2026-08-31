@@ -1,6 +1,6 @@
 # 🎟️ Tikka - Decentralized Raffle Platform
 
-**In this repo:** This is the Tikka frontend (tikka-frontend). It reads data from **tikka-backend** and performs onchain writes via **@tikka/sdk**. For the full ecosystem (SDK, backend, indexer, oracle, data flows), see [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md). For database entity ownership and access boundaries, see [Entity Ownership & Access Boundaries](../docs/database/ENTITY_OWNERSHIP.md).
+**In this repo:** This is the Tikka frontend (tikka-frontend). It reads data from **tikka-backend** and performs onchain writes via **@tikka/sdk**. For the full ecosystem (SDK, backend, indexer, oracle, data flows), see [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md). For database entity ownership and access boundaries, see [Entity Ownership & Access Boundaries](../docs/database/ENTITY_OWNERSHIP.md). The indexer owns the indexer entity tables; the backend is granted read-only access via a dedicated database role.
 
 ---
 
