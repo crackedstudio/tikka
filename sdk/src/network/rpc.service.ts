@@ -13,6 +13,7 @@ import {
   ContractFailureError,
 } from '../utils/errors';
 import { withRetry } from '../utils/retry';
+import { defaultLogger, type TikkaLogger } from '../utils/logger';
 
 
 interface RequestOptions {
@@ -30,11 +31,14 @@ export class RpcService {
   private circuitState: 'closed' | 'open' | 'half-open' = 'closed';
   private consecutiveFailures = 0;
   private circuitOpenedAt: number | null = null;
+  private logger: TikkaLogger;
 
   constructor(
     private readonly networkConfig: NetworkConfig,
     rpcConfig?: RpcConfig,
+    logger?: TikkaLogger,
   ) {
+    this.logger = logger ?? defaultLogger;
     this.rpcConfig = this.normalizeConfig({
       ...DEFAULT_RPC_CONFIG,
       ...rpcConfig,
@@ -134,7 +138,7 @@ export class RpcService {
         suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
       };
     } catch (err: any) {
-      console.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
+      this.logger.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
       return { minFee: 100, suggestedFee: 100 };
     }
   }
@@ -176,7 +180,7 @@ export class RpcService {
   private recordSuccess(): void {
     if (this.circuitState === 'half-open') {
       this.circuitState = 'closed';
-      console.log(`[RpcService] Circuit breaker recovered. State set to CLOSED.`);
+      this.logger.info(`[RpcService] Circuit breaker recovered. State set to CLOSED.`);
     }
     this.consecutiveFailures = 0;
   }
@@ -200,14 +204,14 @@ export class RpcService {
       if (this.consecutiveFailures >= threshold) {
         this.circuitState = 'open';
         this.circuitOpenedAt = Date.now();
-        console.warn(
+        this.logger.warn(
           `[RpcService] Circuit breaker tripped to OPEN after ${this.consecutiveFailures} consecutive failures.`
         );
       }
     } else if (this.circuitState === 'half-open') {
       this.circuitState = 'open';
       this.circuitOpenedAt = Date.now();
-      console.warn(`[RpcService] Circuit breaker probe failed. Re-entered OPEN state.`);
+      this.logger.warn(`[RpcService] Circuit breaker probe failed. Re-entered OPEN state.`);
     }
   }
 
@@ -268,7 +272,7 @@ export class RpcService {
         maxDelayMs: this.rpcConfig.maxRetryDelayMs ?? 8000,
         retryOn: this.rpcConfig.retryableStatusCodes ?? [429, 502, 503, 504, 'RATE_LIMIT', 'UNAVAILABLE', 'TIMEOUT', 'ECONNRESET'],
         onRetry: (attempt, error, delay) => {
-          console.warn(
+          this.logger.warn(
             `[RpcService] ${method} retry ${attempt} in ${Math.round(delay)}ms (${url}): ${error?.message ?? error}`,
           );
         },

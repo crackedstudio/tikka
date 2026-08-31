@@ -1,9 +1,12 @@
+import { defaultLogger, type TikkaLogger } from './logger';
+
 export interface RetryOptions {
   maxAttempts?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
   retryOn?: (number | string)[];
   onRetry?: (attempt: number, error: any, delay: number) => void;
+  logger?: TikkaLogger;
 }
 
 /**
@@ -25,6 +28,7 @@ export async function withRetry<T>(
     maxDelayMs = 8000,
     retryOn = [503, 429, 'ECONNRESET'],
     onRetry,
+    logger = defaultLogger,
   } = opts;
 
   let lastError: any;
@@ -56,7 +60,7 @@ export async function withRetry<T>(
       if (onRetry) {
         onRetry(attempt, error, delay);
       } else {
-        console.debug(
+        logger.debug(
           `[withRetry] Attempt ${attempt} failed, retrying in ${Math.round(delay)}ms: ${message}`,
         );
       }
