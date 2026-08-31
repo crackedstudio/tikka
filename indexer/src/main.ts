@@ -3,15 +3,18 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { initTracing, shutdownTracing } from './tracing/tracing';
+import { validateEnv } from './config/env.config';
 
 const logger = new Logger("Bootstrap");
 
 export async function bootstrap() {
+  validateEnv();
+
   initTracing();
 
   const app = await NestFactory.create(AppModule);
 
-  // ── Global validation pipe ─────────────────────────────────────────────────
+  // ── Global validation pipe ──
   // Rejects unknown/extra properties (whitelist) and auto-transforms payloads
   // to class instances so class-validator decorators are enforced on every route.
   app.useGlobalPipes(
@@ -22,7 +25,7 @@ export async function bootstrap() {
     }),
   );
 
-  // ── OpenAPI / Swagger ──────────────────────────────────────────────────────
+  // —— OpenApi / Swagger ──
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tikka Indexer API')
     .setDescription('Internal REST API for raffles, users, leaderboard, stats, and snapshots')
@@ -32,14 +35,14 @@ export async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 
-  // GET /api-docs  → OpenAPI 3.x JSON document
+  // GET /api-docs  ↔ OpenAPI 3.x JSON document
   // GET /api-docs/ui → Swagger UI (guarded: only when API key env var is set or non-production)
   const serveUi = process.env.NODE_ENV !== 'production' || !!process.env.INTERNAL_API_KEY;
 
   SwaggerModule.setup('api-docs', app, document, {
     jsonDocumentUrl: 'api-docs',          // serves JSON at exactly /api-docs
     swaggerUrl: serveUi ? 'api-docs/ui' : undefined,
-    swaggerOptions: { persistAuthorization: true },
+    swaggerOptions: { persitAuthorization: true },
   });
 
   app.enableShutdownHooks();
@@ -51,4 +54,4 @@ export async function bootstrap() {
   logger.log(`Indexer listening on ${process.env.PORT ?? 3002}`);
 }
 
-bootstrap();
+`ootstrap();
