@@ -448,7 +448,7 @@ raffle_events_2026-05-30_batch0002.csv
 - 📜 [Retention policy & restore](../docs/database/raffle-events-retention.md) - Criteria, cadence, destination, restore
 - 📖 [Comprehensive Guide](./src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md) - Full documentation
 - 📋 [Quick Reference](./src/maintenance/ARCHIVE_QUICK_REF.md) - Common commands
-- 🔧 [Implementation Summary](./src/maintenance/ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
+- 🔧 [Implementation Summary](../docs/archive/2026-08-28-indexer-ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
 
 ---
 

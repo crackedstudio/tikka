@@ -59,6 +59,7 @@ export interface UpdateWebhookPayload {
 const TABLE = 'webhooks';
 const DELIVERIES_TABLE = 'webhook_deliveries';
 const DEAD_LETTERS_TABLE = 'webhook_dead_letters';
+const MAX_RETRIES = 3;
 
 @Injectable()
 export class WebhookService {
@@ -237,6 +238,7 @@ export class WebhookService {
       return;
     }
 
+    const payloadString = JSON.stringify(payloadData);
     await Promise.allSettled(
       webhooks.map((webhook) => this.deliverWebhookWithRetries(webhook, eventType, payloadString))
     );
@@ -258,7 +260,8 @@ export class WebhookService {
     let errorMessage: string | null = null;
 
     while (attempt <= MAX_RETRIES && !success) {
-      if (attempt > 0) {
+      attempt++;
+      if (attempt > 1) {
         const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
         const delayMs = isTest ? 0 : Math.pow(2, attempt) * 1000;
         await new Promise((res) => setTimeout(res, delayMs));
@@ -272,8 +275,35 @@ export class WebhookService {
             'X-Tikka-Signature': signature,
             'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
           },
-        ),
-      ),
-    );
+          body: payloadString,
+        });
+
+        statusCode = response.status;
+        responseBody = await response.text();
+
+        if (response.ok) {
+          success = true;
+        } else {
+          errorMessage = `HTTP error ${response.status}: ${responseBody}`;
+        }
+      } catch (err) {
+        errorMessage = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    // Record delivery
+    try {
+      await this.client.from(DELIVERIES_TABLE).insert({
+        webhook_id: webhook.id,
+        event_type: eventType,
+        payload: JSON.parse(payloadString),
+        status_code: statusCode,
+        response_body: responseBody,
+        error_message: errorMessage,
+        success,
+      });
+    } catch (recordErr) {
+      this.logger.error(`Failed to record webhook delivery for ${webhook.id}`, recordErr);
+    }
   }
 }

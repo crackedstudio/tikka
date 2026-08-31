@@ -131,84 +131,7 @@ export class RandomnessWorker implements OnApplicationShutdown {
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
-    } catch (err: any) {
-      const maxRetries = this.stateManager.getConfig().maxRetries;
-      const attemptCount = job.attemptsMade + 1; // Include the current attempt
-
-      if (attemptCount >= maxRetries) {
-        if (job.data?.requestId) {
-          this.stateManager.transitionState(
-            job.data.requestId,
-            JobState.DEAD_LETTERED,
-            `Exhausted ${maxRetries} attempts due to handler crash`,
-            err.message
-          );
-        }
-        await this.quarantineJob(job, err);
-        return;
-      }
-      throw err; // Let Bull retry it
-    }
-    }); // end CorrelationContext.run
-
-    this.activeJobPromises.set(String(job.id), jobPromise);
-    try {
-      await jobPromise;
-    } finally {
-      this.activeJobPromises.delete(String(job.id));
-    }
-  }
-
-  async onApplicationShutdown(signal?: string): Promise<void> {
-    this.logger.log(
-      `Shutdown initiated (${signal}) — pausing queue and draining active jobs`,
-    );
-    this.shuttingDown = true;
-
-    try {
-      await this.randomnessQueue?.pause(true, true);
-    } catch (err) {
-      this.logger.warn(`Failed to pause randomness queue during shutdown: ${err}`);
-    }
-
-    const activePromises = Array.from(this.activeJobPromises.values());
-
-    if (activePromises.length === 0) {
-      this.logger.log('No active jobs to drain');
-      return;
-    }
-
-    this.logger.log(`Waiting for ${activePromises.length} active job(s) to finish`);
-
-    const timeoutPromise = new Promise<void>((resolve) =>
-      setTimeout(resolve, this.shutdownTimeoutMs),
-    );
-
-    await Promise.race([Promise.all(activePromises), timeoutPromise]);
-
-    const remaining = this.activeJobPromises.size;
-    if (remaining > 0) {
-      this.logger.warn(
-        `Shutdown timeout exceeded — ${remaining} job(s) still in-flight. These will be retried or require rescue.`,
-      );
-      try {
-        await this.alertingService.fire({
-          severity: 'critical',
-          summary: `Oracle shutdown stranded ${remaining} active randomness job(s)`,
-          details: `Signal: ${signal}. Jobs may require rescue intervention.`,
-          dedupKey: 'oracle-shutdown-stranded-jobs',
-          context: {
-            oracle_id: process.env.LOCAL_ORACLE_ID || 'oracle-001',
-          },
-        });
-      } catch (alertErr) {
-        this.logger.error(
-          `Failed to fire shutdown stranded-jobs alert: ${alertErr}`,
-        );
-      }
-    } else {
-      this.logger.log('All active jobs drained successfully');
-    }
+    });
   }
 
   private async quarantineJob(job: Job<RandomnessJobPayload>, error: any) {
@@ -266,7 +189,6 @@ export class RandomnessWorker implements OnApplicationShutdown {
       return;
     }
 
-    // Support ORACLE_MODE=multi env toggle as well as legacy isMultiOracleMode()
     const oracleMode = this.configService.get<string>('ORACLE_MODE', 'single').toLowerCase();
     const isMultiOracle = oracleMode === 'multi' || this.oracleRegistry.isMultiOracleMode();
     const localOracleId = this.oracleRegistry.getLocalOracleId();
@@ -305,7 +227,6 @@ export class RandomnessWorker implements OnApplicationShutdown {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
 
-      // Record audit log immediately after successful submission
       const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
       await this.auditLogService.record({
         raffleId,
@@ -327,10 +248,10 @@ export class RandomnessWorker implements OnApplicationShutdown {
       this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
-        `Failed to process randomness request for raffle ${raffleId}: ${error.message}`,
+        `Failed to process randomness request for raffle ${raffleId}: ${(error as Error).message}`,
         JSON.stringify({ raffle_id: raffleId, request_id: requestId, outcome: 'failure' } as OracleLogFields),
       );
-      this.healthService.recordFailure(requestId, raffleId, error.message);
+      this.healthService.recordFailure(requestId, raffleId, (error as Error).message);
       throw error;
     }
   }
@@ -364,10 +285,8 @@ export class RandomnessWorker implements OnApplicationShutdown {
         JSON.stringify({ raffle_id: raffleId, request_id: requestId, provider, oracle_id: localOracleId } as OracleLogFields),
       );
 
-      // Compute local oracle's VRF output
       const localRandomness = await this.computeRandomness(method, requestId);
 
-      // Broadcast to peers and collect responses; aggregate via XOR
       const { aggregated, usedOracles, fellBack } =
         await this.multiOracleCoordinator.broadcastAndCollect(requestId, localRandomness);
 
@@ -387,7 +306,6 @@ export class RandomnessWorker implements OnApplicationShutdown {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
 
-      // Record audit log immediately after successful submission
       const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
       await this.auditLogService.record({
         raffleId,
@@ -401,14 +319,13 @@ export class RandomnessWorker implements OnApplicationShutdown {
 
       this.processedRequestIds.add(requestId);
 
-      // Record in coordinator for observability
       if (!this.multiOracleCoordinator.isTracked(raffleId, requestId)) {
         await this.multiOracleCoordinator.startTracking(raffleId, requestId);
       }
       const localOracle = this.oracleRegistry.getLocalOracle();
       if (localOracle) {
-       this.multiOracleCoordinator.recordSubmission(
-  raffleId, requestId, localOracleId, localOracle.publicKey, aggregated
+        this.multiOracleCoordinator.recordSubmission(
+          raffleId, requestId, localOracleId, localOracle.publicKey, aggregated
         );
       }
 
@@ -420,10 +337,10 @@ export class RandomnessWorker implements OnApplicationShutdown {
       this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
-        `Failed to process multi-oracle request for raffle ${raffleId}: ${error.message}`,
+        `Failed to process multi-oracle request for raffle ${raffleId}: ${(error as Error).message}`,
         JSON.stringify({ raffle_id: raffleId, request_id: requestId, oracle_id: localOracleId, outcome: 'failure' } as OracleLogFields),
       );
-      this.healthService.recordFailure(`${requestId}:${localOracleId}`, raffleId, error.message);
+      this.healthService.recordFailure(`${requestId}:${localOracleId}`, raffleId, (error as Error).message);
       throw error;
     }
   }
@@ -479,7 +396,7 @@ export class RandomnessWorker implements OnApplicationShutdown {
     if (!startTime) return;
 
     const processingTime = Date.now() - startTime;
-    const SLA_THRESHOLD_MS = 5000; // 5 seconds for high-priority jobs
+    const SLA_THRESHOLD_MS = 5000;
 
     if (processingTime > SLA_THRESHOLD_MS) {
       this.logger.warn(
@@ -495,12 +412,10 @@ export class RandomnessWorker implements OnApplicationShutdown {
   }
 
   determinePriority(prizeAmount?: number, priorityFlag?: number): number {
-    // If priority flag is explicitly set in contract event, use it
     if (priorityFlag !== undefined) {
       return priorityFlag;
     }
 
-    // Otherwise, determine priority based on prize amount
     if (!prizeAmount) {
       return JobPriority.NORMAL;
     }
