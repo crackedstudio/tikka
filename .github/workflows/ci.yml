@@ -318,6 +318,10 @@ jobs:
       - name: Build and start services with full profile
         run: docker compose --profile full up -d --build --wait
 
+      - name: Build and start client profile
+        if: hashFiles('client/Dockerfile') != ''
+        run: docker compose --profile client up -d --build --wait
+
       - name: Assert service health endpoints
         run: |
           set -euo pipefail
@@ -327,7 +331,7 @@ jobs:
 
       - name: Tear down services
         if: always()
-        run: docker compose --profile full down -v
+        run: docker compose down -v
 
   # Observability assets - dashboard queries must resolve to metrics the code emits
   observability:
