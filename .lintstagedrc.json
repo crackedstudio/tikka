@@ -1,15 +1,9 @@
 {
-  "*.{js,ts,tsx,json,md,yml,yaml,html,css}": [
-    "prettier --write"
-  ],
+  "*.{js,ts,tsx,json,md,yml,yaml,html,css}": ["prettier --write"],
   "client/**/*.{ts,tsx}": [
     "bash -c 'npm --prefix client run typecheck'",
     "bash -c 'npm --prefix client run lint'"
   ],
-  "sdk/**/*.ts": [
-    "bash -c 'npm --prefix sdk run lint'"
-  ],
-  "backend/**/*.ts": [
-    "bash -c 'npm --prefix backend run lint'"
-  ]
+  "sdk/**/*.ts": ["bash -c 'npm --prefix sdk run lint'"],
+  "backend/**/*.ts": ["bash -c 'npm --prefix backend run lint'"]
 }

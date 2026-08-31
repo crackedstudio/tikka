@@ -66,38 +66,38 @@ jobs:
         working-directory: ./client
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 8
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: client/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Check colour contrast (WCAG AA)
         run: node scripts/check-contrast.js
         continue-on-error: false
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run unit tests
         run: pnpm run test:unit
         continue-on-error: false
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -116,38 +116,38 @@ jobs:
         working-directory: ./sdk
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 8
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: sdk/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests
         run: pnpm run test
         continue-on-error: false
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Generate docs
         run: pnpm run docs
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -166,36 +166,36 @@ jobs:
         working-directory: ./backend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 8
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: backend/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests (mocked)
         run: pnpm run test
         env:
           NODE_ENV: test
         continue-on-error: false
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -214,36 +214,36 @@ jobs:
         working-directory: ./indexer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 8
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: indexer/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run unit tests (network tests excluded)
         run: pnpm run test
         env:
           NODE_ENV: test
         continue-on-error: false
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -262,43 +262,42 @@ jobs:
         working-directory: ./oracle
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 8
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: oracle/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests (mocked)
         run: pnpm run test
         env:
           NODE_ENV: test
         continue-on-error: false
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: oracle-build
           path: oracle/dist
           retention-days: 7
-
 
   # Secret scanning - blocks PRs that contain verified secrets
   security-scan:
@@ -330,34 +329,34 @@ jobs:
         working-directory: ./client
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 8
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: client/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Download build artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: client-build
           path: client/dist
-      
+
       - name: Run Lighthouse CI
         run: |
           pnpm exec lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
-      
+
       - name: Upload Lighthouse results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -366,7 +365,7 @@ jobs:
           path: |
             client/.lighthouseci
           retention-days: 30
-      
+
       - name: Comment PR with Lighthouse results
         if: github.event_name == 'pull_request'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -374,52 +373,52 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            
+
             // Read the Lighthouse results
             const resultsPath = path.join(process.cwd(), 'client/.lighthouseci');
-            
+
             if (!fs.existsSync(resultsPath)) {
               console.log('No Lighthouse results found');
               return;
             }
-            
+
             // Find the manifest file
             const files = fs.readdirSync(resultsPath);
             const manifestFile = files.find(f => f.includes('manifest.json'));
-            
+
             if (!manifestFile) {
               console.log('No manifest file found');
               return;
             }
-            
+
             const manifest = JSON.parse(
               fs.readFileSync(path.join(resultsPath, manifestFile), 'utf8')
             );
-            
+
             // Get the first result
             const result = manifest[0];
             const summary = result.summary;
-            
+
             // Create comment body
             const comment = `## 🔦 Lighthouse CI Results
-            
+
             Performance metrics for this build:
-            
+
             | Metric | Score | Status |
             |--------|-------|--------|
             | 🎨 Performance | ${Math.round(summary.performance * 100)} | ${summary.performance >= 0.9 ? '✅' : '⚠️'} |
             | ♿ Accessibility | ${Math.round(summary.accessibility * 100)} | ${summary.accessibility >= 0.9 ? '✅' : '⚠️'} |
             | 🎯 Best Practices | ${Math.round(summary['best-practices'] * 100)} | ${summary['best-practices'] >= 0.9 ? '✅' : '⚠️'} |
             | 🔍 SEO | ${Math.round(summary.seo * 100)} | ${summary.seo >= 0.9 ? '✅' : '⚠️'} |
-            
+
             [📊 View full Lighthouse report](${result.url})
-            
+
             ### Core Web Vitals
             - **LCP (Largest Contentful Paint)**: Target < 2.5s
             - **CLS (Cumulative Layout Shift)**: Target < 0.1
             - **FCP (First Contentful Paint)**: Target < 2.0s
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -498,7 +497,7 @@ jobs:
             fi
             return 0
           }
-          
+
           if ! check_status "${{ needs.commitlint.result }}" || \
              ! check_status "${{ needs.client.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \

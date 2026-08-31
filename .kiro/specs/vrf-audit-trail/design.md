@@ -26,12 +26,12 @@ The `AuditLogModule` is a self-contained NestJS module that exports `AuditLogSer
 
 ### Integration Points
 
-| Existing component | Change |
-|---|---|
+| Existing component                 | Change                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `CommitRevealWorker.processCommit` | Calls `auditLogService.createCommitRecord(...)` after successful `txSubmitter.submitCommitment` |
-| `CommitRevealWorker.processReveal` | Calls `auditLogService.updateRevealRecord(...)` after successful `txSubmitter.submitReveal` |
-| `AppModule` | Imports `AuditLogModule` |
-| `QueueModule` | Imports `AuditLogModule` |
+| `CommitRevealWorker.processReveal` | Calls `auditLogService.updateRevealRecord(...)` after successful `txSubmitter.submitReveal`     |
+| `AppModule`                        | Imports `AuditLogModule`                                                                        |
+| `QueueModule`                      | Imports `AuditLogModule`                                                                        |
 
 Errors from `AuditLogService` are caught and logged by the worker; they never propagate to fail the underlying commit or reveal transaction (fire-and-forget audit writes).
 
@@ -89,11 +89,11 @@ interface VrfAuditRecord {
 }
 
 class AuditLogService {
-  createCommitRecord(params: CreateCommitParams): Promise<void>
-  updateRevealRecord(params: UpdateRevealParams): Promise<void>
-  markAbandoned(raffleId: number): Promise<void>
-  getByRaffleId(raffleId: number): Promise<VrfAuditRecord | null>
-  verifyChain(fromId?: number): Promise<boolean>
+  createCommitRecord(params: CreateCommitParams): Promise<void>;
+  updateRevealRecord(params: UpdateRevealParams): Promise<void>;
+  markAbandoned(raffleId: number): Promise<void>;
+  getByRaffleId(raffleId: number): Promise<VrfAuditRecord | null>;
+  verifyChain(fromId?: number): Promise<boolean>;
 }
 ```
 
@@ -198,6 +198,7 @@ SHA-256(
 ```
 
 The chain hash is computed twice per record:
+
 1. At **commit time** — with `reveal_hash`, `proof`, `seed` as empty strings and `status = 'committed'`
 2. At **reveal time** — recomputed with all fields populated and `status = 'revealed'`
 
@@ -226,21 +227,20 @@ export interface VrfAuditRecord {
   seed: string | null;
   oracle_public_key: string;
   status: AuditStatus;
-  committed_at: string;       // ISO 8601
+  committed_at: string; // ISO 8601
   revealed_at: string | null; // ISO 8601
   ledger_sequence: number | null;
   chain_hash: string;
 }
 ```
 
-
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 ### Property 1: Audit record round-trip
 
-*For any* valid `(raffleId, commitmentHash, oraclePublicKey)` tuple passed to `createCommitRecord`, and any subsequent `(requestId, seed, proof, ledgerSequence)` tuple passed to `updateRevealRecord` for the same `raffleId`, reading back the stored record SHALL return exactly those field values with `status = 'revealed'` and a non-null `reveal_hash`.
+_For any_ valid `(raffleId, commitmentHash, oraclePublicKey)` tuple passed to `createCommitRecord`, and any subsequent `(requestId, seed, proof, ledgerSequence)` tuple passed to `updateRevealRecord` for the same `raffleId`, reading back the stored record SHALL return exactly those field values with `status = 'revealed'` and a non-null `reveal_hash`.
 
 **Validates: Requirements 1.1, 2.1**
 
@@ -248,7 +248,7 @@ export interface VrfAuditRecord {
 
 ### Property 2: Reveal hash computation
 
-*For any* `(secret, nonce, seed, proof)` tuple, `computeRevealHash(secret, nonce, seed, proof)` SHALL return the same value as independently computing `SHA-256(secret || nonce || seed || proof)`, and calling it twice with the same inputs SHALL return the same result (determinism).
+_For any_ `(secret, nonce, seed, proof)` tuple, `computeRevealHash(secret, nonce, seed, proof)` SHALL return the same value as independently computing `SHA-256(secret || nonce || seed || proof)`, and calling it twice with the same inputs SHALL return the same result (determinism).
 
 **Validates: Requirements 2.2**
 
@@ -256,7 +256,7 @@ export interface VrfAuditRecord {
 
 ### Property 3: Chain hash computation
 
-*For any* set of record fields `(raffleId, commitmentHash, revealHash, proof, seed, oraclePublicKey, status, committedAt)` and any `previousChainHash` string, `computeChainHash(fields, previousChainHash)` SHALL return the same value as independently computing `SHA-256` over the canonical concatenation of those fields in the specified order, and calling it twice with the same inputs SHALL return the same result.
+_For any_ set of record fields `(raffleId, commitmentHash, revealHash, proof, seed, oraclePublicKey, status, committedAt)` and any `previousChainHash` string, `computeChainHash(fields, previousChainHash)` SHALL return the same value as independently computing `SHA-256` over the canonical concatenation of those fields in the specified order, and calling it twice with the same inputs SHALL return the same result.
 
 **Validates: Requirements 1.4, 5.1**
 
@@ -264,7 +264,7 @@ export interface VrfAuditRecord {
 
 ### Property 4: Chain integrity across sequences
 
-*For any* sequence of audit records generated by `createCommitRecord` and `updateRevealRecord` calls, every consecutive pair `(R_n, R_{n+1})` SHALL satisfy: recomputing `R_{n+1}.chain_hash` from `R_{n+1}`'s stored fields and `R_n.chain_hash` produces the same value as the stored `R_{n+1}.chain_hash`.
+_For any_ sequence of audit records generated by `createCommitRecord` and `updateRevealRecord` calls, every consecutive pair `(R_n, R_{n+1})` SHALL satisfy: recomputing `R_{n+1}.chain_hash` from `R_{n+1}`'s stored fields and `R_n.chain_hash` produces the same value as the stored `R_{n+1}.chain_hash`.
 
 **Validates: Requirements 5.3**
 
@@ -272,7 +272,7 @@ export interface VrfAuditRecord {
 
 ### Property 5: verifyChain detects tampering
 
-*For any* valid chain of audit records, `verifyChain()` SHALL return `true`. *For any* chain where at least one record's stored `chain_hash` has been mutated to a different value, `verifyChain()` SHALL return `false`.
+_For any_ valid chain of audit records, `verifyChain()` SHALL return `true`. _For any_ chain where at least one record's stored `chain_hash` has been mutated to a different value, `verifyChain()` SHALL return `false`.
 
 **Validates: Requirements 5.4**
 
@@ -280,7 +280,7 @@ export interface VrfAuditRecord {
 
 ### Property 6: Abandoned record marking
 
-*For any* `raffleId` with an existing `status = 'committed'` record, calling `markAbandoned(raffleId)` SHALL result in the stored record having `status = 'abandoned'` and a non-null `revealed_at` timestamp.
+_For any_ `raffleId` with an existing `status = 'committed'` record, calling `markAbandoned(raffleId)` SHALL result in the stored record having `status = 'abandoned'` and a non-null `revealed_at` timestamp.
 
 **Validates: Requirements 3.1**
 
@@ -288,7 +288,7 @@ export interface VrfAuditRecord {
 
 ### Property 7: Abandonment eligibility
 
-*For any* set of audit records with varying `committed_at` timestamps and a configured draw timeout `T`, the set of records returned as eligible for abandonment SHALL be exactly those records where `status = 'committed'` AND `committed_at < now() - T`.
+_For any_ set of audit records with varying `committed_at` timestamps and a configured draw timeout `T`, the set of records returned as eligible for abandonment SHALL be exactly those records where `status = 'committed'` AND `committed_at < now() - T`.
 
 **Validates: Requirements 3.3**
 
@@ -296,7 +296,7 @@ export interface VrfAuditRecord {
 
 ### Property 8: Audit endpoint response completeness
 
-*For any* stored `VrfAuditRecord`, the JSON response from `GET /oracle/audit/:raffleId` SHALL contain all of the following fields: `id`, `raffle_id`, `request_id`, `commitment_hash`, `reveal_hash`, `proof`, `seed`, `oracle_public_key`, `status`, `committed_at`, `revealed_at`, `ledger_sequence`, `chain_hash` — and SHALL NOT contain fields named `secret` or `nonce`.
+_For any_ stored `VrfAuditRecord`, the JSON response from `GET /oracle/audit/:raffleId` SHALL contain all of the following fields: `id`, `raffle_id`, `request_id`, `commitment_hash`, `reveal_hash`, `proof`, `seed`, `oracle_public_key`, `status`, `committed_at`, `revealed_at`, `ledger_sequence`, `chain_hash` — and SHALL NOT contain fields named `secret` or `nonce`.
 
 **Validates: Requirements 4.2, 4.5**
 
@@ -304,7 +304,7 @@ export interface VrfAuditRecord {
 
 ### Property 9: Invalid raffleId rejected with 400
 
-*For any* `raffleId` value that is not a positive integer (including strings, zero, negative numbers, and non-integer floats), `GET /oracle/audit/:raffleId` SHALL return HTTP 400 with body `{ "error": "Invalid raffleId" }`.
+_For any_ `raffleId` value that is not a positive integer (including strings, zero, negative numbers, and non-integer floats), `GET /oracle/audit/:raffleId` SHALL return HTTP 400 with body `{ "error": "Invalid raffleId" }`.
 
 **Validates: Requirements 4.4**
 
@@ -328,11 +328,11 @@ All Supabase calls check the returned `error` field. If an error is present, the
 
 ### HTTP error responses
 
-| Condition | Status | Body |
-|---|---|---|
-| `raffleId` not a positive integer | 400 | `{ "error": "Invalid raffleId" }` |
-| No record found for `raffleId` | 404 | `{ "error": "Audit record not found" }` |
-| Unexpected service error | 500 | `{ "error": "Internal server error" }` |
+| Condition                         | Status | Body                                    |
+| --------------------------------- | ------ | --------------------------------------- |
+| `raffleId` not a positive integer | 400    | `{ "error": "Invalid raffleId" }`       |
+| No record found for `raffleId`    | 404    | `{ "error": "Audit record not found" }` |
+| Unexpected service error          | 500    | `{ "error": "Internal server error" }`  |
 
 ## Testing Strategy
 
@@ -354,17 +354,17 @@ Using **[fast-check](https://github.com/dubzzz/fast-check)** (already available 
 
 Each property test runs a minimum of **100 iterations**.
 
-| Property | Tag |
-|---|---|
-| Property 1: Audit record round-trip | `Feature: vrf-audit-trail, Property 1: audit record round-trip` |
-| Property 2: Reveal hash computation | `Feature: vrf-audit-trail, Property 2: reveal hash computation` |
-| Property 3: Chain hash computation | `Feature: vrf-audit-trail, Property 3: chain hash computation` |
-| Property 4: Chain integrity across sequences | `Feature: vrf-audit-trail, Property 4: chain integrity across sequences` |
-| Property 5: verifyChain detects tampering | `Feature: vrf-audit-trail, Property 5: verifyChain detects tampering` |
-| Property 6: Abandoned record marking | `Feature: vrf-audit-trail, Property 6: abandoned record marking` |
-| Property 7: Abandonment eligibility | `Feature: vrf-audit-trail, Property 7: abandonment eligibility` |
+| Property                                         | Tag                                                                          |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Property 1: Audit record round-trip              | `Feature: vrf-audit-trail, Property 1: audit record round-trip`              |
+| Property 2: Reveal hash computation              | `Feature: vrf-audit-trail, Property 2: reveal hash computation`              |
+| Property 3: Chain hash computation               | `Feature: vrf-audit-trail, Property 3: chain hash computation`               |
+| Property 4: Chain integrity across sequences     | `Feature: vrf-audit-trail, Property 4: chain integrity across sequences`     |
+| Property 5: verifyChain detects tampering        | `Feature: vrf-audit-trail, Property 5: verifyChain detects tampering`        |
+| Property 6: Abandoned record marking             | `Feature: vrf-audit-trail, Property 6: abandoned record marking`             |
+| Property 7: Abandonment eligibility              | `Feature: vrf-audit-trail, Property 7: abandonment eligibility`              |
 | Property 8: Audit endpoint response completeness | `Feature: vrf-audit-trail, Property 8: audit endpoint response completeness` |
-| Property 9: Invalid raffleId rejected with 400 | `Feature: vrf-audit-trail, Property 9: invalid raffleId rejected with 400` |
+| Property 9: Invalid raffleId rejected with 400   | `Feature: vrf-audit-trail, Property 9: invalid raffleId rejected with 400`   |
 
 Properties 1–7 test `AuditLogService` in isolation using an in-memory mock of the Supabase client (no real DB calls). Properties 8–9 test `AuditController` using NestJS `Test.createTestingModule` with a mocked `AuditLogService`.
 
