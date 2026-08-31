@@ -191,6 +191,10 @@ jobs:
         env:
           NODE_ENV: test
         continue-on-error: false
+
+      - name: Validate OpenAPI Spec
+        run: pnpm run validate:openapi
+        continue-on-error: false
       
       - name: Build
         run: pnpm run build
