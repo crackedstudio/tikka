@@ -2,10 +2,15 @@
 
 This document describes the ownership model for all indexer database entities, distinguishing between **raw chain state** (source-of-truth from Stellar ledger events) and **derived query state** (computed aggregates maintained by processors).
 
+## Ownership Boundary
+
+All tables documented here are owned by the `indexer` service. The backend service has a read-only database role (`backend_reader`) and backend code is prohibited from importing indexer entity classes by dependency-cruiser.
+
 ---
 
 ## Table of Contents
 
+- [Ownership Boundary](#ownership-boundary)
 - [Raffle Entity](#raffle-entity)
 - [Ticket Entity](#ticket-entity)
 - [User Entity](#user-entity)
@@ -22,6 +27,7 @@ This document describes the ownership model for all indexer database entities, d
 **File**: `raffle.entity.ts`  
 **Table**: `raffles`  
 **Purpose**: Represents a single raffle as tracked by the indexer.
+**Owner**: indexer
 
 ### Field Ownership
 
@@ -63,6 +69,7 @@ This document describes the ownership model for all indexer database entities, d
 **File**: `ticket.entity.ts`  
 **Table**: `tickets`  
 **Purpose**: Represents a single raffle ticket purchased by a user.
+**Owner**: indexer
 
 ### Field Ownership
 
@@ -93,6 +100,7 @@ This document describes the ownership model for all indexer database entities, d
 **File**: `user.entity.ts`  
 **Table**: `users`  
 **Purpose**: Aggregated per-user participation statistics.
+**Owner**: indexer
 
 ### Field Ownership
 
@@ -140,6 +148,7 @@ UPDATE users u SET
 **File**: `raffle-event.entity.ts`  
 **Table**: `raffle_events`  
 **Purpose**: Raw log of every Tikka contract event ingested from the Stellar ledger. Acts as an audit trail and is the **source of truth** for all processors.
+**Owner**: indexer
 
 ### Field Ownership
 
@@ -174,6 +183,7 @@ Old events can be safely archived and deleted after a retention period (default:
 **File**: `platform-stat.entity.ts`  
 **Table**: `platform_stats`  
 **Purpose**: Daily platform-wide aggregate statistics.
+**Owner**: indexer
 
 ### Field Ownership
 
@@ -201,6 +211,7 @@ All fields can be safely recalculated from the `raffles` and `tickets` tables. T
 **File**: `indexer-cursor.entity.ts`  
 **Table**: `indexer_cursor`  
 **Purpose**: Singleton row tracking the last processed ledger and reorg detection state.
+**Owner**: indexer
 
 ### Field Ownership
 
@@ -233,6 +244,7 @@ UPDATE indexer_cursor SET last_ledger = 0, last_paging_token = '', ledger_hashes
 **File**: `dead-letter-event.entity.ts`  
 **Table**: `dead_letter_events`  
 **Purpose**: Stores events that failed to process, with retry and replay support.
+**Owner**: indexer
 
 ### Field Ownership
 
