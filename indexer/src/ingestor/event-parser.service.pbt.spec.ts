@@ -5,7 +5,7 @@ import { EventHandlerRegistry } from './registry';
 describe('EventParserService (property)', () => {
   it('never throws', () => {
     fc.assert(fc.property(fc.record({ topics: fc.array(fc.string()), data: fc.string() }), (event) => {
-      expect(() => new EventParserService(new EventHandlerRegistry()).parse(event as any)).notToThrow();
+      expect(() => new EventParserService(new EventHandlerRegistry()).parse(event as any)).not.toThrow();
     }));
   });
 })
