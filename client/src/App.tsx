@@ -1,6 +1,6 @@
 import LandingLayout from "./layouts/LandingLayout";
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { logger } from "./utils/logger";
@@ -14,7 +14,6 @@ import { Spinner } from "./components/ui/Spinner";
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Home = lazy(() => import("./pages/Home"));
 const SearchPage = lazy(() => import("./pages/Search"));
-const RaffleDetails = lazy(() => import("./pages/RaffleDetails"));
 const RafflePage = lazy(() => import("./pages/RafflePage"));
 const CreateRaffle = lazy(() => import("./pages/CreateRaffle"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
@@ -68,7 +67,8 @@ function App() {
                     <Route index element={<LazyRoute Component={LandingPage} />} />
                     <Route path="home" element={<LazyRoute Component={Home} />} />
                     <Route path="search" element={<LazyRoute Component={SearchPage} />} />
-                    <Route path="details" element={<LazyRoute Component={RaffleDetails} />} />
+                    {/* Redirect legacy /details to /home (RaffleDetails page removed in #1301) */}
+                    <Route path="details" element={<Navigate to="/home" replace />} />
                     <Route path="raffles/:id" element={<LazyRoute Component={RafflePage} />} />
                     <Route path="create" element={<LazyRoute Component={CreateRaffle} />} />
                     <Route path="leaderboard" element={<LazyRoute Component={Leaderboard} />} />
