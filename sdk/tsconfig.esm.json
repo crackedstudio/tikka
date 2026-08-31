@@ -1,1 +1,1 @@
-{"extends":"./tsconfig.json","compilerOptions":{"module":"ESNext","moduleResolution":"Bundler","outDir":"./dist/esm"},"exclude":["node_modules","test","dist","**/*spec.ts","examples"]}
+{"extends":"./tsconfig.json","compilerOptions":{"module":"ESNext","moduleResolution":"Bundler","outDir":"./dist/esm","declaration":true,"declarationMap":true},"exclude":["node_modules","test","dist","**/*spec.ts","examples"]}
