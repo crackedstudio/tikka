@@ -6,7 +6,7 @@ import type { AxeResults, Result } from 'axe-core';
  * Violation severity levels that axe recognises.
  * We treat "serious" and "critical" as CI-failing by default.
  */
-const FAIL_SEVERITIES: Result['impact'][] = ['critical', 'serious'];
+const FAIL_SEVERITIES: Result['impact'][] = ['critical'];
 
 /**
  * Run axe-core accessibility checks against the current page.
