@@ -123,7 +123,7 @@ done
 
 ## Database migrations
 
-Table ownership is documented in [../docs/database/ENTITY_OWNERSHIP.md](../docs/database/ENTITY_OWNERSHIP.md).
+Entity ownership is documented in [../docs/database/ENTITY_OWNERSHIP.md](../docs/database/ENTITY_OWNERSHIP.md).
 The backend reads indexer-owned tables through a read-only role; grants are defined in the repository-level `db/baseline-schema.sql`.
 Backend code must not write to those tables, and dependency-cruiser blocks imports of `indexer/src/database/entities/*`.
 
