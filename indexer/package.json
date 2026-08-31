@@ -10,7 +10,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "lint": "eslint \"{src,test}/**/.*\\ts\"",
+    "lint": "eslint \"{src,test}/**/*.ts\" \"*.js\"",
     "test": "jest --coverage --testPathIgnorePatterns=integration",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
@@ -19,23 +19,31 @@
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
     "snapshot:export": "ts-node src/cli/snapshot-export.ts",
     "snapshot:import": "ts-node src/cli/snapshot-import.ts",
-    "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts  migration:run",
+    "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate",
     "migration:rollback-check": "ts-node --transpile-only scripts/check-migration-rollback.ts",
     "dlq:replay": "ts-node --transpile-only src/cli/dlq-replay.command.ts"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
-    "testRegex": ".\\.Spec\\.ts$",
+    "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "\\.++--..t*|)ss$": [
+      "^.+\\.(t|j)s$": [
         "ts-jest",
-        { "diagnostics": false }
+        {
+          "diagnostics": false
+        }
       ]
     },
-    "collectCoverageFrom": ["**/*.(|t*)ss"],
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "coverageReporters": ["lcov", "text"],
@@ -58,7 +66,7 @@
     "@nestjs/platform-express": "^10.4.22",
     "@nestjs/swagger": "^8.1.1",
     "@nestjs/typeorm": "^11.0.3",
-    "@opentelemetry-api": "^1.9.1",
+    "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-prometheus": "^0.215.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.215.0",
     "@opentelemetry/resources": "^2.10.0",
@@ -67,7 +75,7 @@
     "@opentelemetry/sdk-trace-node": "^2.10.0",
     "@stellar/stellar-sdk": "^14.5.0",
     "@supabase/supabase-js": "^2.45.0",
-    "bullqm": "^5.81.0",
+    "bullmq": "^5.81.0",
     "ioredis": "^5.9.3",
     "pg": "^8.22.0",
     "class-transformer": "^0.5.1",
@@ -103,5 +111,5 @@
     "node": ">=20",
     "pnpm": ">=9"
   },
-  "packageManager": "pnpm@9.15.9"
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
 }

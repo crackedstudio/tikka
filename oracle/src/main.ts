@@ -15,9 +15,10 @@ async function bootstrap() {
   //   npm run config:verify
   assertOracleConfigOrExit();
 
-  const app = await NestFactory.create(AppModule, {
-    logger: WinstonModule.createLogger({ instance: createOracleLogger() }),
-  });
-  await app.listen(process.env.PORT ?? 3003);
+   const app = await NestFactory.create(AppModule, {
+     logger: WinstonModule.createLogger({ instance: createOracleLogger() }),
+   });
+   app.enableShutdownHooks();
+   await app.listen(process.env.PORT ?? 3003);
 }
 bootstrap();

@@ -21,6 +21,7 @@
     "version-packages": "changeset version",
     "release": "changeset publish",
     "check:dependencies": "node scripts/check-dependencies.js",
+    "check:observability": "node scripts/check-dashboard-metrics.js",
     "db:check-drift": "npx tsx scripts/check-schema-drift.ts",
     "prepare": "husky"
   },

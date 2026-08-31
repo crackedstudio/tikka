@@ -1,19 +1,21 @@
-# High-availability oracle deployment.
-# - 2 replicas spread across nodes via PodAntiAffinity
-# - Bull queue locks ensure only one replica processes each job
-# - Readiness probe hits /health before traffic is routed
+# Shared Deployment structure for every Tikka service (#1476).
+#
+# Everything here is deliberately service-agnostic: replica count, rollout
+# strategy, grace period, security context, resource envelope, and the probe
+# *timings*. Overlays in <service>/k8s/ supply the name, image, port, and probe
+# paths. Nothing service-specific belongs in this file — if it differs per
+# service, it goes in the overlay.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tikka-oracle
-  namespace: tikka
+  name: tikka
   labels:
-    app: tikka-oracle
+    app: tikka
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: tikka-oracle
+      app: tikka
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -22,44 +24,16 @@ spec:
   template:
     metadata:
       labels:
-        app: tikka-oracle
+        app: tikka
     spec:
       terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: tikka-oracle
-                topologyKey: kubernetes.io/hostname
-      volumes:
-        - name: age-key
-          secret:
-            secretName: tikka-oracle-age-key
-            defaultMode: 0400
       containers:
-        - name: tikka-oracle
-          image: ghcr.io/crackedstudio/tikka-oracle:latest
-          ports:
-            - containerPort: 3003
-          envFrom:
-            - configMapRef:
-                name: tikka-oracle-config
-            - secretRef:
-                name: tikka-oracle-secrets
-          env:
-            - name: SOPS_AGE_KEY_FILE
-              value: /run/secrets/age.key
-          volumeMounts:
-            - name: age-key
-              mountPath: /run/secrets
-              readOnly: true
+        - name: app
+          image: ghcr.io/crackedstudio/tikka-service:latest
           resources:
             requests:
               cpu: "100m"
@@ -67,26 +41,33 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+          # Startup gates the other two: up to 150s (30 x 5s) to boot before
+          # anything is declared failed.
           startupProbe:
             httpGet:
               path: /health
-              port: 3003
+              port: 8080
             initialDelaySeconds: 0
             periodSeconds: 5
             failureThreshold: 30
             timeoutSeconds: 3
+          # Readiness controls traffic. Overlays point it at whichever path
+          # reports "safe to serve" — a degraded dependency must fail this.
           readinessProbe:
             httpGet:
               path: /health
-              port: 3003
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 5
             failureThreshold: 3
             timeoutSeconds: 5
+          # Liveness restarts the pod. Overlays point it at a path that only
+          # fails when the process itself is wedged — never at a dependency
+          # check, or a slow database will restart-loop the fleet.
           livenessProbe:
             httpGet:
               path: /health
-              port: 3003
+              port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 3
