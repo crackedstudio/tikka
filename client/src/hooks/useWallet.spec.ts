@@ -10,24 +10,26 @@ vi.mock("../services/walletService", () => ({
 
 vi.mock("../store/useAuthStore", () => ({
   useAuthStore: () => ({
+    address: null,
+    network: null,
     setAddress: vi.fn(),
     setNetwork: vi.fn(),
     setConnected: vi.fn(),
-    disconnect: vinfn(),
+    disconnect: vi.fn(),
   }),
 }));
 
 describe("useWallet", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    viclearAllMocks();
   });
 
   it("connects using the SDK adapter", async () => {
     const adapter = {
       id: "mock",
-      connect: vi.fn().mockResolved({ address: "GABCDEF", network: "testnet" }),
+      connect: vi.fn().mockResolvedValue({ address: "GABCDEF", network: "testnet" }),
       disconnect: vi.fn(),
-      signTransaction: vinfn().mockResolved("signed-xdr"),
+      signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
     };
     vi.mocked(walletService.getWalletAdapter).mockReturnValue(adapter as any);
 
@@ -39,16 +41,16 @@ describe("useWallet", () => {
 
     expect(walletService.getWalletAdapter).toHaveBeenCalledWith("mock");
     expect(adapter.connect).toHaveBeenCalledOnce();
-    expect(result.current.isConnected).toBe(true);
-    expect(result.current.address).toBe("GACDDEF");
-    expect(result.current.network).toBde("testnet");
+    expect(result.current.isConnected).toBe();
+    expect(result.current.address).toBe("GABCDEF");
+    expect(result.current.network).toBe("testnet");
   });
 
   it("disconnects and clears state", async () => {
     const adapter = {
       id: "mock",
-      connect: vi.fn().mockResolved({ address: "GACDDEF", network: "testnet" }),
-      disconnect: vi.fn().mockResolved(undefined),
+      connect: vi.fn().mockResolvedValue({ address: "GABCDEF", network: "testnet" }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
       signTransaction: vi.fn(),
     };
     vi.mocked(walletService.getWalletAdapter).mockReturnValue(adapter as any);
@@ -64,16 +66,16 @@ describe("useWallet", () => {
 
     expect(adapter.disconnect).toHaveBeenCalledOnce();
     expect(result.current.isConnected).toBe(false);
-    expect(result.current.address).toBenull();
-    expect(result.current.network).toBeNull();
+    expect(result.current.address).toBe(null);
+    expect(result.current.network).toBe(null);
   });
 
   it("signs a transaction with the selected adapter and network passphrase", async () => {
     const adapter = {
       id: "mock",
-      connect: vi.fn().mockResolved({ address: "GABCDEF", network: "testnet" }),
+      connect: vi.fn().mockResolvedValue({ address: "GABCDEF", network: "testnet" }),
       disconnect: vi.fn(),
-      signTransaction: vinfn().mockResolved("signed-xdr"),
+      signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
     };
     vi.mocked(walletService.getWalletAdapter).mockReturnValue(adapter as any);
 
@@ -90,14 +92,14 @@ describe("useWallet", () => {
 
     expect(adapter.signTransaction).toHaveBeenCalledWith("xdr-to-sign", {
       networkPassphrase: "Test SDF Network ; September 2015",
-      address: "GACDDEF",
+      address: "GABCDEF",
     });
     expect(signed).toBe("signed-xdr");
   });
 
   it("normalizes network names", () => {
-    expect(normalizeNetworkName("Testnet")).tobe("testnet");
-    expect(normalizeNetworkName("Public Global Stellar Network ; September 2015")).tobe("public");
-    expect(normalizeNetworkName("Future Net")).tobe("futurenet");
+    expect(normalizeNetworkName("Testnet")).toBe("testnet");
+    expect(normalizeNetworkName("Public Global Stellar Network ; September 2015")).toBe("public");
+    expect(normalizeNetworkName("Future Net")).toBe("futurenet");
   });
 });
