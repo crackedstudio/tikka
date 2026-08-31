@@ -12,3 +12,22 @@
 -- CI will reject PRs that cause drift between this baseline and a fresh
 -- migration run. If CI fails with a drift error on a migration PR, run the
 -- update command above and push the baseline change as part of your PR.
+
+-- Enforce read-only access from backend to indexer-owned tables.
+DO $$
+DECLARE
+    table_name text;
+BEGIN
+    -- Ensure the read-only role exists.
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'backend_reader') THEN
+        CREATE ROLE backend_reader;
+    END IF;
+    -- Apply grants to each table owned by the indexer role.
+    FOR table_name IN
+        SELECT tablename FROM pg_tables
+        WHERE schemaname = 'public' AND tableowner = 'tikka_indexer'
+    LOOP
+        EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON %I FROM backend_reader', table_name);
+        EXECUTE format('GRANT SELECT ON %I TO backend_reader', table_name);
+    END LOOP;
+END $$;
