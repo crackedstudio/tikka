@@ -1,7 +1,8 @@
 /** @owner indexer */
 import { Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity('raffle')
+
+Entity('raffle')
 export class Raffle {
     @PrimaryGeneratedColumn()
     id: number;
