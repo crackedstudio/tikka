@@ -569,6 +569,7 @@ This project is licensed under the MIT License - see the [LICENSE](../LICENSE) f
 
 ### **Documentation**
 
+-   [Database Ownership](../docs/database/ENTITY_OWNERSHIP.md)
 -   [Environment Setup](docs/ENVIRONMENT_SETUP.md)
 -   [Contract Integration Guide](docs/CONTRACT_INTEGRATION.md)
 -   [Development Guide](docs/DEVELOPMENT.md)
