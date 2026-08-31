@@ -35,6 +35,9 @@ spec:
                 name: tikka-backend-config
             - secretRef:
                 name: tikka-backend-secrets
+          env:
+            - name: BACKEND_SHUTDOWN_HARD_TIMEOUT_MS
+              value: "25000"
           resources:
             requests:
               cpu: "100m"

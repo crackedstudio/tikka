@@ -1,3 +1,5 @@
+packages:
+  - '.'
 allowBuilds:
   blake-hash: set this to true or false
   bufferutil: set this to true or false
