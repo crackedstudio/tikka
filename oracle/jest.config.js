@@ -14,7 +14,7 @@ module.exports = {
         }],
     },
     transformIgnorePatterns: [
-        'node_modules/(?!(.pnpm/)?(@noble|@stellar|stellar-sdk))',
+        'node_modules/(?!(.pnpm/)?(@noble|@stellar))',
     ],
     moduleNameMapper: {
         '^src/(.*)$': '<rootDir>/src/$1',
