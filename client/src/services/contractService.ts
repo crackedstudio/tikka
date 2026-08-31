@@ -27,11 +27,11 @@ import type {
   ContractRaffleData,
   ContractUserParticipation,
   CreateRaffleParams,
-  BuyTicketParams,
   ContractResponse,
   ContractError,
-} from "../types/types";
-import { ContractErrorType } from "../types/types";
+} from "../types/contract";
+import type { BuyTicketParams } from "../types/ticket";
+import { ContractErrorType } from "../types/contract";
 import { formatXlm } from "../utils/formatters";
 
 /** Pre-confirmation fee preview for raffle creation (simulation-based, no submit). */

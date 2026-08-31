@@ -5,11 +5,13 @@ import * as raffleService from "../services/raffleService";
 import type {
     ApiUserProfile,
     ApiUserHistoryResponse,
+} from "../types/user";
+import type {
     ApiRaffleListItem,
     ApiRaffleListResponse,
     ApiRaffleDetail,
     FormattedRaffle,
-} from "../types/types";
+} from "../types/raffle";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import React from "react";
-import type { LeaderboardProps, TopPlayer, Player } from "../../types/types";
+import type { LeaderboardProps, TopPlayer, Player } from "../../types/leaderboard";
 import Top3Visual from "./Top3Visual";
 import LeaderboardTable from "./LeaderboardTable";
 

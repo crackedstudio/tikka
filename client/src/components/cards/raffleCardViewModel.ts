@@ -1,4 +1,4 @@
-import type { ApiRaffleListItem, ApiRaffleDetail, FormattedRaffle } from "../../types/types";
+import type { ApiRaffleListItem, ApiRaffleDetail, FormattedRaffle } from "../../types/raffle";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

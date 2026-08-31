@@ -1,5 +1,5 @@
 import { WalletMinimal } from "lucide-react";
-import type { TrendingTabProps } from "../../types/types";
+import type { TrendingTabProps } from "../../types/ui";
 import Google from "../../assets/svg/Google";
 import Line from "../../assets/svg/Line";
 import RocketLaunch from "../../assets/svg/RocketLaunch";

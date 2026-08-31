@@ -1,4 +1,4 @@
-import type { FormattedRaffle } from "../types/types";
+import type { FormattedRaffle } from "../types/raffle";
 
 interface RaffleMetadataSectionProps {
     raffle: FormattedRaffle;

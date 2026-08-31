@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import RaffleDetails from "./RaffleDetails";
 import * as useRaffleDetailsDataHook from "../hooks/useRaffleDetailsData";
-import type { FormattedRaffle } from "../types/types";
+import type { FormattedRaffle } from "../types/raffle";
 
 // Mock the hook module
 vi.mock("../hooks/useRaffleDetailsData");

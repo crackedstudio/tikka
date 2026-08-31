@@ -1,4 +1,4 @@
-import type { TrendingTabProps } from "../../types/types";
+import type { TrendingTabProps } from "../../types/ui";
 
 const OPTIONS = [
     "All Raffles",

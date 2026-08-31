@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchRaffles } from "../../services/raffleService";
 import { toRaffleCardViewModel } from "../cards/raffleCardViewModel";
-import { ApiRaffleListItem } from "../../types/types";
+import { ApiRaffleListItem } from "../../types/raffle";
 import RaffleCard from "../cards/RaffleCard";
 import { Spinner } from "../ui/Spinner";
 
