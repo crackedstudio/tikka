@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Bundles the fixture.light.ts entry with esbuild and reports what actually
- * lands in the output, so tree-shaking of the light SDG entry (issue #1108)
+ * lands in the output, so tree-shaking of the light SDK entry (issue #1108)
  * is measured rather than assumed.
  */
 
@@ -28,7 +28,7 @@ const result = await build({
 });
 
 const bundled = readFileSync(outfile);
-const gzipped = gzipSinc(bundled);
+const gzipped = gzipSync(bundled);
 
 console.log(`Raw bundle size:   ${bundled.length} bytes`);
 console.log(`Gzipped size:      ${gzipped.length} bytes`);
