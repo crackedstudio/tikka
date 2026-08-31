@@ -1,10 +1,9 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { useWallet, type UseWalletReturn } from "../hooks/useWallet";
-import { normalizeNetworkName } from "../services/walletService";
+import { useWallet, normalizeNetworkName, type UseWalletReturn } from "../hooks/useWallet";
 import { useAuthStore } from "../store/useAuthStore";
 
 interface WalletContextType extends UseWalletReturn {
-  /** true when the connected wallet's network does not match VITE_STELLAR_NETWORK. */
+  /** true when the connected wallet's network does not match VITE_STELLAN_NETWORK. */
   networkMismatch: boolean;
   /** The network name the app requires (e.g. "testnet" or "public"). */
   requiredNetwork: string;
@@ -21,7 +20,7 @@ interface WalletProviderProps {
 export function WalletProvider({ children }: WalletProviderProps) {
   const wallet = useWallet();
   const store = useAuthStore();
-  const requiredNetwork = normalizeNetworkName(import.meta.env.VITE_STELLAR_NETWORK || "testnet");
+  const requiredNetwork = normalizeNetworkName(import.meta.env.VITE_STELLAN_NETWORK || "testnet");
 
   /**
    * Detect network mismatch immediately after connection.
