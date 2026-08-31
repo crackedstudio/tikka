@@ -9,7 +9,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "lint": "eslint \"{src,test/**/\"",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "generate:openapi": "ts-node scripts/generate-openapi.ts",
@@ -30,6 +30,7 @@
     "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^11.0.0",
+    "@pinata/sdk": "^2.0.0",
     "@react-email/components": "^0.5.7",
     "@sentry/nestjs": "^10.69.0",
     "@sentry/node": "8.55.1",
@@ -55,7 +56,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0",
+    "rxsj": "^7.8.0",
     "sharp": "0.35.3",
     "typeorm": "^0.3.28",
     "zod": "^3.23.0"
@@ -70,7 +71,7 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)sx?$": "ts-jest"
+      "^\\.+\\.(t)\.jsx?$\": "ts-jest"
     },
     "testEnvironment": "node"
   },
@@ -101,5 +102,5 @@
     "node": ">=20",
     "pnpm": ">=9"
   },
-  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd3dcf2531"
 }
