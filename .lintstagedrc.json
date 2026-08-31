@@ -1,4 +1,7 @@
 {
+  "*.{js,ts,tsx,json,md,yml,yaml,html,css}": [
+    "prettier --write"
+  ],
   "client/**/*.{ts,tsx}": [
     "bash -c 'npm --prefix client run typecheck'",
     "bash -c 'npm --prefix client run lint'"
