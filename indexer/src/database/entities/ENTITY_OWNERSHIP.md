@@ -2,9 +2,18 @@
 
 This document describes the ownership model for all indexer database entities, distinguishing between **raw chain state** (source-of-truth from Stellar ledger events) and **derived query state** (computed aggregates maintained by processors).
 
+> **Canonical location**: This document is maintained at `docs/database/ENTITY_OWNERSHIP.md` and linked from `indexer/README.md` and `backend/README.md`.
+
 ## Ownership Boundary
 
 All tables documented here are owned by the `indexer` service. The backend service has a read-only database role (`backend_reader`) and backend code is prohibited from importing indexer entity classes by dependency-cruiser.
+
+Every entity in `indexer/src/database/entities/` carries an `@owner indexer` docblock tag.
+
+### Enforcement
+
+- **Database grants**: `db/baseline-schema.sql` defines the `backend_reader` role with `SELECT`-only grants on each indexer-owned table.
+- **Import rule**: the dependency-cruiser config forbids backend code from importing `indexer/src/database/entities/**`.
 
 ---
 
@@ -338,7 +347,11 @@ createdLedger!: number;
 
 ## References
 
+- **Canonical ownership doc**: `docs/database/ENTITY_OWNERSHIP.md`
+- **Database grants**: `db/baseline-schema.sql`
+- **Dependency-cruiser rules**: dependency-cruiser config
 - **Indexer README**: `indexer/README.md`
+- **Backend README**: `backend/README.md`
 - **Architecture**: `docs/ARCHITECTURE.md` § Data Model
 - **Processors**: `indexer/src/processors/`
 - **Archiving**: `indexer/src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md`
