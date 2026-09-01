@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { rpc, xdr } from '@stellar/stellar-sdk';
-import { DEFAULT_RPC_CONFIG } from './network.config';
+import { DEFAULT_RPC_CONFIG, buildRetryConfig } from './network.config';
 import type { NetworkConfig, RpcConfig } from './network.config';
 import {
   TikkaSdkError,
@@ -262,17 +262,15 @@ export class RpcService {
 
     return withRetry(
       () => this.executeSingleRequest<T>(url, method, params),
-      {
-        maxAttempts: this.rpcConfig.maxRetryAttempts ?? 3,
-        baseDelayMs: this.rpcConfig.retryBaseDelayMs ?? 500,
-        maxDelayMs: this.rpcConfig.maxRetryDelayMs ?? 8000,
-        retryOn: this.rpcConfig.retryableStatusCodes ?? [429, 502, 503, 504, 'RATE_LIMIT', 'UNAVAILABLE', 'TIMEOUT', 'ECONNRESET'],
-        onRetry: (attempt, error, delay) => {
+      buildRetryConfig(this.rpcConfig, {
+        onRetry: (info) => {
           console.warn(
-            `[RpcService] ${method} retry ${attempt} in ${Math.round(delay)}ms (${url}): ${error?.message ?? error}`,
+            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(info.delayMs)}ms (${url}): ${
+              info.error instanceof Error ? info.error.message : String(info.error)
+            }`,
           );
         },
-      },
+      }),
     );
   }
 
