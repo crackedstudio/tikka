@@ -11,7 +11,7 @@ WORKDIR /app
 RUN npm install -g pnpm@9.15.9
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile
-COPY --from=builder /app/dist ./dist
+COPY --from=builder --chown=node:node /app/dist ./dist
 ENV NODE_ENV=production
 EXPOSE 3003
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

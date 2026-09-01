@@ -10,8 +10,8 @@ module.exports = {
       'ts-jest',
       {
         isolatedModules: true,
-        diagnostics: { warnOnly: true },
-      },
+        diagnostics: { warnOnly: true }
+      }
     ],
   },
   // stellar-sdk@16 pulls ERM-only deps (@noble/*, uint8Array-extras, ...).

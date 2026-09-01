@@ -12,12 +12,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  # Detect changes to optimize CI
+  # Detect whether any source files changed.
+  # Docs-only PRs (changes only inside docs/) skip the turbo job entirely.
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
+      source: ${{ steps.filter.outputs.source }}
       client: ${{ steps.filter.outputs.client }}
       sdk: ${{ steps.filter.outputs.sdk }}
       backend: ${{ steps.filter.outputs.backend }}
@@ -25,12 +30,12 @@ jobs:
       oracle: ${{ steps.filter.outputs.oracle }}
       database: ${{ steps.filter.outputs.database }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
-            client:
+            source:
               - 'client/**'
               - 'backend/openapi.json'
               - 'package.json'
@@ -38,18 +43,12 @@ jobs:
               - '.github/workflows/ci.yml'
             sdk:
               - 'sdk/**'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - '.github/workflows/ci.yml'
-            backend:
               - 'backend/**'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - '.github/workflows/ci.yml'
-            indexer:
               - 'indexer/**'
+              - 'oracle/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
+              - 'turbo.json'
               - '.github/workflows/ci.yml'
             oracle:
             - 'oracle/**'
@@ -61,18 +60,17 @@ jobs:
             - 'backend/**'
             - '.github/workflows/ci.yml'
 
-  # Client package
-  client:
-    name: Client - Lint, Test, Build
+  # Single Turborepo job: lint → test → build (typecheck) across all packages.
+  # Turbo's task graph ensures sdk builds before anything that depends on it,
+  # and its local cache means an unchanged package's tasks are served from cache.
+  turbo:
+    name: Turbo — lint, test, typecheck, build
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.client == 'true'
-    defaults:
-      run:
-        working-directory: ./client
+    if: needs.changes.outputs.source == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -83,11 +81,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: 'pnpm'
-          cache-dependency-path: client/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Check colour contrast (WCAG AA)
         run: node scripts/check-contrast.js
         continue-on-error: false
@@ -104,7 +101,7 @@ jobs:
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run unit tests
         run: pnpm run test:unit -- --coverage --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.branches=80 --coverage.thresholds.statements=80
         continue-on-error: false
@@ -162,7 +159,7 @@ jobs:
         working-directory: ./sdk
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -174,14 +171,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: sdk/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         continue-on-error: false
@@ -309,7 +306,7 @@ jobs:
       - name: Generate docs
         run: pnpm run docs
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -328,7 +325,7 @@ jobs:
         working-directory: ./backend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -340,14 +337,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: backend/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests (mocked)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
@@ -369,7 +366,7 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -388,7 +385,7 @@ jobs:
         working-directory: ./indexer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -400,14 +397,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: indexer/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run unit tests (network tests excluded)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
@@ -425,7 +422,7 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -444,7 +441,7 @@ jobs:
         working-directory: ./oracle
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -456,14 +453,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: oracle/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests (mocked)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
@@ -481,7 +478,7 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -564,6 +561,33 @@ jobs:
           echo "✅ Working tree is clean after build + test run"
 
 
+  # Docker Compose smoke test - verifies documented profiles
+  compose-smoke:
+    name: Docker Compose Smoke Test
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.compose == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build and start services with full profile
+        run: docker compose --profile full up -d --build --wait
+
+      - name: Build and start client profile
+        if: hashFiles('client/Dockerfile') != ''
+        run: docker compose --profile client up -d --build --wait
+
+      - name: Assert service health endpoints
+        run: |
+          set -euo pipefail
+          curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://localhost:3001/health
+          curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://localhost:3002/
+          curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://localhost:3003/
+
+      - name: Tear down services
+        if: always()
+        run: docker compose down -v
+
   # Observability assets - dashboard queries must resolve to metrics the code emits
   observability:
     name: Observability - Validate Dashboard Metrics
@@ -634,13 +658,14 @@ jobs:
   lighthouse:
     name: Lighthouse CI - Performance Budgets
     runs-on: ubuntu-latest
-    needs: client
+    needs: turbo
+    if: needs.turbo.result == 'success'
     defaults:
       run:
         working-directory: ./client
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -652,22 +677,22 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: client/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Download build artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: client-build
           path: client/dist
-      
+
       - name: Run Lighthouse CI
         run: |
           pnpm exec lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
-      
+
       - name: Upload Lighthouse results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -676,7 +701,7 @@ jobs:
           path: |
             client/.lighthouseci
           retention-days: 30
-      
+
       - name: Comment PR with Lighthouse results
         if: github.event_name == 'pull_request'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -684,52 +709,52 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            
+
             // Read the Lighthouse results
             const resultsPath = path.join(process.cwd(), 'client/.lighthouseci');
-            
+
             if (!fs.existsSync(resultsPath)) {
               console.log('No Lighthouse results found');
               return;
             }
-            
+
             // Find the manifest file
             const files = fs.readdirSync(resultsPath);
             const manifestFile = files.find(f => f.includes('manifest.json'));
-            
+
             if (!manifestFile) {
               console.log('No manifest file found');
               return;
             }
-            
+
             const manifest = JSON.parse(
               fs.readFileSync(path.join(resultsPath, manifestFile), 'utf8')
             );
-            
+
             // Get the first result
             const result = manifest[0];
             const summary = result.summary;
-            
+
             // Create comment body
             const comment = `## 🔦 Lighthouse CI Results
-            
+
             Performance metrics for this build:
-            
+
             | Metric | Score | Status |
             |--------|-------|--------|
             | 🎨 Performance | ${Math.round(summary.performance * 100)} | ${summary.performance >= 0.9 ? '✅' : '⚠️'} |
             | ♿ Accessibility | ${Math.round(summary.accessibility * 100)} | ${summary.accessibility >= 0.9 ? '✅' : '⚠️'} |
             | 🎯 Best Practices | ${Math.round(summary['best-practices'] * 100)} | ${summary['best-practices'] >= 0.9 ? '✅' : '⚠️'} |
             | 🔍 SEO | ${Math.round(summary.seo * 100)} | ${summary.seo >= 0.9 ? '✅' : '⚠️'} |
-            
+
             [📊 View full Lighthouse report](${result.url})
-            
+
             ### Core Web Vitals
             - **LCP (Largest Contentful Paint)**: Target < 2.5s
             - **CLS (Cumulative Layout Shift)**: Target < 0.1
             - **FCP (First Contentful Paint)**: Target < 2.0s
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -768,6 +793,30 @@ jobs:
       - name: Validate last commit on push
         if: github.event_name == 'push'
         run: pnpm exec commitlint --from HEAD~1 --to HEAD
+  # Format checking - ensures codebase adheres to Prettier config
+  format:
+    name: Prettier Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm exec prettier --check .
 
   # Check that PRs touching sdk/src include a changeset
   changeset-check:
@@ -805,7 +854,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [commitlint, client, sdk, backend, indexer, oracle, observability, security-scan, lighthouse]
+    needs: [commitlint, module-boundaries, client, sdk, backend, indexer, oracle, observability, security-scan, lighthouse]
     if: always()
     steps:
       - name: Download coverage - client
@@ -890,6 +939,7 @@ jobs:
              ! check_status "${{ needs.backend.result }}" || \
              ! check_status "${{ needs.indexer.result }}" || \
              ! check_status "${{ needs.oracle.result }}" || \
+             ! check_status "${{ needs.compose-smoke.result }}" || \
              ! check_status "${{ needs.observability.result }}" || \
              ! check_status "${{ needs.security-scan.result }}" || \
              ! check_status "${{ needs.lighthouse.result }}" || \
@@ -897,4 +947,4 @@ jobs:
             echo "❌ One or more packages failed CI checks"
             exit 1
           fi
-          echo "✅ All packages passed CI checks"
+          echo "✅ All CI checks passed"

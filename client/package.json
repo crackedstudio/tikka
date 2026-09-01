@@ -26,7 +26,6 @@
         "lighthouse:local": "pnpm run build && lhci autorun"
     },
     "dependencies": {
-        "@creit.tech/stellar-wallets-kit": "^1.7.3",
         "@sentry/react": "^10.62.0",
         "@stellar/freighter-api": "^3.1.0",
         "@stellar/stellar-sdk": "^16.1.0",
@@ -116,5 +115,5 @@
         "node": "22",
         "pnpm": "9.15.9"
     },
-    "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+    "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef872691d69e4d40ee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cdcf2531"
 }
