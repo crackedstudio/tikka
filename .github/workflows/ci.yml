@@ -242,6 +242,38 @@ jobs:
           fi
         continue-on-error: false
       
+      - name: Check bundle size budgets
+        run: |
+          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
+          node -e '
+            const fs = require("fs");
+            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
+            summary += "| Bundle | Size | Limit | Status |\n";
+            summary += "| --- | --- | --- | --- |\n";
+            try {
+              const content = fs.readFileSync("size-summary.json", "utf8");
+              const data = JSON.parse(content);
+              if (Array.isArray(data)) {
+                for (const item of data) {
+                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
+                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
+                  const limitStr = item.limit || "N/A";
+                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
+                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
+                }
+              }
+            } catch (err) {
+              summary += "Unable to parse size-check output.\n";
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          '
+          pnpm size-check || true
+          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ SDK bundle size limit budget exceeded!"
+            exit $SIZE_CHECK_EXIT_CODE
+          fi
+        continue-on-error: false
+      
       - name: Generate docs
         run: pnpm run docs
         continue-on-error: false
