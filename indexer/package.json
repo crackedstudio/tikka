@@ -10,8 +10,8 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest --testPathIgnorePatterns=integration",
+    "lint": "eslint \"{src,test}/**/*.ts\" \"*.js\"",
+    "test": "jest --coverage --testPathIgnorePatterns=integration",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
     "test:integration": "jest --config jest.integration.config.js --runInBand",
@@ -45,12 +45,21 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageReporters": ["lcov", "text"],
+    "coverageThreshold": {
+      "global": {
+        "statements": 60,
+        "branches": 40,
+        "functions": 50,
+        "lines": 60
+      }
+    }
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.500.0",
     "@aws-sdk/lib-storage": "^3.500.0",
-    "@nestjs/bullmq": "^11.0.4",
+    "@nestjs/bullqm": "^11.0.4",
     "@nestjs/common": "^10.4.0",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^10.4.0",
@@ -99,8 +108,8 @@
     "typescript": "^5.6.0"
   },
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "node": "22",
+    "pnpm": "9.15.9"
   },
   "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
 }

@@ -1,3 +1,4 @@
+---
 name: E2E Tests
 
 on:
@@ -7,9 +8,11 @@ on:
   pull_request:
     branches:
       - main
+  schedule:
+    - cron: '0 2 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: '{{ github.workflow }}--{{ github.ref }}'
   cancel-in-progress: true
 
 jobs:
@@ -19,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38c85af677262 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@49933a5288cacae8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20.x'
 
@@ -39,20 +42,42 @@ jobs:
         run: npm run build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@033fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-artifacts
           path: dist
+
+  integration-tests:
+    name: integration-tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38c85af677262 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933a5288cacae8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+---
 name: Playwright Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: '{{ github.workflow }}--{{ github.ref }}'
   cancel-in-progress: true
 
 jobs:
@@ -63,8 +88,8 @@ jobs:
       run:
         working-directory: ./client
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+    - uses: actions/checkout@3d3c42e55ac5ba8058257da76410c181273ba90b1 # v7
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
       with:
         node-version: 18
     - name: Install dependencies
