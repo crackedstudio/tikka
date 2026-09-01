@@ -1,19 +1,25 @@
 /**
  * Property-based tests for apiClient (Token_Store + apiRequest)
  * Feature: siws-auth
+ *
+ * The real request/retry path in apiClient.ts is exercised against the shared
+ * MSW server (see src/test/server.ts). No spec stubs `global.fetch` directly;
+ * error responses and network failures are produced by overriding the MSW
+ * handler for `/test`.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { apiRequest, ApiError, ApiErrorCode } from './apiClient';
+import { server } from '../test/server';
+import { API_BASE_URL } from '../test/handlers';
 
 beforeEach(() => {
   sessionStorage.clear();
-  vi.stubGlobal('fetch', vi.fn());
 });
 
 afterEach(() => {
   sessionStorage.clear();
-  vi.restoreAllMocks();
 });
 
 describe('ApiError', () => {
@@ -47,10 +53,8 @@ describe('ApiError', () => {
 
 describe('apiRequest error handling', () => {
   it('throws ApiError with NETWORK_ERROR code on fetch failure', async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new Error('Network timeout'));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(apiRequest('/test')).rejects.toThrow(ApiError);
+    // HttpResponse.error() forces the intercepted request to fail as a network error.
+    server.use(http.get(`${API_BASE_URL}/test`, () => HttpResponse.error()));
 
     try {
       await apiRequest('/test');
@@ -64,12 +68,11 @@ describe('apiRequest error handling', () => {
   });
 
   it('throws ApiError with VALIDATION_ERROR code on 400 response', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 400,
-      json: () => Promise.resolve({ message: 'Invalid request data' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Invalid request data' }, { status: 400 })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -83,12 +86,11 @@ describe('apiRequest error handling', () => {
   });
 
   it('throws ApiError with UNAUTHORIZED code on 401 response', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: () => Promise.resolve({ message: 'Unauthorized' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -102,12 +104,11 @@ describe('apiRequest error handling', () => {
   });
 
   it('throws ApiError with FORBIDDEN code on 403 response', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 403,
-      json: () => Promise.resolve({ message: 'Forbidden' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Forbidden' }, { status: 403 })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -121,12 +122,11 @@ describe('apiRequest error handling', () => {
   });
 
   it('throws ApiError with NOT_FOUND code on 404 response', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: () => Promise.resolve({ message: 'Not found' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Not found' }, { status: 404 })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -140,12 +140,11 @@ describe('apiRequest error handling', () => {
   });
 
   it('throws ApiError with RATE_LIMITED code on 429 response', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: () => Promise.resolve({ message: 'Rate limit exceeded' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Rate limit exceeded' }, { status: 429 })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -159,12 +158,11 @@ describe('apiRequest error handling', () => {
   });
 
   it('throws ApiError with SERVER_ERROR code on 500 response', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: () => Promise.resolve({ message: 'Internal server error' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Internal server error' }, { status: 500 })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -178,12 +176,11 @@ describe('apiRequest error handling', () => {
   });
 
   it('throws ApiError with SERVER_ERROR code on 503 response', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 503,
-      json: () => Promise.resolve({ message: 'Service unavailable' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Service unavailable' }, { status: 503 })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -198,29 +195,36 @@ describe('apiRequest error handling', () => {
 
   it('includes error details from response body', async () => {
     const errorDetails = { field: 'email', reason: 'invalid format' };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 400,
-      json: () => Promise.resolve({ message: 'Validation failed', ...errorDetails }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json(
+          { message: 'Validation failed', ...errorDetails },
+          { status: 400 }
+        )
+      )
+    );
 
     try {
       await apiRequest('/test');
     } catch (error) {
       expect(error).toBeInstanceOf(ApiError);
       const apiError = error as ApiError;
-      expect(apiError.details).toEqual({ message: 'Validation failed', ...errorDetails });
+      expect(apiError.details).toEqual({
+        message: 'Validation failed',
+        ...errorDetails,
+      });
     }
   });
 
   it('handles non-JSON error response gracefully', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: () => Promise.reject(new Error('Invalid JSON')),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        new HttpResponse('Internal Server Error', {
+          status: 500,
+          headers: { 'content-type': 'text/plain' },
+        })
+      )
+    );
 
     try {
       await apiRequest('/test');
@@ -233,19 +237,18 @@ describe('apiRequest error handling', () => {
   });
 
   it('allows UI consumers to inspect stable error code and message', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: () => Promise.resolve({ message: 'Too many requests' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Too many requests' }, { status: 429 })
+      )
+    );
 
     try {
       await apiRequest('/test');
     } catch (error) {
       expect(error).toBeInstanceOf(ApiError);
       const apiError = error as ApiError;
-      
+
       // UI can check error code for conditional rendering
       if (apiError.code === ApiErrorCode.RATE_LIMITED) {
         expect(apiError.message).toBe('Too many requests');
