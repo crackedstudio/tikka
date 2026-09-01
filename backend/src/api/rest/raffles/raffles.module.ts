@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { RafflesController } from './raffles.controller';
+import { RaffleImagesController } from './raffle-images.controller';
+import { RaffleEventsController } from './raffle-events.controller';
+import { RaffleOgController } from './raffle-og.controller';
 import { OgRenderController } from './og-render.controller';
 import { AdminRafflesController } from './admin-raffles.controller';
 import { RafflesService } from './raffles.service';
 import { MetadataModule } from '../../../services/metadata.module';
 import { MetadataService } from '../../../services/metadata.service';
-import { IndexerModule } from '../../../services/indexer.module';
+import { IndexerModule } from '../../../services/indexer/indexer.module';
 import { SupabaseModule } from '../../../services/supabase.module';
 import { StorageService } from '../../../services/storage.service';
 import { ImageOptimizerService } from '../../../services/image-optimizer.service';
@@ -16,11 +19,19 @@ import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.
 import { AdminGuard } from '../monitor/admin.guard';
 import { MonitorService } from '../monitor/monitor.service';
 import { SseService } from '../../../services/sse.service';
+import { RaffleOgImageService } from './raffle-og-image.service';
 
 @Module({
   imports: [IndexerModule, MetadataModule, SupabaseModule, ConfigModule],
-  controllers: [RafflesController, OgRenderController, AdminRafflesController],
-providers: [
+  controllers: [
+    RafflesController,
+    RaffleImagesController,
+    RaffleOgController,
+    RaffleEventsController,
+    OgRenderController,
+    AdminRafflesController,
+  ],
+  providers: [
     RafflesService,
     StorageService,
     ImageOptimizerService,
@@ -30,6 +41,7 @@ providers: [
     AdminGuard,
     MonitorService,
     SseService,
+    RaffleOgImageService,
   ],
   exports: [RafflesService],
 })

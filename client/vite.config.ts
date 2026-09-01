@@ -132,4 +132,22 @@ export default defineConfig({
             },
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes("node_modules/@stellar/")) return "stellar-sdk";
+                    if (id.includes("node_modules/@creit.tech/stellar-wallets-kit")) return "stellar-wallets-kit";
+                    if (
+                        id.includes("node_modules/react") ||
+                        id.includes("node_modules/react-dom") ||
+                        id.includes("node_modules/react-router")
+                    ) {
+                        return "react-vendor";
+                    }
+                    if (id.includes("node_modules")) return "vendor";
+                },
+            },
+        },
+    },
 });
