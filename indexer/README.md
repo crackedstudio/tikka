@@ -333,7 +333,11 @@ constructor(private healthService: HealthService) {
 
 ### Kubernetes Liveness Probe
 
-For Kubernetes deployments, you can configure liveness probes that fail when `lagStatus === 'critical'`. See `kubernetes/liveness-probe-example.yaml` for complete examples.
+The indexer splits its probes so that lag never restarts a pod: liveness hits
+`/health/live`, which stays 200 while the process can serve HTTP, and readiness
+hits `/health/ready`, which returns 503 when `lagStatus === 'critical'` so traffic
+is withdrawn instead. The probe configuration lives in `k8s/kustomization.yaml`;
+see [`docs/k8s-deployment.md`](../docs/k8s-deployment.md) for the full table.
 
 ---
 
@@ -448,7 +452,7 @@ raffle_events_2026-05-30_batch0002.csv
 - 📜 [Retention policy & restore](../docs/database/raffle-events-retention.md) - Criteria, cadence, destination, restore
 - 📖 [Comprehensive Guide](./src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md) - Full documentation
 - 📋 [Quick Reference](./src/maintenance/ARCHIVE_QUICK_REF.md) - Common commands
-- 🔧 [Implementation Summary](./src/maintenance/ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
+- 🔧 [Implementation Summary](../docs/archive/2026-08-28-indexer-ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
 
 ---
 

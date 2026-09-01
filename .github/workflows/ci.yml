@@ -97,6 +97,21 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
+
+      - name: Generate OpenAPI and ensure committed spec is up-to-date
+        run: |
+          pnpm run generate:openapi
+          git --no-pager diff --exit-code openapi.json
+
+      - name: Validate OpenAPI spec
+        run: pnpm run validate:openapi
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: backend-openapi
+          path: openapi.json
+          retention-days: 7
       
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -190,6 +205,10 @@ jobs:
         run: pnpm run test
         env:
           NODE_ENV: test
+        continue-on-error: false
+      
+      - name: Check module boundaries (dependency-cruiser)
+        run: pnpm run boundaries
         continue-on-error: false
       
       - name: Build
@@ -299,6 +318,21 @@ jobs:
           path: oracle/dist
           retention-days: 7
 
+
+  # Observability assets - dashboard queries must resolve to metrics the code emits
+  observability:
+    name: Observability - Validate Dashboard Metrics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+
+      - name: Validate dashboard and alert queries against METRICS_MAP.md
+        run: node scripts/check-dashboard-metrics.js
 
   # Secret scanning - blocks PRs that contain verified secrets
   security-scan:
@@ -427,11 +461,43 @@ jobs:
               body: comment
             });
 
+  # Commit message linting - ensures commit messages follow conventional commits format
+  commitlint:
+    name: Commit Message Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate PR commits with commitlint
+        if: github.event_name == 'pull_request'
+        run: pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
+
+      - name: Validate last commit on push
+        if: github.event_name == 'push'
+        run: pnpm exec commitlint --from HEAD~1 --to HEAD
+
   # Summary job - fails if any package fails
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [client, sdk, backend, indexer, oracle, security-scan, lighthouse]
+    needs: [commitlint, client, sdk, backend, indexer, oracle, observability, security-scan, lighthouse]
     if: always()
     steps:
       - name: Check all jobs status
@@ -443,11 +509,13 @@ jobs:
             return 0
           }
           
-          if ! check_status "${{ needs.client.result }}" || \
+          if ! check_status "${{ needs.commitlint.result }}" || \
+             ! check_status "${{ needs.client.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \
              ! check_status "${{ needs.backend.result }}" || \
              ! check_status "${{ needs.indexer.result }}" || \
              ! check_status "${{ needs.oracle.result }}" || \
+             ! check_status "${{ needs.observability.result }}" || \
              ! check_status "${{ needs.security-scan.result }}" || \
              ! check_status "${{ needs.lighthouse.result }}"; then
             echo "❌ One or more packages failed CI checks"

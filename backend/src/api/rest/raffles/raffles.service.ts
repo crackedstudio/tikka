@@ -20,7 +20,7 @@ import {
   IndexerListRafflesFilters,
   IndexerListRafflesResponse,
   IndexerParticipantListResponse,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 import { MetadataRedisService } from '../../../services/metadata-redis.service';
 import { PurchaseTicketPayload } from './dto';
 

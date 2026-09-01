@@ -2,7 +2,7 @@
 # scripts/decrypt-env.sh
 #
 # Decrypts oracle/.env.enc (SOPS-encrypted) into oracle/.env at startup.
-# The decrypted file is written to a tmpfs mount in production (see k8s/deployment.yaml).
+# The decrypted file is written to a tmpfs mount in production (see the volumes/volumeMounts patch in k8s/kustomization.yaml).
 #
 # Usage:
 #   SOPS_AGE_KEY_FILE=/run/secrets/age.key ./scripts/decrypt-env.sh
