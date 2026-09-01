@@ -210,17 +210,22 @@ export class SnapshotService {
     await this.dataSource.transaction(async (manager) => {
       this.logger.log("Clearing existing tables...");
 
-      // Delete in FK-safe order
-      await manager.delete(TicketEntity, {});
-      await manager.delete(RaffleEventEntity, {});
-      await manager.delete(DeadLetterEventEntity, {});
-      await manager.delete(RaffleEntity, {});
-      await manager.delete(UserEntity, {});
-      await manager.delete(IndexerCursorEntity, {});
-      await manager.delete(PlatformStatEntity, {});
-      await manager.delete(PlatformStateEntity, {});
-      await manager.delete(WebhookEntity, {});
-      await manager.delete(ArchiveCheckpointEntity, {});
+      // Delete in FK-safe order. Use the query builder directly rather than
+      // manager.delete(Entity, {}) because TypeORM >= 1.1.0 rejects empty
+      // criteria (`Empty criteria(s) are not allowed for the delete method`).
+      const clearTable = <T>(Entity: new () => T) =>
+        manager.createQueryBuilder().delete().from(Entity).execute();
+
+      await clearTable(TicketEntity);
+      await clearTable(RaffleEventEntity);
+      await clearTable(DeadLetterEventEntity);
+      await clearTable(RaffleEntity);
+      await clearTable(UserEntity);
+      await clearTable(IndexerCursorEntity);
+      await clearTable(PlatformStatEntity);
+      await clearTable(PlatformStateEntity);
+      await clearTable(WebhookEntity);
+      await clearTable(ArchiveCheckpointEntity);
 
       this.logger.log("Inserting snapshot data...");
 
