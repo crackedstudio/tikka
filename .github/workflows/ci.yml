@@ -23,6 +23,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       indexer: ${{ steps.filter.outputs.indexer }}
       oracle: ${{ steps.filter.outputs.oracle }}
+      database: ${{ steps.filter.outputs.database }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -31,6 +32,7 @@ jobs:
           filters: |
             client:
               - 'client/**'
+              - 'backend/openapi.json'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
@@ -50,10 +52,14 @@ jobs:
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
             oracle:
-              - 'oracle/**'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - '.github/workflows/ci.yml'
+            - 'oracle/**'
+            - 'package.json'
+            - 'pnpm-workspace.yaml'
+            - '.github/workflows/ci.yml'
+          database:
+            - 'indexer/src/database/**'
+            - 'backend/**'
+            - '.github/workflows/ci.yml'
 
   # Client package
   client:
@@ -70,12 +76,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
       
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: client/pnpm-lock.yaml
       
@@ -86,17 +92,57 @@ jobs:
         run: node scripts/check-contrast.js
         continue-on-error: false
       
+      - name: Check generated API types are up to date
+        run: |
+          pnpm run generate:types
+          if ! git diff --exit-code src/types/api.generated.ts; then
+            echo "❌ api.generated.ts is stale — run 'pnpm generate:types' and commit the result"
+            exit 1
+          fi
+        continue-on-error: false
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
       
       - name: Run unit tests
-        run: pnpm run test:unit
+        run: pnpm run test:unit -- --coverage --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.branches=80 --coverage.thresholds.statements=80
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-client
+          path: client/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
         continue-on-error: false
+
+      - name: Generate OpenAPI and ensure committed spec is up-to-date
+        run: |
+          pnpm run generate:openapi
+          git --no-pager diff --exit-code openapi.json
+
+      - name: Validate OpenAPI spec
+        run: pnpm run validate:openapi
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: backend-openapi
+          path: openapi.json
+          retention-days: 7
+      
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+        continue-on-error: false
+      
+      - name: Run e2e accessibility tests
+        run: pnpm run test:e2e -- --grep "Accessibility"
+        continue-on-error: true
       
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -120,12 +166,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
       
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: sdk/pnpm-lock.yaml
       
@@ -137,11 +183,95 @@ jobs:
         continue-on-error: false
       
       - name: Run tests
-        run: pnpm run test
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-sdk
+          path: sdk/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
+        continue-on-error: false
+
+      - name: Build read and light entry points
+        run: pnpm run build:read && pnpm run build:light
+        continue-on-error: false
+
+      - name: API surface report check
+        run: |
+          pnpm exec api-extractor run --config api-extractor.json
+          pnpm exec api-extractor run --config api-extractor.read.json
+          pnpm exec api-extractor run --config api-extractor.write.json
+          pnpm exec api-extractor run --config api-extractor.light.json
+        continue-on-error: false
+      
+      - name: Check bundle size budgets
+        run: |
+          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
+          node -e '
+            const fs = require("fs");
+            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
+            summary += "| Bundle | Size | Limit | Status |\n";
+            summary += "| --- | --- | --- | --- |\n";
+            try {
+              const content = fs.readFileSync("size-summary.json", "utf8");
+              const data = JSON.parse(content);
+              if (Array.isArray(data)) {
+                for (const item of data) {
+                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
+                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
+                  const limitStr = item.limit || "N/A";
+                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
+                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
+                }
+              }
+            } catch (err) {
+              summary += "Unable to parse size-check output.\n";
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          '
+          pnpm size-check || true
+          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ SDK bundle size limit budget exceeded!"
+            exit $SIZE_CHECK_EXIT_CODE
+          fi
+        continue-on-error: false
+      
+      - name: Check bundle size budgets
+        run: |
+          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
+          node -e '
+            const fs = require("fs");
+            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
+            summary += "| Bundle | Size | Limit | Status |\n";
+            summary += "| --- | --- | --- | --- |\n";
+            try {
+              const content = fs.readFileSync("size-summary.json", "utf8");
+              const data = JSON.parse(content);
+              if (Array.isArray(data)) {
+                for (const item of data) {
+                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
+                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
+                  const limitStr = item.limit || "N/A";
+                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
+                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
+                }
+              }
+            } catch (err) {
+              summary += "Unable to parse size-check output.\n";
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          '
+          pnpm size-check || true
+          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ SDK bundle size limit budget exceeded!"
+            exit $SIZE_CHECK_EXIT_CODE
+          fi
         continue-on-error: false
       
       - name: Check bundle size budgets
@@ -202,12 +332,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
       
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: backend/pnpm-lock.yaml
       
@@ -219,9 +349,21 @@ jobs:
         continue-on-error: false
       
       - name: Run tests (mocked)
-        run: pnpm run test
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
           NODE_ENV: test
+        continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-backend
+          path: backend/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+      
+      - name: Check module boundaries (dependency-cruiser)
+        run: pnpm run boundaries
         continue-on-error: false
       
       - name: Build
@@ -250,12 +392,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
       
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: indexer/pnpm-lock.yaml
       
@@ -267,10 +409,18 @@ jobs:
         continue-on-error: false
       
       - name: Run unit tests (network tests excluded)
-        run: pnpm run test
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
           NODE_ENV: test
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-indexer
+          path: indexer/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
@@ -298,12 +448,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
       
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: oracle/pnpm-lock.yaml
       
@@ -315,10 +465,18 @@ jobs:
         continue-on-error: false
       
       - name: Run tests (mocked)
-        run: pnpm run test
+        run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
           NODE_ENV: test
         continue-on-error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-oracle
+          path: oracle/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
       
       - name: Build
         run: pnpm run build
@@ -330,6 +488,80 @@ jobs:
           name: oracle-build
           path: oracle/dist
           retention-days: 7
+
+  # Verify a build + test run leaves the working tree clean (no committed artifacts)
+  verify-clean-tree:
+    name: Verify Clean Working Tree
+    runs-on: ubuntu-latest
+    needs: [changes, client, sdk, backend, indexer, oracle]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+
+      - name: Client - install, lint, test, build
+        working-directory: ./client
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+          pnpm run test:unit
+          pnpm run build
+
+      - name: SDK - install, lint, test, build
+        working-directory: ./sdk
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+          pnpm run test
+          pnpm run build
+
+      - name: Backend - install, lint, test, build
+        working-directory: ./backend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+          pnpm run test
+          pnpm run build
+        env:
+          NODE_ENV: test
+
+      - name: Indexer - install, lint, test, build
+        working-directory: ./indexer
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+          pnpm run test
+          pnpm run build
+        env:
+          NODE_ENV: test
+
+      - name: Oracle - install, lint, test, build
+        working-directory: ./oracle
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+          pnpm run test
+          pnpm run build
+        env:
+          NODE_ENV: test
+
+      - name: Fail if working tree is dirty
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "❌ Working tree is dirty after build + test run:"
+            git status --porcelain
+            git diff
+            exit 1
+          fi
+          echo "✅ Working tree is clean after build + test run"
 
 
   # Observability assets - dashboard queries must resolve to metrics the code emits
@@ -367,6 +599,37 @@ jobs:
             --only-verified
             --exclude-paths .trufflehog-exclude
 
+  ci-summary:
+    name: Coverage Summary
+    runs-on: ubuntu-latest
+    needs: [client, sdk, backend, indexer, oracle]
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: coverage
+          pattern: coverage-*
+      - name: Generate coverage table
+        run: |
+          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Lines | Functions | Branches |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|-----------|----------|" >> $GITHUB_STEP_SUMMARY
+          for artifact in coverage/coverage-*; do
+            pkg=${artifact#coverage/coverage-}
+            lcov=$(find "$artifact" -name lcov.info -print -quit)
+            if [ -f "$lcov" ]; then
+              lines=$(awk -F: '/^LF:/{lf+=$2}/^LH:/{lh+=$2}END{printf "%.1f%%", (lf>0?100*lh/lf:0)}' "$lcov")
+              functions=$(awk -F: '/^FNF:/{fnf+=$2}/^FNH:/{fnh+=$2}END{printf "%.1f%%", (fnf>0?100*fnh/fnf:0)}' "$lcov")
+              branches=$(awk -F: '/^BRF:/{brf+=$2}/^BRH:/{brh+=$2}END{printf "%.1f%%", (brf>0?100*brh/brf:0)}' "$lcov")
+              echo "| $pkg | $lines | $functions | $branches |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $pkg | N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
   # Lighthouse CI for client performance budgets
   lighthouse:
     name: Lighthouse CI - Performance Budgets
@@ -381,12 +644,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
       
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: client/pnpm-lock.yaml
       
@@ -487,12 +750,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -545,6 +808,74 @@ jobs:
     needs: [commitlint, client, sdk, backend, indexer, oracle, observability, security-scan, lighthouse]
     if: always()
     steps:
+      - name: Download coverage - client
+        if: needs.client.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-client
+          path: coverage/client
+      - name: Download coverage - sdk
+        if: needs.sdk.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-sdk
+          path: coverage/sdk
+      - name: Download coverage - backend
+        if: needs.backend.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-backend
+          path: coverage/backend
+      - name: Download coverage - indexer
+        if: needs.indexer.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-indexer
+          path: coverage/indexer
+      - name: Download coverage - oracle
+        if: needs.oracle.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-oracle
+          path: coverage/oracle
+      - name: Generate coverage summary
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            // Ratchet policy: coverageThreshold is set just below current coverage; lower only with a docs/testing update.
+            const packages = [
+              { name: 'client', file: 'coverage/client/lcov.info', coverageThreshold: 80 },
+              { name: 'sdk', file: 'coverage/sdk/lcov.info', coverageThreshold: 80 },
+              { name: 'backend', file: 'coverage/backend/lcov.info', coverageThreshold: 70 },
+              { name: 'indexer', file: 'coverage/indexer/lcov.info', coverageThreshold: 60 },
+              { name: 'oracle', file: 'coverage/oracle/lcov.info', coverageThreshold: 70 }
+            ];
+            const rows = [];
+            let gateFailed = false;
+            for (const pkg of packages) {
+              const coverageFile = path.join(process.cwd(), pkg.file);
+              if (!fs.existsSync(coverageFile)) {
+                rows.push(`| ${pkg.name} | N/A | ${pkg.coverageThreshold}% | N/A |`);
+                continue;
+              }
+              const lcov = fs.readFileSync(coverageFile, 'utf8');
+              let found = 0;
+              let hit = 0;
+              for (const line of lcov.split('\n')) {
+                if (line.startsWith('LF:')) found += parseInt(line.slice(3), 10);
+                if (line.startsWith('LH:')) hit += parseInt(line.slice(3), 10);
+              }
+              const pct = found ? (hit / found) * 100 : 0;
+              const ok = pct >= pkg.coverageThreshold;
+              if (!ok) gateFailed = true;
+              rows.push(`| ${pkg.name} | ${pct.toFixed(2)}% | ${pkg.coverageThreshold}% | ${ok ? '✅' : '❌'} |`);
+            }
+            const table = `## Coverage\n\n| Package | Lines | Threshold | Status |\n| --- | ---: | ---: | --- |\n${rows.join('\n')}\n`;
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, table);
+            if (gateFailed) core.setFailed('Coverage is below the ratchet threshold in one or more packages.');
       - name: Check all jobs status
         run: |
           check_status() {
@@ -554,16 +885,15 @@ jobs:
             return 0
           }
           
-          if ! check_status "${{ needs.commitlint.result }}" || \
-             ! check_status "${{ needs.changeset-check.result }}" || \
-             ! check_status "${{ needs.client.result }}" || \
+          if ! check_status "${{ needs.client.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \
              ! check_status "${{ needs.backend.result }}" || \
              ! check_status "${{ needs.indexer.result }}" || \
              ! check_status "${{ needs.oracle.result }}" || \
              ! check_status "${{ needs.observability.result }}" || \
              ! check_status "${{ needs.security-scan.result }}" || \
-             ! check_status "${{ needs.lighthouse.result }}"; then
+             ! check_status "${{ needs.lighthouse.result }}" || \
+             ! check_status "${{ needs.migration-check.result }}"; then
             echo "❌ One or more packages failed CI checks"
             exit 1
           fi

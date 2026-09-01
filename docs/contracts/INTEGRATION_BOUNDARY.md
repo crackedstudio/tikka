@@ -2,7 +2,7 @@
 
 > **Scope:** External Soroban contracts for the Tikka raffle platform  
 > **Audience:** SDK, indexer, oracle, backend, and client developers  
-> **Status:** Living document — update after each contract deployment
+> **Status:** Living document â€” update after each contract deployment
 
 ---
 
@@ -10,8 +10,8 @@
 
 Tikka integrates with two primary Soroban contracts deployed on the Stellar network:
 
-1. **Raffle Contract** — Core raffle state machine, ticket sales, winner selection
-2. **Factory Contract** (optional) — Deploy new raffle instances
+1. **Raffle Contract** â€” Core raffle state machine, ticket sales, winner selection
+2. **Factory Contract** (optional) â€” Deploy new raffle instances
 
 These contracts are **external to this repository** and define the boundary conditions that all SDK, indexer, oracle, backend, and client code must respect.
 
@@ -26,8 +26,8 @@ Contract addresses vary by network. All are configured via environment variables
 | Network | Env Var | Testnet Default | Mainnet Default |
 |---------|---------|-----------------|-----------------|
 | **Testnet** | `TIKKA_CONTRACT_TESTNET` | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` | N/A |
-| **Mainnet** | `TIKKA_CONTRACT_MAINNET` | N/A | (empty — set after deployment) |
-| **Standalone** | `TIKKA_CONTRACT_STANDALONE` | (empty — local dev) | N/A |
+| **Mainnet** | `TIKKA_CONTRACT_MAINNET` | N/A | (empty â€” set after deployment) |
+| **Standalone** | `TIKKA_CONTRACT_STANDALONE` | (empty â€” local dev) | N/A |
 
 **Source:** [`sdk/src/contract/constants.ts`](../../sdk/src/contract/constants.ts)
 
@@ -53,10 +53,10 @@ All method names must exactly match the Rust `pub fn` declarations in the contra
 |--------|-----------|---------|------|
 | **`create_raffle`** | `params: RaffleParams` | `u32` (raffle_id) | Create a new raffle, emit `RaffleCreated` |
 | **`buy_ticket`** | `raffle_id: u32, buyer: Address, qty: u32` | `Vec<u32>` (ticket_ids) | Purchase one or more tickets, emit `TicketPurchased` |
-| **`trigger_draw`** | `raffle_id: u32` | — | Transition raffle to `DRAWING` state, emit `DrawTriggered` |
-| **`receive_randomness`** | `raffle_id: u32, seed: BytesN<32>, proof: BytesN<64>` | — | Accept oracle-provided randomness, finalize raffle |
-| **`cancel_raffle`** | `raffle_id: u32` | — | Cancel raffle and allow refunds |
-| **`refund_ticket`** | `raffle_id: u32, ticket_id: u32` | — | Refund a single ticket (only if cancelled) |
+| **`trigger_draw`** | `raffle_id: u32` | â€” | Transition raffle to `DRAWING` state, emit `DrawTriggered` |
+| **`receive_randomness`** | `raffle_id: u32, seed: BytesN<32>, proof: BytesN<64>` | â€” | Accept oracle-provided randomness, finalize raffle |
+| **`cancel_raffle`** | `raffle_id: u32` | â€” | Cancel raffle and allow refunds |
+| **`refund_ticket`** | `raffle_id: u32, ticket_id: u32` | â€” | Refund a single ticket (only if cancelled) |
 
 **Source:** [`sdk/src/contract/bindings.ts`](../../sdk/src/contract/bindings.ts)
 
@@ -65,8 +65,8 @@ All method names must exactly match the Rust `pub fn` declarations in the contra
 | Method | Parameters | Returns | Role |
 |--------|-----------|---------|------|
 | **`get_raffle_data`** | `raffle_id: u32` | `RaffleData` | Fetch raffle state, params, and status |
-| **`get_active_raffle_ids`** | — | `Vec<u32>` | List raffle IDs in `OPEN` or `DRAWING` state |
-| **`get_all_raffle_ids`** | — | `Vec<u32>` | List all raffle IDs (all states) |
+| **`get_active_raffle_ids`** | â€” | `Vec<u32>` | List raffle IDs in `OPEN` or `DRAWING` state |
+| **`get_all_raffle_ids`** | â€” | `Vec<u32>` | List all raffle IDs (all states) |
 | **`get_user_tickets`** | `raffle_id: u32, user: Address` | `Vec<u32>` | Get ticket IDs owned by a user in a raffle |
 | **`get_user_participation`** | `user: Address` | `UserParticipation` | Get user's participation summary across raffles |
 
@@ -74,15 +74,15 @@ All method names must exactly match the Rust `pub fn` declarations in the contra
 
 | Method | Parameters | Returns | Signer |
 |--------|-----------|---------|--------|
-| **`set_oracle_address`** | `oracle: Address` | — | Admin only |
-| **`set_protocol_fee`** | `fee_bps: u32` | — | Admin only |
-| **`withdraw_fees`** | `recipient: Address` | — | Admin only |
-| **`pause`** | — | — | Admin only |
-| **`unpause`** | — | — | Admin only |
-| **`transfer_admin`** | `new_admin: Address` | — | Current admin only |
-| **`accept_admin`** | — | — | Pending admin only |
-| **`get_admin`** | — | `Address` | Any (read-only) |
-| **`is_paused`** | — | `bool` | Any (read-only) |
+| **`set_oracle_address`** | `oracle: Address` | â€” | Admin only |
+| **`set_protocol_fee`** | `fee_bps: u32` | â€” | Admin only |
+| **`withdraw_fees`** | `recipient: Address` | â€” | Admin only |
+| **`pause`** | â€” | â€” | Admin only |
+| **`unpause`** | â€” | â€” | Admin only |
+| **`transfer_admin`** | `new_admin: Address` | â€” | Current admin only |
+| **`accept_admin`** | â€” | â€” | Pending admin only |
+| **`get_admin`** | â€” | `Address` | Any (read-only) |
+| **`is_paused`** | â€” | `bool` | Any (read-only) |
 
 ---
 
@@ -104,9 +104,9 @@ enum RaffleStatus {
 **State Transitions:**
 
 ```
-OPEN  ──(end_time passed)──▶  DRAWING  ──(oracle reveals)──▶  FINALIZED
-  │                                                               ▲
-  └───────(host cancels / min not met)────▶  CANCELLED ──────────┘
+OPEN  â”€â”€(end_time passed)â”€â”€â–¶  DRAWING  â”€â”€(oracle reveals)â”€â”€â–¶  FINALIZED
+  â”‚                                                               â–²
+  â””â”€â”€â”€â”€â”€â”€â”€(host cancels / min not met)â”€â”€â”€â”€â–¶  CANCELLED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 **Allowed Actions per State:**
@@ -217,7 +217,7 @@ DrawTriggered {
 ```
 
 **Indexed by:** `raffle.draw_triggered` event handler  
-**Parsed to:** Database `raffles` table (status → DRAWING)  
+**Parsed to:** Database `raffles` table (status â†’ DRAWING)  
 **Used by:** Oracle to detect which raffles need randomness
 
 ### RandomnessRequested
@@ -280,7 +280,7 @@ RaffleCancelled {
 ```
 
 **Indexed by:** `raffle.cancelled` event handler  
-**Parsed to:** Database `raffles` table (status → CANCELLED)  
+**Parsed to:** Database `raffles` table (status â†’ CANCELLED)  
 **Used by:** Frontend to display cancellation, backend to notify participants
 
 ### TicketRefunded
@@ -326,7 +326,7 @@ Each network has a unique passphrase used for transaction signing:
 | **Mainnet** | `Public Global Stellar Network ; September 2015` |
 | **Standalone** | `Standalone Network ; February 2021` |
 
-**Critical:** Must match contract's network. Using wrong passphrase → invalid signatures.
+**Critical:** Must match contract's network. Using wrong passphrase â†’ invalid signatures.
 
 ---
 
@@ -374,16 +374,16 @@ This section links the contract to specific code locations that depend on it.
 - Persists parsed events to PostgreSQL
 
 **Event Handlers:**
-- `RaffleCreatedHandler` → parses `RaffleCreated` event
-- `TicketPurchasedHandler` → parses `TicketPurchased` event
-- `DrawTriggeredHandler` → parses `DrawTriggered` event
-- `RaffleFinalized` → parses `RaffleFinalized` event
+- `RaffleCreatedHandler` â†’ parses `RaffleCreated` event
+- `TicketPurchasedHandler` â†’ parses `TicketPurchased` event
+- `DrawTriggeredHandler` â†’ parses `DrawTriggered` event
+- `RaffleFinalized` â†’ parses `RaffleFinalized` event
 - (More in `handlers/index.ts`)
 
 **On Contract Update:**
 - If event fields change, update the corresponding handler's `parse()` method
 - If new events added, create new handler class and register in registry
-- See [`indexer/EVENT_PARSER_EXTENSIBILITY.md`](../../indexer/EVENT_PARSER_EXTENSIBILITY.md)
+- See [`indexer/src/ingestor/EVENT_PARSER.md`](../../indexer/src/ingestor/EVENT_PARSER.md)
 
 ### Oracle Event Listener
 
@@ -501,7 +501,7 @@ If all pass, contract upgrade is safe.
 **Error:** `Cannot buy ticket on raffle in FINALIZED state`
 
 **Fix:**
-1. Check raffle status in contract — may be cached
+1. Check raffle status in contract â€” may be cached
 2. Call `get_raffle_data(raffle_id)` to refresh state
 3. Verify event was indexed correctly (check indexer logs)
 
@@ -509,12 +509,12 @@ If all pass, contract upgrade is safe.
 
 ## Related Documentation
 
-- **[CONTRACT_UPGRADE_CHECKLIST.md](./CONTRACT_UPGRADE_CHECKLIST.md)** — Step-by-step upgrade guide
-- **[SCHEMA_VERIFICATION.md](./SCHEMA_VERIFICATION.md)** — How to verify contract data compatibility
-- **[ARCHITECTURE.md](../ARCHITECTURE.md)** — System-wide architecture (section 1: tikka-contracts)
-- **[EVENT_PARSER_EXTENSIBILITY.md](../../indexer/EVENT_PARSER_EXTENSIBILITY.md)** — How indexer parses events
-- **[SDK README](../../sdk/README.md)** — SDK usage guide
-- **[Stellar Soroban Docs](https://developers.stellar.org/learn/smart-contracts)** — Official Soroban reference
+- **[CONTRACT_UPGRADE_CHECKLIST.md](./CONTRACT_UPGRADE_CHECKLIST.md)** â€” Step-by-step upgrade guide
+- **[SCHEMA_VERIFICATION.md](./SCHEMA_VERIFICATION.md)** â€” How to verify contract data compatibility
+- **[ARCHITECTURE.md](../ARCHITECTURE.md)** â€” System-wide architecture (section 1: tikka-contracts)
+- **[EVENT_PARSER.md](../../indexer/src/ingestor/EVENT_PARSER.md)** â€” How indexer parses events
+- **[SDK README](../../sdk/README.md)** â€” SDK usage guide
+- **[Stellar Soroban Docs](https://developers.stellar.org/learn/smart-contracts)** â€” Official Soroban reference
 
 ---
 
