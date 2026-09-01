@@ -824,7 +824,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [commitlint, client, sdk, backend, indexer, oracle, observability, security-scan, lighthouse]
+    needs: [commitlint, module-boundaries, client, sdk, backend, indexer, oracle, observability, security-scan, lighthouse]
     if: always()
     steps:
       - name: Download coverage - client
