@@ -70,11 +70,22 @@
       "tsx"
     ],
     "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "testRegex": ".*\\.Spec\\.ts$",
     "transform": {
       "^\\.+\\.(t|j)sx?$": "ts-jest"
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "collectCoverageFrom": ["**/*.ts"],
+    "coverageDirectory": "../coverage",
+    "coverageReporters": ["lcov", "text"],
+    "coverageThreshold": {
+      "global": {
+        "statements": 60,
+        "branches": 40,
+        "functions": 50,
+        "lines": 60
+      }
+    }
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
