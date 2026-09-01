@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import Skeleton from "../components/ui/Skeleton";
+import EmptyState from "../components/ui/EmptyState";
+import { Ticket, Plus } from "lucide-react";
 
 // Mocking standard layout dependencies. 
 // Replace these paths with your project's actual navigation or auth hook components if named differently.
@@ -111,19 +114,25 @@ export const MyRaffles: React.FC = () => {
 
       {/* Loading Skeleton Placeholder View */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="h-32 bg-gray-100 dark:bg-gray-800 rounded-2xl" />
-          ))}
+        <div className="space-y-4">
+          <Skeleton className="h-32 rounded-2xl" />
+          <Skeleton className="h-32 rounded-2xl" />
+          <Skeleton className="h-32 rounded-2xl" />
         </div>
       ) : (
         <div>
           {/* 3. Entered Tab Panel View */}
           {activeTab === "entered" && (
             enteredRaffles.length === 0 ? (
-              <div className="text-center py-12 border border-dashed rounded-2xl text-gray-500">
-                You haven't entered any ticket sweeps yet.
-              </div>
+              <EmptyState
+                icon={<Ticket className="w-8 h-8 text-gray-400" />}
+                title="No raffles entered yet"
+                hint="You haven't entered any raffles yet. Browse active raffles to get started!"
+                action={{
+                  label: "Browse Raffles",
+                  onClick: () => navigate("/home")
+                }}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {enteredRaffles.map((item) => (
@@ -157,9 +166,15 @@ export const MyRaffles: React.FC = () => {
           {/* 4. Created Tab Panel View */}
           {activeTab === "created" && (
             createdRaffles.length === 0 ? (
-              <div className="text-center py-12 border border-dashed rounded-2xl text-gray-500">
-                You haven't launched any raffle contracts yet.
-              </div>
+              <EmptyState
+                icon={<Plus className="w-8 h-8 text-gray-400" />}
+                title="No raffles created yet"
+                hint="You haven't created any raffles yet. Create your first raffle to start engaging your community!"
+                action={{
+                  label: "Create Raffle",
+                  onClick: () => navigate("/create")
+                }}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {createdRaffles.map((item) => (
