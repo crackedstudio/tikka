@@ -24,7 +24,7 @@ import { RequestLoggingInterceptor } from "./middleware/request-logging.intercep
 import { ErrorResponseInterceptor } from "./middleware/error-response.interceptor";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
-import { IndexerBackfillModule } from "./services/indexer-backfill.module";
+import { IndexerBackfillModule } from "./services/indexer/indexer-backfill.module";
 import { MaintenanceModeGuard } from "./maintenance/maintenance-mode.guard";
 import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
 import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";

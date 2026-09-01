@@ -333,7 +333,11 @@ constructor(private healthService: HealthService) {
 
 ### Kubernetes Liveness Probe
 
-For Kubernetes deployments, you can configure liveness probes that fail when `lagStatus === 'critical'`. See `kubernetes/liveness-probe-example.yaml` for complete examples.
+The indexer splits its probes so that lag never restarts a pod: liveness hits
+`/health/live`, which stays 200 while the process can serve HTTP, and readiness
+hits `/health/ready`, which returns 503 when `lagStatus === 'critical'` so traffic
+is withdrawn instead. The probe configuration lives in `k8s/kustomization.yaml`;
+see [`docs/k8s-deployment.md`](../docs/k8s-deployment.md) for the full table.
 
 ---
 
@@ -368,11 +372,20 @@ src/
 │   ├── raffle.processor.ts
 │   └── user.processor.ts
 ├── maintenance/
-│   ├── archive-raffle-events.ts        # Resumable archiving utility
-│   ├── archive-raffle-events.spec.ts   # Archiving tests
+│   ├── archive-raffle-events.ts        # Archiving CLI entry point
+│   ├── archive-raffle-events.spec.ts   # Entry-point contract test
+│   ├── archive/                        # Archiver modules (one per concern)
+│   │   ├── runner.ts                   # archiveOldRaffleEvents orchestration
+│   │   ├── checkpoint.service.ts       # archive_checkpoints lifecycle
+│   │   ├── integrity.ts                # Checkpoint hashing + verification
+│   │   ├── batch-selector.ts           # Cursor-based selection + deletion
+│   │   ├── writer.ts                   # CSV output
+│   │   ├── confirmation.ts             # CONFIRM_DELETE gate
+│   │   ├── cli.ts                      # Env parsing + process wiring
+│   │   ├── logging.ts                  # Structured JSON logs/alerts
+│   │   └── types.ts                    # Options, results, defaults
 │   ├── ARCHIVE_RAFFLE_EVENTS_GUIDE.md  # Comprehensive guide
-│   ├── ARCHIVE_QUICK_REF.md            # Quick reference
-│   └── ARCHIVE_IMPLEMENTATION_SUMMARY.md # Technical summary
+│   └── ARCHIVE_QUICK_REF.md            # Quick reference
 └── database/
     ├── database.module.ts       # TypeOrmModule wiring
     ├── entities/
@@ -445,6 +458,7 @@ raffle_events_2026-05-30_batch0002.csv
 
 ### Documentation
 
+- 🚨 [Archiving runbook](../docs/runbooks/archive-raffle-events.md) - Running it in production, resuming, integrity failures
 - 📜 [Retention policy & restore](../docs/database/raffle-events-retention.md) - Criteria, cadence, destination, restore
 - 📖 [Comprehensive Guide](./src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md) - Full documentation
 - 📋 [Quick Reference](./src/maintenance/ARCHIVE_QUICK_REF.md) - Common commands

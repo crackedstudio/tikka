@@ -1,5 +1,5 @@
 import { rpc } from '@stellar/stellar-sdk';
-import { RetryOptions } from '../utils/retry';
+import { RetryConfig } from './network.config';
 
 /** Emitted when the RPC retention window no longer includes our resume cursor. */
 export interface EventGapWarning {
@@ -26,7 +26,7 @@ export interface EventSubscriptionOptions {
   onError?: (error: unknown) => void;
   onReconnect?: (attempt: number, delayMs: number, error: unknown) => void;
   onGapWarning?: (warning: EventGapWarning) => void;
-  retry?: Pick<RetryOptions, 'baseDelayMs' | 'maxDelayMs'>;
+  retry?: Pick<RetryConfig, 'baseDelayMs' | 'maxDelayMs'>;
   /** Injectable sleep (tests). */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -43,7 +43,7 @@ export interface EventSubscriptionHandle {
 
 function computeReconnectDelay(
   attempt: number,
-  retry: Pick<RetryOptions, 'baseDelayMs' | 'maxDelayMs'> = {},
+  retry: Pick<RetryConfig, 'baseDelayMs' | 'maxDelayMs'> = {},
 ): number {
   const baseDelayMs = retry.baseDelayMs ?? 500;
   const maxDelayMs = retry.maxDelayMs ?? 8000;

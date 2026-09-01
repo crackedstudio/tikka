@@ -10,6 +10,19 @@ This repository is split into several runnable workspaces. The fastest way to ge
 ## Prerequisites
 
 - Node.js and pnpm
+
+  Node and pnpm versions are pinned repo-wide. The single source of truth for
+the Node major is `.nvmrc` (and its mirror `.node-version`):
+
+  - **Node.js 22** — read by CI (`node-version-file: .nvmrc`), the Docker
+    base images, and local version managers (`nvm`, `fnm`, `mise`, ...).
+  - **pnpm 9.15.9** — declared via `packageManager` in every package
+    `package.json` and enforced by pnpm; CI installs this exact version.
+
+  `.npmrc` sets `engine-strict=true`, so `pnpm install` fails locally if your
+  Node major does not match `.nvmrc`. Use your version manager to switch to
+  Node 22 before installing, e.g. `nvm use` / `fnm use`.
+
 - Docker Desktop or Docker Engine with Compose v2
 
 ## Shared services (Postgres + Redis)
@@ -163,6 +176,19 @@ Use the same command with `down -v` to tear everything down.
 ## Running unit tests
 
 Unit tests run without any external services and are safe to run in CI.
+
+The three root commands cover all five packages in one shot:
+
+```bash
+# From the repository root
+pnpm lint       # ESLint across all packages
+pnpm test       # Jest (backend / indexer / oracle / sdk) + Vitest (client)
+pnpm typecheck  # tsc --noEmit across all packages
+```
+
+All three are wired into the husky `pre-push` hook, so they run automatically
+before every `git push`. You can also run them per-workspace if you want faster
+feedback while working on a single package:
 
 ```bash
 # From the repository root
@@ -321,7 +347,9 @@ Scope must match one of the defined package/workspace names:
 
 ## Pull request checklist
 
-- [ ] `pnpm test` passes with no new failures in the workspace you changed.
+- [ ] `pnpm lint` passes with no new errors or warnings.
+- [ ] `pnpm test` passes with no new failures in the workspace(s) you changed.
+- [ ] `pnpm typecheck` passes with no new type errors.
 - [ ] Commit messages follow the Conventional Commits specification with a valid scope (`client`, `sdk`, `backend`, `indexer`, `oracle`, `repo`, `docs`).
 - [ ] New client UI strings are added to every supported locale and
       `pnpm --dir client check:locales` passes with zero missing or orphaned keys.

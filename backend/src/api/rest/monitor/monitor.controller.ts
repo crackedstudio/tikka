@@ -24,7 +24,7 @@ import {
 import {
   BackfillJobService,
   type BackfillJobConfig,
-} from "../../../services/backfill-job.service";
+} from "../../../services/indexer/backfill-job.service";
 import { SkipThrottle } from "../../../middleware/throttle.decorator";
 import { AdminGuard } from "./admin.guard";
 import { MonitorService } from "./monitor.service";
