@@ -60,6 +60,8 @@ describe('Cache invalidation on event ingest', () => {
       builder[m] = jest.fn().mockReturnValue(builder);
     }
     builder.execute = jest.fn().mockResolvedValue({ affected: 1, identifiers: [] });
+    // Idempotency check introduced by the TypeORM 1.x query-builder API.
+    builder.getExists = jest.fn().mockResolvedValue(false);
     return builder;
   };
 

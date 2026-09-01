@@ -1,6 +1,6 @@
 FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS builder
 WORKDIR /app
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.15.9
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
@@ -8,10 +8,8 @@ RUN pnpm run build
 
 FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runner
 WORKDIR /app
-RUN npm install -g pnpm
-RUN chown -R node:node /app
-USER node
-COPY --chown=node:node package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm@9.15.9
+COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder --chown=node:node /app/dist ./dist
 ENV NODE_ENV=production

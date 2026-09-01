@@ -1,7 +1,7 @@
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
-import { EventParserV2Service } from "./event-parser-v2.service";
+import { EventParserService } from "./event-parser.service";
 import { EVENT_PARSER } from "./event-parser.interface";
 import { IEventHandler } from "./event-handler.interface";
 import {
@@ -34,10 +34,10 @@ import {
   imports: [ConfigModule],
   providers: [
     EventHandlerRegistry,
-    EventParserV2Service,
-    // Bind the parser contract token to the single chosen parser (V2) so
-    // ingestion services depend on IEventParser rather than a concrete class.
-    { provide: EVENT_PARSER, useExisting: EventParserV2Service },
+    EventParserService,
+    // Bind the parser contract token to EventParserService so ingestion
+    // services depend on IEventParser rather than a concrete class.
+    { provide: EVENT_PARSER, useExisting: EventParserService },
     // Register all default handler classes
     RaffleCreatedHandler,
     TicketPurchasedHandler,
@@ -52,7 +52,7 @@ import {
     AdminTransferProposedHandler,
     AdminTransferAcceptedHandler,
   ],
-  exports: [EventHandlerRegistry, EventParserV2Service, EVENT_PARSER],
+  exports: [EventHandlerRegistry, EventParserService, EVENT_PARSER],
 })
 export class EventHandlersModule implements OnModuleInit {
   private readonly logger = new Logger(EventHandlersModule.name);

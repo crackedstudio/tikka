@@ -39,14 +39,14 @@ const LIST_PAGE_SIZE = 100;
 const DELETE_BATCH_SIZE = 100;
 const DEFAULT_GRACE_HOURS = 24;
 
-interface Options {
+export interface Options {
   delete: boolean;
   graceHours: number;
   limit: number | null;
   json: boolean;
 }
 
-interface StorageObject {
+export interface StorageObject {
   /** Full path within the bucket, e.g. "42/uploader/uuid.webp" */
   path: string;
   createdAt: string | null;
@@ -128,7 +128,7 @@ export function extractBucketPath(url: string | null | undefined): string | null
 }
 
 /** Collect every object path referenced by any raffle_metadata row. */
-async function collectReferencedPaths(client: SupabaseClient): Promise<Set<string>> {
+export async function collectReferencedPaths(client: SupabaseClient): Promise<Set<string>> {
   const referenced = new Set<string>();
   const pageSize = 1000;
   let from = 0;
@@ -169,7 +169,7 @@ async function collectReferencedPaths(client: SupabaseClient): Promise<Set<strin
  * Recursively list every object in the bucket. Supabase `list()` returns one
  * directory level at a time; folders come back with a null `id`.
  */
-async function listAllObjects(
+export async function listAllObjects(
   client: SupabaseClient,
   prefix = '',
 ): Promise<StorageObject[]> {
@@ -218,7 +218,7 @@ async function listAllObjects(
   return objects;
 }
 
-async function deleteInBatches(
+export async function deleteInBatches(
   client: SupabaseClient,
   paths: string[],
 ): Promise<void> {
@@ -315,8 +315,10 @@ async function main(): Promise<void> {
   process.exit(0);
 }
 
-main().catch((err) => {
-  const message = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`Error: ${message}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`Error: ${message}\n`);
+    process.exit(1);
+  });
+}

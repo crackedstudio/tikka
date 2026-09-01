@@ -40,7 +40,7 @@ const idempotencyKey = uuidv4(); // e.g., "550e8400-e29b-41d4-a716-446655440000"
 await fetch('/raffles/42/metadata', {
   method: 'POST',
   headers: {
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
     'Idempotency-Key': idempotencyKey,
     'Content-Type': 'application/json',
   },
@@ -59,13 +59,13 @@ await fetch('/raffles/42/metadata', {
 
 ## Response Codes
 
-| Status | Description |
-|--------|-------------|
-| 201 | Metadata created/updated successfully (first request) |
-| 201 | Cached response returned (duplicate request) |
-| 409 | Conflict - A request with this Idempotency-Key is already in-progress |
-| 401 | Unauthorized - Missing or invalid JWT token |
-| 403 | Forbidden - Not authorized to update this raffle's metadata |
+| Status | Description                                                           |
+| ------ | --------------------------------------------------------------------- |
+| 201    | Metadata created/updated successfully (first request)                 |
+| 201    | Cached response returned (duplicate request)                          |
+| 409    | Conflict - A request with this Idempotency-Key is already in-progress |
+| 401    | Unauthorized - Missing or invalid JWT token                           |
+| 403    | Forbidden - Not authorized to update this raffle's metadata           |
 
 ## Implementation Details
 
@@ -90,10 +90,12 @@ The implementation uses Redis `SET NX` (set if not exists) to provide atomic loc
 ### Scoping
 
 Idempotency keys are scoped by:
+
 - **Wallet address**: Different users can use the same UUID
 - **Idempotency key**: The UUID provided in the header
 
 This means:
+
 - User A with key `abc-123` and User B with key `abc-123` are **independent**
 - User A with key `abc-123` and User A with key `def-456` are **independent**
 
