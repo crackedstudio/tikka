@@ -22,7 +22,7 @@ export interface RawSorobanEvent {
 /**
  * The single parser contract used by the ingestion pipeline.
  *
- * Implemented by {@link EventParserV2Service}. Ingestion services depend on
+ * Implemented by {@link EventParserService}. Ingestion services depend on
  * this interface (via the {@link EVENT_PARSER} token) rather than on a concrete
  * parser, so the decoding implementation can evolve without touching callers.
  *
@@ -37,7 +37,7 @@ export interface IEventParser {
 }
 
 /**
- * DI token for {@link IEventParser}. Bound to {@link EventParserV2Service}.
+ * DI token for {@link IEventParser}. Bound to {@link EventParserService}.
  * Inject with `@Inject(EVENT_PARSER)` to depend on the parser contract.
  */
 export const EVENT_PARSER = Symbol("EVENT_PARSER");
