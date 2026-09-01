@@ -23,6 +23,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       indexer: ${{ steps.filter.outputs.indexer }}
       oracle: ${{ steps.filter.outputs.oracle }}
+      database: ${{ steps.filter.outputs.database }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -51,10 +52,14 @@ jobs:
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
             oracle:
-              - 'oracle/**'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - '.github/workflows/ci.yml'
+            - 'oracle/**'
+            - 'package.json'
+            - 'pnpm-workspace.yaml'
+            - '.github/workflows/ci.yml'
+          database:
+            - 'indexer/src/database/**'
+            - 'backend/**'
+            - '.github/workflows/ci.yml'
 
   # Client package
   client:
@@ -527,7 +532,8 @@ jobs:
              ! check_status "${{ needs.oracle.result }}" || \
              ! check_status "${{ needs.observability.result }}" || \
              ! check_status "${{ needs.security-scan.result }}" || \
-             ! check_status "${{ needs.lighthouse.result }}"; then
+             ! check_status "${{ needs.lighthouse.result }}" || \
+             ! check_status "${{ needs.migration-check.result }}"; then
             echo "❌ One or more packages failed CI checks"
             exit 1
           fi
