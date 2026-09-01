@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RafflesService } from './raffles.service';
-import { IndexerService } from '../../../services/indexer.service';
+import { IndexerService } from '../../../services/indexer/indexer.service';
 import { MetadataService } from '../../../services/metadata.service';
 import { PinningService } from '../../../services/pinning.service';
 import { MetadataRedisService } from '../../../services/metadata-redis.service';

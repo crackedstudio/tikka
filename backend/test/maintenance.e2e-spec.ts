@@ -13,7 +13,7 @@ import { MetricsController } from '../src/health/metrics.controller';
 import { MetadataCacheMetricsService } from '../src/services/metadata-cache-metrics.service';
 import { MonitorController } from '../src/api/rest/monitor/monitor.controller';
 import { MonitorService } from '../src/api/rest/monitor/monitor.service';
-import { BackfillJobService } from '../src/services/backfill-job.service';
+import { BackfillJobService } from '../src/services/indexer/backfill-job.service';
 
 import {
   FastifyAdapter,

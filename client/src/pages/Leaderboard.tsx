@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import type { LeaderboardSortBy } from "../services/leaderboardService";
-import ErrorMessage from "../components/ui/ErrorMessage";
-import EmptyState from "../components/ui/EmptyState";
+import { ErrorMessage, EmptyState, Skeleton } from "../components/ui";
+import { Trophy } from "lucide-react";
 
 const Leaderboard: React.FC = () => {
   const [sortBy, setSortBy] = useState<LeaderboardSortBy>("wins");
@@ -66,11 +66,12 @@ const Leaderboard: React.FC = () => {
 
         {/* Content */}
         {isLoading ? (
-          <div className="text-center py-12">
-            <div className="w-12 h-12 border-4 border-gray-600 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-            <h3 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
-              Loading Leaderboard...
-            </h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden p-6 space-y-4">
+            <Skeleton className="h-12 w-full rounded" />
+            <Skeleton className="h-12 w-full rounded" />
+            <Skeleton className="h-12 w-full rounded" />
+            <Skeleton className="h-12 w-full rounded" />
+            <Skeleton className="h-12 w-full rounded" />
           </div>
         ) : error ? (
           <ErrorMessage
@@ -81,11 +82,7 @@ const Leaderboard: React.FC = () => {
           />
         ) : entries.length === 0 ? (
           <EmptyState
-            icon={
-              <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-            }
+            icon={<Trophy className="w-8 h-8 text-gray-400" />}
             title="No Leaderboard Data Yet"
             hint="The leaderboard will populate as users participate in raffles."
           />
