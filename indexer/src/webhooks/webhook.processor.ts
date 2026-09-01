@@ -57,7 +57,7 @@ export class WebhookProcessor extends WorkerHost {
     url: string,
     eventType: string,
     payload: Record<string, any>,
-    status: string,
+    status: "success" | "failed",
     attempts: number,
     errorResponse: string | null,
   ): Promise<void> {
@@ -68,7 +68,7 @@ export class WebhookProcessor extends WorkerHost {
         payload,
         status,
         attempts,
-        errorResponse: errorResponse ?? undefined,
+        errorResponse: errorResponse ?? null,
       }),
     );
   }

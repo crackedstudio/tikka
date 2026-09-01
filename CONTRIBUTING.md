@@ -250,11 +250,67 @@ pnpm --filter sdk run build:light
 pnpm --filter sdk run size-check
 ```
 
+## Commit message convention
+
+This repository enforces machine-readable commit messages using [Conventional Commits](https://www.conventionalcommits.org/) and `@commitlint/cli`. This allows release tooling and CI jobs to reason about scope alongside Changesets (`pnpm changeset`).
+
+### Format
+
+```
+<type>(<scope>): <short summary>
+```
+
+### Allowed types
+
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, missing semi-colons, etc.)
+- `refactor`: Code changes that neither fix a bug nor add a feature
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `build`: Changes that affect the build system or external dependencies
+- `ci`: Changes to CI configuration files and scripts
+- `chore`: Other changes that don't modify src or test files
+- `revert`: Reverts a previous commit
+
+### Allowed scopes
+
+Scope must match one of the defined package/workspace names:
+
+- `client` — Frontend application (`client/`)
+- `sdk` — Client SDK package (`sdk/`)
+- `backend` — Backend service (`backend/`)
+- `indexer` — Data indexer service (`indexer/`)
+- `oracle` — Oracle service (`oracle/`)
+- `repo` — Monorepo root, shared scripts, dependencies, or configuration
+- `docs` — Repository documentation (`docs/`)
+
+### Examples
+
+**Valid commit messages:**
+- `feat(client): add wallet connection state indicator`
+- `fix(sdk): resolve challenge verification timeout`
+- `docs(repo): update release workflow documentation`
+- `chore(backend): bump dependency versions`
+
+**Invalid commit messages:**
+- `added new feature` *(missing type and scope)*
+- `feat: update UI` *(missing scope)*
+- `feat(frontend): add wallet button` *(invalid scope `frontend`, must be `client`)*
+
+### Enforcement
+
+- **Locally**: A Husky `commit-msg` hook validates commit messages automatically before commits are created.
+- **CI**: The `commitlint` CI job validates all commit messages on pull requests and pushes to `master`.
+
 ## Pull request checklist
 
 - [ ] `pnpm test` passes with no new failures in the workspace you changed.
+- [ ] Commit messages follow the Conventional Commits specification with a valid scope (`client`, `sdk`, `backend`, `indexer`, `oracle`, `repo`, `docs`).
 - [ ] New client UI strings are added to every supported locale and
   `pnpm --dir client check:locales` passes with zero missing or orphaned keys.
 - [ ] `CONTRIBUTING.md` is updated if new integration test setup is required.
 - [ ] SDK PRs that touch public exports or read/light entry graphs:
   `pnpm --filter sdk size-check` passes (see SDK bundle size section above).
+
