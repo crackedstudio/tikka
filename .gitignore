@@ -31,3 +31,8 @@ PUSH_TO_BRANCH.bat
 # secret.yaml / secrets.yaml must never reach the index (#1476).
 # `secret.yaml.example` does not end in `.yaml`, so the templates stay tracked.
 **/secret*.yaml
+
+# Tool scratch directories
+.kiro/
+.antigravitycli/
+
