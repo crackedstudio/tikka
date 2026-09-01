@@ -11,6 +11,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "test:e2e": "jest --config jest.config.js --testMatch='**/test/e2e-*.spec.ts'",

@@ -177,6 +177,19 @@ Use the same command with `down -v` to tear everything down.
 
 Unit tests run without any external services and are safe to run in CI.
 
+The three root commands cover all five packages in one shot:
+
+```bash
+# From the repository root
+pnpm lint       # ESLint across all packages
+pnpm test       # Jest (backend / indexer / oracle / sdk) + Vitest (client)
+pnpm typecheck  # tsc --noEmit across all packages
+```
+
+All three are wired into the husky `pre-push` hook, so they run automatically
+before every `git push`. You can also run them per-workspace if you want faster
+feedback while working on a single package:
+
 ```bash
 # From the repository root
 pnpm --dir backend test
@@ -319,7 +332,9 @@ Scope must match one of the defined package/workspace names:
 
 ## Pull request checklist
 
-- [ ] `pnpm test` passes with no new failures in the workspace you changed.
+- [ ] `pnpm lint` passes with no new errors or warnings.
+- [ ] `pnpm test` passes with no new failures in the workspace(s) you changed.
+- [ ] `pnpm typecheck` passes with no new type errors.
 - [ ] Commit messages follow the Conventional Commits specification with a valid scope (`client`, `sdk`, `backend`, `indexer`, `oracle`, `repo`, `docs`).
 - [ ] New client UI strings are added to every supported locale and
   `pnpm --dir client check:locales` passes with zero missing or orphaned keys.
