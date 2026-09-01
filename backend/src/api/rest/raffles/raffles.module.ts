@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { RafflesController } from './raffles.controller';
+import { RaffleImagesController } from './raffle-images.controller';
+import { RaffleEventsController } from './raffle-events.controller';
+import { RaffleOgController } from './raffle-og.controller';
 import { OgRenderController } from './og-render.controller';
 import { AdminRafflesController } from './admin-raffles.controller';
 import { RafflesService } from './raffles.service';
@@ -16,11 +19,19 @@ import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.
 import { AdminGuard } from '../monitor/admin.guard';
 import { MonitorService } from '../monitor/monitor.service';
 import { SseService } from '../../../services/sse.service';
+import { RaffleOgImageService } from './raffle-og-image.service';
 
 @Module({
   imports: [IndexerModule, MetadataModule, SupabaseModule, ConfigModule],
-  controllers: [RafflesController, OgRenderController, AdminRafflesController],
-providers: [
+  controllers: [
+    RafflesController,
+    RaffleImagesController,
+    RaffleOgController,
+    RaffleEventsController,
+    OgRenderController,
+    AdminRafflesController,
+  ],
+  providers: [
     RafflesService,
     StorageService,
     ImageOptimizerService,
@@ -30,6 +41,7 @@ providers: [
     AdminGuard,
     MonitorService,
     SseService,
+    RaffleOgImageService,
   ],
   exports: [RafflesService],
 })
