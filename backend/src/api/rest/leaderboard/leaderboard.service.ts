@@ -3,7 +3,7 @@ import {
   IndexerService,
   IndexerLeaderboardResponse,
   IndexerLeaderboardFilters,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 import { MetadataRedisService } from '../../../services/metadata-redis.service';
 import { LeaderboardQueryDto } from './dto/leaderboard-query.dto';
 

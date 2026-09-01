@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { BackfillLock, BackfillLockError } from './backfill-lock';
+import { BackfillLock, BackfillLockError } from './indexer/backfill-lock';
 import { HorizonClientService } from './horizon-client.service';
-import { IndexerService } from './indexer.service';
+import { IndexerService } from './indexer/indexer.service';
 
 export interface ReplayJobConfig {
   fromLedger: number;
