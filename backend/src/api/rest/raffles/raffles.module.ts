@@ -9,7 +9,7 @@ import { AdminRafflesController } from './admin-raffles.controller';
 import { RafflesService } from './raffles.service';
 import { MetadataModule } from '../../../services/metadata.module';
 import { MetadataService } from '../../../services/metadata.service';
-import { IndexerModule } from '../../../services/indexer.module';
+import { IndexerModule } from '../../../services/indexer/indexer.module';
 import { SupabaseModule } from '../../../services/supabase.module';
 import { StorageService } from '../../../services/storage.service';
 import { ImageOptimizerService } from '../../../services/image-optimizer.service';

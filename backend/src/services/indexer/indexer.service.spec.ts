@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { IndexerError, IndexerService } from './indexer.service';
+import { IndexerService } from './indexer.service';
 
 describe('IndexerService', () => {
   let service: IndexerService;

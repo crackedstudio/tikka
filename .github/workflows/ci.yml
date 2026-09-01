@@ -207,6 +207,10 @@ jobs:
           NODE_ENV: test
         continue-on-error: false
       
+      - name: Check module boundaries (dependency-cruiser)
+        run: pnpm run boundaries
+        continue-on-error: false
+      
       - name: Build
         run: pnpm run build
         continue-on-error: false

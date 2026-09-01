@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import * as fc from 'fast-check';
 import { BackfillLock, BackfillLockError } from './backfill-lock';
-import { HorizonClientService } from './horizon-client.service';
+import { HorizonClientService } from '../horizon-client.service';
 import { IndexerBackfillService } from './indexer-backfill.service';
 import { HorizonLedgerData } from './indexer-backfill.types';
 import { IndexerService } from './indexer.service';

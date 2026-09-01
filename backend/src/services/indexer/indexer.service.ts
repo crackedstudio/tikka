@@ -1,200 +1,76 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { captureIngestionError } from '../sentry/sentry';
+import { captureIngestionError } from '../../sentry/sentry';
 import { BackfillLock } from './backfill-lock';
+import type {
+  IndexerApiLeaderboardResponse,
+  IndexerApiParticipantListResponse,
+  IndexerApiPlatformStats,
+  IndexerApiRaffleDetail,
+  IndexerApiRaffleListResponse,
+  IndexerApiTransparencyLog,
+  IndexerApiUserHistoryResponse,
+  IndexerApiUserProfile,
+} from './indexer-api.types';
+import {
+  mapLeaderboard,
+  mapParticipants,
+  mapPlatformStats,
+  mapRaffleDetail,
+  mapRaffleList,
+  mapTransparencyLog,
+  mapUserHistory,
+  mapUserProfile,
+} from './indexer.mapper';
+import {
+  IndexerError,
+  type IndexerLeaderboardFilters,
+  type IndexerLeaderboardResponse,
+  type IndexerListRafflesFilters,
+  type IndexerListRafflesResponse,
+  type IndexerParticipantListResponse,
+  type IndexerPlatformStats,
+  type IndexerRaffleData,
+  type IndexerTransparencyLog,
+  type IndexerUserData,
+  type IndexerUserHistoryResponse,
+} from './indexer.types';
 
-// ── Response types aligned with indexer API (ARCHITECTURE §3) ─────────────────
+// Public surface: the backend-owned response types are re-exported here so
+// consumers can import them alongside IndexerService. Only the raw indexer
+// wire shapes (./indexer-api.types) are intentionally not re-exported.
+export {
+  IndexerError,
+  type IndexerLeaderboardEntry,
+  type IndexerLeaderboardFilters,
+  type IndexerLeaderboardResponse,
+  type IndexerListRafflesFilters,
+  type IndexerListRafflesResponse,
+  type IndexerParticipant,
+  type IndexerParticipantListResponse,
+  type IndexerPlatformStats,
+  type IndexerRaffleData,
+  type IndexerRaffleListItem,
+  type IndexerTransparencyEntry,
+  type IndexerTransparencyLog,
+  type IndexerUserData,
+  type IndexerUserHistoryItem,
+  type IndexerUserHistoryResponse,
+  type LeaderboardSortBy,
+  type RaffleFreshness,
+  type RaffleMetadata,
+  type RaffleWithFreshness,
+} from './indexer.types';
 
-export interface IndexerRaffleData {
-  id: number;
-  creator: string;
-  status: string;
-  ticket_price: string;
-  asset: string;
-  max_tickets: number;
-  tickets_sold: number;
-  end_time: string;
-  winner: string | null;
-  prize_amount: string | null;
-  created_ledger: number;
-  finalized_ledger: number | null;
-  metadata_cid: string | null;
-  created_at: string;
-}
-
-export interface IndexerRaffleListItem extends IndexerRaffleData {
-  participant_count?: number;
-}
-
-export interface IndexerListRafflesFilters {
-  status?: string;
-  category?: string;
-  creator?: string;
-  asset?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface IndexerListRafflesResponse {
-  raffles: IndexerRaffleListItem[];
-  total?: number;
-}
-
-/** Freshness metadata for raffle data integration */
-export interface RaffleFreshness {
-  /** ISO timestamp when raffle was last indexed from blockchain */
-  indexedAt: string | null;
-  
-  /** ISO timestamp when data source was last updated */
-  sourceUpdatedAt: string;
-  
-  /** Ledger height at which raffle state was confirmed */
-  ledger?: number;
-  
-  /** If metadata is newer than indexed state, flag for client */
-  staleness?: {
-    metadataNewer: boolean;
-    minutesOld: number;
-  };
-  
-  /** Conflict resolution log (only if conflicts detected) */
-  conflict?: {
-    field: string;
-    metadataValue: any;
-    indexerValue: any;
-    resolution: 'indexer_authoritative' | 'metadata_authoritative' | 'merged';
-  };
-  
-  /** Warning message for clients */
-  warning?: string;
-}
-
-/** Supabase raffle metadata */
-export interface RaffleMetadata {
-  raffle_id: number;
-  title: string;
-  description: string;
-  image_url: string | null;
-  image_urls: string[] | null;
-  category: string | null;
-  metadata_cid: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-/** Combined raffle response with freshness context */
-export interface RaffleWithFreshness extends IndexerRaffleData {
-  freshness: RaffleFreshness;
-  title?: string;
-  description?: string;
-  image_url?: string | null;
-  image_urls?: string[] | null;
-  category?: string | null;
-}
-
-export interface IndexerUserData {
-  address: string;
-  total_tickets_bought: number;
-  total_raffles_entered: number;
-  total_raffles_won: number;
-  total_prize_xlm: string;
-  first_seen_ledger: number;
-  updated_at: string;
-  creator_stats?: {
-    raffles_created: number;
-    total_tickets_sold: number;
-    total_xlm_raised: string;
-    participant_win_rate: number;
-  };
-}
-
-export interface IndexerUserHistoryItem {
-  raffle_id: number;
-  status: string;
-  tickets_bought: number;
-  purchased_at_ledger: number;
-  purchase_tx_hash: string;
-  prize_amount: string | null;
-  is_winner: boolean;
-}
-
-export interface IndexerUserHistoryResponse {
-  items: IndexerUserHistoryItem[];
-  total: number;
-}
-
-export interface IndexerLeaderboardEntry {
-  address: string;
-  total_tickets?: number;
-  total_wins?: number;
-  total_volume_xlm?: string;
-  rank?: number;
-}
-
-export interface IndexerLeaderboardResponse {
-  entries: IndexerLeaderboardEntry[];
-  nextCursor?: string | null;
-}
-
-export type LeaderboardSortBy = 'wins' | 'volume' | 'tickets';
-
-export interface IndexerLeaderboardFilters {
-  by?: LeaderboardSortBy;
-  limit?: number;
-  cursor?: string;
-  offset?: number;
-}
-
-export interface IndexerPlatformStats {
-  date: string;
-  total_raffles: number;
-  total_tickets: number;
-  total_volume_xlm: string;
-  unique_participants: number;
-  prizes_distributed_xlm: string;
-}
-
-export interface IndexerTransparencyEntry {
-  id: string;
-  timestamp: string;
-  raffle_id: number;
-  request_id: string;
-  oracle_id: string;
-  seed: string;
-  proof: string;
-  tx_hash: string;
-  method: 'VRF' | 'PRNG';
-}
-
-export interface IndexerTransparencyLog {
-  entries: IndexerTransparencyEntry[];
-  total: number;
-}
-
-export interface IndexerParticipant {
-  address: string;
-  tickets_count: number;
-  purchased_at: number;
-}
-
-export interface IndexerParticipantListResponse {
-  participants: IndexerParticipant[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-export class IndexerError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode?: number,
-  ) {
-    super(message);
-    this.name = 'IndexerError';
-  }
-}
-
+/**
+ * HTTP client for the indexer service.
+ *
+ * This is the ONLY module allowed to know the raw indexer wire shapes
+ * (`./indexer-api.types`). Every response is translated through `./indexer.mapper`
+ * into backend-owned response types (`./indexer.types`) before leaving this
+ * boundary, so an indexer schema change cannot silently alter a backend API
+ * response. See `docs/contributing/MODULE_BOUNDARIES.md`.
+ */
 @Injectable()
 export class IndexerService {
   private readonly baseUrl: string;
@@ -278,7 +154,8 @@ export class IndexerService {
 
   /** Get raffle by id. Returns null if not found or indexer unavailable (404). */
   async getRaffle(raffleId: number): Promise<IndexerRaffleData | null> {
-    return this.fetchOrNull<IndexerRaffleData>(`/raffles/${raffleId}`);
+    const raw = await this.fetchOrNull<IndexerApiRaffleDetail>(`/raffles/${raffleId}`);
+    return raw ? mapRaffleDetail(raw) : null;
   }
 
   /** List raffles with optional filters. */
@@ -294,13 +171,15 @@ export class IndexerService {
     if (filters.offset != null) params.set('offset', String(filters.offset));
     const query = params.toString();
     const path = query ? `/raffles?${query}` : '/raffles';
-    return this.fetch<IndexerListRafflesResponse>(path);
+    const raw = await this.fetch<IndexerApiRaffleListResponse>(path);
+    return mapRaffleList(raw);
   }
 
   /** Get user by Stellar address. Returns null if not found. */
   async getUser(address: string): Promise<IndexerUserData | null> {
     const encoded = encodeURIComponent(address);
-    return this.fetchOrNull<IndexerUserData>(`/users/${encoded}`);
+    const raw = await this.fetchOrNull<IndexerApiUserProfile>(`/users/${encoded}`);
+    return raw ? mapUserProfile(raw) : null;
   }
 
   /** Get paginated raffle participation history for a user. */
@@ -317,7 +196,8 @@ export class IndexerService {
     const path = query
       ? `/users/${encoded}/history?${query}`
       : `/users/${encoded}/history`;
-    return this.fetch<IndexerUserHistoryResponse>(path);
+    const raw = await this.fetch<IndexerApiUserHistoryResponse>(path);
+    return mapUserHistory(raw);
   }
 
   /** Get leaderboard entries sorted by wins, volume, or tickets. */
@@ -331,12 +211,14 @@ export class IndexerService {
     if (filters.offset != null) params.set('offset', String(filters.offset));
     const query = params.toString();
     const path = query ? `/leaderboard?${query}` : '/leaderboard';
-    return this.fetch<IndexerLeaderboardResponse>(path);
+    const raw = await this.fetch<IndexerApiLeaderboardResponse>(path);
+    return mapLeaderboard(raw);
   }
 
   /** Get platform-wide aggregate stats. */
   async getPlatformStats(): Promise<IndexerPlatformStats> {
-    return this.fetch<IndexerPlatformStats>('/stats/platform');
+    const raw = await this.fetch<IndexerApiPlatformStats>('/stats/platform');
+    return mapPlatformStats(raw);
   }
 
   /** Get paginated VRF/PRNG audit log entries. */
@@ -352,7 +234,8 @@ export class IndexerService {
     });
     if (raffleId != null) params.set('raffle_id', String(raffleId));
     if (txHash) params.set('tx_hash', txHash);
-    return this.fetch<IndexerTransparencyLog>(`/transparency?${params}`);
+    const raw = await this.fetch<IndexerApiTransparencyLog>(`/transparency?${params}`);
+    return mapTransparencyLog(raw);
   }
 
   /** Get paginated list of participants (ticket holders) for a raffle. */
@@ -365,7 +248,10 @@ export class IndexerService {
       limit: String(Math.min(limit, 100)),
       offset: String(offset),
     });
-    return this.fetch<IndexerParticipantListResponse>(`/raffles/${raffleId}/participants?${params}`);
+    const raw = await this.fetch<IndexerApiParticipantListResponse>(
+      `/raffles/${raffleId}/participants?${params}`,
+    );
+    return mapParticipants(raw);
   }
 
   /** Submit a ledger and its transactions for re-indexing (backfill). */

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BackfillLock, BackfillLockError } from './backfill-lock';
-import { HorizonClientService } from './horizon-client.service';
+import { HorizonClientService } from '../horizon-client.service';
 import { IndexerService } from './indexer.service';
 import { BackfillSummary } from './indexer-backfill.types';
 
