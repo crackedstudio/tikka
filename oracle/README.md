@@ -32,7 +32,7 @@ RandomnessWorker.handleRandomnessJob()
 - **Manual priority override** via contract event flag
 - **SLA monitoring** for high-priority jobs (5s threshold)
 
-See [PRIORITY_QUEUE_IMPLEMENTATION.md](./PRIORITY_QUEUE_IMPLEMENTATION.md) for details.
+See [PRIORITY_QUEUE_IMPLEMENTATION.md](../docs/archive/2026-08-28-oracle-PRIORITY_QUEUE_IMPLEMENTATION.md) for details.
 
 ## Processing Flow
 
@@ -265,8 +265,8 @@ Redis must be running before starting the oracle. A minimal local setup:
 docker run -d -p 6379:6379 redis:7-alpine
 ```
 
-📖 **See [QUEUE_STATE_MACHINE_IMPLEMENTATION.md](./QUEUE_STATE_MACHINE_IMPLEMENTATION.md) for complete documentation**  
-📋 **See [QUEUE_STATE_MACHINE_QUICK_REF.md](./QUEUE_STATE_MACHINE_QUICK_REF.md) for quick reference**
+📖 **See [QUEUE_STATE_MACHINE_IMPLEMENTATION.md](../docs/archive/2026-08-28-oracle-QUEUE_STATE_MACHINE_IMPLEMENTATION.md) for complete documentation**  
+📋 **See [QUEUE_STATE_MACHINE_QUICK_REF.md](./docs/QUEUE_STATE_MACHINE_QUICK_REF.md) for quick reference**
 
 ## Configuration
 
@@ -324,7 +324,7 @@ npm run oracle:rescue list-failed
 npm run oracle:rescue logs
 ```
 
-See [RESCUE_GUIDE.md](./RESCUE_GUIDE.md) for detailed usage and [ON_CALL_TROUBLESHOOTING.md](./ON_CALL_TROUBLESHOOTING.md) for on-call procedures.
+See [RESCUE_GUIDE.md](./docs/RESCUE_GUIDE.md) for detailed usage and [ON_CALL_TROUBLESHOOTING.md](./docs/ON_CALL_TROUBLESHOOTING.md) for on-call procedures.
 
 ## Next Steps
 

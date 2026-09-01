@@ -143,7 +143,7 @@ export class LeaderboardController {
     const rows = await query.getMany();
     const hasMore = rows.length > limit;
     const entries = hasMore ? rows.slice(0, limit) : rows;
-    const last = entries.at(-1);
+    const last = entries.length > 0 ? entries[entries.length - 1] : undefined;
     const effectiveOffset = cursor ? null : offset ?? 0;
 
     return {

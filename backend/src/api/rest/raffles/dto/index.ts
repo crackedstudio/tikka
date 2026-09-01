@@ -22,3 +22,9 @@ export {
   MAX_PARTICIPANTS_LIMIT,
 } from './participant-list.dto';
 
+export {
+  CreateRaffleSchema,
+  CreateRaffleDto,
+  type CreateRafflePayload,
+} from './create-raffle.dto';
+

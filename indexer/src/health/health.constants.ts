@@ -14,3 +14,6 @@ export const LAG_ALERT_THRESHOLD_DEFAULT = 50;
 
 /** DLQ depth above which backpressure is considered high. */
 export const DLQ_PRESSURE_THRESHOLD_DEFAULT = 100;
+
+/** Ingestion heartbeat stale threshold in milliseconds. */
+export const INGESTION_HEARTBEAT_STALE_MS_DEFAULT = 60000;

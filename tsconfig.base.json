@@ -1,20 +1,47 @@
 {
   "compilerOptions": {
+    // Module resolution
     "module": "commonjs",
+    "moduleResolution": "node",
     "target": "ES2021",
+    "lib": ["ES2021"],
+    
+    // Output
     "declaration": true,
+    "sourceMap": true,
     "removeComments": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    
+    // Decorators (required for NestJS)
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "sourceMap": true,
-    "baseUrl": "./",
+    
+    // Performance
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "noImplicitAny": true,
-    "strictBindCallApply": true,
+    
+    // Interop
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true
+    
+    // Safety
+    "noFallthroughCasesInSwitch": true,
+    
+    // Strict mode - enables all strict type checking options
+    "strict": true
+    
+    /* 
+     * The "strict" flag above is equivalent to enabling:
+     * - strictNullChecks: true
+     * - noImplicitAny: true  
+     * - strictBindCallApply: true
+     * - strictFunctionTypes: true
+     * - strictPropertyInitialization: true
+     * - noImplicitThis: true
+     * - alwaysStrict: true
+     * - useUnknownInCatchVariables: true (TS 4.4+)
+     */
   }
 }
