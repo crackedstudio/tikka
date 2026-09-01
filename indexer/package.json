@@ -86,7 +86,7 @@
     "@types/pg": "^8.20.0",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",
-    "eslint": "^10.8.0",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "fast-check": "^3.23.2",
@@ -96,7 +96,7 @@
     "testcontainers": "^11.13.0",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.0"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=20",
