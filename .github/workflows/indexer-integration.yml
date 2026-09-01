@@ -1,0 +1,87 @@
+name: Indexer Integration Tests
+
+on:
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'indexer/src/ingestor/**'
+      - 'indexer/src/database/**'
+      - 'indexer/src/test/integration/**'
+      - 'indexer/jest.integration.config.js'
+      - 'indexer/package.json'
+      - '.github/workflows/indexer-integration.yml'
+  push:
+    branches: [master, main]
+    paths:
+      - 'indexer/src/ingestor/**'
+      - 'indexer/src/database/**'
+      - 'indexer/src/test/integration/**'
+      - 'indexer/jest.integration.config.js'
+      - 'indexer/package.json'
+      - '.github/workflows/indexer-integration.yml'
+  schedule:
+    # Nightly at 03:00 UTC — catches regressions introduced via dependency
+    # updates or schema drift even when no indexer code changed.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-tests:
+    name: Reorg / Snapshot / Migration Integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./indexer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: indexer/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Testcontainers spins up its own ephemeral Postgres containers per
+      # test suite (via Docker).  No CI-level Postgres/Redis service
+      # containers are needed — each suite starts a disposable container
+      # that is torn down in afterAll, guaranteeing full isolation.
+
+      - name: Run integration tests
+        run: pnpm run test:integration
+        env:
+          NODE_ENV: test
+        timeout-minutes: 15
+
+      - name: Migration rollback check (up → down → up)
+        run: pnpm run migration:rollback-check
+        timeout-minutes: 5
+
+  # Summary job — fails if integration tests fail
+  integration-summary:
+    name: Integration Summary
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    if: always()
+    steps:
+      - name: Check integration tests status
+        run: |
+          if [[ "${{ needs.integration-tests.result }}" != "success" ]]; then
+            echo "❌ Integration tests failed"
+            exit 1
+          fi
+          echo "✅ All integration tests passed"

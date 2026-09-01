@@ -155,21 +155,14 @@ or the light entry for browser/mobile consumers.
 cd sdk
 pnpm install
 
-# Build the entries under test (required before size-check)
-pnpm run build:read
-pnpm run build:light
+# Build all entries
+pnpm run build
 
 # Enforced budgets (fails the process if over limit)
 pnpm run size-check
-
-# Legacy helper: prints the raw byte length of dist/light/index.light.js only
-# (no budget assertion — useful for a quick local sanity check on Windows)
-pnpm run size-check:legacy
 ```
 
-CI currently runs SDK lint/test/build/docs; run `size-check` locally (or in a
-PR follow-up job) whenever you change SDK public exports, network/RPC code, or
-anything imported by the read/light entry points.
+CI runs `pnpm size-check` as part of the SDK workflow after build to enforce bundle size budgets.
 
 ### When `size-check` fails
 

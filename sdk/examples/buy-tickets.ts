@@ -19,9 +19,19 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { RaffleService } from '../src/modules/raffle/raffle.service';
 import { TicketService } from '../src/modules/ticket/ticket.service';
+import { BuyTicketsResult } from '../src/modules/ticket/ticket.types';
+import { RaffleTxResponse } from '../src/contract/response';
 import { MockWalletAdapter } from '../src/wallet/mock-wallet.adapter';
 import { TikkaNetwork } from '../src/network/network.config';
 import { RaffleStatus } from '../src/contract/bindings';
+
+export async function buyTicketsFlow(
+  ticketService: TicketService,
+  params: { raffleId: number; quantity?: number },
+): Promise<RaffleTxResponse<BuyTicketsResult>> {
+  const quantity = params.quantity ?? parseInt(process.env.TIKKA_QUANTITY ?? '1', 10);
+  return ticketService.buy({ raffleId: params.raffleId, quantity });
+}
 
 async function main() {
   const network = (process.env.TIKKA_NETWORK ?? 'testnet') as TikkaNetwork;
@@ -73,7 +83,7 @@ async function main() {
   }
 
   console.log(`Buying ${quantity} ticket(s)...`);
-  const result = await ticketService.buy({ raffleId, quantity });
+  const result = await buyTicketsFlow(ticketService, { raffleId, quantity });
 
   if (!result.success) {
     console.error(`Purchase failed: ${result.error}`);
@@ -93,7 +103,10 @@ async function main() {
   await app.close();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
