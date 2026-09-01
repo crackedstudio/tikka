@@ -81,7 +81,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Check colour contrast (WCAG AA)
         run: node scripts/check-contrast.js
         continue-on-error: false
@@ -98,7 +98,7 @@ jobs:
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run unit tests
         run: pnpm run test:unit -- --coverage --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.branches=80 --coverage.thresholds.statements=80
         continue-on-error: false
@@ -156,7 +156,7 @@ jobs:
         working-directory: ./sdk
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -168,14 +168,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: sdk/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         continue-on-error: false
@@ -303,7 +303,7 @@ jobs:
       - name: Generate docs
         run: pnpm run docs
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -322,7 +322,7 @@ jobs:
         working-directory: ./backend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -334,14 +334,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: backend/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests (mocked)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
@@ -363,7 +363,7 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -382,7 +382,7 @@ jobs:
         working-directory: ./indexer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -394,14 +394,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: indexer/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run unit tests (network tests excluded)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
@@ -419,7 +419,7 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -438,7 +438,7 @@ jobs:
         working-directory: ./oracle
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
@@ -450,14 +450,14 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
           cache-dependency-path: oracle/pnpm-lock.yaml
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-      
+
       - name: Run tests (mocked)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
@@ -475,7 +475,7 @@ jobs:
       - name: Build
         run: pnpm run build
         continue-on-error: false
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -763,6 +763,30 @@ jobs:
       - name: Validate last commit on push
         if: github.event_name == 'push'
         run: pnpm exec commitlint --from HEAD~1 --to HEAD
+  # Format checking - ensures codebase adheres to Prettier config
+  format:
+    name: Prettier Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm exec prettier --check .
 
   # Check that PRs touching sdk/src include a changeset
   changeset-check:

@@ -207,21 +207,22 @@ so they never run during normal test passes.
 
 ### Prerequisites
 
-| Requirement | How to start |
-|---|---|
+| Requirement               | How to start                                               |
+| ------------------------- | ---------------------------------------------------------- |
 | Stellar testnet reachable | Public endpoints are used automatically; no action needed. |
-| Local backend running | `cd backend && pnpm start:dev` (default port `3001`) |
-| Local database running | `docker compose --profile deps up -d` |
+| Local backend running     | `cd backend && pnpm start:dev` (default port `3001`)       |
+| Local database running    | `docker compose --profile deps up -d`                      |
 
 ### SEP-10 / SIWS authentication integration tests
 
 File: `sdk/src/test/sep10-integration.spec.ts`
 
 These tests cover:
+
 1. **SDK SEP-10 primitives** — `buildChallenge` + `verifyResponse` executed against
-a freshly-funded Stellar testnet keypair (no backend required for this group).
+   a freshly-funded Stellar testnet keypair (no backend required for this group).
 2. **Backend SIWS auth round-trip** — full flow against a locally-running backend:
-`GET /auth/nonce` → sign message → `POST /auth/verify` → assert valid JWT.
+   `GET /auth/nonce` → sign message → `POST /auth/verify` → assert valid JWT.
 
 #### Running the SEP-10 integration tests
 
@@ -238,11 +239,11 @@ TEST_INTEGRATION=true pnpm --dir sdk test -- --testPathPattern=sep10-integration
 
 #### Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `TEST_INTEGRATION` | `false` | Set to `true` to enable integration tests. |
-| `BACKEND_URL` | `http://localhost:3001` | Base URL of the locally-running backend. |
-| `SEP10_ANCHOR_DOMAIN` | `tikka.io` | Anchor domain used in challenge messages. |
+| Variable              | Default                 | Description                                |
+| --------------------- | ----------------------- | ------------------------------------------ |
+| `TEST_INTEGRATION`    | `false`                 | Set to `true` to enable integration tests. |
+| `BACKEND_URL`         | `http://localhost:3001` | Base URL of the locally-running backend.   |
+| `SEP10_ANCHOR_DOMAIN` | `tikka.io`              | Anchor domain used in challenge messages.  |
 
 #### What the tests assert
 
@@ -275,6 +276,18 @@ pnpm --filter sdk run build:read
 pnpm --filter sdk run build:light
 pnpm --filter sdk run size-check
 ```
+
+## Code formatting
+
+This repository uses Prettier for code formatting. A one-time formatting sweep was performed and its commit hash is listed in `.git-blame-ignore-revs` so that it doesn't pollute `git blame`.
+
+To configure Git to ignore this commit locally, run:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+All new code should be formatted with Prettier. The `lint-staged` hook will automatically format staged files before commit.
 
 ## Commit message convention
 
@@ -315,15 +328,17 @@ Scope must match one of the defined package/workspace names:
 ### Examples
 
 **Valid commit messages:**
+
 - `feat(client): add wallet connection state indicator`
 - `fix(sdk): resolve challenge verification timeout`
 - `docs(repo): update release workflow documentation`
 - `chore(backend): bump dependency versions`
 
 **Invalid commit messages:**
-- `added new feature` *(missing type and scope)*
-- `feat: update UI` *(missing scope)*
-- `feat(frontend): add wallet button` *(invalid scope `frontend`, must be `client`)*
+
+- `added new feature` _(missing type and scope)_
+- `feat: update UI` _(missing scope)_
+- `feat(frontend): add wallet button` _(invalid scope `frontend`, must be `client`)_
 
 ### Enforcement
 
@@ -337,8 +352,7 @@ Scope must match one of the defined package/workspace names:
 - [ ] `pnpm typecheck` passes with no new type errors.
 - [ ] Commit messages follow the Conventional Commits specification with a valid scope (`client`, `sdk`, `backend`, `indexer`, `oracle`, `repo`, `docs`).
 - [ ] New client UI strings are added to every supported locale and
-  `pnpm --dir client check:locales` passes with zero missing or orphaned keys.
+      `pnpm --dir client check:locales` passes with zero missing or orphaned keys.
 - [ ] `CONTRIBUTING.md` is updated if new integration test setup is required.
 - [ ] SDK PRs that touch public exports or read/light entry graphs:
-  `pnpm --filter sdk size-check` passes (see SDK bundle size section above).
-
+      `pnpm --filter sdk size-check` passes (see SDK bundle size section above).

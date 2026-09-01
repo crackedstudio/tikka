@@ -6,15 +6,15 @@ on:
       - main
       - master
     paths:
-      - "backend/**"
-      - ".github/workflows/backend.yml"
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
   pull_request:
     branches:
       - main
       - master
     paths:
-      - "backend/**"
-      - ".github/workflows/backend.yml"
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
   workflow_dispatch:
 
 permissions:

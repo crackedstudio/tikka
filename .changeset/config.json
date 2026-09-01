@@ -1,9 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
-  "changelog": [
-    "@changesets/changelog-github",
-    { "repo": "crackedstudio/tikka" }
-  ],
+  "changelog": ["@changesets/changelog-github", { "repo": "crackedstudio/tikka" }],
   "commit": false,
   "fixed": [],
   "linked": [],
