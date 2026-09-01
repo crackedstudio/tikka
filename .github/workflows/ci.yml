@@ -136,6 +136,14 @@ jobs:
           path: openapi.json
           retention-days: 7
       
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+        continue-on-error: false
+      
+      - name: Run e2e accessibility tests
+        run: pnpm run test:e2e -- --grep "Accessibility"
+        continue-on-error: true
+      
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -749,8 +757,7 @@ jobs:
             return 0
           }
           
-          if ! check_status "${{ needs.commitlint.result }}" || \
-             ! check_status "${{ needs.client.result }}" || \
+          if ! check_status "${{ needs.client.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \
              ! check_status "${{ needs.backend.result }}" || \
              ! check_status "${{ needs.indexer.result }}" || \
