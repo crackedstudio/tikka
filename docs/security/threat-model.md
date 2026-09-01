@@ -174,7 +174,7 @@ Key boundaries:
 
 **Mitigation:**
 - HSM providers (AWS KMS, GCP KMS) keep the private key inside hardware; `getSecretBuffer()` throws for HSM providers (`oracle/src/keys/key.service.ts`)
-- `SOPS_AGE_KEY_FILE` mounts the age key read-only at `/run/secrets/age.key` in K8s (`oracle/k8s/deployment.yaml`)
+- `SOPS_AGE_KEY_FILE` mounts the age key read-only at `/run/secrets/age.key` in K8s (`oracle/k8s/kustomization.yaml`)
 - Contract verifies the VRF proof against the registered oracle public key before accepting the seed
 - `set_oracle_address` is admin-only — rotating the oracle key requires admin action
 

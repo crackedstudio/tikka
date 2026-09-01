@@ -6,7 +6,7 @@ import {
   IndexerService,
   IndexerPlatformStats,
   IndexerTransparencyEntry,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 
 describe('StatsService', () => {
   let service: StatsService;
