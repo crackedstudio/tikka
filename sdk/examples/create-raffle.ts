@@ -25,8 +25,40 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { RaffleService } from '../src/modules/raffle/raffle.service';
+import { RaffleParams } from '../src/modules/raffle/raffle.types';
+import { RaffleTxResponse } from '../src/contract/response';
 import { MockWalletAdapter } from '../src/wallet/mock-wallet.adapter';
 import { TikkaNetwork } from '../src/network/network.config';
+
+export async function createRaffleFlow(
+  raffleService: RaffleService,
+  params?: Partial<RaffleParams>,
+): Promise<RaffleTxResponse<number>> {
+  const ticketPrice = params?.ticketPrice ?? process.env.TIKKA_TICKET_PRICE ?? '1';
+  const assetCode =
+    (typeof params?.asset === 'string' ? params.asset : params?.asset?.code) ??
+    process.env.TIKKA_ASSET_CODE ??
+    'XLM';
+  const assetIssuer =
+    (typeof params?.asset === 'object' ? params.asset.issuer : undefined) ??
+    process.env.TIKKA_ASSET_ISSUER ??
+    '';
+  const maxTickets = params?.maxTickets ?? parseInt(process.env.TIKKA_MAX_TICKETS ?? '50', 10);
+  const durationHours = parseInt(process.env.TIKKA_DURATION_HOURS ?? '24', 10);
+  const endTime = params?.endTime ?? Date.now() + durationHours * 60 * 60 * 1000;
+  const metadataCid = params?.metadataCid ?? process.env.TIKKA_METADATA_CID ?? '';
+
+  const asset = assetIssuer ? { code: assetCode, issuer: assetIssuer } : { code: assetCode };
+
+  return raffleService.create({
+    ticketPrice,
+    asset,
+    maxTickets,
+    endTime,
+    allowMultiple: params?.allowMultiple ?? true,
+    metadataCid,
+  });
+}
 
 async function main() {
   const network = (process.env.TIKKA_NETWORK ?? 'testnet') as TikkaNetwork;
@@ -36,7 +68,6 @@ async function main() {
   const assetIssuer = process.env.TIKKA_ASSET_ISSUER ?? '';
   const maxTickets = parseInt(process.env.TIKKA_MAX_TICKETS ?? '50', 10);
   const durationHours = parseInt(process.env.TIKKA_DURATION_HOURS ?? '24', 10);
-  const metadataCid = process.env.TIKKA_METADATA_CID ?? '';
 
   if (!publicKey) {
     console.error('Error: TIKKA_PUBLIC_KEY is required');
@@ -61,13 +92,11 @@ async function main() {
   console.log(`  maxTickets  : ${maxTickets}`);
   console.log(`  duration    : ${durationHours}h`);
 
-  const result = await raffleService.create({
+  const result = await createRaffleFlow(raffleService, {
     ticketPrice,
     asset,
     maxTickets,
     endTime: Date.now() + durationHours * 60 * 60 * 1000,
-    allowMultiple: true,
-    metadataCid,
   });
 
   if (!result.success) {
@@ -84,7 +113,10 @@ async function main() {
   await app.close();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
