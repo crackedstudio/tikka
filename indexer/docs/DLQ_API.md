@@ -159,6 +159,19 @@ spec:
 
 ## Implementation Details
 
+### Architecture
+
+All failed events — whether originating from the dispatcher or a direct insert — are persisted to the `dead_letter_events` table by a single `DlqService`. The HTTP API, CLI, and metrics all read this same table.
+
+```
+IngestionDispatcherService
+  └─► DlqService.enqueue()  ─► dead_letter_events table
+                                      ▲
+DlqController (HTTP API)  ────────────┤
+dlq-replay.command.ts (CLI) ──────────┤
+MetricsService ────────────────────────┘
+```
+
 ### Async Processing
 
 Replay operations execute asynchronously to avoid HTTP timeout issues. The endpoint returns immediately with a `202 Accepted` status and a job ID. Monitor progress using the `/status` endpoint.
@@ -173,9 +186,9 @@ Successfully replayed entries have their `replayedAt` timestamp set, preventing 
 - Max retries: 5 (configurable via `MAX_RETRIES` constant)
 - Failed retries increment `retryCount` and update `errorMessage`
 
-### Ledger-Based Replay
+### ID-Based Replay
 
-When specific IDs are provided, the implementation currently replays entries by ledger range. This ensures temporal consistency but may replay adjacent entries at the same ledger.
+When specific IDs are provided, the controller replays entries by ledger range of those entries. This ensures temporal consistency but may replay adjacent entries at the same ledger. A future improvement (tracked in the Future Enhancements section) will replay by exact ID instead.
 
 ---
 

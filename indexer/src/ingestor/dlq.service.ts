@@ -10,6 +10,30 @@ import { MetricsService } from '../metrics/metrics.service';
 
 export { DlqReason };
 
+/**
+ * The shape passed by IngestionDispatcherService when an event fails.
+ * Includes rich context for triage: handler name, schema version, timing, and
+ * the original raw payload for later replay.
+ */
+export interface DeadLetterEvent {
+  handlerName: string;
+  eventId: string;
+  eventType: string;
+  ledger: number | null;
+  txHash: string | null;
+  /** Schema version of the failed event, for forward-compatible triage. */
+  schemaVersion: number;
+  /** Why the event failed (parser/handler/db/schema) — drives replay policy. */
+  reason: DlqReason;
+  errorMessage: string;
+  errorStack?: string;
+  durationMs: number;
+  attemptCount: number;
+  event: DomainEvent;
+  rawEvent: unknown;
+  failedAt: string;
+}
+
 export const MAX_RETRIES = 5;
 
 /** Base delay in ms for exponential back-off: delay = BASE_DELAY_MS * 2^retryCount */
@@ -109,6 +133,48 @@ export class DlqService {
       `DLQ [${reason}] stored ${event.type} at ledger ${ledger} (retryable=${retryable}): ${errorMessage}`,
     );
 
+  }
+
+  /**
+   * Adapter called by IngestionDispatcherService with the rich DeadLetterEvent
+   * shape. Persists to the database so every failed event is durable and
+   * visible to the HTTP API, CLI, and metrics — all reading the same table.
+   */
+  async enqueue(record: DeadLetterEvent): Promise<void> {
+    const raw = record.rawEvent as Record<string, unknown>;
+    const contractId = (raw['contractId'] as string | undefined) ?? null;
+    const retryable = REASON_RETRYABLE[record.reason];
+
+    await this.repo.save(
+      this.repo.create({
+        ledger: record.ledger ?? 0,
+        contractId,
+        eventType: record.eventType,
+        rawPayload: raw,
+        errorMessage: record.errorMessage,
+        reason: record.reason,
+        retryable,
+        retryCount: 0,
+        attemptCount: record.attemptCount,
+        replayedAt: null,
+      }),
+    );
+
+    this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
+
+    const contractAddressLabel = contractId ?? 'unknown';
+    this.metrics?.incrementDlqEventsTotal(record.reason, record.eventType);
+    this.metrics?.setDlqDepth(
+      contractAddressLabel,
+      await this.repo.count({
+        where: { contractId: contractAddressLabel, replayedAt: IsNull() },
+      }) as unknown as number,
+    );
+
+    this.logger.error(
+      `DLQ [${record.reason}] handler=${record.handlerName} eventId=${record.eventId} durationMs=${record.durationMs} error=${record.errorMessage}`,
+      record.errorStack,
+    );
   }
 
   async count(): Promise<number> {
