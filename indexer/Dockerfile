@@ -1,19 +1,46 @@
 FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS builder
+
 WORKDIR /app
+
 RUN npm install -g pnpm@9.15.9
-COPY package.json pnpm-lock.yaml ./
+
+# Copy workspace root files first (layer cache)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+# Copy package.json files needed for workspace resolution
+COPY indexer/package.json ./indexer/
+COPY sdk/package.json ./sdk/
+
+# Install all workspace dependencies
 RUN pnpm install --frozen-lockfile
-COPY . .
+
+# Copy full source
+COPY indexer/ ./indexer/
+COPY sdk/ ./sdk/
+
+# Deploy indexer as a standalone directory
+RUN pnpm --filter tikka-indexer deploy /app/indexer-deploy
+
+# Stage 2: Production
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runner
+
+WORKDIR /app
+
+RUN npm install -g pnpm@9.15.9
+
+# Copy the deployed indexer (self-contained with node_modules)
+COPY --from=builder /app/indexer-deploy ./
+
+# Build the application
 RUN pnpm run build
 
-FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runner
-WORKDIR /app
-RUN npm install -g pnpm@9.15.9
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
-COPY --from=builder --chown=node:node /app/dist ./dist
+# Remove dev dependencies
+RUN pnpm prune --prod
+
 ENV NODE_ENV=production
 EXPOSE 3002
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --quiet --tries=1 http://localhost:3002/health -O /dev/null || exit 1
+
 CMD ["node", "dist/main.js"]
