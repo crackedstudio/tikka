@@ -64,7 +64,7 @@ const SLA_THRESHOLD_MS = 5000;  // 5 seconds
 
 ```bash
 # Deploy new version alongside old version
-kubectl apply -f k8s/deployment.yaml
+kubectl apply -k k8s
 
 # Monitor new pods
 kubectl get pods -w
@@ -83,7 +83,7 @@ kubectl scale deployment oracle --replicas=0
 kubectl delete deployment oracle
 
 # Deploy new version
-kubectl apply -f k8s/deployment.yaml
+kubectl apply -k k8s
 
 # Verify deployment
 kubectl get pods
@@ -197,7 +197,7 @@ If issues occur, rollback is straightforward:
 # Revert to previous version
 git checkout <previous-commit>
 npm run build
-kubectl apply -f k8s/deployment.yaml
+kubectl apply -k k8s
 ```
 
 ### Option 2: Keep New Code, Disable Priority

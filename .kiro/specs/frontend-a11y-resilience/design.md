@@ -57,15 +57,15 @@ FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring
 
 Affected files and elements:
 
-| File | Elements receiving Focus_Ring |
-|------|-------------------------------|
-| `WalletButton.tsx` | All `<button>` elements (connect, disconnect, connecting disabled, error state) |
-| `SignInButton.tsx` | All `<button>` elements (sign-in, signed-in/logout, authenticating disabled) |
-| `Breadcrumbs.tsx` | `<Link>` elements (rendered as `<a>`) |
-| `Leaderboard.tsx` | Sort `<button>` elements; address `<a>` elements in table rows |
-| `Search.tsx` | "Go Back" `<button>` (will be replaced by `EmptyState`'s CTA) |
-| `MyRaffles.tsx` | Tab `<button>`, pagination `<button>`, "Connect Wallet" `<button>`, "View My Created Raffles" `<Link>`, "Browse Raffles" `<Link>` (latter replaced by `EmptyState`) |
-| `LeaderboardSection.tsx` | Tab `<button>` elements |
+| File                     | Elements receiving Focus_Ring                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WalletButton.tsx`       | All `<button>` elements (connect, disconnect, connecting disabled, error state)                                                                                     |
+| `SignInButton.tsx`       | All `<button>` elements (sign-in, signed-in/logout, authenticating disabled)                                                                                        |
+| `Breadcrumbs.tsx`        | `<Link>` elements (rendered as `<a>`)                                                                                                                               |
+| `Leaderboard.tsx`        | Sort `<button>` elements; address `<a>` elements in table rows                                                                                                      |
+| `Search.tsx`             | "Go Back" `<button>` (will be replaced by `EmptyState`'s CTA)                                                                                                       |
+| `MyRaffles.tsx`          | Tab `<button>`, pagination `<button>`, "Connect Wallet" `<button>`, "View My Created Raffles" `<Link>`, "Browse Raffles" `<Link>` (latter replaced by `EmptyState`) |
+| `LeaderboardSection.tsx` | Tab `<button>` elements                                                                                                                                             |
 
 ### 2. `EmptyState` Component (Req 2)
 
@@ -87,6 +87,7 @@ interface EmptyStateProps {
 ```
 
 Rendering rules:
+
 - `icon` — rendered in a centred icon container (consistent with existing empty-state styling).
 - `title` — rendered as `<h3>` with `font-semibold`.
 - `hint` — when present, rendered as a `<p>` in muted colour below the title.
@@ -97,6 +98,7 @@ Rendering rules:
   - When `action` is omitted → no CTA element is rendered.
 
 Adoption:
+
 - `Search.tsx` — replaces the inline empty-state block; passes the animated search SVG icon, title "No raffles found", the contextual hint interpolating the query, and `action={{ label: "Go Back", onClick: () => navigate("/home") }}`.
 - `Leaderboard.tsx` — replaces inline empty-state; passes the list SVG icon, title "No Leaderboard Data Yet", hint text, no action.
 - `MyRaffles.tsx` — replaces both tab empty-states (participated + won); passes appropriate per-tab icon, title, hint, and `action={{ label: "Browse Raffles", href: "/home" }}`.
@@ -139,6 +141,7 @@ attempt 1 (retry):
 ```
 
 Toast behaviour:
+
 - Current code shows a toast on every failure. After the change, the toast is **suppressed on the first failure** when a retry will follow. It fires **once** only on final failure (after retry exhaustion).
 - Non-GET failures (POST/PUT/DELETE): toast behaviour unchanged — fires immediately on failure.
 
@@ -149,6 +152,7 @@ Toast behaviour:
 **File:** `client/src/components/ui/CountdownTimer.tsx`
 
 Changes:
+
 - Wrap the existing visual `<div>` with `aria-hidden="true"`.
 - Add a sibling `<div className="sr-only" aria-live="polite" aria-atomic="true">` whose text content is managed by state.
 - Add a `useRef<Set<string>>` (named `announcedRef`) to track which milestones have been announced per instance.
@@ -210,16 +214,17 @@ type MilestoneKey = '1h' | '10m' | '1m' | 'ended';
 ```
 
 Thresholds (total remaining seconds):
+
 - `'ended'` → `expired === true`
-- `'1m'`    → `totalSeconds <= 60`
-- `'10m'`   → `totalSeconds <= 600`
-- `'1h'`    → `totalSeconds <= 3600`
+- `'1m'` → `totalSeconds <= 60`
+- `'10m'` → `totalSeconds <= 600`
+- `'1h'` → `totalSeconds <= 3600`
 
 ---
 
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 ### Property Reflection
 
@@ -236,7 +241,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 1: EmptyState always renders title inside h3
 
-*For any* non-empty title string, rendering `EmptyState` with that title SHALL produce an `<h3>` element whose text content includes that exact string.
+_For any_ non-empty title string, rendering `EmptyState` with that title SHALL produce an `<h3>` element whose text content includes that exact string.
 
 **Validates: Requirements 2.2, 2.5**
 
@@ -244,7 +249,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 2: EmptyState always renders hint when provided
 
-*For any* non-empty hint string, rendering `EmptyState` with that hint SHALL produce a visible text node whose content includes that hint string.
+_For any_ non-empty hint string, rendering `EmptyState` with that hint SHALL produce a visible text node whose content includes that hint string.
 
 **Validates: Requirements 2.3**
 
@@ -252,7 +257,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 3: GET retry on network error returns success body
 
-*For any* API endpoint path, when `fetch` rejects on the first call and resolves with a 2xx response on the second call, `apiRequest` with method GET SHALL call fetch exactly twice and return the parsed response body from the second call.
+_For any_ API endpoint path, when `fetch` rejects on the first call and resolves with a 2xx response on the second call, `apiRequest` with method GET SHALL call fetch exactly twice and return the parsed response body from the second call.
 
 **Validates: Requirements 3.1, 3.7**
 
@@ -260,7 +265,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 4: GET retry on 5xx returns success body
 
-*For any* API endpoint path and any HTTP status code in the range 500–599, when `fetch` returns that status code on the first call and a 200 response on the second call, `apiRequest` with method GET SHALL call fetch exactly twice and return the parsed response body from the second call.
+_For any_ API endpoint path and any HTTP status code in the range 500–599, when `fetch` returns that status code on the first call and a 200 response on the second call, `apiRequest` with method GET SHALL call fetch exactly twice and return the parsed response body from the second call.
 
 **Validates: Requirements 3.2, 3.7**
 
@@ -268,7 +273,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 5: GET exhausts retry on double failure
 
-*For any* API endpoint path, when `fetch` consistently returns a network error or a 5xx response on every call, `apiRequest` with method GET SHALL call fetch exactly 2 times in total and then propagate the error.
+_For any_ API endpoint path, when `fetch` consistently returns a network error or a 5xx response on every call, `apiRequest` with method GET SHALL call fetch exactly 2 times in total and then propagate the error.
 
 **Validates: Requirements 3.3**
 
@@ -276,7 +281,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 6: Non-GET methods never retry
 
-*For any* API endpoint path and any HTTP method in `{POST, PUT, DELETE}`, when `fetch` returns a network error or a 5xx response, `apiRequest` SHALL call fetch exactly 1 time and then propagate the error.
+_For any_ API endpoint path and any HTTP method in `{POST, PUT, DELETE}`, when `fetch` returns a network error or a 5xx response, `apiRequest` SHALL call fetch exactly 1 time and then propagate the error.
 
 **Validates: Requirements 3.5**
 
@@ -284,7 +289,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 7: CountdownTimer always renders structural accessibility elements
 
-*For any* valid `endTime` value (past or future), `CountdownTimer` SHALL render both (a) a container with `aria-hidden="true"` wrapping the visual digits and (b) a sibling element with `aria-live="polite"`, `aria-atomic="true"`, and the `sr-only` class.
+_For any_ valid `endTime` value (past or future), `CountdownTimer` SHALL render both (a) a container with `aria-hidden="true"` wrapping the visual digits and (b) a sibling element with `aria-live="polite"`, `aria-atomic="true"`, and the `sr-only` class.
 
 **Validates: Requirements 4.1, 4.2, 4.8**
 
@@ -292,7 +297,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 8: 1-hour milestone announcement
 
-*For any* `endTime` that causes total remaining seconds to drop to or below 3600 for the first time during a render cycle, the CountdownTimer `aria-live` region SHALL contain "1 hour remaining".
+_For any_ `endTime` that causes total remaining seconds to drop to or below 3600 for the first time during a render cycle, the CountdownTimer `aria-live` region SHALL contain "1 hour remaining".
 
 **Validates: Requirements 4.3**
 
@@ -300,7 +305,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 9: 10-minute milestone announcement
 
-*For any* `endTime` that causes total remaining seconds to drop to or below 600 for the first time, the CountdownTimer `aria-live` region SHALL contain "10 minutes remaining".
+_For any_ `endTime` that causes total remaining seconds to drop to or below 600 for the first time, the CountdownTimer `aria-live` region SHALL contain "10 minutes remaining".
 
 **Validates: Requirements 4.4**
 
@@ -308,7 +313,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 10: 1-minute milestone announcement
 
-*For any* `endTime` that causes total remaining seconds to drop to or below 60 for the first time, the CountdownTimer `aria-live` region SHALL contain "1 minute remaining".
+_For any_ `endTime` that causes total remaining seconds to drop to or below 60 for the first time, the CountdownTimer `aria-live` region SHALL contain "1 minute remaining".
 
 **Validates: Requirements 4.5**
 
@@ -316,7 +321,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 11: Expiry milestone announced exactly once
 
-*For any* `endTime` in the past (or one that crosses expiry during the test), the CountdownTimer `aria-live` region SHALL contain "Raffle ended" and, after the first announcement, SHALL NOT change back to a different milestone key or re-announce "Raffle ended" on subsequent ticks.
+_For any_ `endTime` in the past (or one that crosses expiry during the test), the CountdownTimer `aria-live` region SHALL contain "Raffle ended" and, after the first announcement, SHALL NOT change back to a different milestone key or re-announce "Raffle ended" on subsequent ticks.
 
 **Validates: Requirements 4.6, 4.7, 4.9**
 
@@ -324,7 +329,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 12: Live region is empty before first threshold
 
-*For any* `endTime` more than 3600 seconds in the future at initial render time, the CountdownTimer `aria-live` region SHALL be empty on the first render before any timers advance.
+_For any_ `endTime` more than 3600 seconds in the future at initial render time, the CountdownTimer `aria-live` region SHALL be empty on the first render before any timers advance.
 
 **Validates: Requirements 4.10**
 
@@ -332,7 +337,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 13: Retry delay formula is correct and capped
 
-*For any* non-negative integer attempt index, `retryDelay(attempt)` SHALL equal `Math.min(500 * 2^attempt, 10_000)` and SHALL never exceed 10 000.
+_For any_ non-negative integer attempt index, `retryDelay(attempt)` SHALL equal `Math.min(500 * 2^attempt, 10_000)` and SHALL never exceed 10 000.
 
 **Validates: Requirements 3.8**
 
@@ -340,7 +345,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 14: No toast on successful retry
 
-*For any* API endpoint path, when a GET request fails on the first call and succeeds on the retry, `toast.error` SHALL NOT be called.
+_For any_ API endpoint path, when a GET request fails on the first call and succeeds on the retry, `toast.error` SHALL NOT be called.
 
 **Validates: Requirements 3.11**
 
@@ -348,7 +353,7 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### Property 15: Toast fires exactly once on final failure
 
-*For any* API endpoint path, when a GET request fails on both the first call and the retry, `toast.error` SHALL be called exactly once.
+_For any_ API endpoint path, when a GET request fails on both the first call and the retry, `toast.error` SHALL be called exactly once.
 
 **Validates: Requirements 3.11**
 
@@ -358,16 +363,16 @@ Before listing the final properties, the following redundancies were resolved:
 
 ### API Client
 
-| Scenario | Behaviour |
-|----------|-----------|
-| Network error on 1st GET attempt | Suppress toast, wait `retryDelay(0)`, retry |
-| 5xx on 1st GET attempt | Suppress toast, wait `retryDelay(0)`, retry |
-| Network error on retry | Show toast once, throw error |
-| 5xx on retry | Show toast once, throw error |
-| 4xx on GET (non-401) | Show toast once immediately, throw error |
-| 401 on any method | Clear token, show "Unauthorized" toast, throw error |
-| Network error on POST/PUT/DELETE | Show toast immediately, throw error |
-| Timeout (AbortSignal) | Treated as network error, same retry logic for GET |
+| Scenario                         | Behaviour                                           |
+| -------------------------------- | --------------------------------------------------- |
+| Network error on 1st GET attempt | Suppress toast, wait `retryDelay(0)`, retry         |
+| 5xx on 1st GET attempt           | Suppress toast, wait `retryDelay(0)`, retry         |
+| Network error on retry           | Show toast once, throw error                        |
+| 5xx on retry                     | Show toast once, throw error                        |
+| 4xx on GET (non-401)             | Show toast once immediately, throw error            |
+| 401 on any method                | Clear token, show "Unauthorized" toast, throw error |
+| Network error on POST/PUT/DELETE | Show toast immediately, throw error                 |
+| Timeout (AbortSignal)            | Treated as network error, same retry logic for GET  |
 
 The `retryDelay` sleep is implemented with a plain `Promise`-based `setTimeout` wrapper:
 
@@ -400,10 +405,10 @@ Both example-based unit tests and property-based tests (via fast-check) are used
 
 ### Test Files and Responsibilities
 
-| Test file | What it covers |
-|-----------|----------------|
-| `client/src/services/apiClient.spec.ts` | All Req 3 properties (retry logic, delay formula, toast suppression) |
-| `client/src/components/ui/EmptyState.spec.tsx` | All Req 2 properties + example-based structural tests |
+| Test file                                          | What it covers                                                          |
+| -------------------------------------------------- | ----------------------------------------------------------------------- |
+| `client/src/services/apiClient.spec.ts`            | All Req 3 properties (retry logic, delay formula, toast suppression)    |
+| `client/src/components/ui/EmptyState.spec.tsx`     | All Req 2 properties + example-based structural tests                   |
 | `client/src/components/ui/CountdownTimer.spec.tsx` | All Req 4 properties (accessibility structure, milestone announcements) |
 
 Focus-indicator correctness (Req 1) is verified by code review during implementation. Automated DOM class checks for Req 1 are deliberately omitted — class string checks against Tailwind utilities are brittle and would need to be updated whenever the design token changes. The implementation diff is the authoritative source of truth for Req 1.
@@ -419,6 +424,7 @@ await fc.assert(fc.asyncProperty(...), { numRuns: 100 });
 ```
 
 Each property test is tagged with a comment:
+
 ```
 // Feature: frontend-a11y-resilience, Property N: <property_text>
 ```
@@ -430,41 +436,85 @@ Each property test is tagged with a comment:
 // Uses vi.stubGlobal('fetch', ...) matching authService.spec.ts pattern
 // Uses vi.spyOn(sonner, 'toast') to assert toast call counts
 
-describe('P13: retryDelay formula', () => { /* fc.property */ });
-describe('P3:  GET retries once on network error', () => { /* fc.asyncProperty */ });
-describe('P4:  GET retries once on 5xx', () => { /* fc.asyncProperty */ });
-describe('P5:  GET exhausts retry on double failure', () => { /* fc.asyncProperty */ });
-describe('P6:  Non-GET methods do not retry', () => { /* fc.asyncProperty */ });
-describe('P14: No toast on successful retry', () => { /* fc.asyncProperty */ });
-describe('P15: Toast fires once on final failure', () => { /* fc.asyncProperty */ });
+describe('P13: retryDelay formula', () => {
+  /* fc.property */
+});
+describe('P3:  GET retries once on network error', () => {
+  /* fc.asyncProperty */
+});
+describe('P4:  GET retries once on 5xx', () => {
+  /* fc.asyncProperty */
+});
+describe('P5:  GET exhausts retry on double failure', () => {
+  /* fc.asyncProperty */
+});
+describe('P6:  Non-GET methods do not retry', () => {
+  /* fc.asyncProperty */
+});
+describe('P14: No toast on successful retry', () => {
+  /* fc.asyncProperty */
+});
+describe('P15: Toast fires once on final failure', () => {
+  /* fc.asyncProperty */
+});
 // Example-based:
-describe('GET succeeds on first attempt — no retry', () => { /* example */ });
-describe('4xx response — no retry, immediate error', () => { /* example */ });
-describe('timeout abort treated as network error', () => { /* example */ });
+describe('GET succeeds on first attempt — no retry', () => {
+  /* example */
+});
+describe('4xx response — no retry, immediate error', () => {
+  /* example */
+});
+describe('timeout abort treated as network error', () => {
+  /* example */
+});
 ```
 
 ### EmptyState.spec.tsx Test Structure
 
 ```typescript
 // Uses @testing-library/react + @testing-library/jest-dom
-describe('P1: title always inside h3', () => { /* fc.property */ });
-describe('P2: hint always rendered when provided', () => { /* fc.property */ });
-describe('action rendering — href → <a>, onClick → <button>', () => { /* examples */ });
-describe('href takes precedence over onClick', () => { /* example */ });
-describe('no action → no CTA element', () => { /* example */ });
-describe('CTA carries Focus_Ring classes', () => { /* example */ });
+describe('P1: title always inside h3', () => {
+  /* fc.property */
+});
+describe('P2: hint always rendered when provided', () => {
+  /* fc.property */
+});
+describe('action rendering — href → <a>, onClick → <button>', () => {
+  /* examples */
+});
+describe('href takes precedence over onClick', () => {
+  /* example */
+});
+describe('no action → no CTA element', () => {
+  /* example */
+});
+describe('CTA carries Focus_Ring classes', () => {
+  /* example */
+});
 ```
 
 ### CountdownTimer.spec.tsx Test Structure
 
 ```typescript
 // Uses @testing-library/react + vi.useFakeTimers()
-describe('P7:  structural a11y elements present', () => { /* fc.property, random future endTimes */ });
-describe('P8:  1-hour milestone', () => { /* example advancing past 3600s */ });
-describe('P9:  10-minute milestone', () => { /* example advancing past 600s */ });
-describe('P10: 1-minute milestone', () => { /* example advancing past 60s */ });
-describe('P11: expiry announced exactly once', () => { /* example + past endTime */ });
-describe('P12: live region empty before first threshold', () => { /* fc.property, future endTimes > 3600s */ });
+describe('P7:  structural a11y elements present', () => {
+  /* fc.property, random future endTimes */
+});
+describe('P8:  1-hour milestone', () => {
+  /* example advancing past 3600s */
+});
+describe('P9:  10-minute milestone', () => {
+  /* example advancing past 600s */
+});
+describe('P10: 1-minute milestone', () => {
+  /* example advancing past 60s */
+});
+describe('P11: expiry announced exactly once', () => {
+  /* example + past endTime */
+});
+describe('P12: live region empty before first threshold', () => {
+  /* fc.property, future endTimes > 3600s */
+});
 ```
 
 ### Test Configuration
