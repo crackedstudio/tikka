@@ -6,7 +6,7 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 
 **Consumers:** Frontend (client), third-party developers.
 
-**Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./DEPRECATION.md).
+**Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./docs/DEPRECATION.md).
 ## Light vs full build
 
 Choose the full SDK when you need NestJS modules, dependency injection, wallet services, or the higher-level contract helpers that assume the framework runtime. Choose the light build when you need a browser-friendly entry point for low-level RPC access and lightweight types without the NestJS overhead.
@@ -143,7 +143,7 @@ top of deps they already ship).
 | Light SDK (`index.light`) | `dist/light/index.light.js` | **25 kB** gzip | ~3 kB |
 
 The light entry also has a historical soft target of < 50 kB gzip documented in
-[`LIGHT_VERSION.md`](./LIGHT_VERSION.md); the **25 kB** limit above is the
+[`LIGHT_VERSION.md`](./docs/LIGHT_VERSION.md); the **25 kB** limit above is the
 enforced budget based on current measured size with headroom for growth.
 
 The full NestJS entry (`@tikka/sdk`) is not size-gated — prefer `@tikka/sdk/read`
@@ -589,7 +589,7 @@ npm run example:custom-wallet
 
 The SDK provides a unified interface for multiple Stellar wallets. All adapters implement the same `WalletAdapter` interface with `getPublicKey()` and `signTransaction(xdr)` methods.
 
-> **Implementing a custom wallet?** See the full integrator contract — methods, expected errors, and signing flow — in [`WALLET_ADAPTER.md`](./WALLET_ADAPTER.md), plus the runnable [`examples/custom-wallet.ts`](./examples/custom-wallet.ts).
+> **Implementing a custom wallet?** See the full integrator contract — methods, expected errors, and signing flow — in [`WALLET_ADAPTER.md`](./docs/WALLET_ADAPTER.md), plus the runnable [`examples/custom-wallet.ts`](./examples/custom-wallet.ts).
 
 ### Supported Wallets
 
@@ -835,7 +835,7 @@ class MyWalletAdapter extends WalletAdapter {
 }
 ```
 
-Full contract (methods, error codes, signing flow): [`WALLET_ADAPTER.md`](./WALLET_ADAPTER.md).  
+Full contract (methods, error codes, signing flow): [`WALLET_ADAPTER.md`](./docs/WALLET_ADAPTER.md).  
 Runnable demo: [`examples/custom-wallet.ts`](./examples/custom-wallet.ts) (`npm run example:custom-wallet`).
 
 ### Selecting Adapters

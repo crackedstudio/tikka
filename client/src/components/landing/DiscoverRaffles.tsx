@@ -1,7 +1,7 @@
 import { Eye } from "lucide-react";
 import TrendingRaffles from "./TrendingRaffles";
 import { useRaffles } from "../../hooks/useRaffles";
-import RaffleCardSkeleton from "../ui/RaffleCardSkeleton";
+import RaffleCardSkeleton from "../cards/RaffleCardSkeleton";
 import ErrorMessage from "../ui/ErrorMessage";
 import { useTranslation } from "react-i18next";
 

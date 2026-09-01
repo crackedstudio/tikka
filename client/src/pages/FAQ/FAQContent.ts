@@ -8,6 +8,8 @@ export interface FAQCategory {
   items: FAQItem[];
 }
 
+export type FAQData = FAQCategory;
+
 export const faqData: FAQData[] = [
   {
     title: "Wallets",

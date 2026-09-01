@@ -1,5 +1,5 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Processor, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
+import { InjectQueue, Processor, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from '../services/supabase.provider';
@@ -22,69 +22,113 @@ const MAX_FAILURES = 5;
   },
 })
 @Injectable()
-export class WebhookDeliveryWorker extends WorkerHost {
+export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationShutdown {
   private readonly logger = new Logger(WebhookDeliveryWorker.name);
+  private shuttingDown = false;
+  private readonly activeJobPromises = new Map<string, Promise<void>>();
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly client: SupabaseClient,
+    @InjectQueue(WEBHOOK_DELIVERY_QUEUE) private readonly queue: any,
   ) {
     super();
   }
 
   async process(job: Job<WebhookDeliveryJobData>): Promise<void> {
-    const { targetUrl, secret, eventType, payload } = job.data;
-
-    const payloadString = JSON.stringify({
-      event: eventType,
-      timestamp: new Date().toISOString(),
-      data: payload,
-    });
-
-    const signature = crypto
-      .createHmac('sha256', secret)
-      .update(payloadString)
-      .digest('hex');
-
-    let statusCode: number | null = null;
-    let responseBody: string | null = null;
-    let errorMessage: string | null = null;
-    let success = false;
-
-    try {
-      const response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tikka-Signature': signature,
-          'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
-        },
-        body: payloadString,
-        signal: AbortSignal.timeout(10000),
-      });
-
-      statusCode = response.status;
-      const text = await response.text();
-      responseBody = text ? text.substring(0, 1000) : null;
-
-      if (response.ok) {
-        success = true;
-      } else {
-        errorMessage = `HTTP ${statusCode}`;
-      }
-    } catch (err: any) {
-      errorMessage = err.message || 'Network error';
-      if (err.name === 'TimeoutError') {
-        errorMessage = 'Request timed out';
-      }
+    if (this.shuttingDown) {
+      throw new Error('Backend shutting down — rejecting webhook delivery');
     }
 
-    await this.logDelivery(job, statusCode, responseBody, errorMessage, success);
+    const execute = async (): Promise<void> => {
+      const { targetUrl, secret, eventType, payload } = job.data;
 
-    if (success) {
-      await this.resetFailureCount(job.data.webhookId);
+      const payloadString = JSON.stringify({
+        event: eventType,
+        timestamp: new Date().toISOString(),
+        data: payload,
+      });
+
+      const signature = crypto
+        .createHmac('sha256', secret)
+        .update(payloadString)
+        .digest('hex');
+
+      let statusCode: number | null = null;
+      let responseBody: string | null = null;
+      let errorMessage: string | null = null;
+      let success = false;
+
+      try {
+        const response = await fetch(targetUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tikka-Signature': signature,
+            'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
+          },
+          body: payloadString,
+          signal: AbortSignal.timeout(10000),
+        });
+
+        statusCode = response.status;
+        const text = await response.text();
+        responseBody = text ? text.substring(0, 1000) : null;
+
+        if (response.ok) {
+          success = true;
+        } else {
+          errorMessage = `HTTP ${statusCode}`;
+        }
+      } catch (err: any) {
+        errorMessage = err.message || 'Network error';
+        if (err.name === 'TimeoutError') {
+          errorMessage = 'Request timed out';
+        }
+      }
+
+      await this.logDelivery(job, statusCode, responseBody, errorMessage, success);
+
+      if (success) {
+        await this.resetFailureCount(job.data.webhookId);
+      } else {
+        await this.incrementFailureCount(job.data.webhookId);
+        throw new Error(errorMessage ?? 'Webhook delivery failed');
+      }
+    };
+
+    const promise = execute();
+    this.activeJobPromises.set(job.id!, promise);
+    try {
+      await promise;
+    } finally {
+      this.activeJobPromises.delete(job.id!);
+    }
+  }
+
+  async onApplicationShutdown(signal?: string): Promise<void> {
+    this.logger.log(`Shutdown initiated (${signal}) — pausing queue and draining active jobs`);
+    this.shuttingDown = true;
+
+    try {
+      await this.queue.pause();
+    } catch (err) {
+      this.logger.warn(`Failed to pause webhook queue during shutdown: ${err}`);
+    }
+
+    const activePromises = Array.from(this.activeJobPromises.values());
+    if (activePromises.length === 0) {
+      this.logger.log('No active webhook jobs to drain');
+      return;
+    }
+
+    const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 25000));
+    await Promise.race([Promise.all(activePromises), timeoutPromise]);
+
+    const remaining = this.activeJobPromises.size;
+    if (remaining > 0) {
+      this.logger.warn(`Shutdown timeout exceeded — ${remaining} webhook job(s) still in-flight`);
     } else {
-      await this.incrementFailureCount(job.data.webhookId);
-      throw new Error(errorMessage ?? 'Webhook delivery failed');
+      this.logger.log('All active webhook jobs drained successfully');
     }
   }
 
