@@ -1,4 +1,4 @@
-import { claimPrize as claimPrizeTx } from "./contractService";
+import { claimPrize as claimPrizeTx } from "./sdkClient";
 
 export interface ClaimPrizeParams {
     raffleId: number;
@@ -12,7 +12,7 @@ export const TicketService = {
     async claimPrize({ raffleId }: ClaimPrizeParams): Promise<ClaimPrizeResult> {
         const result = await claimPrizeTx({ raffleId });
 
-        if (!result.ok) {
+        if (result.ok !== true) {
             throw new Error(result.error.message);
         }
 

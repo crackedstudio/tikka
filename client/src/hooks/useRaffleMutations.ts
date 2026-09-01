@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ContractService } from "../services/contractService";
+import { ContractService } from "../services/sdkClient";
 import { MetadataService } from "../services/metadataService";
 import type { BuyTicketParams, RaffleMetadata } from "../types/types";
 import { queryKeys } from "../utils/queryKeys";
