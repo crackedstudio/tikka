@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import type { LeaderboardSortBy } from "../services/leaderboardService";
 import { ErrorMessage, EmptyState, Skeleton } from "../components/ui";
 import { Trophy } from "lucide-react";
 
 const Leaderboard: React.FC = () => {
+  const { t } = useTranslation();
   const [sortBy, setSortBy] = useState<LeaderboardSortBy>("wins");
   const [limit] = useState(100);
 
@@ -27,7 +29,7 @@ const Leaderboard: React.FC = () => {
     <div className="min-h-screen text-gray-900 dark:text-white">
       <div className="w-full max-w-7xl mx-auto px-6 py-8">
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">
-          Leaderboard
+          {t("leaderboard.title")}
         </h1>
 
         {/* Sort Options */}
@@ -40,7 +42,7 @@ const Leaderboard: React.FC = () => {
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
-            By Wins
+            {t("leaderboard.sortByWins")}
           </button>
           <button
             onClick={() => setSortBy("volume")}
@@ -50,7 +52,7 @@ const Leaderboard: React.FC = () => {
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
-            By Volume
+            {t("leaderboard.sortByVolume")}
           </button>
           <button
             onClick={() => setSortBy("tickets")}
@@ -60,7 +62,7 @@ const Leaderboard: React.FC = () => {
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
-            By Tickets
+            {t("leaderboard.sortByTickets")}
           </button>
         </div>
 
@@ -75,7 +77,7 @@ const Leaderboard: React.FC = () => {
           </div>
         ) : error ? (
           <ErrorMessage
-            title="Error Loading Leaderboard"
+            title={t("leaderboard.errorTitle")}
             message={error.message}
             onRetry={refetch}
             disabled={isLoading}
@@ -93,24 +95,24 @@ const Leaderboard: React.FC = () => {
                 <thead className="bg-gray-100 dark:bg-gray-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      Rank
+                      {t("leaderboard.rank")}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      Address
+                      {t("leaderboard.address")}
                     </th>
                     {sortBy === "wins" && (
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Wins
+                        {t("leaderboard.wins")}
                       </th>
                     )}
                     {sortBy === "volume" && (
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Volume (XLM)
+                        {t("leaderboard.volume")}
                       </th>
                     )}
                     {sortBy === "tickets" && (
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Tickets
+                        {t("leaderboard.tickets")}
                       </th>
                     )}
                   </tr>

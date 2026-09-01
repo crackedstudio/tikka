@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Leaderboard from "./Leaderboard";
@@ -13,6 +14,32 @@ import * as leaderboardService from "../services/leaderboardService";
 // Mock the useLeaderboard hook
 vi.mock("../hooks/useLeaderboard", () => ({
   useLeaderboard: vi.fn(),
+}));
+
+// Mock react-i18next: return the English values for the leaderboard keys so
+// the component renders human-readable copy in tests.
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) =>
+      (
+        {
+          "leaderboard.title": "Leaderboard",
+          "leaderboard.sortByWins": "By Wins",
+          "leaderboard.sortByVolume": "By Volume",
+          "leaderboard.sortByTickets": "By Tickets",
+          "leaderboard.loading": "Loading Leaderboard...",
+          "leaderboard.errorTitle": "Error Loading Leaderboard",
+          "leaderboard.emptyTitle": "No Leaderboard Data Yet",
+          "leaderboard.emptyHint":
+            "The leaderboard will populate as users participate in raffles.",
+          "leaderboard.rank": "Rank",
+          "leaderboard.address": "Address",
+          "leaderboard.wins": "Wins",
+          "leaderboard.volume": "Volume (XLM)",
+          "leaderboard.tickets": "Tickets",
+        } as Record<string, string>
+      )[key] ?? key,
+  }),
 }));
 
 import { useLeaderboard } from "../hooks/useLeaderboard";
