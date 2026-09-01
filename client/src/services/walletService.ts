@@ -287,9 +287,10 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
     return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
   }
 
-  return new Promise(async (resolve) => {
-    const kit = await getKit();
-    kit.openModal({
+  return new Promise((resolve) => {
+    void (async () => {
+      const kit = await getKit();
+      kit.openModal({
       onWalletSelected: async (option: any) => {
         try {
           await setWallet(option.id);
@@ -306,6 +307,7 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
         }
       },
     });
+    })();
   });
 }
 

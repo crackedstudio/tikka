@@ -67,7 +67,7 @@ describe("Leaderboard Component", () => {
   });
 
   describe("Loading State", () => {
-    it("should render skeleton/loading spinner while data is loading", () => {
+    it("should render skeleton placeholders while data is loading", () => {
       vi.mocked(useLeaderboard).mockReturnValue({
         data: null,
         isLoading: true,
@@ -77,13 +77,14 @@ describe("Leaderboard Component", () => {
 
       renderComponent();
 
-      // Should show loading indicator
-      const loadingText = screen.getByText(/loading leaderboard/i);
-      expect(loadingText).toBeInTheDocument();
+      // Should show multiple skeleton elements (5 skeleton rows as per implementation)
+      const skeletons = document.querySelectorAll(".animate-pulse");
+      expect(skeletons.length).toBeGreaterThan(0);
 
-      // Should show loading spinner
-      const spinner = screen.getByRole("img", { hidden: true }) || document.querySelector(".animate-spin");
-      expect(spinner).toBeTruthy();
+      // Verify skeleton has proper styling
+      const firstSkeleton = skeletons[0];
+      expect(firstSkeleton.className).toContain("animate-pulse");
+      expect(firstSkeleton.className).toContain("bg-gray-700");
     });
 
     it("should not render table while loading", () => {
@@ -99,6 +100,23 @@ describe("Leaderboard Component", () => {
       // Table should not be visible
       const table = document.querySelector("table");
       expect(table).not.toBeInTheDocument();
+    });
+
+    it("should not show error or empty state while loading", () => {
+      vi.mocked(useLeaderboard).mockReturnValue({
+        data: null,
+        isLoading: true,
+        error: null,
+        refetch: mockRefetch,
+      });
+
+      renderComponent();
+
+      // Should not show error
+      expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
+      
+      // Should not show empty state
+      expect(screen.queryByText(/no leaderboard data yet/i)).not.toBeInTheDocument();
     });
   });
 
