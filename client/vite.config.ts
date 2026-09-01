@@ -3,8 +3,16 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import { VitePWA } from "vite-plugin-pwa";
+import { fileURLToPath } from "node:url";
 
 const analyze = process.env.ANALYZE === "1";
+
+// Resolve @tikka/sdk straight to its source entry. The SDK's dist/ is never
+// built in client CI and its package.json exports point only at dist, so we
+// bypass the workspace symlink and bundle the SDK TypeScript in with the app.
+const sdkLightSource = fileURLToPath(
+    new URL("../sdk/src/index.light.ts", import.meta.url),
+);
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -104,6 +112,16 @@ export default defineConfig({
             },
         }),
     ].filter(Boolean),
+    resolve: {
+        alias: [
+            {
+                // Match @tikka/sdk and @tikka/sdk/<subpath>; both map to the
+                // light source entry since it is the browser-safe surface.
+                find: /^@tikka\/sdk(\/.*)?$/,
+                replacement: sdkLightSource,
+            },
+        ],
+    },
     define: {
         global: "globalThis",
     },

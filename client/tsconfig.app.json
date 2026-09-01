@@ -16,7 +16,7 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    "verbatimModuleSyntax": false,
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
@@ -30,7 +30,15 @@
 
     /* RELEVANT FIXES BELOW */
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+
+    /* @tikka/sdk is consumed straight from source — the SDK's dist is never
+       built by the client CI, and its exports map points at dist only. */
+    "paths": {
+      "@tikka/sdk": ["../sdk/src/index.light.ts"],
+      "@tikka/sdk/light": ["../sdk/src/index.light.ts"]
+    }
   },
   "include": [
     "src"
