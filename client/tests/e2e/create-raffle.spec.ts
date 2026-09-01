@@ -5,19 +5,12 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sampleImage = path.resolve(__dirname, '../../src/assets/svg/logo.svg');
 
-import { fakeRaffleDetail } from '../../src/test/fixtures';
+import { applySharedHandlers } from './msw';
 
 test.describe('Raffle creation flow', () => {
   test('goes through wizard and navigates to raffle details', async ({ page }) => {
-
-
-    await page.route('**/raffles/upload-image', async (route) => {
-      await route.fulfill({ status: 200, body: JSON.stringify({ url: 'https://test.image/raffle.jpg' }), headers: { 'Content-Type': 'application/json' } });
-    });
-
-    await page.route('**/raffles/123', async (route) => {
-      await route.fulfill({ status: 200, body: JSON.stringify(fakeRaffleDetail), headers: { 'Content-Type': 'application/json' } });
-    });
+    // Deterministic raffle + upload-image responses shared with the unit specs.
+    await applySharedHandlers(page);
 
     await page.goto('/');
 

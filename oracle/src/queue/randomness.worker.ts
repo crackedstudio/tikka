@@ -14,10 +14,10 @@ import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coor
 import { PriorityClassifierService } from './priority-classifier.service';
 import { AuditLogService } from '../audit/audit-log.service';
 import { AlertingService } from '../health/alerting.service';
-import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
-import { Job } from 'bull';
+import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed, InjectQueue } from '@nestjs/bull';
+import { Job, Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MetricsService } from '../metrics/metrics.service';
 
@@ -25,12 +25,15 @@ const DLQ_DEPTH_ALERT_DEDUP_KEY = 'dlq-depth-threshold';
 
 @Processor(RANDOMNESS_QUEUE)
 @Injectable()
-export class RandomnessWorker {
+export class RandomnessWorker implements OnApplicationShutdown {
 
   private readonly vrfThresholdXlm: number;
   private readonly dlqDepthAlertThreshold: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
+  private shuttingDown = false;
+  private readonly activeJobPromises = new Map<string, Promise<void>>();
+  private readonly shutdownTimeoutMs: number;
 
   constructor(
     private readonly logger: OracleLoggerService,
@@ -48,6 +51,7 @@ export class RandomnessWorker {
     private readonly auditLogService: AuditLogService,
     private readonly alertingService: AlertingService,
     @Optional() private readonly metricsService?: MetricsService,
+    @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -55,10 +59,17 @@ export class RandomnessWorker {
     this.dlqDepthAlertThreshold = Number(
       this.configService.get<string>('DLQ_DEPTH_ALERT_THRESHOLD', '5'),
     );
+    this.shutdownTimeoutMs = Number(
+      this.configService.get<string>('ORACLE_SHUTDOWN_HARD_TIMEOUT_MS', '25000'),
+    );
   }
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
+    if (this.shuttingDown) {
+      throw new Error('Oracle shutting down — rejecting job for retry');
+    }
+
     // Use the draw's request id as the correlation id so oracle logs for this
     // job line up with the backend/indexer `x-request-id` for the same
     // logical operation. Fall back to the Bull job id if it is unavailable.

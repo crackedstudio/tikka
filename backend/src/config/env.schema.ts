@@ -90,8 +90,12 @@ const envSchemaInner = z
     SIWS_DOMAIN: z.string().default('tikka.io'),
     SIWS_NONCE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 
-    // Frontend
-    VITE_FRONTEND_URL: z.string().url(),
+    // Frontend — comma-separated allowlist
+    VITE_FRONTEND_URL: z.string().transform((val) => {
+      const urls = val.split(',').map((s) => s.trim()).filter(Boolean);
+      return urls;
+    }).pipe(z.array(z.string().url())),
+    VITE_FRONTEND_URL_REGEX: z.string().optional(),
 
     // Admin dashboard
     ADMIN_TOKEN: z.string().min(1),

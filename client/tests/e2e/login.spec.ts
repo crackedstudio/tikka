@@ -1,23 +1,12 @@
 import { test, expect } from '@playwright/test';
-
-const fakeNonceResponse = {
-  nonce: 'test-nonce',
-  expiresAt: new Date(Date.now() + 600000).toISOString(),
-  issuedAt: new Date().toISOString(),
-  message: 'Sign this message to authenticate',
-};
+import { applySharedHandlers } from './msw';
 
 const fakeJwt = 'fake-jwt-token-123';
 
 test.describe('Login flow (SIWS)', () => {
   test('user can sign in and get JWT in sessionStorage', async ({ page }) => {
-    await page.route('**/auth/nonce**', async (route) => {
-      await route.fulfill({ status: 200, body: JSON.stringify(fakeNonceResponse), headers: { 'Content-Type': 'application/json' } });
-    });
-
-    await page.route('**/auth/verify', async (route) => {
-      await route.fulfill({ status: 200, body: JSON.stringify({ accessToken: fakeJwt }), headers: { 'Content-Type': 'application/json' } });
-    });
+    // Deterministic auth responses shared with the unit specs.
+    await applySharedHandlers(page);
 
     await page.goto('/home');
 

@@ -20,6 +20,8 @@ async function bootstrap() {
     logger: WinstonModule.createLogger({ instance: createOracleLogger() }),
   });
 
+  app.enableShutdownHooks();
+
   // Bind any inbound `x-request-id` to the async context so HTTP-triggered
   // oracle operations (health, admin, peer /vrf/compute, etc.) carry the same
   // correlation id in their logs as the calling service.
