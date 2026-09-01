@@ -33,6 +33,19 @@ describe('migration smoke test', () => {
       'CreatePlatformState1700000000006',
       'AddWebhooksTable1720000000000',
       'AddUserLastTxHash1720000000001',
+      'AddWinningTicketId1720000000002',
+      'AddSchemaVersionToRaffleEvents1720000000003',
+      'CreateDeadLetterEvents1730000000000',
+      'AddLedgerHashesToCursor1730000000001',
+      'CreateArchiveCheckpoints1748589373000',
+      'AddCheckpointIntegrityColumns1748736000000',
+      'AddArchiveCheckpointIntegrityFields1748900000000',
+      'AddRaffleEventIndexes1750000000000',
+      'BackfillSchemaVersions1750000000001',
+      'CreateWebhookDeliveries1760000000000',
+      'RelaxTicketsPurchaseTxHashUnique1760000000001',
+      'CreateWebhookDeadLetterDeliveries1770000000000',
+      'AuditHotPathIndexes1770000000000',
     ]);
   });
 
@@ -54,11 +67,21 @@ describe('migration smoke test', () => {
         `${row.table_name}.${row.column_name}`,
     );
 
+    // Original indexes from early migrations
     expect(indexNames).toEqual(
       expect.arrayContaining([
         'idx_raffles_status',
         'idx_tickets_purchase_tx_hash',
         'idx_webhooks_active_events',
+        // Added by AddRaffleEventIndexes1750000000000
+        'idx_raffle_events_event_type_btree',
+        'idx_raffle_events_contract_address_btree',
+        // Added by AuditHotPathIndexes1770000000000
+        'IDX_USERS_TOTAL_RAFFLES_WON_ADDRESS',
+        'idx_tickets_owner_raffle_id',
+        'idx_raffles_status_created_at',
+        // Added by CreateWebhookDeadLetterDeliveries1770000000000
+        'idx_whdl_status',
       ]),
     );
     expect(constraintNames).toEqual(
@@ -72,6 +95,10 @@ describe('migration smoke test', () => {
         'users.last_tx_hash',
         'webhooks.supported_events',
         'indexer_cursor.last_paging_token',
+        // Added by AddWinningTicketId1720000000002
+        'raffles.winning_ticket_id',
+        // Added by AddSchemaVersionToRaffleEvents1720000000003
+        'raffle_events.schema_version',
       ]),
     );
   });

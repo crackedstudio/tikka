@@ -14,7 +14,7 @@
     "test": "jest --coverage --testPathIgnorePatterns=integration",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
-    "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",
+    "test:integration": "jest --config jest.integration.config.js --runInBand",
     "status": "ts-node --transpile-only src/cli/status.command.ts",
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
     "snapshot:export": "ts-node src/cli/snapshot-export.ts",
