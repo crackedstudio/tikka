@@ -10,6 +10,19 @@ This repository is split into several runnable workspaces. The fastest way to ge
 ## Prerequisites
 
 - Node.js and pnpm
+
+  Node and pnpm versions are pinned repo-wide. The single source of truth for
+the Node major is `.nvmrc` (and its mirror `.node-version`):
+
+  - **Node.js 22** — read by CI (`node-version-file: .nvmrc`), the Docker
+    base images, and local version managers (`nvm`, `fnm`, `mise`, ...).
+  - **pnpm 9.15.9** — declared via `packageManager` in every package
+    `package.json` and enforced by pnpm; CI installs this exact version.
+
+  `.npmrc` sets `engine-strict=true`, so `pnpm install` fails locally if your
+  Node major does not match `.nvmrc`. Use your version manager to switch to
+  Node 22 before installing, e.g. `nvm use` / `fnm use`.
+
 - Docker Desktop or Docker Engine with Compose v2
 
 ## Shared services (Postgres + Redis)

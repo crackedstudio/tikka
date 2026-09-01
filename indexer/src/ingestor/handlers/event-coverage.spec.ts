@@ -2,7 +2,7 @@ import { Keypair, nativeToScVal, xdr } from "@stellar/stellar-sdk";
 import {
   EventHandlerRegistry,
 } from "../event-handler-registry.service";
-import { EventParserV2Service } from "../event-parser-v2.service";
+import { EventParserService } from "../event-parser.service";
 import { RawSorobanEvent } from "../event-parser.interface";
 import { IEventHandler } from "../event-handler.interface";
 import {
@@ -58,14 +58,14 @@ describe("Contract event union coverage", () => {
   };
 
   let registry: EventHandlerRegistry;
-  let parser: EventParserV2Service;
+  let parser: EventParserService;
 
   beforeAll(() => {
     registry = new EventHandlerRegistry();
     for (const handler of Object.values(handlersByTopic)) {
       registry.registerDefaultHandler(handler);
     }
-    parser = new EventParserV2Service(registry);
+    parser = new EventParserService(registry);
   });
 
   it("covers every contract event topic with a default handler", () => {

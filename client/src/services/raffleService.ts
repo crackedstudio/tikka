@@ -8,7 +8,7 @@ import type {
   ApiUserHistoryResponse,
   RaffleListFilters,
   FormattedRaffle,
-} from "../types/types";
+} from "../types/api-types";
 
 // --- Helper Functions ---
 

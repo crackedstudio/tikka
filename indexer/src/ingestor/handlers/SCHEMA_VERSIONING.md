@@ -6,18 +6,18 @@ builds. Version handling lives in `schema-version.ts`.
 
 ## Constants & mappers
 
-- `CURRENT_SCHEMA_VERSION` — the version emitted by the current contract build.
-- `SUPPORTED_SCHEMA_VERSIONS` — every version this indexer build can decode.
-- `isSupportedSchemaVersion(v)` — guard used before dispatch.
-- `resolveSchemaVersion(rawEvent)` — the single place version detection lives.
+- `CURRENT_SCHEMA_VERSION` â€” the version emitted by the current contract build.
+- `SUPPORTED_SCHEMA_VERSIONS` â€” every version this indexer build can decode.
+- `isSupportedSchemaVersion(v)` â€” guard used before dispatch.
+- `resolveSchemaVersion(rawEvent)` â€” the single place version detection lives.
   Prefers an explicit `schemaVersion` / `schema_version` field on the raw
   event; otherwise defaults to `CURRENT_SCHEMA_VERSION`.
-- `assertSupportedSchemaVersion(v)` / `UnsupportedSchemaVersionError` — throw an
+- `assertSupportedSchemaVersion(v)` / `UnsupportedSchemaVersionError` â€” throw an
   actionable error for unknown versions.
 
 ## Flow
 
-1. **Parse** — `EventParserV2Service` resolves the version with
+1. **Parse** â€” `EventParserService` resolves the version with
    `resolveSchemaVersion` (replacing the old, buggy "read topic[1]" logic) and
    passes it to the registry.
 2. **Tag** — `BaseEventHandler.parse` (the single template method every
@@ -30,7 +30,7 @@ builds. Version handling lives in `schema-version.ts`.
    `isSupportedSchemaVersion(event.schemaVersion)` before running any handler.
    Unsupported versions are dead-lettered with reason `SCHEMA_UNSUPPORTED` and
    are never mis-parsed.
-4. **Store** — the parsed version is persisted consistently in `raffle_events`
+4. **Store** â€” the parsed version is persisted consistently in `raffle_events`
    (`schema_version` column) by the raffle processors and the dispatcher's admin
    event rows, instead of a hard-coded `1`.
 
@@ -38,8 +38,8 @@ builds. Version handling lives in `schema-version.ts`.
 
 In-memory DLQ records (`DeadLetterEvent`) now include:
 
-- `schemaVersion` — the version of the failed event;
-- `reason` — a `DlqReason` (`SCHEMA_UNSUPPORTED`, `HANDLER_ERROR`, …),
+- `schemaVersion` â€” the version of the failed event;
+- `reason` â€” a `DlqReason` (`SCHEMA_UNSUPPORTED`, `HANDLER_ERROR`, â€¦),
 
 so operators can triage failures by version and cause.
 
@@ -53,4 +53,4 @@ so operators can triage failures by version and cause.
 3. Add decode tests covering both the old and new versions.
 
 Events with versions outside `SUPPORTED_SCHEMA_VERSIONS` are dead-lettered, not
-dropped — see `schema-version.spec.ts` and the dispatcher spec.
+dropped â€” see `schema-version.spec.ts` and the dispatcher spec.
