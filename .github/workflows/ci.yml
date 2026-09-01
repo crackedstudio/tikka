@@ -274,6 +274,38 @@ jobs:
           fi
         continue-on-error: false
       
+      - name: Check bundle size budgets
+        run: |
+          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
+          node -e '
+            const fs = require("fs");
+            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
+            summary += "| Bundle | Size | Limit | Status |\n";
+            summary += "| --- | --- | --- | --- |\n";
+            try {
+              const content = fs.readFileSync("size-summary.json", "utf8");
+              const data = JSON.parse(content);
+              if (Array.isArray(data)) {
+                for (const item of data) {
+                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
+                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
+                  const limitStr = item.limit || "N/A";
+                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
+                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
+                }
+              }
+            } catch (err) {
+              summary += "Unable to parse size-check output.\n";
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          '
+          pnpm size-check || true
+          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ SDK bundle size limit budget exceeded!"
+            exit $SIZE_CHECK_EXIT_CODE
+          fi
+        continue-on-error: false
+      
       - name: Generate docs
         run: pnpm run docs
         continue-on-error: false
@@ -736,6 +768,38 @@ jobs:
       - name: Validate last commit on push
         if: github.event_name == 'push'
         run: pnpm exec commitlint --from HEAD~1 --to HEAD
+
+  # Check that PRs touching sdk/src include a changeset
+  changeset-check:
+    name: SDK Changeset Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify changeset for SDK changes
+        run: |
+          git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || true
+          SDK_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^sdk/src/' || true)
+          if [ -n "$SDK_CHANGES" ]; then
+            echo "SDK source files modified:"
+            echo "$SDK_CHANGES"
+            echo ""
+            CHANGESET_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^\.changeset/.*\.md$' | grep -v 'README.md' || true)
+            if [ -z "$CHANGESET_FILES" ]; then
+              echo "❌ Error: PR modifies files in sdk/src/ but does not contain a changeset file in .changeset/!"
+              echo "Please run 'pnpm changeset' locally and commit the generated changeset file."
+              exit 1
+            else
+              echo "✅ Found changeset file(s):"
+              echo "$CHANGESET_FILES"
+            fi
+          else
+            echo "✅ No changes to sdk/src/. Changeset check skipped."
+          fi
 
   # Summary job - fails if any package fails
   ci-summary:
