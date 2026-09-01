@@ -1,5 +1,5 @@
 import { LeaderboardService, LEADERBOARD_CACHE_TTL } from './leaderboard.service';
-import { IndexerService, IndexerLeaderboardResponse } from '../../../services/indexer.service';
+import { IndexerService, IndexerLeaderboardResponse } from '../../../services/indexer/indexer.service';
 import { MetadataRedisService } from '../../../services/metadata-redis.service';
 
 const mockData: IndexerLeaderboardResponse = {
