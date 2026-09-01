@@ -38,11 +38,19 @@ export { HorizonService } from './network/horizon.service';
 export {
   resolveNetworkConfig,
   DEFAULT_RPC_CONFIG,
+  DEFAULT_RETRY_CONFIG,
+  classifySorobanRpcError,
+  buildRetryConfig,
 } from './network/network.config';
 export type {
   NetworkConfig,
   RpcConfig,
   TikkaNetwork,
+  RetryConfig,
+  RetryDecision,
+  RetryFailureClass,
+  RetryJitter,
+  RetryAttemptInfo,
 } from './network/network.config';
 
 // ── Contract constants & response type ──────────────────────────────────────
