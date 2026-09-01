@@ -11,10 +11,18 @@ import * as providers from "../providers";
 
 // Mock providers
 vi.mock("../providers", () => ({
-    useAuthContext: () => ({
+    useAuthContext: vi.fn(() => ({
         isAuthenticated: true,
         address: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
-    }),
+        login: vi.fn(),
+        logout: vi.fn(),
+        markExpired: vi.fn(),
+        checkAuth: vi.fn(),
+        token: "test-token",
+        status: "authenticated" as const,
+        isAuthenticating: false,
+        error: null,
+    })),
 }));
 
 vi.mock("../components/ui/Breadcrumbs", () => ({
@@ -61,7 +69,15 @@ describe("Settings Page", () => {
             vi.mocked(providers.useAuthContext).mockReturnValue({
                 isAuthenticated: false,
                 address: null,
-            });
+                login: vi.fn(),
+                logout: vi.fn(),
+                markExpired: vi.fn(),
+                checkAuth: vi.fn(),
+                token: null,
+                status: "anonymous" as const,
+                isAuthenticating: false,
+                error: null,
+            } as any);
             render(<Settings />);
             expect(screen.getByText("Please sign in to access your settings and preferences.")).toBeInTheDocument();
         });
@@ -72,7 +88,15 @@ describe("Settings Page", () => {
             vi.mocked(providers.useAuthContext).mockReturnValue({
                 isAuthenticated: true,
                 address: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
-            });
+                login: vi.fn(),
+                logout: vi.fn(),
+                markExpired: vi.fn(),
+                checkAuth: vi.fn(),
+                token: "test-token",
+                status: "authenticated" as const,
+                isAuthenticating: false,
+                error: null,
+            } as any);
             render(<Settings />);
             expect(screen.getByTestId("notification-section")).toBeInTheDocument();
         });
@@ -81,7 +105,15 @@ describe("Settings Page", () => {
             vi.mocked(providers.useAuthContext).mockReturnValue({
                 isAuthenticated: true,
                 address: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
-            });
+                login: vi.fn(),
+                logout: vi.fn(),
+                markExpired: vi.fn(),
+                checkAuth: vi.fn(),
+                token: "test-token",
+                status: "authenticated" as const,
+                isAuthenticating: false,
+                error: null,
+            } as any);
             render(<Settings />);
             screen.getByRole("button", { name: /profile/i }).click();
             expect(screen.getByTestId("profile-section")).toBeInTheDocument();

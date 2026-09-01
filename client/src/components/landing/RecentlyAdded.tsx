@@ -34,7 +34,7 @@ const RecentlyAddedCardWrapper: React.FC<{ raffleId: number }> = ({
 };
 
 const RecentlyAdded = () => {
-    const { raffles, isLoading, error } = useRaffles({ limit: 4 });
+    const { raffles, status, error } = useRaffles({ limit: 4 });
 
     return (
         <section className="w-full">
@@ -53,7 +53,7 @@ const RecentlyAdded = () => {
 
                 {/* Grid */}
                 <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                    {isLoading ? (
+                    {status.isLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
                             <div
                                 key={i}

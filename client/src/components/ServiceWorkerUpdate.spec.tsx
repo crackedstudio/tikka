@@ -23,10 +23,11 @@ vi.mock("virtual:pwa-register/react", () => ({
 }));
 
 vi.mock("sonner", () => {
-    const toastFn = vi.fn(() => "test-toast-id");
-    toastFn.success = vi.fn();
-    toastFn.error = vi.fn();
-    toastFn.dismiss = vi.fn();
+    const toastFn = Object.assign(vi.fn(() => "test-toast-id"), {
+        success: vi.fn(),
+        error: vi.fn(),
+        dismiss: vi.fn(),
+    });
     return { toast: toastFn, Toaster: () => null };
 });
 
@@ -77,12 +78,12 @@ describe("ServiceWorkerUpdate", () => {
         const triggerRefresh = (mockUseRegisterSW as unknown as Record<string, unknown>)._onNeedRefresh as (() => void);
 
         let onClick: (() => void) | undefined;
-        vi.mocked(toast).mockImplementation((_message: string, opts?: unknown) => {
-            const options = opts as { action?: { onClick: () => void } };
-            if (options?.action?.onClick) {
-                onClick = options.action.onClick;
+        vi.mocked(toast).mockImplementation((...args: any[]) => {
+            const opts = args[1] as { action?: { onClick: () => void } } | undefined;
+            if (opts?.action?.onClick) {
+                onClick = opts.action.onClick;
             }
-            return "test-toast-id";
+            return "test-toast-id" as any;
         });
 
         triggerRefresh();

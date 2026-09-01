@@ -64,19 +64,40 @@ vi.mock("react-helmet-async", () => ({
 
 const mockRaffle: FormattedRaffle = {
     id: 1,
+    creator: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
     description: "Test Raffle",
     status: "active",
-    ticketPrice: 100,
+    ticketPrice: "100",
     ticketPriceFormatted: "100 XLM",
-    prizeValue: 1000,
+    prizeValue: "1000",
     prizeCurrency: "XLM",
     endTime: Math.floor(Date.now() / 1000) + 86400,
     totalTicketsSold: 50,
     maxTickets: 100,
+    allowMultipleTickets: true,
+    ticketToken: undefined,
+    winner: null,
+    winningTicketId: 0,
+    isActive: true,
+    isFinalized: false,
+    winningsWithdrawn: false,
+    countdown: { days: "0", hours: "0", minutes: "0", seconds: "0" },
+    progress: 50,
+    entries: 50,
+    buttonText: "Enter Raffle",
     image: "test.jpg",
     metadata: {
         title: "Test Raffle",
+        description: "Test raffle description",
+        image: "test.jpg",
+        prizeName: "Test Prize",
+        prizeValue: "1000",
+        prizeCurrency: "XLM",
         category: "General",
+        tags: [],
+        createdBy: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
     },
 };
 
@@ -93,13 +114,29 @@ const renderWithProviders = (component: React.ReactElement) => {
 describe("RaffleDetails Page", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(useWallet).mockReturnValue({
-            address: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
-            isConnected: true,
-            connect: vi.fn(),
-            disconnect: vi.fn(),
-            signTx: vi.fn(),
-        });
+    vi.mocked(useWallet).mockReturnValue({
+        address: "GBZ3KSBF2U5YNHZJ4H5XQHZ5KSBF2U5",
+        isConnected: true,
+        isConnecting: false,
+        isDisconnecting: false,
+        error: null,
+        isWalletAvailable: true,
+        network: "testnet",
+        isWrongNetwork: false,
+        capabilities: {
+            canSignTransaction: true,
+            canSwitchNetwork: true,
+            canGetAccount: true,
+            supportsMobileDeepLink: false,
+            walletName: "Freighter",
+            unsupportedActionCopy: "",
+        },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        refresh: vi.fn(),
+        signTx: vi.fn(),
+        switchNetwork: vi.fn(),
+    });
     });
 
     afterEach(() => {

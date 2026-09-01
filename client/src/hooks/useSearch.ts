@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { searchRaffles } from "../services/raffleService";
 import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
 
@@ -14,36 +14,23 @@ export const useSearch = (
     const [error, setError] = useState<Error | null>(null);
     const requestId = useRef(0);
 
+    const trimmedQuery = query.trim();
     const categoriesKey = categories.sort().join(",");
 
     useEffect(() => {
         const currentRequest = ++requestId.current;
 
-    if (!trimmedQuery) {
-      setResults([]);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    setIsLoading(true);
-    setError(null);
-
-    const timeoutId = window.setTimeout(() => {
-      searchRaffles(trimmedQuery, controller.signal)
-        .then((response: ApiRaffleListResponse) => {
-          setResults(response.raffles);
-        })
-        .catch((err: unknown) => {
-          if (err instanceof Error && err.name === "AbortError") {
+        if (!trimmedQuery) {
+            setResults([]);
+            setIsLoading(false);
+            setError(null);
             return;
         }
 
         setIsLoading(true);
         setError(null);
 
-        searchRaffles(query, categories, sort)
+        searchRaffles(trimmedQuery, categories, sort)
             .then((response: ApiRaffleListResponse) => {
                 if (currentRequest !== requestId.current) return;
                 setResults(response.raffles);
@@ -56,7 +43,7 @@ export const useSearch = (
                 if (currentRequest !== requestId.current) return;
                 setIsLoading(false);
             });
-    }, [query, categoriesKey, sort]);
+    }, [trimmedQuery, categoriesKey, sort]);
 
     return { results, isLoading, error };
 };

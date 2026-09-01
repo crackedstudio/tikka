@@ -252,6 +252,7 @@ pnpm --filter sdk run size-check
 
 ## Pull request checklist
 
+- [ ] `pnpm typecheck` passes with zero errors in the workspace you changed.
 - [ ] `pnpm test` passes with no new failures in the workspace you changed.
 - [ ] New client UI strings are added to every supported locale and
   `pnpm --dir client check:locales` passes with zero missing or orphaned keys.

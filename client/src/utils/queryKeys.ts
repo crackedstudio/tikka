@@ -1,4 +1,5 @@
-import type { RaffleListFilters, LeaderboardParams } from "../types/types";
+import type { RaffleListFilters } from "../types/types";
+import type { LeaderboardParams } from "../services/leaderboardService";
 
 export const queryKeys = {
     raffles: {
