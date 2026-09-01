@@ -1,3 +1,6 @@
+import { RescueDetectorService } from './rescue-detector.service';
+import { RescuePlannerService } from './rescue-planner.service';
+import { RescueExecutorService } from './rescue-executor.service';
 import { Module } from '@nestjs/common';
 import { RescueService } from './rescue.service';
 import { RescueController } from './rescue.controller';
@@ -13,6 +16,9 @@ import { HealthModule } from '../health/health.module';
   controllers: [RescueController],
   providers: [
     RescueService,
+    RescueDetectorService,
+    RescuePlannerService,
+    RescueExecutorService,
     ContractService,
     VrfService,
     PrngService,
