@@ -19,8 +19,8 @@
     "test:e2e:standalone": "jest --config jest.config.js --testMatch='**/test/e2e-standalone-node.spec.ts' --runInBand",
     "test:e2e:full": "bash scripts/run-e2e-tests.sh",
     "oracle:rescue": "ts-node src/rescue/rescue.cli.ts",
-    "audit:query": "ts-node src/audit/audit-cli.ts",
-    "config:verify": "ts-node src/config/verify-config.ts"
+    "config:verify": "ts-node src/config/verify-config.ts",
+    "test:smoke:decrypt-env": "bash scripts/test-decrypt-env.sh"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.4",
