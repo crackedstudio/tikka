@@ -1,5 +1,5 @@
 import { IngestionDispatcherService } from '../../ingestor/ingestion-dispatcher.service';
-import { DeadLetterQueueService } from '../../ingestor/dead-letter-queue.service';
+import { DlqService } from '../../ingestor/dlq.service';
 import {
   makeRaffleCancelledEvent,
   makeRawIngestionEvent,
@@ -30,7 +30,15 @@ describe('Ingestion dispatcher isolation', () => {
     const dataSource = {
       createQueryRunner: jest.fn().mockReturnValue(runner),
     };
-    const dlq = new DeadLetterQueueService();
+
+    // Minimal DlqService mock — captures enqueue() calls for assertion.
+    const enqueuedRecords: any[] = [];
+    const dlq = {
+      enqueue: jest.fn().mockImplementation(async (record: any) => {
+        enqueuedRecords.push(record);
+      }),
+    } as unknown as DlqService;
+
     const dispatcher = new IngestionDispatcherService(
       dataSource as any,
       raffleProcessor as any,
@@ -61,8 +69,9 @@ describe('Ingestion dispatcher isolation', () => {
     ]);
     expect(ticketProcessor.handleTicketPurchased).toHaveBeenCalledTimes(1);
     expect(raffleProcessor.handleRaffleCancelled).toHaveBeenCalledTimes(1);
-    expect(dlq.getRecords()).toHaveLength(1);
-    expect(dlq.getRecords()[0]).toMatchObject({
+    expect(dlq.enqueue).toHaveBeenCalledTimes(1);
+    expect(enqueuedRecords).toHaveLength(1);
+    expect(enqueuedRecords[0]).toMatchObject({
       eventId: 'tx-failed',
       eventType: 'TicketPurchased',
       ledger: 500,

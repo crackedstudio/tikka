@@ -94,8 +94,9 @@ export class FeeEstimatorService {
     private readonly horizon: HorizonService,
     @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
     @Optional() @Inject('WALLET_ADAPTER') private readonly wallet?: WalletAdapter,
+    contractId?: string,
   ) {
-    this.contractId = getRaffleContractId(networkConfig.network);
+    this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
   }
 
   /**

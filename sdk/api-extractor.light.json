@@ -1,0 +1,62 @@
+﻿{
+  "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+
+  "projectFolder": ".",
+
+  "mainEntryPointFilePath": "<projectFolder>/dist/light/index.light.d.ts",
+
+  "bundledPackages": [],
+
+  "compiler": {
+    "tsconfigFilePath": "<projectFolder>/tsconfig.light.json",
+    "overrideTsconfig": {
+      "compilerOptions": {
+        "paths": {}
+      }
+    }
+  },
+
+  "apiReport": {
+    "enabled": true,
+    "reportFolder": "<projectFolder>/etc",
+    "reportFileName": "tikka-sdk-light.api.md",
+    "reportTempFolder": "<projectFolder>/temp/api-light"
+  },
+
+  "docModel": {
+    "enabled": true,
+    "apiJsonFilePath": "<projectFolder>/temp/api-light/tikka-sdk-light.api.json"
+  },
+
+  "dtsRollup": {
+    "enabled": false
+  },
+
+  "tsdocMetadata": {
+    "enabled": false
+  },
+
+  "messages": {
+    "compilerMessageReporting": {
+      "default": {
+        "logLevel": "warning"
+      }
+    },
+    "extractorMessageReporting": {
+      "ae-missing-release-tag": {
+        "logLevel": "none"
+      },
+      "ae-internal-missing-underscore": {
+        "logLevel": "none"
+      },
+      "default": {
+        "logLevel": "warning"
+      }
+    },
+    "tsdocMessageReporting": {
+      "default": {
+        "logLevel": "warning"
+      }
+    }
+  }
+}
