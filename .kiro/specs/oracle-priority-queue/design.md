@@ -39,7 +39,7 @@ export type PriorityTier = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface PriorityClassification {
   tier: PriorityTier;
-  priority: 1 | 5 | 10;  // Bull numeric priority; lower = processed first
+  priority: 1 | 5 | 10; // Bull numeric priority; lower = processed first
 }
 
 export const BULL_PRIORITY = {
@@ -53,28 +53,25 @@ export const BULL_PRIORITY = {
 
 **`classify(prizeAmount?: number): PriorityClassification`**
 
-| Condition | Tier | Priority |
-|---|---|---|
-| `prizeAmount >= HIGH_THRESHOLD` | HIGH | 1 |
-| `prizeAmount >= MED_THRESHOLD` | MEDIUM | 5 |
-| `prizeAmount < MED_THRESHOLD` or `undefined` | LOW | 10 |
+| Condition                                    | Tier   | Priority |
+| -------------------------------------------- | ------ | -------- |
+| `prizeAmount >= HIGH_THRESHOLD`              | HIGH   | 1        |
+| `prizeAmount >= MED_THRESHOLD`               | MEDIUM | 5        |
+| `prizeAmount < MED_THRESHOLD` or `undefined` | LOW    | 10       |
 
 ### EventListenerService (modified)
 
 `handleRandomnessRequested` currently calls:
 
 ```typescript
-this.randomnessQueue.add({ raffleId, requestId })
+this.randomnessQueue.add({ raffleId, requestId });
 ```
 
 It will be updated to:
 
 ```typescript
 const { priority, tier } = this.priorityClassifier.classify(prizeAmount);
-this.randomnessQueue.add(
-  { raffleId, requestId, prizeAmount },
-  { priority }
-).then(() => {
+this.randomnessQueue.add({ raffleId, requestId, prizeAmount }, { priority }).then(() => {
   this.currentQueueDepth++;
   this.healthService.updateQueueDepth(this.currentQueueDepth);
   this.healthService.incrementTierCount(tier);
@@ -102,7 +99,11 @@ getQueueDepthByTier(): Record<'high' | 'medium' | 'low', number>
 `HealthMetrics` interface gains:
 
 ```typescript
-queueDepthByTier: { high: number; medium: number; low: number };
+queueDepthByTier: {
+  high: number;
+  medium: number;
+  low: number;
+}
 ```
 
 ### HealthController (modified)
@@ -149,22 +150,22 @@ export interface HealthMetrics {
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `ORACLE_HIGH_VALUE_THRESHOLD_XLM` | `10000` | Minimum prize (XLM) for HIGH tier |
-| `ORACLE_MED_VALUE_THRESHOLD_XLM` | `1000` | Minimum prize (XLM) for MEDIUM tier |
+| Variable                          | Default | Description                         |
+| --------------------------------- | ------- | ----------------------------------- |
+| `ORACLE_HIGH_VALUE_THRESHOLD_XLM` | `10000` | Minimum prize (XLM) for HIGH tier   |
+| `ORACLE_MED_VALUE_THRESHOLD_XLM`  | `1000`  | Minimum prize (XLM) for MEDIUM tier |
 
 These are added to `oracle/.env.example`.
 
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 The oracle project already has `fast-check` in its devDependencies, so property-based tests are written using that library.
 
 ### Property 1: Output domain invariant
 
-*For any* non-negative `prize_amount` value (including `undefined`), `PriorityClassifierService.classify()` SHALL return a `priority` that is exactly one of `{1, 5, 10}` and a `tier` that is exactly one of `{'HIGH', 'MEDIUM', 'LOW'}`.
+_For any_ non-negative `prize_amount` value (including `undefined`), `PriorityClassifierService.classify()` SHALL return a `priority` that is exactly one of `{1, 5, 10}` and a `tier` that is exactly one of `{'HIGH', 'MEDIUM', 'LOW'}`.
 
 **Validates: Requirements 1.5, 5.5**
 
@@ -172,7 +173,7 @@ The oracle project already has `fast-check` in its devDependencies, so property-
 
 ### Property 2: HIGH tier classification
 
-*For any* `prize_amount` value greater than or equal to `HIGH_THRESHOLD`, `classify()` SHALL return `{ tier: 'HIGH', priority: 1 }`.
+_For any_ `prize_amount` value greater than or equal to `HIGH_THRESHOLD`, `classify()` SHALL return `{ tier: 'HIGH', priority: 1 }`.
 
 **Validates: Requirements 1.1, 5.1**
 
@@ -180,7 +181,7 @@ The oracle project already has `fast-check` in its devDependencies, so property-
 
 ### Property 3: MEDIUM tier classification
 
-*For any* `prize_amount` value in the range `[MED_THRESHOLD, HIGH_THRESHOLD)`, `classify()` SHALL return `{ tier: 'MEDIUM', priority: 5 }`.
+_For any_ `prize_amount` value in the range `[MED_THRESHOLD, HIGH_THRESHOLD)`, `classify()` SHALL return `{ tier: 'MEDIUM', priority: 5 }`.
 
 **Validates: Requirements 1.2, 5.2**
 
@@ -188,7 +189,7 @@ The oracle project already has `fast-check` in its devDependencies, so property-
 
 ### Property 4: LOW tier classification
 
-*For any* `prize_amount` value in the range `[0, MED_THRESHOLD)`, `classify()` SHALL return `{ tier: 'LOW', priority: 10 }`.
+_For any_ `prize_amount` value in the range `[0, MED_THRESHOLD)`, `classify()` SHALL return `{ tier: 'LOW', priority: 10 }`.
 
 **Validates: Requirements 1.3, 5.3**
 
@@ -196,7 +197,7 @@ The oracle project already has `fast-check` in its devDependencies, so property-
 
 ### Property 5: Enqueue priority matches classification
 
-*For any* `prize_amount` value, when `EventListenerService` handles a `RandomnessRequested` event, the `priority` option passed to `queue.add()` SHALL equal `classify(prizeAmount).priority`.
+_For any_ `prize_amount` value, when `EventListenerService` handles a `RandomnessRequested` event, the `priority` option passed to `queue.add()` SHALL equal `classify(prizeAmount).priority`.
 
 **Validates: Requirements 2.1**
 
@@ -204,7 +205,7 @@ The oracle project already has `fast-check` in its devDependencies, so property-
 
 ### Property 6: Tier counter non-negativity invariant
 
-*For any* sequence of `incrementTierCount` and `decrementTierCount` calls where decrements never exceed prior increments for a given tier, `getQueueDepthByTier()` SHALL return non-negative counts for all three tiers.
+_For any_ sequence of `incrementTierCount` and `decrementTierCount` calls where decrements never exceed prior increments for a given tier, `getQueueDepthByTier()` SHALL return non-negative counts for all three tiers.
 
 **Validates: Requirements 4.1, 4.4**
 
@@ -219,13 +220,13 @@ The oracle project already has `fast-check` in its devDependencies, so property-
 
 ## Error Handling
 
-| Scenario | Handling |
-|---|---|
-| `ORACLE_MED_VALUE_THRESHOLD_XLM >= ORACLE_HIGH_VALUE_THRESHOLD_XLM` | Log `WARN` at startup, fall back to defaults (10000 / 1000). Service continues normally. |
-| `prize_amount` is `undefined` or `NaN` | Treated as LOW tier (priority 10). No error thrown. |
-| `prize_amount` is negative | Treated as LOW tier (priority 10). Negative prize amounts are not valid domain values but the classifier degrades gracefully. |
-| `queue.add()` rejects | Existing error handling in `EventListenerService` catches and logs the rejection. Tier counter is not incremented if `add()` fails (increment is inside `.then()`). |
-| `decrementTierCount` called when count is already 0 | Counter is clamped to 0 (no negative counts). |
+| Scenario                                                            | Handling                                                                                                                                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORACLE_MED_VALUE_THRESHOLD_XLM >= ORACLE_HIGH_VALUE_THRESHOLD_XLM` | Log `WARN` at startup, fall back to defaults (10000 / 1000). Service continues normally.                                                                            |
+| `prize_amount` is `undefined` or `NaN`                              | Treated as LOW tier (priority 10). No error thrown.                                                                                                                 |
+| `prize_amount` is negative                                          | Treated as LOW tier (priority 10). Negative prize amounts are not valid domain values but the classifier degrades gracefully.                                       |
+| `queue.add()` rejects                                               | Existing error handling in `EventListenerService` catches and logs the rejection. Tier counter is not incremented if `add()` fails (increment is inside `.then()`). |
+| `decrementTierCount` called when count is already 0                 | Counter is clamped to 0 (no negative counts).                                                                                                                       |
 
 ## Testing Strategy
 

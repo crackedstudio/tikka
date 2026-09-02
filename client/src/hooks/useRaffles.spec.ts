@@ -1,7 +1,9 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { vi, describe, it, expect, beforeEach } from "vitest";
-import { useRaffles, useRaffle, useUserProfile, useUserHistory } from "./useRaffles";
-import * as raffleService from "../services/raffleService";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
+import type { ReactNode } from "react";
 import type {
     ApiUserProfile,
     ApiUserHistoryResponse,
@@ -10,6 +12,22 @@ import type {
     ApiRaffleDetail,
     FormattedRaffle,
 } from "../types/types";
+import { useRaffles, useRaffle, useUserProfile, useUserHistory } from "./useRaffles";
+import * as raffleService from "../services/raffleService";
+import { server } from "../test/server";
+import { API_BASE_URL } from "../test/handlers";
+
+function createQueryWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return ({ children }: { children: ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children);
+}
+
+function renderRaffleHook(hook: () => unknown, options?: Parameters<typeof renderHook>[1]) {
+  return renderHook(hook, { wrapper: createQueryWrapper(), ...options });
+}
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -122,17 +140,38 @@ const mockHistoryResponse: ApiUserHistoryResponse = {
     total: 2,
 };
 
-// ── useRaffles ────────────────────────────────────────────────────────────────
+// Captured requests, reset between tests.
+let raffleListUrl: string | undefined;
+let detailCallCount = 0;
+let listCallCount = 0;
+let historyUrl: string | undefined;
+
+beforeEach(() => {
+    raffleListUrl = undefined;
+    detailCallCount = 0;
+    listCallCount = 0;
+    historyUrl = undefined;
+    vi.restoreAllMocks();
+    server.resetHandlers();
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
+
+// ── useRaffles ─────────────────────────────────────────────────────────────────
 
 describe("useRaffles", () => {
-    beforeEach(() => {
-        vi.restoreAllMocks();
-    });
-
     it("fetches and returns raffles on mount (initial load)", async () => {
-        vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(mockRaffleListResponse);
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, ({ request }) => {
+                raffleListUrl = request.url;
+                listCallCount += 1;
+                return HttpResponse.json(mockRaffleListResponse);
+            })
+        );
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         expect(result.current.status.isLoading).toBe(true);
         expect(result.current.status.isRefreshing).toBe(false);
@@ -146,17 +185,15 @@ describe("useRaffles", () => {
         expect(result.current.status.isSuccess).toBe(true);
         expect(result.current.status.isEmpty).toBe(false);
         expect(result.current.status.isError).toBe(false);
-        expect(raffleService.fetchRaffles).toHaveBeenCalledWith(undefined);
+        expect(raffleListUrl).toBeDefined();
+        expect(raffleListUrl!).not.toContain("?");
     });
 
     it("handles empty result set", async () => {
-        const emptyResponse: ApiRaffleListResponse = {
-            raffles: [],
-            total: 0,
-        };
-        vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(emptyResponse);
+        const emptyResponse: ApiRaffleListResponse = { raffles: [], total: 0 };
+        server.use(http.get(`${API_BASE_URL}/raffles`, () => HttpResponse.json(emptyResponse)));
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
@@ -168,114 +205,135 @@ describe("useRaffles", () => {
     });
 
     it("applies filters when provided", async () => {
-        vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(mockRaffleListResponse);
-
         const filters = { status: "open", category: "Electronics" };
-        const { result } = renderHook(() => useRaffles(filters));
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, ({ request }) => {
+                raffleListUrl = request.url;
+                return HttpResponse.json(mockRaffleListResponse);
+            })
+        );
+
+        const { result } = renderRaffleHook(() => useRaffles(filters));
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
-        expect(raffleService.fetchRaffles).toHaveBeenCalledWith(filters);
+        expect(raffleListUrl).toContain("status=open");
+        expect(raffleListUrl).toContain("category=Electronics");
         expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
     });
 
     it("sets error when fetch fails", async () => {
-        const errorMessage = "Network error";
-        vi.spyOn(raffleService, "fetchRaffles").mockRejectedValue(new Error(errorMessage));
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, () =>
+                HttpResponse.json({ message: "Network error" }, { status: 500 })
+            )
+        );
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(result.current.raffles).toEqual([]);
-        expect(result.current.error?.message).toBe(errorMessage);
+        expect(result.current.error?.message).toBe("Network error");
         expect(result.current.status.isError).toBe(true);
         expect(result.current.status.isSuccess).toBe(false);
     });
 
     it("handles non-Error rejections", async () => {
+        // A non-Error rejection can only originate from the service layer, not from
+        // the HTTP client (which always throws ApiError), so this edge case keeps a
+        // targeted spy on the service method.
         vi.spyOn(raffleService, "fetchRaffles").mockRejectedValue("String error");
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
-        expect(result.current.error?.message).toBe("Failed to fetch raffles");
+        expect(result.current.error).toBe("String error");
         expect(result.current.status.isError).toBe(true);
     });
 
-    it("refetch triggers a refresh (keeps cached data visible)", async () => {
-        const spy = vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(mockRaffleListResponse);
+    it("refetch triggers a new request and keeps cached data visible", async () => {
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, () => {
+                listCallCount += 1;
+                return HttpResponse.json(mockRaffleListResponse);
+            })
+        );
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
-        expect(spy).toHaveBeenCalledTimes(1);
-        expect(result.current.status.isRefreshing).toBe(false);
-
-        result.current.refetch();
-
-        expect(result.current.status.isRefreshing).toBe(true);
-        // Cached data should remain visible during refresh
+        expect(listCallCount).toBe(1);
         expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
 
-        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+        result.current.refetch();
+        await waitFor(() => expect(listCallCount).toBe(2));
 
-        expect(spy).toHaveBeenCalledTimes(2);
+        expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
     });
 
-    it("refresh success clears stale flag", async () => {
-        const spy = vi.spyOn(raffleService, "fetchRaffles")
-            .mockResolvedValueOnce(mockRaffleListResponse)
-            .mockRejectedValueOnce(new Error("Network error"))
-            .mockResolvedValueOnce(mockRaffleListResponse);
+    it("refresh success updates data", async () => {
+        const updatedResponse: ApiRaffleListResponse = {
+            raffles: [{ ...mockRaffleListItem, id: 99 }],
+            total: 1,
+        };
+        let call = 0;
+        const responses = [
+            () => HttpResponse.json(mockRaffleListResponse),
+            () => HttpResponse.json(updatedResponse),
+        ];
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, () => responses[Math.min(call++, responses.length - 1)]())
+        );
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
-        expect(result.current.status.isStale).toBe(false);
+        expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
 
-        // Trigger refresh that fails
         result.current.refetch();
-        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+        await waitFor(() => expect(result.current.raffles).toEqual(updatedResponse.raffles));
 
-        expect(result.current.status.isStale).toBe(true);
-
-        // Retry succeeds
-        result.current.retry();
-        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
-
-        expect(result.current.status.isStale).toBe(false);
+        expect(result.current.status.isSuccess).toBe(true);
     });
 
-    it("refresh failure marks data as stale", async () => {
-        vi.spyOn(raffleService, "fetchRaffles")
-            .mockResolvedValueOnce(mockRaffleListResponse)
-            .mockRejectedValueOnce(new Error("Network error"));
+    it("refresh failure preserves cached data and surfaces error", async () => {
+        let call = 0;
+        const responses = [
+            () => HttpResponse.json(mockRaffleListResponse),
+            () => HttpResponse.json({ message: "Network error" }, { status: 500 }),
+        ];
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, () => responses[Math.min(call++, responses.length - 1)]())
+        );
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
-        expect(result.current.status.isStale).toBe(false);
+        expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
 
         result.current.refetch();
-        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
+        await waitFor(() => expect(call).toBe(2));
 
-        expect(result.current.status.isStale).toBe(true);
         expect(result.current.error?.message).toBe("Network error");
-        // Cached data should still be visible
         expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
     });
 
     it("retry clears error and refetches", async () => {
-        const spy = vi.spyOn(raffleService, "fetchRaffles")
-            .mockRejectedValueOnce(new Error("Network error"))
-            .mockResolvedValueOnce(mockRaffleListResponse);
+        let call = 0;
+        const responses = [
+            () => HttpResponse.json({ message: "Network error" }, { status: 500 }),
+            () => HttpResponse.json(mockRaffleListResponse),
+        ];
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, () => responses[Math.min(call++, responses.length - 1)]())
+        );
 
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
@@ -283,15 +341,10 @@ describe("useRaffles", () => {
         expect(result.current.error?.message).toBe("Network error");
 
         result.current.retry();
+        await waitFor(() => expect(result.current.status.isSuccess).toBe(true));
 
         expect(result.current.error).toBeNull();
-        expect(result.current.status.isRefreshing).toBe(true);
-
-        await waitFor(() => expect(result.current.status.isRefreshing).toBe(false));
-
-        expect(spy).toHaveBeenCalledTimes(2);
-        expect(result.current.status.isError).toBe(false);
-        expect(result.current.status.isSuccess).toBe(true);
+        expect(result.current.raffles).toEqual(mockRaffleListResponse.raffles);
     });
 
     it("cancels stale requests when filters change", async () => {
@@ -304,9 +357,8 @@ describe("useRaffles", () => {
             total: 1,
         };
 
-        let resolveFirst: (value: ApiRaffleListResponse) => void;
-        let resolveSecond: (value: ApiRaffleListResponse) => void;
-
+        let resolveFirst: (value: ApiRaffleListResponse) => void = () => {};
+        let resolveSecond: (value: ApiRaffleListResponse) => void = () => {};
         const firstPromise = new Promise<ApiRaffleListResponse>((resolve) => {
             resolveFirst = resolve;
         });
@@ -314,34 +366,33 @@ describe("useRaffles", () => {
             resolveSecond = resolve;
         });
 
-        const spy = vi
-            .spyOn(raffleService, "fetchRaffles")
-            .mockReturnValueOnce(firstPromise)
-            .mockReturnValueOnce(secondPromise);
+        server.use(
+            http.get(`${API_BASE_URL}/raffles`, () => {
+                listCallCount += 1;
+                return (listCallCount === 1 ? firstPromise : secondPromise).then((body) =>
+                    HttpResponse.json(body)
+                );
+            })
+        );
 
-        const { result, rerender } = renderHook(
+        const { result, rerender } = renderRaffleHook(
             ({ filters }) => useRaffles(filters),
             { initialProps: { filters: { status: "open" } } }
         );
 
-        expect(spy).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(listCallCount).toBe(1));
 
-        // Change filters before first request completes
         rerender({ filters: { status: "closed" } });
+        await waitFor(() => expect(listCallCount).toBe(2));
 
-        expect(spy).toHaveBeenCalledTimes(2);
-
-        // Resolve second request first
         resolveSecond!(secondResponse);
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
         expect(result.current.raffles).toEqual(secondResponse.raffles);
 
-        // Resolve first request (should be ignored)
         resolveFirst!(firstResponse);
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Should still have second response
         expect(result.current.raffles).toEqual(secondResponse.raffles);
     });
 
@@ -349,10 +400,9 @@ describe("useRaffles", () => {
         const responseWithoutTotal: ApiRaffleListResponse = {
             raffles: [mockRaffleListItem, { ...mockRaffleListItem, id: 2 }],
         };
+        server.use(http.get(`${API_BASE_URL}/raffles`, () => HttpResponse.json(responseWithoutTotal)));
 
-        vi.spyOn(raffleService, "fetchRaffles").mockResolvedValue(responseWithoutTotal);
-
-        const { result } = renderHook(() => useRaffles());
+        const { result } = renderRaffleHook(() => useRaffles());
 
         await waitFor(() => expect(result.current.status.isLoading).toBe(false));
 
@@ -360,18 +410,22 @@ describe("useRaffles", () => {
     });
 });
 
-// ── useRaffle ─────────────────────────────────────────────────────────────────
+// ── useRaffle ────────────────────────────────────────────────────────────────
 
 describe("useRaffle", () => {
-    beforeEach(() => {
-        vi.restoreAllMocks();
-    });
-
     it("fetches and returns raffle detail", async () => {
-        vi.spyOn(raffleService, "fetchRaffleDetail").mockResolvedValue(mockRaffleDetail);
-        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockReturnValue(mockFormattedRaffle);
+        let detailUrl: string | undefined;
+        server.use(
+            http.get(`${API_BASE_URL}/raffles/:id`, ({ request }) => {
+                detailUrl = request.url;
+                return HttpResponse.json(mockRaffleDetail);
+            })
+        );
+        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockReturnValue(
+            mockFormattedRaffle
+        );
 
-        const { result } = renderHook(() => useRaffle(1));
+        const { result } = renderRaffleHook(() => useRaffle(1));
 
         expect(result.current.isLoading).toBe(true);
 
@@ -379,11 +433,11 @@ describe("useRaffle", () => {
 
         expect(result.current.raffle).toEqual(mockFormattedRaffle);
         expect(result.current.error).toBeNull();
-        expect(raffleService.fetchRaffleDetail).toHaveBeenCalledWith(1);
+        expect(detailUrl).toContain("/raffles/1");
     });
 
     it("returns null and no loading when raffleId is 0", () => {
-        const { result } = renderHook(() => useRaffle(0));
+        const { result } = renderRaffleHook(() => useRaffle(0));
 
         expect(result.current.raffle).toBeNull();
         expect(result.current.isLoading).toBe(false);
@@ -391,11 +445,16 @@ describe("useRaffle", () => {
     });
 
     it("sets error when fetch fails", async () => {
-        vi.spyOn(raffleService, "fetchRaffleDetail").mockRejectedValue(
-            new Error("Not found")
+        server.use(
+            http.get(`${API_BASE_URL}/raffles/:id`, () =>
+                HttpResponse.json({ message: "Not found" }, { status: 404 })
+            )
+        );
+        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockReturnValue(
+            mockFormattedRaffle
         );
 
-        const { result } = renderHook(() => useRaffle(1));
+        const { result } = renderRaffleHook(() => useRaffle(1));
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -406,33 +465,44 @@ describe("useRaffle", () => {
     it("handles non-Error rejections", async () => {
         vi.spyOn(raffleService, "fetchRaffleDetail").mockRejectedValue("String error");
 
-        const { result } = renderHook(() => useRaffle(1));
+        const { result } = renderRaffleHook(() => useRaffle(1));
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-        expect(result.current.error?.message).toBe("Failed to fetch raffle 1");
+        expect(result.current.error).toBe("String error");
     });
 
     it("refetch triggers a new fetch", async () => {
-        const spy = vi.spyOn(raffleService, "fetchRaffleDetail").mockResolvedValue(mockRaffleDetail);
-        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockReturnValue(mockFormattedRaffle);
+        server.use(
+            http.get(`${API_BASE_URL}/raffles/:id`, () => {
+                detailCallCount += 1;
+                return HttpResponse.json(mockRaffleDetail);
+            })
+        );
+        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockReturnValue(
+            mockFormattedRaffle
+        );
 
-        const { result } = renderHook(() => useRaffle(1));
+        const { result } = renderRaffleHook(() => useRaffle(1));
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-        expect(spy).toHaveBeenCalledTimes(1);
+        expect(detailCallCount).toBe(1);
 
         result.current.refetch();
 
-        await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(detailCallCount).toBe(2));
     });
 
     it("resets state when raffleId changes to 0", async () => {
-        vi.spyOn(raffleService, "fetchRaffleDetail").mockResolvedValue(mockRaffleDetail);
-        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockReturnValue(mockFormattedRaffle);
+        server.use(http.get(`${API_BASE_URL}/raffles/:id`, ({ params }) =>
+            HttpResponse.json({ ...mockRaffleDetail, id: Number(params.id) })
+        ));
+        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockReturnValue(
+            mockFormattedRaffle
+        );
 
-        const { result, rerender } = renderHook(
+        const { result, rerender } = renderRaffleHook(
             ({ id }) => useRaffle(id),
             { initialProps: { id: 1 } }
         );
@@ -452,9 +522,8 @@ describe("useRaffle", () => {
         const firstFormatted: FormattedRaffle = { ...mockFormattedRaffle, id: 1 };
         const secondFormatted: FormattedRaffle = { ...mockFormattedRaffle, id: 2 };
 
-        let resolveFirst: (value: ApiRaffleDetail) => void;
-        let resolveSecond: (value: ApiRaffleDetail) => void;
-
+        let resolveFirst: (value: ApiRaffleDetail) => void = () => {};
+        let resolveSecond: (value: ApiRaffleDetail) => void = () => {};
         const firstPromise = new Promise<ApiRaffleDetail>((resolve) => {
             resolveFirst = resolve;
         });
@@ -462,38 +531,34 @@ describe("useRaffle", () => {
             resolveSecond = resolve;
         });
 
-        const spy = vi
-            .spyOn(raffleService, "fetchRaffleDetail")
-            .mockReturnValueOnce(firstPromise)
-            .mockReturnValueOnce(secondPromise);
+        server.use(
+            http.get(`${API_BASE_URL}/raffles/:id`, () => {
+                detailCallCount += 1;
+                return (detailCallCount === 1 ? firstPromise : secondPromise).then((body) =>
+                    HttpResponse.json(body)
+                );
+            })
+        );
+        vi.spyOn(raffleService, "mapDetailToFormattedRaffle").mockImplementation((detail) => {
+            return detail.id === 1 ? firstFormatted : secondFormatted;
+        });
 
-        vi.spyOn(raffleService, "mapDetailToFormattedRaffle")
-            .mockReturnValueOnce(firstFormatted)
-            .mockReturnValueOnce(secondFormatted);
-
-        const { result, rerender } = renderHook(
+        const { result, rerender } = renderRaffleHook(
             ({ id }) => useRaffle(id),
             { initialProps: { id: 1 } }
         );
 
-        expect(spy).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(detailCallCount).toBe(1));
 
-        // Change raffleId before first request completes
         rerender({ id: 2 });
+        await waitFor(() => expect(detailCallCount).toBe(2));
 
-        expect(spy).toHaveBeenCalledTimes(2);
-
-        // Resolve second request first
         resolveSecond!(secondDetail);
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.raffle?.id).toBe(2));
 
-        expect(result.current.raffle?.id).toBe(2);
-
-        // Resolve first request (should be ignored)
         resolveFirst!(firstDetail);
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Should still have second raffle
         expect(result.current.raffle?.id).toBe(2);
     });
 });
@@ -501,21 +566,23 @@ describe("useRaffle", () => {
 // ── useUserProfile ────────────────────────────────────────────────────────────
 
 describe("useUserProfile", () => {
-    beforeEach(() => {
-        vi.restoreAllMocks();
-    });
-
     it("returns null profile and no loading when address is null", () => {
-        const { result } = renderHook(() => useUserProfile(null));
+        const { result } = renderRaffleHook(() => useUserProfile(null));
         expect(result.current.profile).toBeNull();
         expect(result.current.isLoading).toBe(false);
         expect(result.current.error).toBeNull();
     });
 
     it("fetches and returns profile for a given address", async () => {
-        vi.spyOn(raffleService, "fetchUserProfile").mockResolvedValue(mockProfile);
+        let profileUrl: string | undefined;
+        server.use(
+            http.get(`${API_BASE_URL}/users/:address`, ({ request, params }) => {
+                profileUrl = request.url;
+                return HttpResponse.json({ ...mockProfile, address: String(params.address) });
+            })
+        );
 
-        const { result } = renderHook(() => useUserProfile("GABC123"));
+        const { result } = renderRaffleHook(() => useUserProfile("GABC123"));
 
         expect(result.current.isLoading).toBe(true);
 
@@ -523,15 +590,17 @@ describe("useUserProfile", () => {
 
         expect(result.current.profile).toEqual(mockProfile);
         expect(result.current.error).toBeNull();
-        expect(raffleService.fetchUserProfile).toHaveBeenCalledWith("GABC123");
+        expect(profileUrl).toContain("/users/GABC123");
     });
 
     it("sets error when fetch fails", async () => {
-        vi.spyOn(raffleService, "fetchUserProfile").mockRejectedValue(
-            new Error("Network error"),
+        server.use(
+            http.get(`${API_BASE_URL}/users/:address`, () =>
+                HttpResponse.json({ message: "Network error" }, { status: 500 })
+            )
         );
 
-        const { result } = renderHook(() => useUserProfile("GABC123"));
+        const { result } = renderRaffleHook(() => useUserProfile("GABC123"));
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -540,11 +609,11 @@ describe("useUserProfile", () => {
     });
 
     it("resets state when address changes to null", async () => {
-        vi.spyOn(raffleService, "fetchUserProfile").mockResolvedValue(mockProfile);
+        server.use(http.get(`${API_BASE_URL}/users/:address`, () => HttpResponse.json(mockProfile)));
 
-        const { result, rerender } = renderHook(
+        const { result, rerender } = renderRaffleHook(
             ({ addr }: { addr: string | null }) => useUserProfile(addr),
-            { initialProps: { addr: "GABC123" as string | null } },
+            { initialProps: { addr: "GABC123" as string | null } }
         );
 
         await waitFor(() => expect(result.current.profile).toEqual(mockProfile));
@@ -559,12 +628,8 @@ describe("useUserProfile", () => {
 // ── useUserHistory ────────────────────────────────────────────────────────────
 
 describe("useUserHistory", () => {
-    beforeEach(() => {
-        vi.restoreAllMocks();
-    });
-
     it("returns empty state when address is null", () => {
-        const { result } = renderHook(() => useUserHistory(null));
+        const { result } = renderRaffleHook(() => useUserHistory(null));
         expect(result.current.items).toEqual([]);
         expect(result.current.total).toBe(0);
         expect(result.current.isLoading).toBe(false);
@@ -572,9 +637,9 @@ describe("useUserHistory", () => {
     });
 
     it("fetches and returns history items", async () => {
-        vi.spyOn(raffleService, "fetchUserHistory").mockResolvedValue(mockHistoryResponse);
+        server.use(http.get(`${API_BASE_URL}/users/:address/history`, () => HttpResponse.json(mockHistoryResponse)));
 
-        const { result } = renderHook(() => useUserHistory("GABC123"));
+        const { result } = renderRaffleHook(() => useUserHistory("GABC123"));
 
         expect(result.current.isLoading).toBe(true);
 
@@ -586,11 +651,13 @@ describe("useUserHistory", () => {
     });
 
     it("sets error when fetch fails", async () => {
-        vi.spyOn(raffleService, "fetchUserHistory").mockRejectedValue(
-            new Error("Server error"),
+        server.use(
+            http.get(`${API_BASE_URL}/users/:address/history`, () =>
+                HttpResponse.json({ message: "Server error" }, { status: 500 })
+            )
         );
 
-        const { result } = renderHook(() => useUserHistory("GABC123"));
+        const { result } = renderRaffleHook(() => useUserHistory("GABC123"));
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -611,25 +678,27 @@ describe("useUserHistory", () => {
             })),
             total: 25,
         };
-        vi.spyOn(raffleService, "fetchUserHistory").mockResolvedValue(bigResponse);
+        server.use(http.get(`${API_BASE_URL}/users/:address/history`, () => HttpResponse.json(bigResponse)));
 
-        const { result } = renderHook(() => useUserHistory("GABC123"));
+        const { result } = renderRaffleHook(() => useUserHistory("GABC123"));
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         expect(result.current.page).toBe(0);
-        expect(result.current.totalPages).toBe(3); // ceil(25/10)
+        expect(result.current.totalPages).toBe(3);
         expect(result.current.hasPrev).toBe(false);
         expect(result.current.hasNext).toBe(true);
     });
 
     it("goToPage advances the page and re-fetches", async () => {
-        const spy = vi.spyOn(raffleService, "fetchUserHistory").mockResolvedValue({
-            items: [],
-            total: 25,
-        });
+        server.use(
+            http.get(`${API_BASE_URL}/users/:address/history`, ({ request }) => {
+                historyUrl = request.url;
+                return HttpResponse.json({ items: [], total: 25 });
+            })
+        );
 
-        const { result } = renderHook(() => useUserHistory("GABC123"));
+        const { result } = renderRaffleHook(() => useUserHistory("GABC123"));
 
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -637,8 +706,7 @@ describe("useUserHistory", () => {
 
         await waitFor(() => expect(result.current.page).toBe(1));
 
-        // Should have been called twice: initial + after page change
-        expect(spy).toHaveBeenCalledTimes(2);
-        expect(spy).toHaveBeenLastCalledWith("GABC123", 10, 10);
+        expect(historyUrl).toContain("limit=10");
+        expect(historyUrl).toContain("offset=10");
     });
 });

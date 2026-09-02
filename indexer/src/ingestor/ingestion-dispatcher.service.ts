@@ -1,11 +1,10 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { DataSource, QueryRunner } from "typeorm";
+import { DataSource } from "typeorm";
 import { RaffleProcessor } from "../processors/raffle.processor";
 import { TicketProcessor } from "../processors/ticket.processor";
 import { AdminProcessor } from "../processors/admin.processor";
-import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
 import { DomainEvent } from "./event.types";
-import { DeadLetterQueueService } from "./dead-letter-queue.service";
+import { DlqService } from "./dlq.service";
 import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 import { DlqReason } from "../database/entities/dead-letter-event.entity";
 import {
@@ -14,37 +13,51 @@ import {
   UnsupportedSchemaVersionError,
 } from "./handlers/schema-version";
 import { TracingService } from "../tracing/tracing.service";
+import { CursorAdvance } from "./cursor-advance";
+import { DuplicateDetector } from "./duplicate-detector";
+import {
+  DispatchOutcomeClassifier,
+  HandlerExecutionResult,
+  HandlerOutcome,
+} from "./dispatch-outcome";
 
-export type HandlerOutcome = "succeeded" | "failed" | "skipped";
+export { HandlerExecutionResult, HandlerOutcome } from "./dispatch-outcome";
 
 export interface DispatchItem {
   event: DomainEvent;
   raw: Record<string, unknown>;
 }
 
-export interface HandlerExecutionResult {
-  handlerName: string;
-  eventId: string;
-  eventType: string;
-  outcome: HandlerOutcome;
-  durationMs: number;
-  error?: Error;
-}
-
 @Injectable()
 export class IngestionDispatcherService {
   private readonly logger = new Logger(IngestionDispatcherService.name);
+  private readonly cursorAdvance: CursorAdvance;
+  private readonly duplicateDetector = new DuplicateDetector();
+  private readonly outcomes: DispatchOutcomeClassifier;
 
   constructor(
     private readonly dataSource: DataSource,
     private readonly raffleProcessor: RaffleProcessor,
     private readonly ticketProcessor: TicketProcessor,
     private readonly adminProcessor: AdminProcessor,
-    @Optional() private readonly deadLetterQueue?: DeadLetterQueueService,
+    @Optional() private readonly dlqService?: DlqService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
     // Keep last so unit tests that construct with positional DLQ args stay valid.
     @Optional() private readonly tracing?: TracingService,
-  ) {}
+  ) {
+    this.cursorAdvance = new CursorAdvance(
+      dataSource,
+      raffleProcessor,
+      ticketProcessor,
+      adminProcessor,
+      this.logger,
+    );
+    this.outcomes = new DispatchOutcomeClassifier(
+      this.logger,
+      deadLetterQueue,
+      pipeline,
+    );
+  }
 
   async dispatch(
     event: DomainEvent,
@@ -74,25 +87,20 @@ export class IngestionDispatcherService {
   private async executeIsolated(
     item: DispatchItem,
   ): Promise<HandlerExecutionResult> {
-    const { event, raw } = item;
+    const identity = this.duplicateDetector.inspect(item.event, item.raw);
     const startedAt = Date.now();
-    const ledger = Number(raw.ledger);
-    const txHash = String(raw.id || raw.paging_token || "");
-    const eventId = txHash || "unknown";
-    const handlerName = this.getHandlerName(event);
-    const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
 
     const run = () =>
-      this.executeIsolatedInner({
-        event,
-        raw,
-        startedAt,
-        ledger,
-        txHash,
-        eventId,
-        handlerName,
-        schemaVersion,
-      });
+      this.outcomes.run(
+        {
+          ...identity,
+          event: item.event,
+          raw: item.raw,
+          startedAt,
+          successOutcome: identity.needsDatabase ? "succeeded" : "skipped",
+        },
+        () => this.applyEventTraced(item.event, item.raw, identity.eventId),
+      );
 
     if (!this.tracing?.withSpan) {
       return run();
@@ -101,11 +109,13 @@ export class IngestionDispatcherService {
     return this.tracing.withSpan(
       "indexer.event.process",
       {
-        "event.type": event.type,
-        "event.id": eventId,
-        "event.schema_version": schemaVersion,
-        "handler.name": handlerName,
-        ...(Number.isFinite(ledger) ? { "stellar.ledger": ledger } : {}),
+        "event.type": item.event.type,
+        "event.id": identity.eventId,
+        "event.schema_version": identity.schemaVersion,
+        "handler.name": identity.handlerName,
+        ...(Number.isFinite(identity.ledger)
+          ? { "stellar.ledger": identity.ledger }
+          : {}),
       },
       async (span) => {
         const result = await run();
@@ -116,119 +126,12 @@ export class IngestionDispatcherService {
     );
   }
 
-  private async executeIsolatedInner(params: {
-    event: DomainEvent;
-    raw: Record<string, unknown>;
-    startedAt: number;
-    ledger: number;
-    txHash: string;
-    eventId: string;
-    handlerName: string;
-    schemaVersion: number;
-  }): Promise<HandlerExecutionResult> {
-    const {
-      event,
-      raw,
-      startedAt,
-      ledger,
-      txHash,
-      eventId,
-      handlerName,
-      schemaVersion,
-    } = params;
-
-    // Reject events whose schema version this build cannot decode, instead of
-    // letting a handler silently mis-parse them.
-    if (!isSupportedSchemaVersion(schemaVersion)) {
-      const error = new UnsupportedSchemaVersionError(schemaVersion, event.type);
-      const result = this.logResult({
-        handlerName,
-        eventId,
-        eventType: event.type,
-        outcome: "failed",
-        durationMs: Date.now() - startedAt,
-        error,
-      });
-      await this.deadLetter({
-        handlerName,
-        eventId,
-        event,
-        raw,
-        ledger,
-        txHash,
-        schemaVersion,
-        reason: DlqReason.SCHEMA_UNSUPPORTED,
-        error,
-        durationMs: result.durationMs,
-        attemptCount: 1,
-      });
-      return result;
-    }
-
-    const maxAttempts = parseInt(process.env.MAX_DISPATCH_RETRIES ?? "3", 10);
-    const baseDelayMs = parseInt(process.env.BASE_RETRY_DELAY_MS ?? "500", 10);
-    let lastError: Error | undefined;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const runner = await this.applyEventTraced(event, raw, eventId);
-        if (runner) {
-          await runner.commitTransaction();
-          await runner.release();
-        }
-
-        return this.logResult({
-          handlerName,
-          eventId,
-          eventType: event.type,
-          outcome: this.eventNeedsDatabase(event) ? "succeeded" : "skipped",
-          durationMs: Date.now() - startedAt,
-        });
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        this.logger.warn(
-          `Dispatch attempt ${attempt}/${maxAttempts} failed for ${event.type} ${eventId}: ${lastError.message}`,
-        );
-
-        if (attempt < maxAttempts) {
-          const delay = baseDelayMs * Math.pow(2, attempt - 1);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      }
-    }
-
-    const result = this.logResult({
-      handlerName,
-      eventId,
-      eventType: event.type,
-      outcome: "failed",
-      durationMs: Date.now() - startedAt,
-      error: lastError,
-    });
-
-    await this.deadLetter({
-      handlerName,
-      eventId,
-      event,
-      raw,
-      ledger,
-      txHash,
-      schemaVersion,
-      reason: DlqReason.HANDLER_ERROR,
-      error: lastError!,
-      durationMs: result.durationMs,
-      attemptCount: maxAttempts,
-    });
-
-    return result;
-  }
-
   private async applyEventTraced(
     event: DomainEvent,
     raw: Record<string, unknown>,
     eventId: string,
-  ): Promise<QueryRunner | null> {
-    const apply = () => this.applyEvent(event, raw);
+  ): Promise<void> {
+    const apply = () => this.cursorAdvance.apply(event, raw);
     if (!this.tracing?.withSpan) {
       return apply();
     }
@@ -240,21 +143,16 @@ export class IngestionDispatcherService {
         "event.id": eventId,
         "db.system": "postgresql",
       },
-      async (span) => {
-        return this.tracing!.withSpan(
+      async () =>
+        this.tracing!.withSpan(
           "indexer.event.db",
           {
             "event.type": event.type,
             "event.id": eventId,
             "db.operation": "apply_event",
           },
-          async () => {
-            const runner = await apply();
-            span.setAttribute("db.transaction", runner != null);
-            return runner;
-          },
-        );
-      },
+          apply,
+        ),
     );
   }
 
@@ -277,7 +175,7 @@ export class IngestionDispatcherService {
   }): Promise<void> {
     this.pipeline?.apply(PipelineTransition.HANDLER_FAILURE);
 
-    await this.deadLetterQueue?.enqueue({
+    await this.dlqService?.enqueue({
       handlerName: params.handlerName,
       eventId: params.eventId,
       eventType: params.event.type,

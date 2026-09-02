@@ -91,7 +91,6 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
             </>
         );
     }
-
     return (
         <>
             <div className="w-full">
@@ -214,13 +213,13 @@ const Lightbox: React.FC<LightboxProps> = ({ images, currentIndex, onClose, onIn
 
     const minSwipeDistance = 50;
 
-    const handlePrev = () => {
+    const handlePrev = useCallback(() => {
         onIndexChange(currentIndex > 0 ? currentIndex - 1 : images.length - 1);
-    };
+    }, [currentIndex, images.length, onIndexChange]);
 
-    const handleNext = () => {
+    const handleNext = useCallback(() => {
         onIndexChange(currentIndex < images.length - 1 ? currentIndex + 1 : 0);
-    };
+    }, [currentIndex, images.length, onIndexChange]);
 
     const onTouchStart = (e: React.TouchEvent) => {
         setTouchEnd(null);

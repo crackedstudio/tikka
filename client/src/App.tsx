@@ -1,6 +1,7 @@
 import LandingLayout from "./layouts/LandingLayout";
 import { lazy, Suspense, useEffect, type ComponentType } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { logger } from "./utils/logger";
@@ -14,7 +15,6 @@ import { Spinner } from "./components/ui/Spinner";
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Home = lazy(() => import("./pages/Home"));
 const SearchPage = lazy(() => import("./pages/Search"));
-const RaffleDetails = lazy(() => import("./pages/RaffleDetails"));
 const RafflePage = lazy(() => import("./pages/RafflePage"));
 const CreateRaffle = lazy(() => import("./pages/CreateRaffle"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
@@ -29,12 +29,43 @@ const OracleAdmin = lazy(() => import("./pages/OracleAdmin"));
 
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 
-const LazyRoute = ({ Component }: { Component: ComponentType }) => (
-    <ErrorBoundary>
-        <Suspense fallback={<Spinner />}>
-            <Component />
-        </Suspense>
-    </ErrorBoundary>
+interface RouteFallback {
+    title: string;
+    message: string;
+}
+
+const DEFAULT_FALLBACK: RouteFallback = {
+    title: "Something went wrong",
+    message:
+        "This page failed to load. You can try again, or return to the home page.",
+};
+
+const RAFFLE_FALLBACK: RouteFallback = {
+    title: "We couldn't load this raffle",
+    message:
+        "The raffle you're looking for may have been removed or there was a network issue. Please try again.",
+};
+
+const LazyRoute = ({
+    Component,
+    fallback = DEFAULT_FALLBACK,
+}: {
+    Component: ComponentType;
+    fallback?: RouteFallback;
+}) => (
+    <QueryErrorResetBoundary>
+        {({ reset }) => (
+            <ErrorBoundary
+                title={fallback.title}
+                message={fallback.message}
+                onReset={reset}
+            >
+                <Suspense fallback={<Spinner />}>
+                    <Component />
+                </Suspense>
+            </ErrorBoundary>
+        )}
+    </QueryErrorResetBoundary>
 );
 
 function App() {
@@ -68,11 +99,12 @@ function App() {
                     <Route index element={<LazyRoute Component={LandingPage} />} />
                     <Route path="home" element={<LazyRoute Component={Home} />} />
                     <Route path="search" element={<LazyRoute Component={SearchPage} />} />
-                    <Route path="details" element={<LazyRoute Component={RaffleDetails} />} />
+                    {/* Redirect legacy /details to /home (RaffleDetails page removed in #1301) */}
+                    <Route path="details" element={<Navigate to="/home" replace />} />
                     <Route path="raffles/:id" element={<LazyRoute Component={RafflePage} />} />
                     <Route path="create" element={<LazyRoute Component={CreateRaffle} />} />
                     <Route path="leaderboard" element={<LazyRoute Component={Leaderboard} />} />
-                    <Route path="my-raffles" element={<LazyRoute Component={MyRaffles} />} />
+                    <Route path="my-raffles" element={<LazyRoute Component={MyRaffles} fallback={RAFFLE_FALLBACK} />} />
                     <Route path="creators/:address" element={<LazyRoute Component={CreatorProfile} />} />
                     <Route path="winner-demo" element={<LazyRoute Component={WinnerDemo} />} />
                     <Route path="settings" element={<LazyRoute Component={Settings} />} />

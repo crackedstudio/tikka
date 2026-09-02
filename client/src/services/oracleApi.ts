@@ -3,81 +3,27 @@
  * Handles oracle-specific operations including randomness jobs and rescue operations
  */
 
-export interface RandomnessJobInfo {
-  id: string;
-  raffleId: number;
-  requestId: string;
-  attempts: number;
-  state: JobState;
-  timestamp: number;
-  failedReason?: string;
-}
+import type {
+  RandomnessJobInfo,
+  JobState,
+  JobsByState,
+  StuckDrawEntry,
+  StuckDrawReport,
+  OracleStatus,
+  ComponentStatus,
+  RescueResponse,
+} from "../types/api-types";
 
-export type JobState = 'waiting' | 'active' | 'completed' | 'failed' | 'delayed';
-
-export interface JobsByState {
-  waiting: RandomnessJobInfo[];
-  active: RandomnessJobInfo[];
-  completed: RandomnessJobInfo[];
-  failed: RandomnessJobInfo[];
-  delayed: RandomnessJobInfo[];
-}
-
-export interface StuckDrawEntry {
-  raffleId: number;
-  requestId: string;
-  jobId: string;
-  status: 'stuck' | 'pending' | 'confirmed' | 'failed';
-  ageMs: number;
-  since: string;
-  contractStatus: string;
-  queueState: string;
-  ledgerRange: {
-    requestedAtLedger: number;
-    currentLedger: number;
-    lagLedgers: number;
-  };
-  lastError?: string;
-  nextStep: string;
-  signals: string[];
-}
-
-export interface StuckDrawReport {
-  timestamp: string;
-  currentLedger: number;
-  entries: StuckDrawEntry[];
-  summary: {
-    stuck: number;
-    pending: number;
-    confirmed: number;
-    failed: number;
-    total: number;
-  };
-}
-
-export interface OracleStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  timestamp: string;
-  metrics: {
-    queueDepth: number;
-    lastProcessedAt: string;
-    lastProcessedRequestId: string;
-    totalProcessed: number;
-    totalFailed: number;
-    successRate: string;
-  };
-  components: Record<string, { status: ComponentStatus; message: string }>;
-  circuitState?: 'closed' | 'open' | 'half-open';
-}
-
-export type ComponentStatus = 'healthy' | 'degraded' | 'unhealthy';
-
-export interface RescueResponse {
-  success: boolean;
-  message: string;
-  newJobId?: string;
-  txHash?: string;
-}
+export type {
+  RandomnessJobInfo,
+  JobState,
+  JobsByState,
+  StuckDrawEntry,
+  StuckDrawReport,
+  OracleStatus,
+  ComponentStatus,
+  RescueResponse,
+};
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN as string;
