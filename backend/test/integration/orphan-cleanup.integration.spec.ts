@@ -46,7 +46,7 @@ describe('orphan-cleanup integration', () => {
           if (method === 'POST' && path.startsWith('/storage/v1/object/list/')) {
             const body = await getBody(req);
             // We ignore body and return all files.
-            const files = Array.from(mockStorageFiles.values()).map((f) =? ({
+            const files = Array.from(mockStorageFiles.values()).map((f) => ({
               name: f.name,
               id: f.name,
               updated_at: new Date().toISOString(),
