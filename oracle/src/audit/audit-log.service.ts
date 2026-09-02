@@ -2,12 +2,20 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord } from './audit.types';
+import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord, AuditStatus } from './audit.types';
 import { SUPABASE_CLIENT } from './supabase.provider';
 
 @Injectable()
 export class AuditLogService {
-  
+  /**
+   * Records an oracle divergence event when consensus was not reached.
+   */
+  public async recordDivergence(record: OracleDivergenceRecord): Promise<void> {
+    this.logger.warn(
+      `Oracle divergence recorded for request ${record.requestId} (raffle ${record.raffleId ?? 'N/A'}): ${record.totalResponses} responses, threshold ${record.consensusThreshold}`,
+      JSON.stringify(record),
+    );
+  }
 
   constructor(
     private readonly logger: OracleLoggerService,

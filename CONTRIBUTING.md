@@ -10,6 +10,19 @@ This repository is split into several runnable workspaces. The fastest way to ge
 ## Prerequisites
 
 - Node.js and pnpm
+
+  Node and pnpm versions are pinned repo-wide. The single source of truth for
+the Node major is `.nvmrc` (and its mirror `.node-version`):
+
+  - **Node.js 22** — read by CI (`node-version-file: .nvmrc`), the Docker
+    base images, and local version managers (`nvm`, `fnm`, `mise`, ...).
+  - **pnpm 9.15.9** — declared via `packageManager` in every package
+    `package.json` and enforced by pnpm; CI installs this exact version.
+
+  `.npmrc` sets `engine-strict=true`, so `pnpm install` fails locally if your
+  Node major does not match `.nvmrc`. Use your version manager to switch to
+  Node 22 before installing, e.g. `nvm use` / `fnm use`.
+
 - Docker Desktop or Docker Engine with Compose v2
 
 ## Shared services (Postgres + Redis)
@@ -164,6 +177,19 @@ Use the same command with `down -v` to tear everything down.
 
 Unit tests run without any external services and are safe to run in CI.
 
+The three root commands cover all five packages in one shot:
+
+```bash
+# From the repository root
+pnpm lint       # ESLint across all packages
+pnpm test       # Jest (backend / indexer / oracle / sdk) + Vitest (client)
+pnpm typecheck  # tsc --noEmit across all packages
+```
+
+All three are wired into the husky `pre-push` hook, so they run automatically
+before every `git push`. You can also run them per-workspace if you want faster
+feedback while working on a single package:
+
 ```bash
 # From the repository root
 pnpm --dir backend test
@@ -181,21 +207,22 @@ so they never run during normal test passes.
 
 ### Prerequisites
 
-| Requirement | How to start |
-|---|---|
+| Requirement               | How to start                                               |
+| ------------------------- | ---------------------------------------------------------- |
 | Stellar testnet reachable | Public endpoints are used automatically; no action needed. |
-| Local backend running | `cd backend && pnpm start:dev` (default port `3001`) |
-| Local database running | `docker compose --profile deps up -d` |
+| Local backend running     | `cd backend && pnpm start:dev` (default port `3001`)       |
+| Local database running    | `docker compose --profile deps up -d`                      |
 
 ### SEP-10 / SIWS authentication integration tests
 
 File: `sdk/src/test/sep10-integration.spec.ts`
 
 These tests cover:
+
 1. **SDK SEP-10 primitives** — `buildChallenge` + `verifyResponse` executed against
-a freshly-funded Stellar testnet keypair (no backend required for this group).
+   a freshly-funded Stellar testnet keypair (no backend required for this group).
 2. **Backend SIWS auth round-trip** — full flow against a locally-running backend:
-`GET /auth/nonce` → sign message → `POST /auth/verify` → assert valid JWT.
+   `GET /auth/nonce` → sign message → `POST /auth/verify` → assert valid JWT.
 
 #### Running the SEP-10 integration tests
 
@@ -212,11 +239,11 @@ TEST_INTEGRATION=true pnpm --dir sdk test -- --testPathPattern=sep10-integration
 
 #### Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `TEST_INTEGRATION` | `false` | Set to `true` to enable integration tests. |
-| `BACKEND_URL` | `http://localhost:3001` | Base URL of the locally-running backend. |
-| `SEP10_ANCHOR_DOMAIN` | `tikka.io` | Anchor domain used in challenge messages. |
+| Variable              | Default                 | Description                                |
+| --------------------- | ----------------------- | ------------------------------------------ |
+| `TEST_INTEGRATION`    | `false`                 | Set to `true` to enable integration tests. |
+| `BACKEND_URL`         | `http://localhost:3001` | Base URL of the locally-running backend.   |
+| `SEP10_ANCHOR_DOMAIN` | `tikka.io`              | Anchor domain used in challenge messages.  |
 
 #### What the tests assert
 
@@ -250,11 +277,82 @@ pnpm --filter sdk run build:light
 pnpm --filter sdk run size-check
 ```
 
+## Code formatting
+
+This repository uses Prettier for code formatting. A one-time formatting sweep was performed and its commit hash is listed in `.git-blame-ignore-revs` so that it doesn't pollute `git blame`.
+
+To configure Git to ignore this commit locally, run:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+All new code should be formatted with Prettier. The `lint-staged` hook will automatically format staged files before commit.
+
+## Commit message convention
+
+This repository enforces machine-readable commit messages using [Conventional Commits](https://www.conventionalcommits.org/) and `@commitlint/cli`. This allows release tooling and CI jobs to reason about scope alongside Changesets (`pnpm changeset`).
+
+### Format
+
+```
+<type>(<scope>): <short summary>
+```
+
+### Allowed types
+
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, missing semi-colons, etc.)
+- `refactor`: Code changes that neither fix a bug nor add a feature
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `build`: Changes that affect the build system or external dependencies
+- `ci`: Changes to CI configuration files and scripts
+- `chore`: Other changes that don't modify src or test files
+- `revert`: Reverts a previous commit
+
+### Allowed scopes
+
+Scope must match one of the defined package/workspace names:
+
+- `client` — Frontend application (`client/`)
+- `sdk` — Client SDK package (`sdk/`)
+- `backend` — Backend service (`backend/`)
+- `indexer` — Data indexer service (`indexer/`)
+- `oracle` — Oracle service (`oracle/`)
+- `repo` — Monorepo root, shared scripts, dependencies, or configuration
+- `docs` — Repository documentation (`docs/`)
+
+### Examples
+
+**Valid commit messages:**
+
+- `feat(client): add wallet connection state indicator`
+- `fix(sdk): resolve challenge verification timeout`
+- `docs(repo): update release workflow documentation`
+- `chore(backend): bump dependency versions`
+
+**Invalid commit messages:**
+
+- `added new feature` _(missing type and scope)_
+- `feat: update UI` _(missing scope)_
+- `feat(frontend): add wallet button` _(invalid scope `frontend`, must be `client`)_
+
+### Enforcement
+
+- **Locally**: A Husky `commit-msg` hook validates commit messages automatically before commits are created.
+- **CI**: The `commitlint` CI job validates all commit messages on pull requests and pushes to `master`.
+
 ## Pull request checklist
 
-- [ ] `pnpm test` passes with no new failures in the workspace you changed.
+- [ ] `pnpm lint` passes with no new errors or warnings.
+- [ ] `pnpm test` passes with no new failures in the workspace(s) you changed.
+- [ ] `pnpm typecheck` passes with no new type errors.
+- [ ] Commit messages follow the Conventional Commits specification with a valid scope (`client`, `sdk`, `backend`, `indexer`, `oracle`, `repo`, `docs`).
 - [ ] New client UI strings are added to every supported locale and
-  `pnpm --dir client check:locales` passes with zero missing or orphaned keys.
+      `pnpm --dir client check:locales` passes with zero missing or orphaned keys.
 - [ ] `CONTRIBUTING.md` is updated if new integration test setup is required.
 - [ ] SDK PRs that touch public exports or read/light entry graphs:
-  `pnpm --filter sdk size-check` passes (see SDK bundle size section above).
+      `pnpm --filter sdk size-check` passes (see SDK bundle size section above).
