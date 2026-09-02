@@ -15,10 +15,21 @@ dist/
 *.log
 logs/
 
+# OS files
+.DS_Store
+
 # Local build / debug artifacts (do not commit)
 test_output*.txt
 build*.txt
+*-output.txt
+*_output.txt
+*.tsbuildinfo
 debug_*.py
 fix_*.py
 PUSH_TO_BRANCH.sh
 PUSH_TO_BRANCH.bat
+
+# Kubernetes secrets. Only the *.example templates are tracked — a filled-in
+# secret.yaml / secrets.yaml must never reach the index (#1476).
+# `secret.yaml.example` does not end in `.yaml`, so the templates stay tracked.
+**/secret*.yaml

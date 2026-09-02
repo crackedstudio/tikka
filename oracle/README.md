@@ -266,6 +266,7 @@ docker run -d -p 6379:6379 redis:7-alpine
 ```
 
 📖 **See [docs/queue-state-machine-design.md](./docs/queue-state-machine-design.md) for complete documentation**
+📋 **See [QUEUE_STATE_MACHINE_QUICK_REF.md](./docs/QUEUE_STATE_MACHINE_QUICK_REF.md) for quick reference**
 
 ## Configuration
 

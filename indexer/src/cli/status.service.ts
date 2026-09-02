@@ -136,7 +136,10 @@ export async function fetchStatus(): Promise<StatusResult> {
       .where('e.indexedAt >= :since', { since })
       .getCount();
 
+    // TypeORM's findOne requires a where clause; use the most-recently-indexed
+    // event (ordered by indexed_at DESC).
     const lastEvent = await eventRepo.findOne({
+      where: {},
       order: { indexedAt: 'DESC' },
     });
     lastProcessedAt = lastEvent ? lastEvent.indexedAt.toISOString() : null;

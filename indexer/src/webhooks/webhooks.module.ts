@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Queue } from "bullmq";
 import { WebhookService } from "./webhook.service";
 import { WebhookProcessor } from "./webhook.processor";
+import { WebhookDlqController } from "./webhook-dlq.controller";
 import { WebhookDeadLetterService } from "./webhook-dlq.service";
 import { WebhookEntity } from "../database/entities/webhook.entity";
 import { WebhookDeliveryEntity } from "../database/entities/webhook-delivery.entity";
