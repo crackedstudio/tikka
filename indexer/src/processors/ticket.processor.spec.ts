@@ -120,6 +120,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
@@ -130,10 +131,12 @@ describe('TicketProcessor', () => {
       // Verify each ticket was inserted
       expect(mockInsertBuilder.insert).toHaveBeenCalledTimes(3);
       expect(mockInsertBuilder.into).toHaveBeenCalledWith(TicketEntity);
-      expect(mockInsertBuilder.onConflict).toHaveBeenCalledTimes(3);
+      expect(mockInsertBuilder.orIgnore).toHaveBeenCalledTimes(3);
     });
 
     it('should increment raffle tickets_sold count', async () => {
+      const raffleId = 1;
+      const buyer = 'GBUYER';
       const ticketIds = [1, 2, 3];
       const totalCost = '300000000';
       const ledger = 500;
@@ -156,6 +159,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
@@ -170,6 +174,8 @@ describe('TicketProcessor', () => {
     });
 
     it('should call userProcessor.handleTicketPurchased', async () => {
+      const raffleId = 1;
+      const buyer = 'GBUYER';
       const ticketIds = [1, 2];
       const totalCost = '200000000';
       const ledger = 500;
@@ -192,6 +198,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
@@ -228,6 +235,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
@@ -266,6 +274,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
@@ -285,7 +294,9 @@ describe('TicketProcessor', () => {
         execute: jest.fn().mockRejectedValueOnce(error),
       };
 
-      mockManager.createQueryBuilder.mockReturnValueOnce(mockInsertBuilder);
+      mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
+        .mockReturnValueOnce(mockInsertBuilder);
 
       await expect(
         processor.handleTicketPurchased(1, 'GBUYER', [1], '100000000', 500, 'tx-hash', mockQueryRunner),
@@ -317,6 +328,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
@@ -367,7 +379,11 @@ describe('TicketProcessor', () => {
         1, 'GBUYER', [1, 2], '200000000', 500, 'tx-hash-123', mockQueryRunner,
       );
 
+      // Second delivery short-circuits on the exists check, so invalidation
+      // and user stat updates must only happen once (the first delivery).
+      expect(cacheService.invalidateUserProfile).toHaveBeenCalledTimes(1);
       expect(cacheService.invalidateUserProfile).toHaveBeenCalledWith('GBUYER');
+      expect(userProcessor.handleTicketPurchased).toHaveBeenCalledTimes(1);
     });
 
     it('should propagate errors from refund update', async () => {
@@ -413,6 +429,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
@@ -447,6 +464,7 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
@@ -488,9 +506,11 @@ describe('TicketProcessor', () => {
       };
 
       mockManager.createQueryBuilder
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder)
+        .mockReturnValueOnce(existsBuilder(false))
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
@@ -500,8 +520,8 @@ describe('TicketProcessor', () => {
       // Second call with same parameters
       await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
-      // onConflict should prevent duplicate ticket insertion
-      expect(mockInsertBuilder.onConflict).toHaveBeenCalled();
+      // orIgnore should prevent duplicate ticket insertion
+      expect(mockInsertBuilder.orIgnore).toHaveBeenCalled();
     });
   });
 });

@@ -1,45 +1,34 @@
 import { api } from "./apiClient";
 import { API_CONFIG } from "../config/api";
+import type {
+  LeaderboardEntry,
+  LeaderboardResponse,
+  LeaderboardSortBy,
+  LeaderboardParams,
+} from "../types/api-types";
 
-export interface LeaderboardEntry {
-  address: string;
-  total_tickets?: number;
-  total_wins?: number;
-  total_volume_xlm?: string;
-  rank?: number;
-}
+export type { LeaderboardEntry, LeaderboardResponse, LeaderboardSortBy, LeaderboardParams };
 
-export interface LeaderboardResponse {
-  entries: LeaderboardEntry[];
-}
-
-export type LeaderboardSortBy = "wins" | "volume" | "tickets";
-
-export interface LeaderboardParams {
-  by?: LeaderboardSortBy;
-  limit?: number;
-}
+/** @deprecated use LeaderboardParams from api-types directly */
+export type LeaderboardParamsLegacy = LeaderboardParams;
 
 /**
  * Fetch leaderboard data from the backend
- * @param params - Optional query parameters (by, limit)
+ * @param params - Optional query parameters (by, limit, cursor, offset)
  * @returns Leaderboard response with entries
  */
 export async function fetchLeaderboard(
   params: LeaderboardParams = {}
 ): Promise<LeaderboardResponse> {
   const queryParams = new URLSearchParams();
-  
-  if (params.by) {
-    queryParams.set("by", params.by);
-  }
-  
-  if (params.limit !== undefined) {
-    queryParams.set("limit", String(params.limit));
-  }
+
+  if (params.by) queryParams.set("by", params.by);
+  if (params.limit !== undefined) queryParams.set("limit", String(params.limit));
+  if (params.cursor !== undefined) queryParams.set("cursor", params.cursor);
+  if (params.offset !== undefined) queryParams.set("offset", String(params.offset));
 
   const queryString = queryParams.toString();
-  const endpoint = queryString 
+  const endpoint = queryString
     ? `${API_CONFIG.endpoints.leaderboard}?${queryString}`
     : API_CONFIG.endpoints.leaderboard;
 

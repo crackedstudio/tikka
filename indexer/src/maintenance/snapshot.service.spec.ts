@@ -278,7 +278,7 @@ SNAPSHOT_STORAGE_URL=file://${tempDir}
     // 3. Clear database
     await ds.query(`SET session_replication_role = 'replica'`);
     await ds.query(`TRUNCATE TABLE tickets, users, raffles RESTART IDENTITY CASCADE`);
-    await ds.query(`SET session_replication_role = 'DEFAULT'`);
+    await ds.query(`SET session_replication_role = 'origin'`);
 
     expect(await userRepo.count()).toBe(0);
     expect(await raffleRepo.count()).toBe(0);

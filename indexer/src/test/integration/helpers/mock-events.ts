@@ -19,11 +19,11 @@ export const CREATOR_ADDRESS =
 
 /** A 56-character Stellar G-address used as a default buyer across fixtures. */
 export const BUYER_ADDRESS =
-  'GBRAND7QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQBRANDD';
+  'GBRAND7QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQBRAND';
 
 /** A second buyer address used in multi-user scenarios. */
 export const BUYER2_ADDRESS =
-  'GCREATOR2QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQCREATOR2';
+  'GCREATOR2QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQCREATOR';
 
 // ─── TX hash helpers ─────────────────────────────────────────────────────────
 
