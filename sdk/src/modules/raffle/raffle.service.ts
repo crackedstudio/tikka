@@ -267,7 +267,14 @@ export class RaffleService {
   /*  Private helpers                                                    */
   /* ------------------------------------------------------------------ */
 
-  private buildCreateContractParams(params: RaffleParams): any[] {
+  /**
+   * Builds the `create_raffle` contract parameters for the given raffle.
+   *
+   * Public so frontend progress-emission pipelines can reuse the exact scVal
+   * shape instead of hand-rolling a private copy. Accepts the same `RaffleParams`
+   * as {@link create} / {@link estimateCreate} (endTime in ms).
+   */
+  buildCreateContractParams(params: RaffleParams): any[] {
     assertNonEmpty(params.ticketPrice, "ticketPrice");
     assertPositiveInt(params.maxTickets, "maxTickets");
 

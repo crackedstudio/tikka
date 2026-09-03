@@ -15,31 +15,21 @@ export type CardStatus = "live" | "ending-soon" | "finalized" | "cancelled";
 export interface RaffleCardViewModel {
     raffleId: number;
     title: string;
-    /** Long-form blurb shown in the featured card's body area. */
     description: string;
-    /** Always non-empty: falls back to FALLBACK_IMAGE when the API returns null. */
     imageUrl: string;
-    status: CardStatus;
+    status: RaffleStatus;
     /** Human-readable label: "Live" | "Ending Soon" | "Finalized" | "Cancelled" */
     statusLabel: string;
-    /** Pre-formatted price+asset string, e.g. "10.000 XLM". */
+    isActive: boolean;
     ticketPrice: string;
-    /** Raw asset symbol, e.g. "XLM". */
     ticketAsset: string;
     prizeValue: string;
     prizeCurrency: string;
     entries: number;
     maxTickets: number;
-    /** 0–100, clamped. */
     progress: number;
-    /** Unix timestamp (seconds) of raffle close time. */
     endTimeUnix: number;
-    countdown: {
-        days: string;
-        hours: string;
-        minutes: string;
-        seconds: string;
-    };
+    countdown: { days: string; hours: string; minutes: string; seconds: string };
     winner: string | null;
     buttonText: string;
 }
@@ -53,11 +43,12 @@ const STATUS_LABELS: Record<CardStatus, string> = {
     cancelled: "Cancelled",
 };
 
-function deriveStatus(apiStatus: string, endTimeUnix: number): CardStatus {
+function deriveStatus(apiStatus: string, endTimeUnix: number, nowUnix?: number): RaffleStatus {
     const s = apiStatus.toLowerCase();
     if (s === "finalized") return "finalized";
     if (s === "cancelled") return "cancelled";
-    const remaining = endTimeUnix - Math.floor(Date.now() / 1000);
+    const now = nowUnix ?? Math.floor(Date.now() / 1000);
+    const remaining = endTimeUnix - now;
     return remaining <= ENDING_SOON_THRESHOLD_S ? "ending-soon" : "live";
 }
 
@@ -67,14 +58,23 @@ function deriveButtonText(status: CardStatus): string {
     return "Cancelled";
 }
 
+function isActiveStatus(status: RaffleStatus): boolean {
+    return status === "live" || status === "ending-soon";
+}
+
 // ── Public helpers ────────────────────────────────────────────────────────────
 
 /**
  * Build a countdown object from a Unix timestamp (seconds).
  * All values are zero-padded to 2 digits and floor-clamped to 0.
+ * Optionally pass `nowUnix` to make the function deterministic for tests.
  */
-export function buildCountdown(endTimeUnix: number): RaffleCardViewModel["countdown"] {
-    const remaining = Math.max(0, endTimeUnix - Math.floor(Date.now() / 1000));
+export function buildCountdown(
+    endTimeUnix: number,
+    nowUnix?: number,
+): RaffleCardViewModel["countdown"] {
+    const now = nowUnix ?? Math.floor(Date.now() / 1000);
+    const remaining = Math.max(0, endTimeUnix - now);
     return {
         days: Math.floor(remaining / 86400).toString().padStart(2, "0"),
         hours: Math.floor((remaining % 86400) / 3600).toString().padStart(2, "0"),
@@ -83,20 +83,38 @@ export function buildCountdown(endTimeUnix: number): RaffleCardViewModel["countd
     };
 }
 
+/**
+ * Format a numeric price as a fixed-precision string with the asset symbol.
+ */
+export function formatTicketPrice(price: string | number, asset: string): string {
+    const num = typeof price === "string" ? parseFloat(price) : price;
+    if (Number.isNaN(num)) return `0.000 ${asset}`;
+    return `${num.toFixed(3)} ${asset}`;
+}
+
+/**
+ * Calculate raffle progress as a percentage between 0 and 100.
+ * Returns 0 when maxTickets is 0 to avoid division by zero.
+ */
+export function calculateProgress(ticketsSold: number, maxTickets: number): number {
+    if (maxTickets <= 0) return 0;
+    return Math.min((ticketsSold / maxTickets) * 100, 100);
+}
+
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
 /**
  * Primary mapper: converts an API list item (or detail) into a RaffleCardViewModel.
- *
- * `ApiRaffleDetail extends ApiRaffleListItem`, so detail-only fields (title,
- * description, image_url) are accessed via type widening and guarded with `??`.
+ * Optionally pass `nowUnix` for deterministic status/countdown calculation in tests.
  */
-export function toRaffleCardViewModel(item: ApiRaffleListItem): RaffleCardViewModel {
+export function toRaffleCardViewModel(
+    item: ApiRaffleListItem,
+    nowUnix?: number,
+): RaffleCardViewModel {
     const detail = item as ApiRaffleDetail;
     const endTimeUnix = Math.floor(new Date(item.end_time).getTime() / 1000);
-    const status = deriveStatus(item.status, endTimeUnix);
+    const status = deriveStatus(item.status, endTimeUnix, nowUnix);
     const asset = item.asset || "XLM";
-    const ticketPriceNum = parseFloat(item.ticket_price);
     const title = detail.title ?? `Raffle #${item.id}`;
 
     return {
@@ -106,18 +124,16 @@ export function toRaffleCardViewModel(item: ApiRaffleListItem): RaffleCardViewMo
         imageUrl: detail.image_url ?? FALLBACK_IMAGE,
         status,
         statusLabel: STATUS_LABELS[status],
-        ticketPrice: `${ticketPriceNum.toFixed(3)} ${asset}`,
+        isActive: isActiveStatus(status),
+        ticketPrice: formatTicketPrice(item.ticket_price, asset),
         ticketAsset: asset,
         prizeValue: item.prize_amount ?? "0",
         prizeCurrency: asset,
         entries: item.tickets_sold,
         maxTickets: item.max_tickets,
-        progress:
-            item.max_tickets > 0
-                ? Math.min((item.tickets_sold / item.max_tickets) * 100, 100)
-                : 0,
+        progress: calculateProgress(item.tickets_sold, item.max_tickets),
         endTimeUnix,
-        countdown: buildCountdown(endTimeUnix),
+        countdown: buildCountdown(endTimeUnix, nowUnix),
         winner: item.winner,
         buttonText: deriveButtonText(status),
     };
@@ -127,10 +143,12 @@ export function toRaffleCardViewModel(item: ApiRaffleListItem): RaffleCardViewMo
  * Adapter for callers that already hold a FormattedRaffle (returned by useRaffle).
  * Avoids requiring those callers to re-fetch raw API data.
  */
-export function formattedRaffleToViewModel(raffle: FormattedRaffle): RaffleCardViewModel {
-    const status = deriveStatus(raffle.status, raffle.endTime);
-    const imageUrl =
-        raffle.image || raffle.metadata?.image || FALLBACK_IMAGE;
+export function formattedRaffleToViewModel(
+    raffle: FormattedRaffle,
+    nowUnix?: number,
+): RaffleCardViewModel {
+    const status = deriveStatus(raffle.status, raffle.endTime, nowUnix);
+    const imageUrl = raffle.image || raffle.metadata?.image || FALLBACK_IMAGE;
 
     return {
         raffleId: raffle.id,
@@ -139,6 +157,7 @@ export function formattedRaffleToViewModel(raffle: FormattedRaffle): RaffleCardV
         imageUrl,
         status,
         statusLabel: STATUS_LABELS[status],
+        isActive: isActiveStatus(status),
         ticketPrice: raffle.ticketPriceFormatted,
         ticketAsset: raffle.ticketToken ?? "XLM",
         prizeValue: raffle.prizeValue,
@@ -147,7 +166,7 @@ export function formattedRaffleToViewModel(raffle: FormattedRaffle): RaffleCardV
         maxTickets: raffle.maxTickets,
         progress: raffle.progress,
         endTimeUnix: raffle.endTime,
-        countdown: raffle.countdown,
+        countdown: buildCountdown(raffle.endTime, nowUnix),
         winner: raffle.winner,
         buttonText: raffle.buttonText,
     };
