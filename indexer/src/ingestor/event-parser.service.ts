@@ -1,0 +1,91 @@
+import { xdr, scValToNative } from "@stellar/stellar-sdk";
+import { Injectable, Logger } from "@nestjs/common";
+import { DomainEvent } from "./event.types";
+import { EventHandlerRegistry } from "./event-handler-registry.service";
+import { IEventParser, RawSorobanEvent } from "./event-parser.interface";
+import { resolveSchemaVersion } from "./handlers/schema-version";
+
+/**
+ * Extensible event parser service.
+ * Uses a dynamic registry system to support multiple contracts and custom event handlers.
+ *
+ * This is the single, canonical parser for the ingestion pipeline; it
+ * implements the {@link IEventParser} contract.
+ */
+@Injectable()
+export class EventParserService implements IEventParser {
+  private readonly logger = new Logger(EventParserService.name);
+
+  constructor(private readonly handlerRegistry: EventHandlerRegistry) {}
+
+  /**
+   * Parses a raw Soroban event into a typed DomainEvent.
+   * Returns null if the event is unsupported or malformed.
+   */
+  public parse(rawEvent: RawSorobanEvent): DomainEvent | null {
+    if (rawEvent.type !== "contract") {
+      return null;
+    }
+
+    try {
+      const topics = rawEvent.topics.map((t) => xdr.ScVal.fromXDR(t, "base64"));
+      const value = xdr.ScVal.fromXDR(rawEvent.value, "base64");
+
+      if (topics.length === 0) return null;
+
+      // topic[0] usually contains the event name (symbol)
+      const eventName = scValToNative(topics[0]);
+      const schemaVersion = resolveSchemaVersion(rawEvent);
+      const contractAddress = this.getContractAddress(rawEvent);
+
+      // Use registry to parse the event
+      const parsed = this.handlerRegistry.parseEvent(
+        contractAddress,
+        eventName,
+        schemaVersion,
+        topics,
+        value,
+        rawEvent,
+      );
+
+      if (!parsed) {
+        // Check if this is from a known contract
+        if (this.handlerRegistry.isContractRegistered(contractAddress)) {
+          this.logger.debug(
+            `[unhandled_supported] Event "${eventName}" from known contract ${contractAddress}`,
+          );
+        } else {
+          this.logger.debug(
+            `[unknown] Event "${eventName}" from unknown contract ${contractAddress}`,
+          );
+        }
+      }
+
+      return parsed;
+    } catch (e) {
+      this.logger.warn(
+        `Failed to parse event: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Extract contract address from raw event
+   * This may vary depending on your event structure
+   */
+  private getContractAddress(event: RawSorobanEvent): string {
+    // Try to extract from event structure
+    // Adjust based on your actual event format
+    const contractId =
+      (event as any).contractId || (event as any).address || "default";
+    return contractId;
+  }
+
+  /**
+   * Get registry for runtime management
+   */
+  public getRegistry(): EventHandlerRegistry {
+    return this.handlerRegistry;
+  }
+}

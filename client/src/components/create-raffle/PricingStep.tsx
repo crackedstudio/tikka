@@ -1,5 +1,6 @@
 import React from "react";
 import type { StepComponentProps } from "../../types/types";
+import { CreateRaffleFormSchema } from "../../utils/raffleValidation";
 
 const PricingStep: React.FC<StepComponentProps> = ({
     formData,
@@ -29,8 +30,8 @@ const PricingStep: React.FC<StepComponentProps> = ({
 
     const potentialRevenue = formData.pricePerTicket * formData.totalTickets;
 
-    const canContinue =
-        formData.pricePerTicket > 0 && formData.totalTickets > 0;
+    const ticketsValidation = CreateRaffleFormSchema.shape.totalTickets.safeParse(formData.totalTickets);
+    const canContinue = formData.pricePerTicket > 0 && ticketsValidation.success;
 
     return (
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
