@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Leaderboard from "./Leaderboard";
@@ -13,6 +14,32 @@ import * as leaderboardService from "../services/leaderboardService";
 // Mock the useLeaderboard hook
 vi.mock("../hooks/useLeaderboard", () => ({
   useLeaderboard: vi.fn(),
+}));
+
+// Mock react-i18next: return the English values for the leaderboard keys so
+// the component renders human-readable copy in tests.
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) =>
+      (
+        {
+          "leaderboard.title": "Leaderboard",
+          "leaderboard.sortByWins": "By Wins",
+          "leaderboard.sortByVolume": "By Volume",
+          "leaderboard.sortByTickets": "By Tickets",
+          "leaderboard.loading": "Loading Leaderboard...",
+          "leaderboard.errorTitle": "Error Loading Leaderboard",
+          "leaderboard.emptyTitle": "No Leaderboard Data Yet",
+          "leaderboard.emptyHint":
+            "The leaderboard will populate as users participate in raffles.",
+          "leaderboard.rank": "Rank",
+          "leaderboard.address": "Address",
+          "leaderboard.wins": "Wins",
+          "leaderboard.volume": "Volume (XLM)",
+          "leaderboard.tickets": "Tickets",
+        } as Record<string, string>
+      )[key] ?? key,
+  }),
 }));
 
 import { useLeaderboard } from "../hooks/useLeaderboard";
@@ -40,7 +67,7 @@ describe("Leaderboard Component", () => {
   });
 
   describe("Loading State", () => {
-    it("should render skeleton/loading spinner while data is loading", () => {
+    it("should render skeleton placeholders while data is loading", () => {
       vi.mocked(useLeaderboard).mockReturnValue({
         data: null,
         isLoading: true,
@@ -50,13 +77,14 @@ describe("Leaderboard Component", () => {
 
       renderComponent();
 
-      // Should show loading indicator
-      const loadingText = screen.getByText(/loading leaderboard/i);
-      expect(loadingText).toBeInTheDocument();
+      // Should show multiple skeleton elements (5 skeleton rows as per implementation)
+      const skeletons = document.querySelectorAll(".animate-pulse");
+      expect(skeletons.length).toBeGreaterThan(0);
 
-      // Should show loading spinner
-      const spinner = screen.getByRole("img", { hidden: true }) || document.querySelector(".animate-spin");
-      expect(spinner).toBeTruthy();
+      // Verify skeleton has proper styling
+      const firstSkeleton = skeletons[0];
+      expect(firstSkeleton.className).toContain("animate-pulse");
+      expect(firstSkeleton.className).toContain("bg-gray-700");
     });
 
     it("should not render table while loading", () => {
@@ -72,6 +100,23 @@ describe("Leaderboard Component", () => {
       // Table should not be visible
       const table = document.querySelector("table");
       expect(table).not.toBeInTheDocument();
+    });
+
+    it("should not show error or empty state while loading", () => {
+      vi.mocked(useLeaderboard).mockReturnValue({
+        data: null,
+        isLoading: true,
+        error: null,
+        refetch: mockRefetch,
+      });
+
+      renderComponent();
+
+      // Should not show error
+      expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
+      
+      // Should not show empty state
+      expect(screen.queryByText(/no leaderboard data yet/i)).not.toBeInTheDocument();
     });
   });
 

@@ -9,12 +9,8 @@ import {
 import { TicketEntity } from "./ticket.entity";
 import { RaffleEventEntity } from "./raffle-event.entity";
 
-export enum RaffleStatus {
-  OPEN = "open",
-  DRAWING = "drawing",
-  FINALIZED = "finalized",
-  CANCELLED = "cancelled",
-}
+import { Raffle, RaffleStatus } from "@tikka/types";
+export { RaffleStatus };
 
 /**
  * Represents a single raffle as tracked by the indexer.
@@ -46,7 +42,7 @@ export enum RaffleStatus {
 @Index("idx_raffles_winner_not_null", ["winner"], {
   where: '"winner" IS NOT NULL',
 })
-export class RaffleEntity {
+export class RaffleEntity implements Raffle {
   /** Contract-assigned raffle ID — used as natural PK. */
   @PrimaryColumn({ type: "integer", name: "id" })
   id!: number;

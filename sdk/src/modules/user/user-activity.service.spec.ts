@@ -25,7 +25,7 @@ function makeRaffle(overrides: Partial<any> = {}) {
     success: true,
     value: {
       creator: CREATOR_ADDRESS,
-      status: RaffleStatus.Open,
+      status: RaffleStatus.OPEN,
       ticket_price: '100',
       max_tickets: 50,
       tickets_sold: 2,
@@ -99,11 +99,11 @@ describe('UserService.getActivitySummary — active participant', () => {
         },
       })
       // GET_RAFFLE_DATA for raffle 1
-      .mockResolvedValueOnce(makeRaffle({ status: RaffleStatus.Open }))
+      .mockResolvedValueOnce(makeRaffle({ status: RaffleStatus.OPEN }))
       // GET_USER_TICKETS for raffle 1
       .mockResolvedValueOnce({ success: true, value: [10, 11] })
       // GET_RAFFLE_DATA for raffle 2
-      .mockResolvedValueOnce(makeRaffle({ status: RaffleStatus.Open }))
+      .mockResolvedValueOnce(makeRaffle({ status: RaffleStatus.OPEN }))
       // GET_USER_TICKETS for raffle 2
       .mockResolvedValueOnce({ success: true, value: [22] });
 
@@ -162,7 +162,7 @@ describe('UserService.getActivitySummary — winner', () => {
       })
       .mockResolvedValueOnce(
         makeRaffle({
-          status: RaffleStatus.Finalized,
+          status: RaffleStatus.FINALIZED,
           winner: VALID_ADDRESS,
           prize_amount: BigInt(5000),
         }),

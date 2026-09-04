@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import { useState, useRef, useEffect } from "react";
 import { CalendarPlus, Globe, Cloud, Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -60,7 +61,7 @@ const AddToCalendar = ({ title, endTimeUnix, url, location, className }: AddToCa
             URL.revokeObjectURL(link.href);
             setOpen(false);
         } catch (error) {
-            console.error("Failed to download ICS file:", error);
+            logger.error("Failed to download ICS file:", error);
         }
     };
 

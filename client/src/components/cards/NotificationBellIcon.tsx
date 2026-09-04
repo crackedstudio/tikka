@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 /**
  * NotificationBellIcon Component
  *
@@ -37,7 +38,7 @@ export default function NotificationBellIcon({
         await subscribe(raffleId);
       }
     } catch (err) {
-      console.error('Subscription toggle failed:', err);
+      logger.error('Subscription toggle failed:', err);
     }
   };
 
