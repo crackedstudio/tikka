@@ -3,6 +3,7 @@ import { DEFAULT_RPC_CONFIG, buildRetryConfig } from '../network/network.config'
 import type { NetworkConfig, RpcConfig } from '../network/network.config';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { withRetry } from '../utils/retry';
+import { defaultLogger, type TikkaLogger } from '../utils/logger';
 
 interface RequestOptions {
   disableRetries?: boolean;
@@ -17,11 +18,14 @@ interface RequestOptions {
 export class RpcService {
   private server: rpc.Server;
   private rpcConfig: RpcConfig;
+  private logger: TikkaLogger;
 
   constructor(
     private readonly networkConfig: NetworkConfig,
     rpcConfig?: RpcConfig,
+    logger?: TikkaLogger,
   ) {
+    this.logger = logger ?? defaultLogger;
     this.rpcConfig = this.normalizeConfig({
       ...DEFAULT_RPC_CONFIG,
       ...rpcConfig,
@@ -102,7 +106,7 @@ export class RpcService {
         suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
       };
     } catch (err: any) {
-      console.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
+      this.logger.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
       return { minFee: 100, suggestedFee: 100 };
     }
   }
