@@ -51,10 +51,12 @@ async function bootstrap() {
       fileSize: MAX_UPLOAD_BYTES,
       files: 1,
     },
+    throwFileSizeLimit: true,
   });
 
   app.useGlobalInterceptors(new SentryInterceptor(), new RequestLoggingInterceptor());
   app.useGlobalFilters(new BaseExceptionFilter());
+  app.enableShutdownHooks();
 
   await app.listen(env.server.port, "0.0.0.0");
   logger.log(`Application is running on: ${await app.getUrl()}`);

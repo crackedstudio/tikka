@@ -52,9 +52,12 @@ describe('LedgerPoller Dry-Run (Integration)', () => {
       dispatchBatch: jest.fn().mockImplementation(async (items: any[]) => items.map((it) => ({ handlerName: 'mock', eventId: 'id', eventType: it.event.type, outcome: 'skipped', durationMs: 1 }))),
     } as any;
 
-    // Minimal metrics service using real implementation (needs HealthService stub)
-    const health = { report: jest.fn() } as any;
-    metrics = new MetricsService(health);
+    // Minimal metrics service using real implementation. MetricsService's
+    // constructor depends on HealthService (metrics is registered as a
+    // singleton against the health dependency); the dry-run spec never
+    // exercises health checks, so a lightweight structural stub is enough to
+    // keep the constructor contract honest.
+    metrics = new MetricsService({} as any);
 
     const reorgRollback = { rollback: jest.fn() } as any;
     const pipeline = { apply: jest.fn() } as any;
@@ -120,8 +123,14 @@ describe('LedgerPoller Dry-Run (Integration)', () => {
     // Read metrics and assert counts
     const metricsText = await metrics.getMetrics();
 
+    // The exporter appends labels beyond `event_type` (e.g. otel_scope_name),
+    // so match within the label set: any labels, the event_type label, then the
+    // labelled value after the closing brace.
     const parseMetric = (name: string, label: string) => {
-      const re = new RegExp(`^${name}\{event_type=\\"${label}\\"\} (\\d+)$`, 'm');
+      const re = new RegExp(
+        `^${name}\\{[^}]*event_type=\\"${label}\\"[^}]*\\} (\\d+)`,
+        'm',
+      );
       const m = metricsText.match(re);
       return m ? Number(m[1]) : 0;
     };

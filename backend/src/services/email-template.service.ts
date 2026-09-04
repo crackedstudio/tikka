@@ -6,6 +6,7 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   isEmailTemplateName,
+  EMAIL_TEMPLATE_REQUIRED_FIELDS,
   renderEmailTemplate,
   type EmailTemplateName,
   type EmailTemplateRegistry,
@@ -29,6 +30,8 @@ export class EmailTemplateService {
         );
       }
 
+      this.assertRequiredContext(templateName, context);
+
       return `<!DOCTYPE html>${renderToStaticMarkup(
         renderEmailTemplate(
           templateName,
@@ -45,6 +48,30 @@ export class EmailTemplateService {
         error instanceof Error ? error.stack : String(error),
       );
       throw new InternalServerErrorException("Failed to render email template");
+    }
+  }
+
+  private assertRequiredContext<K extends EmailTemplateName>(
+    templateName: K,
+    context: unknown,
+  ): asserts context is EmailTemplateRegistry[K] {
+    if (context === null || typeof context !== "object") {
+      throw new InternalServerErrorException(
+        `Email template ${templateName} context is missing`,
+      );
+    }
+
+    const missingFields = EMAIL_TEMPLATE_REQUIRED_FIELDS[templateName].filter(
+      (field) => {
+        const value = (context as Record<string, unknown>)[field as string];
+        return value === undefined || value === null || value === "";
+      },
+    );
+
+    if (missingFields.length > 0) {
+      throw new InternalServerErrorException(
+        `Email template ${templateName} missing required field(s): ${missingFields.join(", ")}`,
+      );
     }
   }
 }

@@ -9,6 +9,7 @@ import {
   LeaderboardResponseDto,
   LeaderboardEntryDto,
 } from './dto/leaderboard.dto';
+import { LeaderboardQueryDto } from './dto/query.dto';
 
 @ApiTags('leaderboard')
 @Controller('leaderboard')
@@ -27,15 +28,12 @@ export class LeaderboardController {
   @ApiResponse({ status: 200, type: LeaderboardResponseDto })
   @Get()
   async getLeaderboard(
-    @Query('by') by: LeaderboardMode = 'wins',
-    @Query('limit') limit: number = 50,
-    @Query('cursor') cursor?: string,
-    @Query('offset') offset?: number,
+    @Query() query: LeaderboardQueryDto,
   ): Promise<LeaderboardResponseDto> {
-    const mode = this.normalizeMode(by);
-    const safeLimit = this.clampNumber(limit, 1, 100, 50);
-    const safeOffset =
-      offset == null ? undefined : this.clampNumber(offset, 0, 10_000, 0);
+    const mode = (query.by ?? 'wins') as LeaderboardMode;
+    const safeLimit = query.limit ?? 50;
+    const safeOffset = query.offset;
+    const cursor = query.cursor;
 
     if (!cursor && (safeOffset == null || safeOffset === 0)) {
       return this.cacheService.wrap(
@@ -145,7 +143,7 @@ export class LeaderboardController {
     const rows = await query.getMany();
     const hasMore = rows.length > limit;
     const entries = hasMore ? rows.slice(0, limit) : rows;
-    const last = entries.at(-1);
+    const last = entries.length > 0 ? entries[entries.length - 1] : undefined;
     const effectiveOffset = cursor ? null : offset ?? 0;
 
     return {
@@ -162,25 +160,6 @@ export class LeaderboardController {
       })),
       nextCursor: hasMore && last ? this.encodeCursor(mode, last) : null,
     };
-  }
-
-  private normalizeMode(by: LeaderboardMode): LeaderboardMode {
-    return ['wins', 'volume', 'tickets'].includes(by) ? by : 'wins';
-  }
-
-  private clampNumber(
-    value: number | string,
-    min: number,
-    max: number,
-    fallback: number,
-  ): number {
-    const parsed = Number(value);
-
-    if (!Number.isFinite(parsed)) {
-      return fallback;
-    }
-
-    return Math.min(Math.max(Math.trunc(parsed), min), max);
   }
 
   private rankingSemantics(mode: LeaderboardMode): string[] {

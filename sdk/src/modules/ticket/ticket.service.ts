@@ -12,44 +12,38 @@ import {
   BatchPurchaseResult,
   TICKET_CONSTRAINTS,
   BuyTicketResult,
-  RefundTicketResult,
-  BuyBatchResult,
+  ClaimPrizeParams,
+  ClaimPrizeResult,
 } from './ticket.types';
 import { ContractResponse } from '../../contract/response';
 import { assertPositiveInt } from '../../utils/validation';
-import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+import { TikkaSdkError, TikkaSdkErrorCode, toTypedSdkError } from '../../utils/errors';
 import { validateLifecycleTransition } from '../../contract/lifecycle';
+import {
+  assertValidRaffleId,
+  assertValidTicketQuantity,
+  InvalidTicketPurchaseError,
+  validateBuyTicketInputs,
+  validateBuyTicketsInputs,
+} from './purchase-validation';
+import { TicketReadService } from './ticket.read.service';
 
+/**
+ * TicketService — high-level API for ticket write operations.
+ *
+ * All write methods (buy, buyTickets, buyBatch, refund, claimPrize) require a
+ * WalletAdapter to be set on the ContractService.
+ * 
+ * For read operations (getUserTickets, getUserTicketCount), use TicketReadService.
+ */
 @Injectable()
 export class TicketService {
   private readonly submissionTracker = new Map<string, Set<string>>();
 
-  constructor(private readonly contractService: ContractService) {}
-
-  /**
-   * Validates ticket purchase quantity constraints.
-   * @throws TikkaSdkError if quantity is invalid
-   */
-  private validateQuantity(quantity: number, fieldName = "quantity"): void {
-    if (!Number.isInteger(quantity)) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        `${fieldName} must be an integer, got ${quantity}`,
-      );
-    }
-    if (quantity < TICKET_CONSTRAINTS.MIN_QUANTITY) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        `${fieldName} must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}, got ${quantity}`,
-      );
-    }
-    if (quantity > TICKET_CONSTRAINTS.MAX_QUANTITY) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        `${fieldName} must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}, got ${quantity}`,
-      );
-    }
-  }
+  constructor(
+    private readonly contractService: ContractService,
+    private readonly readService: TicketReadService,
+  ) {}
 
   /**
    * Checks for duplicate submission attempts.
@@ -85,21 +79,45 @@ export class TicketService {
   }
 
   /**
+   * Fetches current raffle state and throws RaffleEnded if the given
+   * operation is not permitted in that state. Called before any
+   * simulation/submission so invalid purchases never reach the network.
+   */
+  private async assertRaffleOpenFor(
+    operation: string,
+    raffleId: number,
+  ): Promise<void> {
+    const stateResp = await this.contractService.simulateReadOnly<{ status: number } | number>(
+      ContractFn.GET_RAFFLE_STATE,
+      [raffleId],
+    );
+    const currentStatus =
+      (stateResp.value as any)?.status ?? (stateResp.value as any) ?? -1;
+    validateLifecycleTransition(operation, currentStatus as number, raffleId);
+  }
+
+  /**
    * Purchases tickets for a raffle.
    * Requires wallet signature and submission.
+   *
+   * Validates the raffle is in OPEN state before simulating/submitting —
+   * see issue #929.
    *
    * Token transfer failures (e.g. malicious SEP-41 token rejecting the call)
    * are surfaced as `ExternalContractError` so callers can handle them
    * separately from generic network/contract errors.
    *
-   * @throws TikkaSdkError if validation fails or submission is duplicate
+   * @throws TikkaSdkError if validation fails, raffle is not OPEN, or submission is duplicate
    */
   async buy(
     params: BuyTicketParams,
   ): Promise<ContractResponse<BuyTicketResult>> {
     const { raffleId, quantity } = params;
-    assertPositiveInt(raffleId, "raffleId");
-    this.validateQuantity(quantity);
+    // Reject invalid inputs client-side before any network call or tx build.
+    validateBuyTicketInputs({ raffleId, quantity });
+
+    // Fetch current raffle state and validate before simulating/submitting.
+    await this.assertRaffleOpenFor(ContractFn.BUY_TICKET, raffleId);
 
     const publicKey = await this.contractService["wallet"]?.getPublicKey();
     if (!publicKey) {
@@ -151,12 +169,18 @@ export class TicketService {
    * Purchases multiple tickets for a raffle in a single transaction.
    * Uses the batch purchase contract entry point.
    *
-   * @throws TikkaSdkError if validation fails or submission is duplicate
+   * Validates the raffle is in OPEN state before simulating/submitting —
+   * see issue #929.
+   *
+   * @throws TikkaSdkError if validation fails, raffle is not OPEN, or submission is duplicate
    */
   async buyTickets(params: BuyTicketsParams): Promise<ContractResponse<BuyTicketResult>> {
     const { raffleId, count, maxPricePerTicket } = params;
-    assertPositiveInt(raffleId, 'raffleId');
-    this.validateQuantity(count, 'count');
+    // Reject invalid inputs (incl. wrong asset precision) before any network call.
+    validateBuyTicketsInputs({ raffleId, count, maxPricePerTicket });
+
+    // Fetch current raffle state and validate before simulating/submitting.
+    await this.assertRaffleOpenFor(ContractFn.BUY_TICKET, raffleId);
 
     const publicKey = await this.contractService['wallet']?.getPublicKey();
     if (!publicKey) {
@@ -287,25 +311,15 @@ export class TicketService {
    * Gets all ticket IDs owned by a user for a specific raffle.
    * Read-only operation (no signing required).
    *
+   * @deprecated Use TicketReadService.getUserTickets() for read-only operations.
+   * This method delegates to the read service for backward compatibility.
+   * 
    * @throws TikkaSdkError if validation fails or query fails
    */
   async getUserTickets(
     params: GetUserTicketsParams,
   ): Promise<ContractResponse<number[]>> {
-    const { raffleId, userAddress } = params;
-    assertPositiveInt(raffleId, "raffleId");
-
-    if (!userAddress || typeof userAddress !== "string") {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        "userAddress must be a non-empty string",
-      );
-    }
-
-    return this.contractService.simulateReadOnly<number[]>(
-      ContractFn.GET_USER_TICKETS,
-      [raffleId, userAddress],
-    );
+    return this.readService.getUserTickets(params);
   }
 
   /**
@@ -340,33 +354,30 @@ export class TicketService {
   ): Promise<ContractResponse<BuyBatchResult>> {
     const { purchases, memo } = params;
 
-    // Validate inputs
+    // Validate inputs at the module boundary (before any network / tx build).
     if (!purchases || purchases.length === 0) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        "Purchases array cannot be empty",
+      throw new InvalidTicketPurchaseError(
+        'purchases',
+        'Purchases array cannot be empty',
       );
     }
 
     if (purchases.length > TICKET_CONSTRAINTS.MAX_BATCH_SIZE) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
+      throw new InvalidTicketPurchaseError(
+        'purchases',
         `Batch size cannot exceed ${TICKET_CONSTRAINTS.MAX_BATCH_SIZE}, got ${purchases.length}`,
       );
     }
 
-    // Validate each purchase
     purchases.forEach((purchase, index) => {
       try {
-        assertPositiveInt(purchase.raffleId, `purchases[${index}].raffleId`);
-        this.validateQuantity(
-          purchase.quantity,
-          `purchases[${index}].quantity`,
-        );
+        assertValidRaffleId(purchase.raffleId);
+        assertValidTicketQuantity(purchase.quantity, 'quantity');
       } catch (err) {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.InvalidParams,
+        throw new InvalidTicketPurchaseError(
+          'purchases',
           `Invalid purchase at index ${index}: ${err instanceof Error ? err.message : String(err)}`,
+          err,
         );
       }
     });

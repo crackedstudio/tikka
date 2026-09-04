@@ -2,24 +2,38 @@
   "name": "@tikka/sdk",
   "version": "0.1.0",
   "description": "NestJS SDK for Tikka Soroban contract interaction",
-  "private": true,
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crackedstudio/tikka.git",
+    "directory": "sdk"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
     },
-    "./read": {
-      "import": "./dist/read/index.read.js",
-      "require": "./dist/read/index.read.js",
-      "types": "./dist/read/index.read.d.ts"
-    },
-    "./write": {
-      "import": "./dist/write/index.write.js",
-      "require": "./dist/write/index.write.js",
-      "types": "./dist/write/index.write.d.ts"
+    "./light": {
+      "import": {
+        "types": "./dist/esm/light.d.ts",
+        "default": "./dist/esm/light.js"
+      },
+      "require": {
+        "types": "./dist/cjs/light.d.ts",
+        "default": "./dist/cjs/light.js"
+      }
     }
   },
   "bin": {
@@ -27,33 +41,43 @@
   },
   "scripts": {
     "cli": "node bin/tikka.cjs",
-    "build": "nest build",
-    "build:read": "tsc -p tsconfig.read.json",
+    "build": "nest build && tsc -p tsconfig.light.json",
     "build:light": "tsc -p tsconfig.light.json",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --config jest.config.cjs",
+    "test:testnet": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs",
+    "test:integration": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs --testPathPattern=test/integration",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
     "example:cli": "node bin/tikka.mjs",
     "example:quickstart": "ts-node examples/quickstart.ts",
     "example:create-raffle": "ts-node examples/create-raffle.ts",
     "example:buy-tickets": "ts-node examples/buy-tickets.ts",
+    "example:cancel-raffle": "ts-node examples/cancel-raffle.ts",
     "example:listen-events": "ts-node examples/listen-events.ts",
     "example:offline-signing": "ts-node examples/offline-signing.ts",
+    "example:custom-wallet": "ts-node examples/custom-wallet.ts",
+    "api-extractor": "api-extractor run --local --verbose",
+    "api-extractor:read": "api-extractor run --config api-extractor.read.json --local --verbose",
+    "api-extractor:write": "api-extractor run --config api-extractor.write.json --local --verbose",
+    "api-extractor:light": "api-extractor run --config api-extractor.light.json --local --verbose",
+    "api-extractor:all": "pnpm run api-extractor && pnpm run api-extractor:read && pnpm run api-extractor:write && pnpm run api-extractor:light",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
-    "size-check:legacy": "powershell (Get-Item dist/light/index.light.js).Length"
+    "analyze:light": "node scripts/bundle-analysis/analyze.mjs"
   },
   "size-limit": [
     {
-      "name": "@tikka/sdk/read",
-      "path": "dist/read/index.read.js",
-      "limit": "50 kB",
-      "gzip": true
+      "name": "@tikka/sdk light",
+      "path": "dist/cjs/light.js",
+      "limit": "25 Kb",
+      "gzip": true,
+      "ignore": ["@nestjs/common", "@nestjs/core", "@stellar/stellar-sdk", "rxjs", "reflect-metadata", "bignumber.js"]
     }
   ],
   "dependencies": {
@@ -62,13 +86,14 @@
     "@nestjs/common": "^10.4.0",
     "@nestjs/core": "^10.4.0",
     "@stellar/freighter-api": "^3.1.0",
-    "@stellar/stellar-sdk": "^14.5.0",
+    "@stellar/stellar-sdk": "^16.1.0",
     "bignumber.js": "^11.1.4",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
-    "inquirer": "^9.3.2",
+    "inquirer": "^14.0.2",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
@@ -76,30 +101,25 @@
     "@size-limit/preset-small-lib": "^11.1.6",
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
-    "@typescript-eslint/parser": "^8.56.1",
+    "@types/node": "^26.1.1",
+    "@typescript-eslint-plugin": "^8.56.1",
+    "@typescript-parser": "^8.56.1",
+    "esbuild": "^0.25.0",
     "eslint": "^10.0.2",
     "fast-check": "^4.7.0",
-    "jest": "^30.3.0",
+    "jest": "^30.4.2",
     "size-limit": "^11.1.6",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
+    "@microsoft/api-extractor": "7.59.0",
     "typedoc": "^0.28.18",
-    "typedoc-plugin-markdown": "4.11",
+    "typedoc-plugin-markdown": "4.12",
     "typescript": "^5.6.0"
   },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "testEnvironment": "node"
+  "engines": {
+    "node": "22",
+    "pnpm": "9.15.9"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37bf2531"
   }
 }

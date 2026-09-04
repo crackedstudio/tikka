@@ -3,8 +3,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CircuitState } from './circuit-breaker.types';
 import { HealthService } from '../health/health.service';
+import { AlertingService } from '../health/alerting.service';
 
 export { CircuitState };
+
+const CIRCUIT_BREAKER_ALERT_DEDUP_KEY = 'circuit-breaker-open';
 
 export interface CircuitBreakerConfig {
   failureThreshold: number; // ORACLE_CB_FAILURE_THRESHOLD
@@ -14,7 +17,7 @@ export interface CircuitBreakerConfig {
 const DEFAULT_FAILURE_THRESHOLD = 5;
 const DEFAULT_RESET_TIMEOUT_MS = 60_000;
 
-function parsePositiveInt(raw: string | undefined, varName: string, logger: Logger, defaultValue: number): number {
+function parsePositiveInt(raw: string | undefined, varName: string, logger: OracleLoggerService, defaultValue: number): number {
   if (raw === undefined || raw === null || raw === '') {
     return defaultValue;
   }
@@ -44,6 +47,7 @@ export class CircuitBreakerService {
     private readonly logger: OracleLoggerService,
     private readonly configService: ConfigService,
     private readonly healthService: HealthService,
+    private readonly alertingService: AlertingService,
     nowFn?: () => number,
   ) {
     this.nowFn = nowFn ?? Date.now;
@@ -103,6 +107,7 @@ export class CircuitBreakerService {
     if (this.state === 'half-open') {
       this.state = 'closed';
       this.logger.log('Circuit transitioned half-open → closed. Connection recovered.');
+      void this.alertingService.resolve(CIRCUIT_BREAKER_ALERT_DEDUP_KEY);
     }
     // closed stays closed
     this.consecutiveFailures = 0;
@@ -127,6 +132,9 @@ export class CircuitBreakerService {
           `(threshold: ${this.config.failureThreshold}, resetTimeout: ${this.config.resetTimeoutMs}ms).`,
         );
         this.healthService.updateCircuitState('open');
+        this.fireCircuitOpenAlert(
+          `Circuit breaker OPEN after ${this.consecutiveFailures} consecutive failures`,
+        );
       }
       return;
     }
@@ -139,7 +147,22 @@ export class CircuitBreakerService {
         `Circuit transitioned half-open → open. Probe attempt failed. Circuit re-opened.`,
       );
       this.healthService.updateCircuitState('open');
+      this.fireCircuitOpenAlert('Circuit breaker re-OPENED after failed half-open probe');
     }
+  }
+
+  private fireCircuitOpenAlert(summary: string): void {
+    void this.alertingService.fire({
+      severity: 'critical',
+      summary,
+      details:
+        `threshold=${this.config.failureThreshold}, resetTimeoutMs=${this.config.resetTimeoutMs}, ` +
+        `consecutiveFailures=${this.consecutiveFailures}`,
+      dedupKey: CIRCUIT_BREAKER_ALERT_DEDUP_KEY,
+      context: {
+        oracle_id: process.env.LOCAL_ORACLE_ID || 'oracle-001',
+      },
+    });
   }
 
   /** Returns milliseconds until the open circuit transitions to half-open.

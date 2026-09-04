@@ -119,7 +119,7 @@ async function main() {
     }
 
     console.log('\n✅ Tickets purchased successfully!');
-    console.log(`   Ticket IDs: ${(result.value ?? []).join(', ')}`);
+    console.log(`   Ticket IDs: ${(result.value?.ticketIds ?? []).join(', ')}`);
     console.log(`   Transaction: ${result.transactionHash}`);
     console.log(`   Ledger: ${result.ledger}\n`);
 

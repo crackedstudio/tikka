@@ -3,17 +3,18 @@
   "version": "0.1.0",
   "description": "Tikka blockchain event ingestion and query layer",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "build": "nest build",
     "openapi:generate": "ts-node --transpile-only scripts/generate-openapi.ts",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest --testPathIgnorePatterns=integration",
+    "lint": "eslint \"{src,test}/**/*.ts\" \"*.js\"",
+    "test": "jest --coverage --testPathIgnorePatterns=integration",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
-    "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",
+    "test:integration": "jest --config jest.integration.config.js --runInBand",
     "status": "ts-node --transpile-only src/cli/status.command.ts",
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
     "snapshot:export": "ts-node src/cli/snapshot-export.ts",
@@ -21,6 +22,7 @@
     "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate",
+    "migration:rollback-check": "ts-node --transpile-only scripts/check-migration-rollback.ts",
     "dlq:replay": "ts-node --transpile-only src/cli/dlq-replay.command.ts"
   },
   "jest": {
@@ -43,29 +45,44 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageReporters": ["lcov", "text"],
+    "coverageThreshold": {
+      "global": {
+        "statements": 60,
+        "branches": 40,
+        "functions": 50,
+        "lines": 60
+      }
+    }
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.500.0",
     "@aws-sdk/lib-storage": "^3.500.0",
-    "@nestjs/bullmq": "^11.0.4",
+    "@nestjs/bullqm": "^11.0.4",
     "@nestjs/common": "^10.4.0",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^10.4.0",
     "@nestjs/platform-express": "^10.4.22",
     "@nestjs/swagger": "^8.1.1",
-    "@nestjs/typeorm": "^10.0.2",
+    "@nestjs/typeorm": "^11.0.3",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-prometheus": "^0.215.0",
-    "@opentelemetry/sdk-metrics": "^2.7.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.215.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-metrics": "^2.9.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@opentelemetry/sdk-trace-node": "^2.10.0",
     "@stellar/stellar-sdk": "^14.5.0",
     "@supabase/supabase-js": "^2.45.0",
-    "bullmq": "^5.76.1",
+    "bullmq": "^5.81.0",
     "ioredis": "^5.9.3",
-    "pg": "^8.13.1",
+    "pg": "^8.22.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "typeorm": "^0.3.20"
+    "typeorm": "^1.1.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",
@@ -74,20 +91,25 @@
     "@types/express": "^5.0.6",
     "@types/ioredis": "^4.28.10",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.0.0",
-    "@types/pg": "^8.11.10",
+    "@types/node": "^26.1.2",
+    "@types/pg": "^8.20.0",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",
-    "eslint": "^10.0.0",
+    "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-prettier": "^5.5.6",
     "fast-check": "^3.23.2",
     "ioredis-mock": "^8.13.1",
     "jest": "^30.2.0",
-    "prettier": "^3.8.1",
+    "prettier": "^3.9.6",
     "testcontainers": "^11.13.0",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.0"
-  }
+  },
+  "engines": {
+    "node": "22",
+    "pnpm": "9.15.9"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
 }

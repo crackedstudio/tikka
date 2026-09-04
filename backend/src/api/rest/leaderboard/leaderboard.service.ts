@@ -3,13 +3,31 @@ import {
   IndexerService,
   IndexerLeaderboardResponse,
   IndexerLeaderboardFilters,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 import { MetadataRedisService } from '../../../services/metadata-redis.service';
 import { LeaderboardQueryDto } from './dto/leaderboard-query.dto';
 
 export const LEADERBOARD_CACHE_TTL = 60;
 /** Redis set that tracks every leaderboard cache key currently written. */
 const LEADERBOARD_KEY_INDEX = 'leaderboard:__keys__';
+
+/**
+ * Tie-breaking contract
+ * =====================
+ * The indexer applies a deterministic 6-level ORDER BY cascade so that users
+ * with equal scores always appear in the same order, including across
+ * paginated boundaries:
+ *
+ *  1. Primary metric (mode-specific) DESC
+ *  2. totalPrizeXlm (numeric) DESC
+ *  3. totalTicketsBought DESC
+ *  4. totalRafflesWon DESC
+ *  5. firstSeenLedger ASC
+ *  6. address ASC
+ *
+ * This service caches the indexer response as-is and never re-sorts entries,
+ * so the tie-breaking guarantee is preserved end-to-end.
+ */
 
 @Injectable()
 export class LeaderboardService {

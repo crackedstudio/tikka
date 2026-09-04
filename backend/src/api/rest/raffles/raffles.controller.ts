@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,24 +7,17 @@ import {
   Param,
   ParseIntPipe,
   NotFoundException,
-  PayloadTooLargeException,
   Post,
   Query,
-  Req,
   Res,
-  Sse,
   UseInterceptors,
   UsePipes,
-  Header,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse, ApiQuery } from "@nestjs/swagger";
-import { FastifyRequest } from "fastify";
-import { MultipartFile } from "@fastify/multipart";
+import { ApiTags, ApiOperation, ApiParam, ApiBearerAuth, ApiHeader, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
 import { env } from "../../../config/env.config";
-import { UpsertMetadataPayload } from "../../../services/metadata.service";
 import {
   ListRafflesQuerySchema,
   ListRafflesQueryDto,
@@ -39,23 +31,21 @@ import {
 } from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
-  AllowedUploadMimeType,
-  MAX_UPLOAD_BYTES,
-} from "../../../config/upload.config";
-import { StorageService } from "../../../services/storage.service";
-import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
 import { Throttle } from "@nestjs/throttler";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
-import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
-import * as fileType from "file-type";
+import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
+import { SetMetadata } from "@nestjs/common";
+backend-Split-the-572-line-raffles-controller-by-responsibility-#1334-FIX
+
+import sharp, { type Metadata } from "sharp";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
+
 
 const RAFFLE_CREATE_RATE_LIMIT = env.rateLimits.raffleCreateLimit;
 const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSeconds;
@@ -63,12 +53,7 @@ const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSecon
 @ApiTags("Raffles")
 @Controller("raffles")
 export class RafflesController {
-  constructor(
-    private readonly rafflesService: RafflesService,
-    private readonly storageService: StorageService,
-    private readonly idempotencyService: IdempotencyService,
-    private readonly sseService: SseService,
-  ) {}
+  constructor(private readonly rafflesService: RafflesService) {}
 
   /**
    * GET /raffles — List raffles with optional filters and pagination.
@@ -78,6 +63,8 @@ export class RafflesController {
   @Get()
   @ApiOperation({ summary: "List raffles with optional filters and pagination" })
   @ApiResponse({ status: 200, description: "Raffles list retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 10)
   @UsePipes(new (createZodPipe(ListRafflesQuerySchema))())
   async list(@Query() filters: ListRafflesQueryDto) {
     return this.rafflesService.list(filters);
@@ -89,9 +76,11 @@ export class RafflesController {
    * Must be declared before :id to prevent NestJS matching "metadata" as an id param.
    */
   @Public()
-  @Get('metadata')
+  @Get("metadata")
   @ApiOperation({ summary: "Batch fetch off-chain metadata for up to 100 raffle IDs" })
   @ApiResponse({ status: 200, description: "Batch metadata retrieved successfully" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 15)
   @UsePipes(new (createZodPipe(BatchMetadataQuerySchema))())
   async getBatchMetadata(@Query() query: BatchMetadataQueryDto) {
     return this.rafflesService.getBatchMetadata(query.ids);
@@ -102,9 +91,17 @@ export class RafflesController {
    */
   @Public()
   @Get(":id")
-  @ApiOperation({ summary: "Get raffle detail by ID" })
+  @ApiOperation({
+    summary: "Get raffle detail by ID",
+    description:
+      "Returns merged contract and off-chain details for active, ended, or cancelled raffles (200 OK). Returns 404 Not Found for unknown IDs and 410 Gone for soft-deleted or permanently removed raffles.",
+  })
   @ApiParam({ name: "id", description: "Internal raffle ID" })
-  @ApiResponse({ status: 200, description: "Raffle details retrieved successfully" })
+  @ApiResponse({ status: 200, description: "Raffle details retrieved successfully (active, ended, or cancelled)" })
+  @ApiResponse({ status: 404, description: "Raffle not found (unknown ID)" })
+  @ApiResponse({ status: 410, description: "Raffle has been soft-deleted or permanently removed" })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 30)
   async getById(@Param("id", ParseIntPipe) id: number) {
     return this.rafflesService.getById(id);
   }
@@ -122,6 +119,8 @@ export class RafflesController {
   @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 100, default 20" })
   @ApiQuery({ name: "offset", required: false, type: Number, description: "Offset for pagination, default 0" })
   @ApiResponse({ status: 200, description: "Participants list retrieved successfully", type: ParticipantListResponseDto })
+  @UseInterceptors(CacheHeadersInterceptor)
+  @SetMetadata(CACHE_MAX_AGE_KEY, 30)
   @UsePipes(new (createZodPipe(ParticipantListQuerySchema))())
   async getParticipants(
     @Param("id", ParseIntPipe) id: number,
@@ -214,6 +213,8 @@ export class RafflesController {
   ) {
     return this.rafflesService.purchaseTickets(raffleId, payload, address);
   }
+ backend-Split-the-572-line-raffles-controller-by-responsibility-#1334-FIX
+
 
   /**
    * POST /raffles/upload-image — Upload raffle image to Supabase Storage.
@@ -248,13 +249,32 @@ export class RafflesController {
     @Req() request: FastifyRequestWithMultipart,
     @CurrentUser("address") address: string,
   ): Promise<{ url: string; variantUrls: string[] }> {
-    const file = await request.file();
+    let file: MultipartFile | undefined;
+    try {
+      file = await request.file();
+    } catch (error) {
+      if (this.isMultipartLimitError(error)) {
+        throw this.createPayloadTooLargeException();
+      }
+      throw error;
+    }
+
     if (!file) {
       throw new BadRequestException("Image file is required");
     }
 
-    const buffer = await file.toBuffer();
-    const detectedFileType = await fileType.fromBuffer(buffer);
+    let buffer: Buffer;
+    try {
+      buffer = await file.toBuffer();
+    } catch (error) {
+      if (this.isMultipartLimitError(error)) {
+        throw this.createPayloadTooLargeException();
+      }
+      throw error;
+    }
+
+    const { fileTypeFromBuffer } = await (eval('import("file-type")') as Promise<any>);
+    const detectedFileType = await fileTypeFromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {
@@ -269,6 +289,8 @@ export class RafflesController {
       );
     }
 
+    await this.assertImageDimensionsWithinLimits(buffer);
+
     const raffleId = this.extractRaffleId(file);
     const upload = await this.storageService.uploadRaffleImage({
       fileBuffer: buffer,
@@ -278,6 +300,52 @@ export class RafflesController {
     });
 
     return { url: upload.url, variantUrls: upload.variantUrls };
+  }
+
+  private async assertImageDimensionsWithinLimits(buffer: Buffer): Promise<void> {
+    let metadata: Metadata;
+
+    try {
+      metadata = await sharp(buffer, {
+        limitInputPixels: MAX_UPLOAD_IMAGE_PIXELS + 1,
+      }).metadata();
+    } catch {
+      throw new BadRequestException("Invalid or unreadable image file");
+    }
+
+    const width = metadata.width ?? 0;
+    const height = metadata.height ?? 0;
+    const pixels = width * height;
+
+    if (width <= 0 || height <= 0) {
+      throw new BadRequestException("Image dimensions could not be determined");
+    }
+
+    if (
+      width > MAX_UPLOAD_IMAGE_WIDTH ||
+      height > MAX_UPLOAD_IMAGE_HEIGHT ||
+      pixels > MAX_UPLOAD_IMAGE_PIXELS
+    ) {
+      throw new BadRequestException(
+        `Image dimensions exceed limit (${width}x${height}). Max: ${MAX_UPLOAD_IMAGE_WIDTH}x${MAX_UPLOAD_IMAGE_HEIGHT}`,
+      );
+    }
+  }
+
+  private isMultipartLimitError(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const maybeMultipartError = error as Error & { code?: string; statusCode?: number };
+    return (
+      maybeMultipartError.code === "FST_REQ_FILE_TOO_LARGE" ||
+      maybeMultipartError.statusCode === 413 ||
+      /file too large/i.test(maybeMultipartError.message)
+    );
+  }
+
+  private createPayloadTooLargeException(): PayloadTooLargeException {
+    return new PayloadTooLargeException(
+      `File too large. Max: ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,
+    );
   }
 
   private extractRaffleId(file: MultipartFile): string {
@@ -480,4 +548,5 @@ export class RafflesController {
       "",
     );
   }
+
 }

@@ -48,7 +48,7 @@ export class RandomnessProcessorService {
    * Process a randomness request through the complete lifecycle.
    * Returns a result indicating success, retry eligibility, and error details.
    */
-  async function processRequest(request: RandomnessRequest): Promise<ProcessingResult> {
+  async processRequest(request: RandomnessRequest): Promise<ProcessingResult> {
     const { requestId, raffleId } = request;
 
     // Initialize job if not already tracked

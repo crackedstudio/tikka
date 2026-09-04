@@ -41,6 +41,10 @@ import { AdminTxResponse, TxResponse, ContractResponse } from '../../contract/re
  */
 @Injectable()
 export class AdminService {
+  /**
+   * Creates an instance of AdminService.
+   * @param contract - The contract service used to invoke and simulate contract functions
+   */
   constructor(private readonly contract: ContractService) {}
 
   /**
@@ -175,9 +179,18 @@ export class AdminService {
    * Validates the raffle is in OPEN state before proceeding.
    *
    * @param raffleId - The raffle to finalize
-   * @param options - Optional transaction configuration
-   * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
-   */
+    * @param options - Optional transaction configuration
+    * @returns Promise containing the transaction result
+    * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+    *
+    * @example
+    * ```ts
+    * const result = await adminService.finalizeRaffle(1);
+    * if (result.success) {
+    *   console.log('Raffle finalized at block:', result.ledger);
+    * }
+    * ```
+    */
   async finalizeRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     const stateResp = await this.contract.simulateReadOnly<{ status: number }>(
       ContractFn.GET_RAFFLE_STATE,
@@ -185,7 +198,7 @@ export class AdminService {
     );
     validateLifecycleTransition(
       ContractFn.TRIGGER_DRAW,
-      stateResp.value?.status ?? stateResp.value ?? -1,
+      stateResp.value?.status ?? -1,
       raffleId,
     );
     return this.contract.invoke<void>(ContractFn.TRIGGER_DRAW, [raffleId], { memo: options.memo });
@@ -197,10 +210,18 @@ export class AdminService {
    * or an admin before proceeding.
    *
    * @param raffleId - The raffle to cancel
-   * @param options - Optional transaction configuration
-   * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
-   * @throws {UnauthorizedError} if the caller is not the raffle creator or admin
-   */
+    * @param options - Optional transaction configuration
+    * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
+    * @throws {UnauthorizedError} if the caller is not the raffle creator or admin
+    *
+    * @example
+    * ```ts
+    * const result = await adminService.cancelRaffle(1);
+    * if (result.success) {
+    *   console.log('Raffle cancelled at block:', result.ledger);
+    * }
+    * ```
+    */
   async cancelRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     const stateResp = await this.contract.simulateReadOnly<any>(
       ContractFn.GET_RAFFLE_DATA,

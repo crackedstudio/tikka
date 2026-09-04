@@ -22,6 +22,7 @@ export const ContractFn = {
   RECEIVE_RANDOMNESS: 'receive_randomness',
   CANCEL_RAFFLE: 'cancel_raffle',
   REFUND_TICKET: 'refund_ticket',
+  CLAIM_PRIZE: 'claim_prize',
 
   // Queries
   GET_RAFFLE_DATA: 'get_raffle_data',

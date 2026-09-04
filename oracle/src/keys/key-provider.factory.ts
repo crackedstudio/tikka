@@ -43,14 +43,22 @@ export class KeyProviderFactory {
         return this.createGcpKmsProvider(configService);
 
       default:
-        this.logger.warn(
-          `Unknown KEY_PROVIDER type: ${providerType}. Falling back to 'env' provider.`,
+        throw new Error(
+          `Unknown KEY_PROVIDER type: '${providerType}'. Must be one of: 'env', 'aws-kms', 'aws', 'gcp-kms', 'gcp', 'google'.`,
         );
-        return this.createEnvProvider(configService);
     }
   }
 
   private static createEnvProvider(configService: ConfigService): EnvKeyProvider {
+    if (
+      configService.get<string>('NODE_ENV') === 'production' &&
+      configService.get<string>('ALLOW_ENV_PROVIDER_IN_PRODUCTION') !== 'true'
+    ) {
+      throw new Error(
+        'EnvKeyProvider is not allowed in production unless ALLOW_ENV_PROVIDER_IN_PRODUCTION=true is set',
+      );
+    }
+
     const privateKey =
       configService.get<string>('ORACLE_SECRET_KEY') ||
       configService.get<string>('ORACLE_PRIVATE_KEY');
@@ -66,7 +74,7 @@ export class KeyProviderFactory {
       'For production, use AWS KMS or GCP KMS.',
     );
 
-    return new EnvKeyProvider(privateKey);
+    return new EnvKeyProvider(this.logger, privateKey);
   }
 
   private static createAwsKmsProvider(configService: ConfigService): AwsKmsKeyProvider {
@@ -80,7 +88,7 @@ export class KeyProviderFactory {
     }
 
     this.logger.log('Using AWS KMS for secure key management');
-    return new AwsKmsKeyProvider(region, keyId);
+    return new AwsKmsKeyProvider(this.logger, region, keyId);
   }
 
   private static createGcpKmsProvider(configService: ConfigService): GcpKmsKeyProvider {
@@ -94,6 +102,6 @@ export class KeyProviderFactory {
     }
 
     this.logger.log('Using Google Cloud KMS for secure key management');
-    return new GcpKmsKeyProvider(projectId, keyPath);
+    return new GcpKmsKeyProvider(this.logger, projectId, keyPath);
   }
 }

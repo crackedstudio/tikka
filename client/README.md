@@ -272,7 +272,23 @@ npm install
 cp .env.example .env
 ```
 
-Then edit `.env` with your actual values. See [DEVELOPMENT.md](DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
+Then edit `.env` with your actual values. See [DEVELOPMENT.md](docs/DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
+
+### Environment variables
+
+The frontend uses a `.env` file to configure Stellar, Soroban, and Supabase access.
+Run `npm run validate-env` before starting the app to ensure the required variables are set correctly.
+
+- `VITE_STELLAR_NETWORK` — optional, default `testnet`. Set to `testnet` or `mainnet`.
+- `VITE_STELLAR_HORIZON_URL` — required for Stellar network access. Must use `https://`.
+- `VITE_STELLAR_NETWORK_PASSPHRASE` — optional, default is the testnet passphrase.
+- `VITE_SOROBAN_RPC_URL` — required for Soroban contract calls. Must use `https://`.
+- `VITE_RAFFLE_CONTRACT_ADDRESS` — optional, but required for contract interactions once your raffle contract is deployed.
+- `VITE_SUPABASE_URL` — required for metadata storage. Use your Supabase project URL.
+- `VITE_SUPABASE_ANON_KEY` — required for Supabase access. Use your project anon public key.
+- `VITE_SUPABASE_TABLE` — optional, default `raffle_metadata`.
+- `VITE_USE_DEMO_DATA` — optional, `true` uses mock data instead of blockchain calls.
+- `VITE_DEBUG_MODE` — optional, `true` enables extra frontend debug logging.
 
 **Quick Start Configuration:**
 
@@ -296,7 +312,7 @@ VITE_USE_DEMO_DATA=true
 VITE_DEBUG_MODE=true
 ```
 
-> **Note:** For complete environment setup including Stellar testnet and Supabase configuration, see the [Development Guide](DEVELOPMENT.md).
+> **Note:** For complete environment setup including Stellar testnet and Supabase configuration, see the [Development Guide](docs/DEVELOPMENT.md).
 
 4. **Start development server**
 
@@ -498,6 +514,28 @@ soroban test
 -   **Bundle Analysis**: Regular bundle size monitoring
 -   **Caching**: Intelligent data caching strategies
 
+### **Bundle Size Budget** (Issue #1056)
+
+| Metric | Target | Enforcement |
+|---|---|---|
+| Initial JS (gzip) | ≤ 120 KB | `pnpm analyze`; manual PR review |
+| Initial JS (uncompressed) | ≤ 400 KB | `pnpm analyze`; manual PR review |
+| Total JS (gzip, all routes) | ≤ 300 KB | `pnpm analyze`; manual PR review |
+| Page-level chunk (gzip) | ≤ 50 KB each | code review; dynamic `lazy()` required for all route components |
+
+**Guidelines:**
+- All route-level components **must** use `React.lazy()` — already enforced across all pages.
+- Large libraries (`@stellar/stellar-sdk`, `@creit.tech/stellar-wallets-kit`) **must** be dynamically imported — currently deferred via Proxy/lazy getters in `rpcService.ts` and `walletService.ts`.
+- Adding a new dependency ≥ 50 KB gzip requires team discussion.
+- Run `pnpm analyze` before merging to verify budget compliance.
+
+**Current major contributors (estimated gzip):**
+- `@stellar/stellar-sdk` ~50 KB (deferred to first RPC call)
+- `@creit.tech/stellar-wallets-kit` ~30 KB (deferred to first wallet interaction)
+- `@tanstack/react-query` ~11 KB (initial)
+- `i18next` + `react-i18next` ~10 KB (initial)
+- `react-router-dom` ~7 KB (initial)
+
 ### **Blockchain Optimizations**
 
 -   **Fee Efficiency**: Optimized contract functions
@@ -523,7 +561,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
 
 ---
 
@@ -531,10 +569,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### **Documentation**
 
--   [API Documentation](docs/api.md)
--   [Smart Contract Guide](docs/contract.md)
--   [Deployment Guide](docs/deployment.md)
--   [Troubleshooting](docs/troubleshooting.md)
+-   [Environment Setup](docs/ENVIRONMENT_SETUP.md)
+-   [Contract Integration Guide](docs/CONTRACT_INTEGRATION.md)
+-   [Development Guide](docs/DEVELOPMENT.md)
+-   [Notifications System](docs/NOTIFICATIONS.md)
 
 ### **Community**
 

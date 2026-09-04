@@ -4,7 +4,7 @@ import { StatsService, TransparencyStats, VerifyResult } from './stats.service';
 import {
   IndexerPlatformStats,
   IndexerTransparencyEntry,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 
 describe('StatsController', () => {
   let controller: StatsController;

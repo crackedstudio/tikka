@@ -22,25 +22,29 @@ export class WebhookEntity {
   url!: string;
 
   /** Filter events to dispatch (only these will receive payloads) */
-  @Column("simple-array")
-  supportedEvents!: ("RaffleCreated" | "RaffleFinalized")[];
+  @Column({
+    type: "text",
+    array: true,
+    name: "supported_events",
+  })
+  supportedEvents!: string[];
 
   /** Enabled/disabled */
-  @Column({ default: true })
+  @Column({ default: true, name: "is_active" })
   isActive!: boolean;
 
   /** Number of consecutive failures (deactivate after 10?) */
-  @Column({ default: 0 })
+  @Column({ default: 0, name: "failure_count" })
   failureCount!: number;
 
   /** Last failure timestamp */
-  @Column({ type: "timestamptz", nullable: true })
+  @Column({ type: "timestamptz", nullable: true, name: "last_failure_at" })
   lastFailureAt?: Date;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt!: Date;
 }
 

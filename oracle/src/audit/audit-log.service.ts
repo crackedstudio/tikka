@@ -2,12 +2,20 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams } from './audit.types';
+import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord, AuditStatus } from './audit.types';
 import { SUPABASE_CLIENT } from './supabase.provider';
 
 @Injectable()
 export class AuditLogService {
-  
+  /**
+   * Records an oracle divergence event when consensus was not reached.
+   */
+  public async recordDivergence(record: OracleDivergenceRecord): Promise<void> {
+    this.logger.warn(
+      `Oracle divergence recorded for request ${record.requestId} (raffle ${record.raffleId ?? 'N/A'}): ${record.totalResponses} responses, threshold ${record.consensusThreshold}`,
+      JSON.stringify(record),
+    );
+  }
 
   constructor(
     private readonly logger: OracleLoggerService,
@@ -397,5 +405,105 @@ export class AuditLogService {
     if (error) {
       throw new Error(`Failed to mark record as abandoned: ${error.message}`);
     }
+  }
+
+  /**
+   * Queries audit records by time range.
+   * Returns records where committed_at falls within [from, to].
+   */
+  public async getByTimeRange(
+    from: string,
+    to: string,
+    options: { limit?: number; offset?: number; status?: AuditStatus } = {},
+  ): Promise<VrfAuditRecord[]> {
+    let query = this.supabase
+      .from('vrf_audit_log')
+      .select('*')
+      .gte('committed_at', from)
+      .lte('committed_at', to)
+      .order('committed_at', { ascending: false });
+
+    if (options.status) {
+      query = query.eq('status', options.status);
+    }
+
+    if (options.limit) {
+      query = query.limit(options.limit);
+    } else {
+      query = query.limit(100);
+    }
+
+    if (options.offset) {
+      query = query.range(options.offset, options.offset + (options.limit || 100) - 1);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Failed to query audit records by time range: ${error.message}`);
+    }
+
+    return (data as VrfAuditRecord[]) || [];
+  }
+
+  /**
+   * Queries audit records by status.
+   */
+  public async getByStatus(
+    status: AuditStatus,
+    options: { limit?: number; offset?: number } = {},
+  ): Promise<VrfAuditRecord[]> {
+    let query = this.supabase
+      .from('vrf_audit_log')
+      .select('*')
+      .eq('status', status)
+      .order('committed_at', { ascending: false });
+
+    if (options.limit) {
+      query = query.limit(options.limit);
+    } else {
+      query = query.limit(100);
+    }
+
+    if (options.offset) {
+      query = query.range(options.offset, options.offset + (options.limit || 100) - 1);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Failed to query audit records by status: ${error.message}`);
+    }
+
+    return (data as VrfAuditRecord[]) || [];
+  }
+
+  /**
+   * Returns a summary of audit records: counts by status and total.
+   */
+  public async getSummary(): Promise<{
+    total: number;
+    committed: number;
+    revealed: number;
+    abandoned: number;
+  }> {
+    const [total, committed, revealed, abandoned] = await Promise.all([
+      this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }),
+      this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }).eq('status', 'committed'),
+      this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }).eq('status', 'revealed'),
+      this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }).eq('status', 'abandoned'),
+    ]);
+
+    if (total.error) throw new Error(`Failed to get total count: ${total.error.message}`);
+    if (committed.error) throw new Error(`Failed to get committed count: ${committed.error.message}`);
+    if (revealed.error) throw new Error(`Failed to get revealed count: ${revealed.error.message}`);
+    if (abandoned.error) throw new Error(`Failed to get abandoned count: ${abandoned.error.message}`);
+
+    return {
+      total: total.count || 0,
+      committed: committed.count || 0,
+      revealed: revealed.count || 0,
+      abandoned: abandoned.count || 0,
+    };
   }
 }

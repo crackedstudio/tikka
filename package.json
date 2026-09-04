@@ -1,26 +1,91 @@
 {
   "name": "tikka",
   "private": true,
+  "license": "Apache-2.0",
+  "workspaces": [
+    "client",
+    "sdk",
+    "backend",
+    "indexer",
+    "oracle"
+  ],
   "scripts": {
     "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle",
-    "build": "npm run build --prefix client && npm run build --prefix sdk && npm run build --prefix backend && npm run build --prefix indexer && npm run build --prefix oracle",
-    "build:client": "npm run build --prefix client",
-    "build:sdk": "npm run build --prefix sdk",
-    "build:backend": "npm run build --prefix backend",
-    "build:indexer": "npm run build --prefix indexer",
-    "build:oracle": "npm run build --prefix oracle",
+    "build": "turbo run build",
+    "build:client": "turbo run build --filter=tikka",
+    "build:sdk": "turbo run build --filter=@tikka/sdk",
+    "build:backend": "turbo run build --filter=tikka-backend",
+    "build:indexer": "turbo run build --filter=tikka-indexer",
+    "build:oracle": "turbo run build --filter=tikka-oracle",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish",
     "check:dependencies": "node scripts/check-dependencies.js",
+    "check:observability": "node scripts/check-dashboard-metrics.js",
+    "check:boundaries": "depcruise .",
+    "db:check-drift": "npx tsx scripts/check-schema-drift.ts",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.0",
+    "@changesets/cli": "^2.27.0",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@types/react-router-dom": "^5.3.3",
+    "dependency-cruiser": "^16.10.0",
     "husky": "^9.1.7",
-    "lint-staged": "^15.2.10"
+    "lint-staged": "^15.2.10",
+    "turbo": "2.5.4"
   },
   "dependencies": {
     "@pinata/sdk": "^2.1.0",
     "react-router-dom": "^7.13.2"
+  },
+  "engines": {
+    "node": "22",
+    "pnpm": "9.15.9"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee2a882954fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3dc7dcf2531",
+  "dependency-cruiser": {
+    "forbidden": [
+      {
+        "name": "no-client-to-backend-or-indexer",
+        "comment": "Client must not import from backend/ or indexer/. See docs/contributing/MODULE_BOUNDARIES.md",
+        "severity": "error",
+        "from": {
+          "path": "^client"
+        },
+        "to": {
+          "path": "^(backend|indexer)"
+        }
+      },
+      {
+        "name": "no-indexer-to-backend",
+        "comment": "Indexer must not import from backend/. See docs/contributing/MODULE_BOUNDARIES.md",
+        "severity": "error",
+        "from": {
+          "path": "^indexer"
+        },
+        "to": {
+          "path": "^backend"
+        }
+      },
+      {
+        "name": "no-sdk-to-app",
+        "comment": "SDK must not import from any app package. See docs/contributing/MODULE_BOUNDARIES.md",
+        "severity": "error",
+        "from": {
+          "path": "^sdk"
+        },
+        "to": {
+          "path": "^(client|backend|indexer|oracle)"
+        }
+      }
+    ]
   }
 }

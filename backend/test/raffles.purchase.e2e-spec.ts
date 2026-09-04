@@ -64,7 +64,7 @@ describe('Raffles Purchase (e2e)', () => {
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         {
           provide: RafflesService,
-          useFactory: () => new RafflesService(metadataMock, indexerMock, configMock),
+          useFactory: () => new RafflesService(metadataMock, indexerMock, configMock, {} as any, { isEnabled: () => false } as any),
         },
         // controller dependencies
         { provide: StorageService, useValue: {} },

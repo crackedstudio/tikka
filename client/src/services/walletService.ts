@@ -1,9 +1,4 @@
-import {
-  allowAllModules,
-  FREIGHTER_ID,
-  StellarWalletsKit,
-  WalletNetwork,
-} from "@creit.tech/stellar-wallets-kit";
+import type { WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 
 const SELECTED_WALLET_ID = "selectedWalletId";
 const LAST_CONNECTED_WALLET_TYPE = "tikka_last_connected_wallet";
@@ -241,10 +236,11 @@ function getNetworkPassphrase(): string {
     : "Test SDF Network ; September 2015";
 }
 
-let kit: StellarWalletsKit | null = null;
+let kit: any = null;
 
-export function getKit(): StellarWalletsKit {
+export async function getKit() {
   if (!kit) {
+    const { allowAllModules, FREIGHTER_ID, StellarWalletsKit } = await import("@creit.tech/stellar-wallets-kit");
     kit = new StellarWalletsKit({
       modules: allowAllModules(),
       network: getNetworkPassphrase() as WalletNetwork,
@@ -269,7 +265,8 @@ export async function getAccountAddress(): Promise<string | null> {
 
   try {
     if (!getSelectedWalletId()) return null;
-    const { address } = await getKit().getAddress();
+    const kit = await getKit();
+    const { address } = await kit.getAddress();
     return address;
   } catch (error) {
     console.error("Error getting account address:", error);
@@ -290,9 +287,10 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
     return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
   }
 
-  const kitInstance = getKit();
   return new Promise((resolve) => {
-    kitInstance.openModal({
+    void (async () => {
+      const kit = await getKit();
+      kit.openModal({
       onWalletSelected: async (option: any) => {
         try {
           await setWallet(option.id);
@@ -309,12 +307,14 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
         }
       },
     });
+    })();
   });
 }
 
 async function setWallet(walletId: string): Promise<void> {
   if (typeof window !== "undefined") localStorage.setItem(SELECTED_WALLET_ID, walletId);
-  getKit().setWallet(walletId);
+  const kit = await getKit();
+  kit.setWallet(walletId);
 }
 
 export async function disconnectWallet(): Promise<void> {
@@ -322,7 +322,8 @@ export async function disconnectWallet(): Promise<void> {
     localStorage.removeItem(SELECTED_WALLET_ID);
     localStorage.removeItem(LAST_CONNECTED_WALLET_TYPE);
   }
-  getKit().disconnect();
+  const kit = await getKit();
+  kit.disconnect();
 }
 
 /**
@@ -338,7 +339,8 @@ export async function getNetwork(): Promise<string | null> {
 
   try {
     if (!getSelectedWalletId()) return null;
-    const { network } = await getKit().getNetwork();
+    const kit = await getKit();
+    const { network } = await kit.getNetwork();
     return parsePassphrase(network); // Returns "testnet" or "public"
   } catch (error) {
     console.error("Error getting network:", error);
@@ -366,7 +368,8 @@ export async function signTransaction(transaction: any): Promise<WalletSignResul
 
   if (!getSelectedWalletId()) throw new WalletUserRejectedError("No wallet connected");
 
-  const result = await getKit().signTransaction(transaction);
+  const kit = await getKit();
+  const result = await kit.signTransaction(transaction);
   // Map the kit's result to our WalletSignResult interface
   return {
     success: true,

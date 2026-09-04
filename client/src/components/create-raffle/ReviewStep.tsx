@@ -2,13 +2,18 @@ import React, { useEffect, useState } from "react";
 import type { StepComponentProps } from "../../types/types";
 import CreateRaffleButton from "../CreateRaffleButton";
 import { useNavigate } from "react-router-dom";
-import { estimateCreate } from "../../services/contractService";
+import { estimateCreate } from "../../services/sdkClient";
 
-const ReviewStep: React.FC<StepComponentProps> = ({
+interface ReviewStepProps extends StepComponentProps {
+  onSubmitSuccess?: () => void;
+}
+
+const ReviewStep: React.FC<ReviewStepProps> = ({
   formData,
   onNext,
   onBack,
-}: StepComponentProps) => {
+  onSubmitSuccess,
+}: ReviewStepProps) => {
   const navigate = useNavigate();
   const [feeXlm, setFeeXlm] = useState<string | null>(null);
   const [feeLoading, setFeeLoading] = useState(true);
@@ -206,6 +211,7 @@ const ReviewStep: React.FC<StepComponentProps> = ({
           ticketPrice={ticketPriceStroops}
           onSuccess={(raffleId) => {
             console.log("Raffle created successfully with ID:", raffleId);
+            onSubmitSuccess?.();
             navigate(`/raffles/${raffleId}`);
             onNext();
           }}

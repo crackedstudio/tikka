@@ -47,6 +47,7 @@ export enum DlqReason {
 @Index('idx_dle_reason', ['reason'])
 @Index('idx_dle_ledger', ['ledger'])
 @Index('idx_dle_replayed_at', ['replayedAt'])
+@Index('idx_dle_replay_eligible', ['replayedAt', 'ledger'])
 export class DeadLetterEventEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

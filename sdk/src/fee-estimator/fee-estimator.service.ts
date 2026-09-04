@@ -94,8 +94,9 @@ export class FeeEstimatorService {
     private readonly horizon: HorizonService,
     @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
     @Optional() @Inject('WALLET_ADAPTER') private readonly wallet?: WalletAdapter,
+    contractId?: string,
   ) {
-    this.contractId = getRaffleContractId(networkConfig.network);
+    this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
   }
 
   /**
@@ -222,7 +223,13 @@ export class FeeEstimatorService {
   private parseFeeResult(
     sim: rpc.Api.SimulateTransactionSuccessResponse,
   ): FeeEstimateResult {
-    const resourceFeeStroops = String(sim.minResourceFee ?? '0');
+    let resourceFeeStroops = String(sim.minResourceFee ?? '0');
+    let bn = new BigNumber(resourceFeeStroops);
+    if (bn.isNaN() || bn.isNegative()) {
+      resourceFeeStroops = '0';
+    } else {
+      resourceFeeStroops = bn.toFixed(0, BigNumber.ROUND_DOWN);
+    }
 
     // Extract per-resource consumption from the Soroban resource footprint.
     // `transactionData.resources()` returns an xdr.SorobanResources instance.

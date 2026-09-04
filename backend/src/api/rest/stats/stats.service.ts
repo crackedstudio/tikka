@@ -6,7 +6,7 @@ import {
   IndexerService,
   IndexerPlatformStats,
   IndexerTransparencyEntry,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 
 export interface TransparencyStats extends IndexerPlatformStats {
   oracle_public_key: string;
@@ -67,10 +67,10 @@ export class StatsService {
     // Store in cache if Redis is enabled
     if (this.redis.isEnabled()) {
       try {
-        await this.redis.set(
+        await this.redis.setEx(
           cacheKey,
-          JSON.stringify(result),
           this.cacheTtl,
+          JSON.stringify(result),
         );
       } catch (e) {
         this.logger.warn(`Cache write failed for transparency stats: ${e}`);
@@ -109,10 +109,10 @@ export class StatsService {
     // Store in cache if Redis is enabled
     if (this.redis.isEnabled()) {
       try {
-        await this.redis.set(
+        await this.redis.setEx(
           cacheKey,
-          JSON.stringify(result),
           this.cacheTtl,
+          JSON.stringify(result),
         );
       } catch (e) {
         this.logger.warn(`Cache write failed for verify: ${e}`);

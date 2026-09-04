@@ -5,9 +5,16 @@
  * Usage:
  *   pnpm run dlq:replay
  *   pnpm run dlq:replay -- --dry-run
+ *   pnpm run dlq:replay -- --dry-run --type TicketPurchased --since 2026-07-01
  *
  * Options:
- *   --dry-run   Print DLQ entries without replaying them.
+ *   --dry-run          Summarise what would be replayed. Performs no writes.
+ *   --type <a,b>       Restrict to these event types (repeatable, or comma-separated).
+ *   --since <date>     Only entries created at or after this ISO date.
+ *   --until <date>     Only entries created at or before this ISO date.
+ *
+ * Filters apply in both modes, so a dry-run reports exactly the population a
+ * real replay would touch (issue #1109).
  */
 
 import * as path from 'path';
@@ -34,8 +41,33 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
 import { MAX_RETRIES } from '../ingestor/dlq.service';
 
-const args = process.argv.slice(2);
-const dryRun = args.includes('--dry-run');
+import {
+  parseArgs,
+  applyFilters,
+  summarise,
+  formatSummary,
+  ArgumentError,
+} from './dlq-replay.filters';
+
+let parsedArgs;
+try {
+  parsedArgs = parseArgs(process.argv.slice(2));
+} catch (err) {
+  if (err instanceof ArgumentError) {
+    console.error(`Error: ${err.message}`);
+    process.exit(2);
+  }
+  throw err;
+}
+
+// Unknown flags abort rather than being ignored. A mistyped `--dry-runn`
+// falling through to a real replay is exactly what this flag exists to prevent.
+if (parsedArgs.unknown.length > 0) {
+  console.error(`Error: unknown option(s): ${parsedArgs.unknown.join(', ')}`);
+  process.exit(2);
+}
+
+const { dryRun, filters } = parsedArgs;
 
 async function main(): Promise<void> {
   const ssl =
@@ -59,26 +91,44 @@ async function main(): Promise<void> {
   await ds.initialize();
 
   const repo = ds.getRepository(DeadLetterEventEntity);
-  const entries = await repo.find({ order: { createdAt: 'ASC' } });
+  const allEntries = await repo.find({ order: { createdAt: 'ASC' } });
 
-  if (entries.length === 0) {
-    console.log('DLQ is empty.');
+  // Filters are applied once, to the set both modes operate on, so a dry-run
+  // can never report a different population than a real replay would touch.
+  const entries = applyFilters(allEntries, filters);
+
+  if (dryRun) {
+    // Returns before anything that could mutate state. The connection is
+    // opened read-only in practice: the only query issued above is a find().
+    console.log(formatSummary(summarise(entries, MAX_RETRIES), filters));
+
+    if (entries.length > 0) {
+      console.log('\nEntries:');
+      for (const e of entries) {
+        const exhausted = e.retryCount >= MAX_RETRIES;
+        console.log(
+          `  [${exhausted ? 'EXHAUSTED' : 'PENDING '}] id=${e.id} type=${e.eventType} ledger=${e.ledger} retries=${e.retryCount}/${MAX_RETRIES} error="${e.errorMessage}"`,
+        );
+      }
+    }
+
+    console.log('\n--dry-run: nothing was replayed and no rows were modified.');
     await ds.destroy();
     return;
   }
 
-  console.log(`DLQ contains ${entries.length} entries:\n`);
+  if (entries.length === 0) {
+    console.log('No DLQ entries match the given filters.');
+    await ds.destroy();
+    return;
+  }
+
+  console.log(`${entries.length} matching DLQ entries:\n`);
   for (const e of entries) {
     const exhausted = e.retryCount >= MAX_RETRIES;
     console.log(
       `  [${exhausted ? 'EXHAUSTED' : 'PENDING '}] id=${e.id} type=${e.eventType} ledger=${e.ledger} retries=${e.retryCount}/${MAX_RETRIES} error="${e.errorMessage}"`,
     );
-  }
-
-  if (dryRun) {
-    console.log('\n--dry-run: no entries replayed.');
-    await ds.destroy();
-    return;
   }
 
   console.log(

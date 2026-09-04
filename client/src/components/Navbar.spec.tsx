@@ -61,6 +61,14 @@ function renderNavbar(path = '/home') {
   );
 }
 
+function renderNavbar(path = '/home') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Navbar />
+    </MemoryRouter>,
+  );
+}
+
 describe('Navbar component', () => {
   test('highlights active navigation link', () => {
     renderNavbar();
