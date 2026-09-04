@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * NotificationPreferences Component
  *
@@ -37,7 +38,7 @@ export default function NotificationPreferences() {
         )
       );
     } catch (err) {
-      console.error('Error updating preferences:', err);
+      logger.error('Error updating preferences:', err);
       setError(err instanceof Error ? err.message : 'Failed to update preferences');
     } finally {
       setPreferencesLoading(null);

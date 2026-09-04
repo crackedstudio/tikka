@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * SignInButton Component
  * 
@@ -30,7 +31,7 @@ const SignInButton = () => {
     try {
       await login(address);
     } catch (error) {
-      console.error('Sign in failed:', error);
+      logger.error('Sign in failed:', error);
     }
   };
 

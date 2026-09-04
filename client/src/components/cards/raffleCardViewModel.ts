@@ -10,7 +10,7 @@ const ENDING_SOON_THRESHOLD_S = 24 * 60 * 60;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type RaffleStatus = "live" | "ending-soon" | "finalized" | "cancelled";
+export type CardStatus = "live" | "ending-soon" | "finalized" | "cancelled";
 
 export interface RaffleCardViewModel {
     raffleId: number;
@@ -18,6 +18,7 @@ export interface RaffleCardViewModel {
     description: string;
     imageUrl: string;
     status: RaffleStatus;
+    /** Human-readable label: "Live" | "Ending Soon" | "Finalized" | "Cancelled" */
     statusLabel: string;
     isActive: boolean;
     ticketPrice: string;
@@ -35,7 +36,7 @@ export interface RaffleCardViewModel {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<RaffleStatus, string> = {
+const STATUS_LABELS: Record<CardStatus, string> = {
     live: "Live",
     "ending-soon": "Ending Soon",
     finalized: "Finalized",
@@ -51,7 +52,7 @@ function deriveStatus(apiStatus: string, endTimeUnix: number, nowUnix?: number):
     return remaining <= ENDING_SOON_THRESHOLD_S ? "ending-soon" : "live";
 }
 
-function deriveButtonText(status: RaffleStatus): string {
+function deriveButtonText(status: CardStatus): string {
     if (status === "live" || status === "ending-soon") return "Enter Raffle";
     if (status === "finalized") return "View Winner";
     return "Cancelled";

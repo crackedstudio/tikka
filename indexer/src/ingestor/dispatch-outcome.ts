@@ -1,12 +1,17 @@
 import { Logger } from "@nestjs/common";
 import { DlqReason } from "../database/entities/dead-letter-event.entity";
 import { DomainEvent } from "./event.types";
-import { DeadLetterQueueService } from "./dead-letter-queue.service";
+import type { DeadLetterEvent } from "./dlq.service";
 import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 import {
   isSupportedSchemaVersion,
   UnsupportedSchemaVersionError,
 } from "./handlers/schema-version";
+
+/** Minimal DLQ writer. Satisfied by `DlqService.enqueue`. */
+export interface DispatchDlqWriter {
+  enqueue(record: DeadLetterEvent): Promise<void>;
+}
 
 export type HandlerOutcome = "succeeded" | "failed" | "skipped";
 
@@ -34,7 +39,7 @@ export interface DispatchAttemptContext {
 export class DispatchOutcomeClassifier {
   constructor(
     private readonly logger: Logger,
-    private readonly deadLetterQueue?: DeadLetterQueueService,
+    private readonly deadLetterQueue?: DispatchDlqWriter,
     private readonly pipeline?: PipelineStateMachine,
   ) {}
 

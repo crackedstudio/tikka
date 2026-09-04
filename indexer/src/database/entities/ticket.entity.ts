@@ -7,6 +7,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { RaffleEntity } from "./raffle.entity";
+import { Ticket } from "@tikka/types";
 
 /**
  * Represents a single raffle ticket purchased by a user.
@@ -37,7 +38,7 @@ import { RaffleEntity } from "./raffle.entity";
 @Index("idx_tickets_owner_raffle_id", ["owner", "raffleId"])
 @Index("idx_tickets_purchased_at_ledger", ["purchasedAtLedger"])
 @Index("idx_tickets_purchase_tx_hash", ["purchaseTxHash"], { unique: true })
-export class TicketEntity {
+export class TicketEntity implements Ticket {
   /** Contract-assigned ticket ID — used as natural PK. */
   @PrimaryColumn({ type: "integer", name: "id" })
   id!: number;

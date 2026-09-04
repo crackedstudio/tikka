@@ -78,7 +78,14 @@
       "path": "dist/cjs/light.js",
       "limit": "25 Kb",
       "gzip": true,
-      "ignore": ["@nestjs/common", "@nestjs/core", "@stellar/stellar-sdk", "rxjs", "reflect-metadata", "bignumber.js"]
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
     }
   ],
   "dependencies": {
@@ -94,7 +101,8 @@
     "inquirer": "^14.0.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@tikka/types": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",

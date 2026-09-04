@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import React from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { logger } from "../../utils/logger";
@@ -49,7 +50,6 @@ class ErrorBoundary extends React.Component<
             error,
             componentStack: errorInfo.componentStack,
         });
-
         try {
             import("@sentry/react").then((Sentry) => {
                 Sentry.captureException(error, {
