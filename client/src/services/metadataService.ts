@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { z } from "zod";
 import { supabase, RAFFLE_METADATA_TABLE } from "../config/supabase";
 import { api } from "./apiClient";
@@ -41,7 +42,7 @@ export class MetadataService {
   static async uploadRaffleMetadata(metadata: RaffleMetadata): Promise<string> {
     try {
       const validatedMetadata = RaffleMetadataSchema.parse(metadata);
-      console.log("📤 MetadataService: Uploading metadata:", validatedMetadata);
+      logger.log("📤 MetadataService: Uploading metadata:", validatedMetadata);
       const { data, error } = await supabase
         .from(RAFFLE_METADATA_TABLE)
         .insert([
@@ -55,14 +56,14 @@ export class MetadataService {
         .single();
 
       if (error) {
-        console.error("❌ MetadataService: Upload error:", error);
+        logger.error("❌ MetadataService: Upload error:", error);
         throw new Error(`Failed to upload metadata: ${error.message}`);
       }
 
-      console.log("✅ MetadataService: Upload successful, ID:", data.id);
+      logger.log("✅ MetadataService: Upload successful, ID:", data.id);
       return data.id;
     } catch (error) {
-      console.error("Error uploading raffle metadata:", error);
+      logger.error("Error uploading raffle metadata:", error);
       throw error;
     }
   }
@@ -81,13 +82,13 @@ export class MetadataService {
         .single();
 
       if (error) {
-        console.error("Error fetching metadata:", error);
+        logger.error("Error fetching metadata:", error);
         return null;
       }
 
       return SafeRaffleMetadataSchema.parse(data.metadata) as RaffleMetadata;
     } catch (error) {
-      console.error("Error fetching raffle metadata:", error);
+      logger.error("Error fetching raffle metadata:", error);
       return null;
     }
   }
@@ -106,13 +107,13 @@ export class MetadataService {
         .single();
 
       if (error) {
-        console.error("Error fetching metadata by contract ID:", error);
+        logger.error("Error fetching metadata by contract ID:", error);
         return null;
       }
 
       return SafeRaffleMetadataSchema.parse(data.metadata) as RaffleMetadata;
     } catch (error) {
-      console.error("Error fetching raffle metadata by contract ID:", error);
+      logger.error("Error fetching raffle metadata by contract ID:", error);
       return null;
     }
   }
@@ -145,7 +146,7 @@ export class MetadataService {
 
       return true;
     } catch (error) {
-      console.error("Error updating raffle metadata:", error);
+      logger.error("Error updating raffle metadata:", error);
       return false;
     }
   }
@@ -172,7 +173,7 @@ export class MetadataService {
 
       return true;
     } catch (error) {
-      console.error("Error linking to contract:", error);
+      logger.error("Error linking to contract:", error);
       return false;
     }
   }
@@ -199,7 +200,7 @@ export class MetadataService {
         metadata: SafeRaffleMetadataSchema.parse(record.metadata) as RaffleMetadata,
       }));
     } catch (error) {
-      console.error("Error fetching raffles by creator:", error);
+      logger.error("Error fetching raffles by creator:", error);
       return [];
     }
   }
@@ -213,7 +214,7 @@ export class MetadataService {
     imageFile: File,
   ): Promise<string> {
     try {
-      console.log("📤 MetadataService: Uploading raffle image to backend");
+      logger.log("📤 MetadataService: Uploading raffle image to backend");
 
       // Create FormData for file upload
       const formData = new FormData();
@@ -227,10 +228,10 @@ export class MetadataService {
 
       // For now, treat the uploaded image URL as the "metadataCid/url" to pass into the contract.
       // A future backend endpoint can persist the full metadata JSON and return a real CID.
-      console.log("✅ MetadataService: Image upload successful, url:", response.url);
+      logger.log("✅ MetadataService: Image upload successful, url:", response.url);
       return response.url;
     } catch (error) {
-      console.error("Error uploading to backend:", error);
+      logger.error("Error uploading to backend:", error);
       throw error;
     }
   }

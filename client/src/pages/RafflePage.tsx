@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useRaffle } from "../hooks/useRaffles";
@@ -33,7 +34,7 @@ const RafflePage = () => {
         if (address && recentParticipantsRef.current) {
             recentParticipantsRef.current.addOptimisticParticipant(address);
         }
-        console.log("Buying tickets:", ticketCount);
+        logger.log("Buying tickets:", ticketCount);
     };
 
     const handleIncrement = () =>

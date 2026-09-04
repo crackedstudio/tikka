@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * Contract Configuration
  *
@@ -69,12 +70,12 @@ export function validateContractConfig(): void {
   }
 
   if (CONTRACT_CONFIG.address === "TBD") {
-    console.warn(
+    logger.warn(
       "⚠️ Contract address is TBD - contract interactions will fail until deployed",
     );
   }
 
-  console.log("📋 Contract Configuration:", {
+  logger.log("📋 Contract Configuration:", {
     address: CONTRACT_CONFIG.address,
     network: CONTRACT_CONFIG.network,
     rpcUrl: CONTRACT_CONFIG.rpcUrl,

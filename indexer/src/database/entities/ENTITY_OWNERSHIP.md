@@ -2,10 +2,24 @@
 
 This document describes the ownership model for all indexer database entities, distinguishing between **raw chain state** (source-of-truth from Stellar ledger events) and **derived query state** (computed aggregates maintained by processors).
 
+> **Canonical location**: This document is maintained at `docs/database/ENTITY_OWNERSHIP.md` and linked from `indexer/README.md` and `backend/README.md`.
+
+## Ownership Boundary
+
+All tables documented here are owned by the `indexer` service. The backend service has a read-only database role (`backend_reader`) and backend code is prohibited from importing indexer entity classes by dependency-cruiser.
+
+Every entity in `indexer/src/database/entities/` carries an `@owner indexer` docblock tag.
+
+### Enforcement
+
+- **Database grants**: `db/baseline-schema.sql` defines the `backend_reader` role with `SELECT`-only grants on each indexer-owned table.
+- **Import rule**: the dependency-cruiser config forbids backend code from importing `indexer/src/database/entities/**`.
+
 ---
 
 ## Table of Contents
 
+- [Ownership Boundary](#ownership-boundary)
 - [Raffle Entity](#raffle-entity)
 - [Ticket Entity](#ticket-entity)
 - [User Entity](#user-entity)
@@ -14,6 +28,8 @@ This document describes the ownership model for all indexer database entities, d
 - [IndexerCursor Entity](#indexercursor-entity)
 - [DeadLetterEvent Entity (DLQ)](#deadletterevent-entity-dlq)
 - [Recalculation Safety](#recalculation-safety)
+- [Migration Ownership Rules](#migration-ownership-rules)
+- [References](#references)
 
 ---
 
@@ -22,6 +38,8 @@ This document describes the ownership model for all indexer database entities, d
 **File**: `raffle.entity.ts`  
 **Table**: `raffles`  
 **Purpose**: Represents a single raffle as tracked by the indexer.
+**Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -63,6 +81,8 @@ This document describes the ownership model for all indexer database entities, d
 **File**: `ticket.entity.ts`  
 **Table**: `tickets`  
 **Purpose**: Represents a single raffle ticket purchased by a user.
+**Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -93,6 +113,8 @@ This document describes the ownership model for all indexer database entities, d
 **File**: `user.entity.ts`  
 **Table**: `users`  
 **Purpose**: Aggregated per-user participation statistics.
+**Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -140,6 +162,8 @@ UPDATE users u SET
 **File**: `raffle-event.entity.ts`  
 **Table**: `raffle_events`  
 **Purpose**: Raw log of every Tikka contract event ingested from the Stellar ledger. Acts as an audit trail and is the **source of truth** for all processors.
+**Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -174,6 +198,8 @@ Old events can be safely archived and deleted after a retention period (default:
 **File**: `platform-stat.entity.ts`  
 **Table**: `platform_stats`  
 **Purpose**: Daily platform-wide aggregate statistics.
+**Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -201,6 +227,8 @@ All fields can be safely recalculated from the `raffles` and `tickets` tables. T
 **File**: `indexer-cursor.entity.ts`  
 **Table**: `indexer_cursor`  
 **Purpose**: Singleton row tracking the last processed ledger and reorg detection state.
+**Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -233,6 +261,8 @@ UPDATE indexer_cursor SET last_ledger = 0, last_paging_token = '', ledger_hashes
 **File**: `dead-letter-event.entity.ts`  
 **Table**: `dead_letter_events`  
 **Purpose**: Stores events that failed to process, with retry and replay support.
+**Owner**: indexer
+**Owner tag**: `@owner indexer`
 
 ### Field Ownership
 
@@ -326,7 +356,11 @@ createdLedger!: number;
 
 ## References
 
+- **Canonical ownership doc**: `docs/database/ENTITY_OWNERSHIP.md`
+- **Database grants**: `db/baseline-schema.sql`
+- **Dependency-cruiser rules**: dependency-cruiser config
 - **Indexer README**: `indexer/README.md`
+- **Backend README**: `backend/README.md`
 - **Architecture**: `docs/ARCHITECTURE.md` § Data Model
 - **Processors**: `indexer/src/processors/`
 - **Archiving**: `indexer/src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md`

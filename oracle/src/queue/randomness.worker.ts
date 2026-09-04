@@ -70,7 +70,10 @@ export class RandomnessWorker implements OnApplicationShutdown {
       throw new Error('Oracle shutting down — rejecting job for retry');
     }
 
-    const jobPromise = CorrelationContext.run(String(job.id), async () => {
+    // Use the draw's request id as the correlation id so oracle logs for this
+    // job line up with the backend/indexer `x-request-id` for the same
+    // logical operation. Fall back to the Bull job id if it is unavailable.
+    return CorrelationContext.run(job.data.requestId ?? String(job.id), async () => {
     // Main-loop heartbeat — updated on every job the queue worker picks up.
     this.metricsService?.recordComponentHeartbeat('queue');
 

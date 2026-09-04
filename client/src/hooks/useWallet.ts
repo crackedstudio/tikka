@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * useWallet Hook
  * 
@@ -77,7 +78,7 @@ export function useWallet(): UseWalletReturn {
                 error: null,
             });
         } catch (error) {
-            console.error("Wallet refresh failed:", error);
+            logger.error("Wallet refresh failed:", error);
         }
     }, [APP_REQUIRED_NETWORK, store.setWalletState]);
 

@@ -165,7 +165,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
+      await processor.handleTicketPurchased(1, 'GBUYER', ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(mockUpdateBuilder.update).toHaveBeenCalledWith(RaffleEntity);
       expect(mockUpdateBuilder.set).toHaveBeenCalledWith({
@@ -203,7 +203,7 @@ describe('TicketProcessor', () => {
         .mockReturnValueOnce(mockInsertBuilder)
         .mockReturnValueOnce(mockUpdateBuilder);
 
-      await processor.handleTicketPurchased(raffleId, buyer, ticketIds, totalCost, ledger, txHash, mockQueryRunner);
+      await processor.handleTicketPurchased(1, 'GBUYER', ticketIds, totalCost, ledger, txHash, mockQueryRunner);
 
       expect(userProcessor.handleTicketPurchased).toHaveBeenCalledWith(
         1, 'GBUYER', 2, 500, 'tx-hash-123', mockQueryRunner,
