@@ -19,6 +19,7 @@ logs/
 .DS_Store
 
 # Local build / debug artifacts (do not commit)
+test_output*.txt
 build*.txt
 *-output.txt
 *_output.txt
