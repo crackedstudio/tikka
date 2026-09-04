@@ -5,21 +5,27 @@ ARG NODE_BASE=node:22-alpine@sha256:3a6d2c5b6e1f0e2d4c5b6e8f2a1b3c4d5e6f7a8b9c0d
 # Stage 1: Build
 FROM ${NODE_BASE} AS builder
 
-# Check for pnpm-lock.yaml and use it
-WORKDRI /app
+WORKDIR /app
 
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy package management files
-COPY package.json pnpm-lock.yaml ./
+# Copy workspace root files first (layer cache)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 
-# Install dependencies (frozen-lockfile for consistency)
+# Copy all package.json files needed for workspace resolution
+COPY backend/package.json ./backend/
+COPY sdk/package.json ./sdk/
+
+# Install all workspace dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code and build
-COPY . .
-RUN pnpm run build
+# Copy full source
+COPY backend/ ./backend/
+COPY sdk/ ./sdk/
+
+# Deploy backend as a standalone directory
+RUN pnpm --filter tikka-backend deploy /app/backend-deploy
 
 # Export production dependencies for the runner stage
 RUN pnpm deploy --prod /app/prod_deps
@@ -34,7 +40,13 @@ RUN apk add --no-cache tini
 
 # Copy production dependencies and built application
 COPY --from=builder --chown=node:node /app/prod_deps/ ./
-COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/backend-deploy ./
+
+# Build the application
+RUN pnpm run build
+
+# Remove dev dependencies
+RUN pnpm prune --prod
 
 # Ensure the application directory is owned by the non-root user
 RUN chown -R node:node /app
@@ -54,4 +66,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
  CMD wget --quiet --tries=1 --no-check-certificate http://localhost:3001/health -O /dev/null || exit 1
 
 # Use tini as the init system
-ENTRYPOINT  tini.gem", "comment": "Pending digest update"}
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "dist/main.js"]
