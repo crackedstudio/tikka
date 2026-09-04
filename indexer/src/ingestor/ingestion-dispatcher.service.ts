@@ -1,9 +1,10 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { DataSource } from "typeorm";
+import { DataSource, QueryRunner } from "typeorm";
 import { RaffleProcessor } from "../processors/raffle.processor";
 import { TicketProcessor } from "../processors/ticket.processor";
 import { AdminProcessor } from "../processors/admin.processor";
-import { DomainEvent } from "./event.types";
+import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
+import { DomainEvent, assertNever } from "./event.types";
 import { DlqService } from "./dlq.service";
 import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 import { DlqReason } from "../database/entities/dead-letter-event.entity";
@@ -54,7 +55,7 @@ export class IngestionDispatcherService {
     );
     this.outcomes = new DispatchOutcomeClassifier(
       this.logger,
-      deadLetterQueue,
+      this.dlqService,
       pipeline,
     );
   }
@@ -201,8 +202,20 @@ export class IngestionDispatcherService {
       case "RandomnessRequested":
       case "RandomnessReceived":
         return false;
-      default:
+      case "RaffleCreated":
+      case "TicketPurchased":
+      case "RaffleFinalized":
+      case "RaffleCancelled":
+      case "TicketRefunded":
+      case "ContractPaused":
+      case "ContractUnpaused":
+      case "AdminTransferProposed":
+      case "AdminTransferAccepted":
         return true;
+      default:
+        // Compile-time exhaustiveness: a new topic added to the union without
+        // a case above fails the build here.
+        assertNever(event, "eventNeedsDatabase");
     }
   }
 
@@ -306,11 +319,16 @@ export class IngestionDispatcherService {
         this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
         return null;
 
-      default:
+      default: {
+        // Compile-time exhaustiveness: adding a contract event to the
+        // DomainEvent union without routing it above fails the build here —
+        // the event cannot silently fall through to a runtime warning.
+        const unhandled: never = event;
         this.logger.warn(
-          `No processor method found for event type: ${(event as DomainEvent).type}`,
+          `No processor method found for event type: ${(unhandled as DomainEvent).type}`,
         );
         return null;
+      }
     }
   }
 
@@ -460,8 +478,13 @@ export class IngestionDispatcherService {
         return "AdminProcessor.handleAdminTransferProposed";
       case "AdminTransferAccepted":
         return "AdminProcessor.handleAdminTransferAccepted";
-      default:
+      case "DrawTriggered":
+      case "RandomnessRequested":
+      case "RandomnessReceived":
         return `${event.type}Handler`;
+      default:
+        // Compile-time exhaustiveness (see eventNeedsDatabase).
+        assertNever(event, "getHandlerName");
     }
   }
 

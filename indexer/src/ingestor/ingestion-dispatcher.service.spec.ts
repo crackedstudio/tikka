@@ -84,6 +84,7 @@ describe('IngestionDispatcherService', () => {
     const events: DomainEvent[] = [
       {
         type: 'TicketPurchased',
+        schemaVersion: 1,
         raffle_id: 1,
         buyer: 'GBUYER',
         ticket_ids: [1],
@@ -91,6 +92,7 @@ describe('IngestionDispatcherService', () => {
       },
       {
         type: 'RaffleCancelled',
+        schemaVersion: 1,
         raffle_id: 1,
         reason: 'expired',
       },
@@ -134,6 +136,7 @@ describe('IngestionDispatcherService', () => {
     const result = await service.dispatch(
       {
         type: 'RaffleCreated',
+        schemaVersion: 1,
         raffle_id: 99,
         creator: 'GCREATOR',
         params: {

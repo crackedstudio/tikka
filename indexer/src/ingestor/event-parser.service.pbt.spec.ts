@@ -10,7 +10,6 @@
 
 import * as fc from "fast-check";
 import { nativeToScVal } from "@stellar/stellar-sdk";
-import { ConfigService } from "@nestjs/config";
 import { EventParserService } from "./event-parser.service";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { RawSorobanEvent } from "./event-parser.interface";
@@ -33,11 +32,7 @@ import {
 
 /** Builds a fully wired parser instance with all default handlers registered. */
 function buildParser(): EventParserService {
-  const configService = {
-    get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
-  } as unknown as ConfigService;
-
-  const registry = new EventHandlerRegistry(configService);
+  const registry = new EventHandlerRegistry();
 
   for (const handler of [
     new RaffleCreatedHandler(),
@@ -63,11 +58,7 @@ function buildParser(): EventParserService {
 function buildParserWithRegisteredContract(
   contractAddress: string,
 ): EventParserService {
-  const configService = {
-    get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
-  } as unknown as ConfigService;
-
-  const registry = new EventHandlerRegistry(configService);
+  const registry = new EventHandlerRegistry();
 
   // Register a contract at a specific address â€” but add no event handlers.
   registry.registerContract({

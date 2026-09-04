@@ -121,11 +121,16 @@ export class CursorAdvance {
         this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
         return null;
 
-      default:
+      default: {
+        // Compile-time exhaustiveness: adding a contract event to the
+        // DomainEvent union without routing it above fails the build here —
+        // the event cannot silently fall through to a runtime warning.
+        const unhandled: never = event;
         this.logger.warn(
-          `No processor method found for event type: ${(event as DomainEvent).type}`,
+          `No processor method found for event type: ${(unhandled as DomainEvent).type}`,
         );
         return null;
+      }
     }
   }
 
