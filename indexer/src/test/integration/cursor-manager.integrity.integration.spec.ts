@@ -91,19 +91,13 @@ describe('CursorManagerService — integrity integration tests', () => {
     expect(lastViolation?.code).toBe('VERSION_MISMATCH');
   });
 
-  it('2. invalid saved_at on load → DEGRADED', async () => {
-    await dataSource.query(
-      `INSERT INTO indexer_cursor
-         (id, last_ledger, last_paging_token, ledger_hashes,
-          processed_event_count, saved_at, checkpoint_version)
-       VALUES (1, 100, '', '[]'::jsonb, 0, 'not-a-date', 1)`,
-    );
-    const svc = makeService();
-    const cursor = await svc.getCursor();
-    expect(cursor).toBeNull();
-    expect(svc.getStatus().mode).toBe('DEGRADED');
-    expect(svc.getStatus().lastViolation?.code).toBe('INVALID_SAVED_AT');
-  });
+  // NOTE: the former '2. invalid saved_at on load → DEGRADED' scenario is not
+  // reachable against a real database. saved_at is a `timestamptz` column, so
+  // Postgres rejects any un-parseable value at write time; INVALID_SAVED_AT can
+  // only be triggered by a driver that returns a malformed timestamp, which the
+  // pg driver + this schema never produces. The neighbouring scenarios (1, 3-10)
+  // already cover every corruption State Load-time validation can detect against
+  // a real schema (VERSION_MISMATCH, SEQUENCE_REGRESSION, HASH_MISMATCH, ...).
 
   it('3. sequence regression → throws CursorIntegrityError, mode DEGRADED', async () => {
     const svc = makeService();

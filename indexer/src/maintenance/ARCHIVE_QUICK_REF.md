@@ -87,5 +87,6 @@ psql -c "SELECT * FROM archive_checkpoints WHERE job_type='raffle_events' ORDER 
 
 ## Full Documentation
 
+- Runbook (production): [`docs/runbooks/archive-raffle-events.md`](../../../docs/runbooks/archive-raffle-events.md)
 - Retention / restore (ops): [`docs/database/raffle-events-retention.md`](../../../docs/database/raffle-events-retention.md)
 - Guide: [ARCHIVE_RAFFLE_EVENTS_GUIDE.md](./ARCHIVE_RAFFLE_EVENTS_GUIDE.md)

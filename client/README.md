@@ -1,6 +1,6 @@
 # 🎟️ Tikka - Decentralized Raffle Platform
 
-**In this repo:** This is the Tikka frontend (tikka-frontend). It reads data from **tikka-backend** and performs onchain writes via **@tikka/sdk**. For the full ecosystem (SDK, backend, indexer, oracle, data flows), see [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
+**In this repo:** This is the Tikka frontend (tikka-frontend). It reads data from **tikka-backend** and performs onchain writes via **@tikka/sdk**. For the full ecosystem (SDK, backend, indexer, oracle, data flows), see [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md). For a complete index of all documentation, see [../docs/README.md](../docs/README.md).
 
 ---
 
@@ -272,7 +272,7 @@ npm install
 cp .env.example .env
 ```
 
-Then edit `.env` with your actual values. See [DEVELOPMENT.md](docs/DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
+Then edit `.env` with your actual values. See the [Development Guide](../docs/DEVELOPMENT.md#environment-configuration) for detailed setup instructions.
 
 ### Environment variables
 
@@ -312,7 +312,7 @@ VITE_USE_DEMO_DATA=true
 VITE_DEBUG_MODE=true
 ```
 
-> **Note:** For complete environment setup including Stellar testnet and Supabase configuration, see the [Development Guide](docs/DEVELOPMENT.md).
+> **Note:** For complete environment setup including Stellar testnet and Supabase configuration, see the [Development Guide](../docs/DEVELOPMENT.md).
 
 4. **Start development server**
 
@@ -569,10 +569,10 @@ This project is licensed under the MIT License - see the [LICENSE](../LICENSE) f
 
 ### **Documentation**
 
--   [Environment Setup](docs/ENVIRONMENT_SETUP.md)
--   [Contract Integration Guide](docs/CONTRACT_INTEGRATION.md)
--   [Development Guide](docs/DEVELOPMENT.md)
--   [Notifications System](docs/NOTIFICATIONS.md)
+-   [Environment Setup](../docs/ENVIRONMENT_SETUP.md)
+-   [Contract Integration Guide](../docs/CONTRACT_INTEGRATION.md)
+-   [Development Guide](../docs/DEVELOPMENT.md)
+-   [Notifications System](../docs/NOTIFICATIONS.md)
 
 ### **Community**
 

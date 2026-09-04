@@ -1,0 +1,104 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Indexer overlay. The Deployment, Service, HPA, and PDB structure lives in
+# ../../k8s/base; this file supplies only what is genuinely indexer-specific.
+#
+#   kubectl apply -k indexer/k8s
+#
+namespace: tikka
+
+labels:
+  - pairs:
+      app: tikka-indexer
+    includeSelectors: true
+
+resources:
+  - ../../k8s/base
+  - configmap.yaml
+
+images:
+  - name: ghcr.io/crackedstudio/tikka-service
+    newName: ghcr.io/crackedstudio/tikka-indexer
+    newTag: latest
+
+patches:
+  - target:
+      kind: Deployment
+      name: tikka
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-indexer
+      - op: replace
+        path: /spec/template/spec/containers/0/name
+        value: tikka-indexer
+      - op: add
+        path: /spec/template/spec/containers/0/ports
+        value:
+          - containerPort: 3002
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom
+        value:
+          - configMapRef:
+              name: tikka-indexer-config
+          - secretRef:
+              name: tikka-indexer-secrets
+      # The indexer is the one service that splits the probes: /health/ready
+      # fails on lag, DLQ pressure, or a stalled poller so traffic is withdrawn,
+      # while /health/live stays 200 as long as the process can serve HTTP.
+      # Pointing liveness at the readiness path would restart-loop the fleet
+      # every time it fell behind.
+      - op: replace
+        path: /spec/template/spec/containers/0/startupProbe/httpGet/port
+        value: 3002
+      - op: replace
+        path: /spec/template/spec/containers/0/startupProbe/httpGet/path
+        value: /health/ready
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/httpGet/port
+        value: 3002
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/httpGet/path
+        value: /health/ready
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/httpGet/port
+        value: 3002
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/httpGet/path
+        value: /health/live
+
+  - target:
+      kind: Service
+      name: tikka
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-indexer
+      - op: replace
+        path: /spec/ports/0/targetPort
+        value: 3002
+
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: tikka-hpa
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-indexer-hpa
+      - op: replace
+        path: /spec/scaleTargetRef/name
+        value: tikka-indexer
+      # Lower than the shared ceiling: each replica holds a Postgres pool and
+      # the ingestion cursor is contended, so scaling past 6 buys little.
+      - op: replace
+        path: /spec/maxReplicas
+        value: 6
+
+  - target:
+      kind: PodDisruptionBudget
+      name: tikka-pdb
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-indexer-pdb

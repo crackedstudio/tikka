@@ -1,4 +1,5 @@
 import { TicketService } from './ticket.service';
+import { TicketReadService } from './ticket.read.service';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import { BuyTicketParams, RefundTicketParams, BuyBatchParams, BuyTicketsParams, TICKET_CONSTRAINTS } from './ticket.types';
@@ -8,6 +9,7 @@ import { InvalidTicketPurchaseError } from './purchase-validation';
 
 describe('TicketService', () => {
   let service: TicketService;
+  let readService: TicketReadService;
   let contractService: jest.Mocked<ContractService>;
   let mockWallet: { getPublicKey: jest.Mock };
 
@@ -20,12 +22,13 @@ describe('TicketService', () => {
       invoke: jest.fn(),
       simulateReadOnly: jest.fn().mockResolvedValue({
         success: true,
-        value: { status: RaffleStatus.Open },
+        value: { status: RaffleStatus.OPEN },
       }),
       wallet: mockWallet,
     } as any;
 
-    service = new TicketService(contractService);
+    readService = new TicketReadService(contractService);
+    service = new TicketService(contractService, readService);
     jest.useFakeTimers();
   });
 
@@ -297,31 +300,6 @@ describe('TicketService', () => {
     it('should throw if ticketId is invalid', async () => {
       const params: RefundTicketParams = { raffleId: 1, ticketId: -5 };
       await expect(service.refund(params)).rejects.toThrow('ticketId must be a positive integer');
-    });
-  });
-
-  describe('getUserTickets', () => {
-    it('should call simulateReadOnly for GET_USER_TICKETS', async () => {
-      const params = {
-        raffleId: 1,
-        userAddress: 'G...USER',
-      };
-
-      const mockTicketIds = [101, 105, 110];
-      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: mockTicketIds });
-
-      const result = await service.getUserTickets(params);
-
-      expect(contractService.simulateReadOnly).toHaveBeenCalledWith(
-        ContractFn.GET_USER_TICKETS,
-        [params.raffleId, params.userAddress],
-      );
-      expect(result.value).toEqual(mockTicketIds);
-    });
-
-    it('should validate raffleId', async () => {
-      const params = { raffleId: -1, userAddress: 'G...' };
-      await expect(service.getUserTickets(params)).rejects.toThrow('raffleId must be a positive integer');
     });
   });
 
