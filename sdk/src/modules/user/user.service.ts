@@ -196,7 +196,7 @@ export class UserService {
 
       raffleActivities.push({
         raffleId,
-        status: raffleData?.status ?? RaffleStatus.Open,
+        status: raffleData?.status ?? RaffleStatus.OPEN,
         ticketIds,
         isCreator,
         isWinner,

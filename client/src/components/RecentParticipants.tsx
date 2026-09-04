@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { api } from "../services/apiClient";
 import { API_CONFIG } from "../config/api";
@@ -46,7 +47,7 @@ const RecentParticipants = forwardRef<RecentParticipantsHandle, RecentParticipan
       const data = await api.get<Participant[]>(endpoint);
       return data || [];
     } catch (err) {
-      console.error("Failed to fetch participants:", err);
+      logger.error("Failed to fetch participants:", err);
       return [];
     }
   }, [raffleId]);
@@ -91,7 +92,7 @@ const RecentParticipants = forwardRef<RecentParticipantsHandle, RecentParticipan
           lastFetchTimeRef.current = Date.now();
         }
       } catch (err) {
-        console.error("Poll error:", err);
+        logger.error("Poll error:", err);
       }
     };
 

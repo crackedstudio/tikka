@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * useNotifications Hook
  *
@@ -49,7 +50,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
         setIsSubscribed(subscriptions.some((sub) => sub.raffleId === id));
       } catch (err) {
         if (current !== requestId.current) return;
-        console.error('Error checking subscription:', err);
+        logger.error('Error checking subscription:', err);
         setError(err instanceof Error ? err.message : 'Failed to check subscription');
         setIsSubscribed(false);
       } finally {
@@ -72,7 +73,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
         await subscribeToRaffle({ raffleId: id, channel });
         setIsSubscribed(true);
       } catch (err) {
-        console.error('Error subscribing:', err);
+        logger.error('Error subscribing:', err);
         setError(err instanceof Error ? err.message : 'Failed to subscribe');
         throw err;
       } finally {
@@ -95,7 +96,7 @@ export function useNotifications(raffleId?: number): UseNotificationsReturn {
         await unsubscribeFromRaffle(id);
         setIsSubscribed(false);
       } catch (err) {
-        console.error('Error unsubscribing:', err);
+        logger.error('Error unsubscribing:', err);
         setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
         throw err;
       } finally {

@@ -3,10 +3,10 @@
  * It is a no-op in production unless the VITE_DEBUG flag is set.
  */
 
-const isProduction = import.meta.env.PROD;
+const isDev = import.meta.env.DEV;
 const isDebug = import.meta.env.VITE_DEBUG === 'true';
 
-const shouldLog = !isProduction || isDebug;
+const shouldLog = isDev || isDebug;
 
 export const logger = {
     log: (...args: any[]) => {

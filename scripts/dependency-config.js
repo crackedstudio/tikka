@@ -1,15 +1,3 @@
-/**
- * Dependency Version Check Configuration
- * 
- * Define accepted version mismatches for shared frameworks.
- * Add entries here when intentional version drift is acceptable.
- * 
- * Format:
- * 'framework-name': {
- *   reason: 'explanation',
- *   packages: ['pkg1', 'pkg2'],
- * }
- */
 
 module.exports = {
   /**

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { Networks } from "@stellar/stellar-sdk";
 
 export const STELLAR_CONFIG = {
@@ -13,7 +14,7 @@ export const STELLAR_CONFIG = {
       : Networks.TESTNET,
 };
 
-console.log("Current Network Config:", {
+logger.log("Current Network Config:", {
   network: import.meta.env.VITE_STELLAR_NETWORK,
   rpc: import.meta.env.VITE_SOROBAN_RPC_URL,
 });
