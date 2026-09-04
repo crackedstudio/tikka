@@ -1,6 +1,22 @@
-import { DeadLetterQueueService } from "./dead-letter-queue.service";
-import { DispatchAttemptContext, DispatchOutcomeClassifier } from "./dispatch-outcome";
+import {
+  DispatchAttemptContext,
+  DispatchDlqWriter,
+  DispatchOutcomeClassifier,
+} from "./dispatch-outcome";
+import type { DeadLetterEvent } from "./dlq.service";
 import { DomainEvent } from "./event.types";
+
+class InMemoryDlq implements DispatchDlqWriter {
+  private readonly records: DeadLetterEvent[] = [];
+
+  async enqueue(record: DeadLetterEvent): Promise<void> {
+    this.records.push(record);
+  }
+
+  getRecords(): DeadLetterEvent[] {
+    return [...this.records];
+  }
+}
 
 const raw = { id: "tx-1", ledger: 12 };
 const event: DomainEvent = {
@@ -27,7 +43,7 @@ function makeContext(overrides: Partial<DispatchAttemptContext> = {}): DispatchA
   };
 }
 
-function makeClassifier(dlq = new DeadLetterQueueService()) {
+function makeClassifier(dlq = new InMemoryDlq()) {
   const logger = {
     log: jest.fn(),
     warn: jest.fn(),

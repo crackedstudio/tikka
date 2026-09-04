@@ -1,4 +1,87 @@
 
+module.exports = {
+  /**
+   * Frameworks listed here must resolve to the same major version across
+   * every package that declares them. These represent shared, tightly-coupled
+   * libraries where cross-package drift is dangerous and never allowed.
+   *
+   * Unlike `allowed`, entries here are NOT exemptions — they are enforced
+   * as hard mismatches when versions drift.
+   */
+  mustMatch: {
+    /**
+     * typeorm: Both backend and indexer read the same PostgreSQL schema and
+     * must agree on entity metadata and migration behaviour. The indexer owns
+     * the shared migrations under indexer/src/database/migrations/, so any
+     * major-version drift between the two packages is blocked.
+     */
+    'typeorm': {
+      reason: 'Both packages read the same PostgreSQL schema and must stay on the same major; indexer owns the shared migrations.',
+      packages: ['backend', 'indexer'],
+    },
+  },
+
+  allowed: {
+    /**
+     * NestJS CLI: backend/sdk use 11.0.x for newer features,
+     * indexer/oracle use 10.4.x for stability
+     */
+    '@nestjs/cli': {
+      reason: 'Backend and SDK upgraded to NestJS CLI 11 for new features; indexer and oracle remain on 10.4 for stability',
+      packages: ['backend', 'sdk', 'indexer', 'oracle'],
+    },
+    
+    /**
+     * Jest: backend is on 29.x (legacy), newer packages upgraded to 30.x
+     * Allows backend to run with stable Jest while others use latest features
+     */
+    jest: {
+      reason: 'Backend uses Jest 29 for stability; indexer, oracle, and SDK upgraded to Jest 30 for newer features',
+      packages: ['backend', 'indexer', 'oracle', 'sdk'],
+    },
+    
+    /**
+     * ts-jest: backend on 29.2, others on 29.4+ for Jest 30 compatibility
+     */
+    'ts-jest': {
+      reason: 'Backend uses ts-jest 29.2; others use 29.4+ for compatibility with Jest 30',
+      packages: ['backend', 'indexer', 'oracle', 'sdk'],
+    },
+    
+    /**
+     * @types/jest: backend on 29.5, others on 30.0 for Jest 30 support
+     */
+    '@types/jest': {
+      reason: 'Backend uses @types/jest 29 for Jest 29; others use 30 for Jest 30 support',
+      packages: ['backend', 'indexer', 'oracle', 'sdk'],
+    },
+    
+    /**
+     * ESLint: client uses 9.33 (latest in v9 line),
+     * backend packages upgraded to 10.x for new rules
+     */
+    eslint: {
+      reason: 'Client uses ESLint 9.33; backend packages upgraded to ESLint 10 for new linting rules',
+      packages: ['client', 'indexer', 'oracle', 'sdk'],
+    },
+    
+    /**
+     * TypeScript: client uses 5.8.3 (latest),
+     * backend packages use 5.6 for stability
+     */
+    typescript: {
+      reason: 'Client upgraded to TypeScript 5.8.3 for latest features; backend packages remain on 5.6 for stability',
+      packages: ['backend', 'client', 'indexer', 'oracle', 'sdk'],
+    },
+    
+    /**
+     * @stellar/stellar-sdk: patch/minor version differences within same major version
+     * backend/client on 14.4.x, others on 14.5.x - acceptable as they are compatible
+     */
+    '@stellar/stellar-sdk': {
+      reason: 'Patch/minor version differences within major 14.x line; backend and client on 14.4.x, others on 14.5.x',
+      packages: ['backend', 'client', 'indexer', 'oracle', 'sdk'],
+    },
     
     /**
      * fast-check: Different versions for property-based testing
@@ -7,15 +90,6 @@
     'fast-check': {
       reason: 'Backend uses pinned fast-check 3.22.0; client/sdk use 4.7, oracle uses 4.6, indexer uses 3.23.2',
       packages: ['backend', 'client', 'indexer', 'oracle', 'sdk'],
-    },
-    
-    /**
-     * typeorm: Major version mismatch requiring coordinated migration
-     * backend on 0.3.x, indexer on 1.1.x
-     */
-    'typeorm': {
-      reason: 'Backend uses TypeORM 0.3.x; indexer upgraded to 1.1.x; major migration pending for backend',
-      packages: ['backend', 'indexer'],
     },
   },
   

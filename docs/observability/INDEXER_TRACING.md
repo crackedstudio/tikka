@@ -87,3 +87,22 @@ With neither set, the tracer provider still registers so in-process nesting work
 3. Confirm one `trace_id` contains `indexer.event.process`, `indexer.event.handler`, `indexer.event.db`, and (when webhooks are registered) `indexer.event.webhook`.
 
 Automated check: `indexer/src/tracing/tracing.spec.ts` asserts nested spans share a trace id.
+
+---
+
+## Request-id correlation (logs)
+
+Tracing covers distributed **spans**; for plain **log lines** the indexer shares a
+single correlation id with the backend via the `x-request-id` header:
+
+- `RequestIdMiddleware` reads the inbound `x-request-id` (or generates one) and
+  binds it to an `AsyncLocalStorage` request context, echoing it on the response.
+- `RequestLoggerService` (registered via `app.useLogger`) appends
+  `requestId=<id>` to every log line, so the same id appears in backend and
+  indexer logs for one logical operation.
+- Outbound calls (webhook fan-out) forward the active `x-request-id` via
+  `getRequestIdHeaders()` so downstream consumers inherit the trace.
+
+The backend propagates its `x-request-id` to the indexer through
+`IndexerService`, and on to the oracle via the on-chain `request_id` / peer
+`x-request-id` headers (see [`METRICS_MAP.md`](./METRICS_MAP.md)).
