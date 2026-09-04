@@ -8,6 +8,8 @@ import { RequestLoggerService } from './common/request-logger.service';
 const logger = new NestLogger("Bootstrap");
 
 export async function bootstrap() {
+  validateEnv();
+
   initTracing();
 
   const app = await NestFactory.create(AppModule);
@@ -27,7 +29,7 @@ export async function bootstrap() {
     }),
   );
 
-  // ── OpenAPI / Swagger ──────────────────────────────────────────────────────
+  // ——————————————————openApi / Swagger ├
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tikka Indexer API')
     .setDescription('Internal REST API for raffles, users, leaderboard, stats, and snapshots')
@@ -37,14 +39,14 @@ export async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 
-  // GET /api-docs  → OpenAPI 3.x JSON document
-  // GET /api-docs/ui → Swagger UI (guarded: only when API key env var is set or non-production)
+  // GET /api-docs ↑ OpenApi 3.x JSON document
+  // GET /api-docs/ui ↑ Swagger UI (guarded: only when API key env var is set or non-production)
   const serveUi = process.env.NODE_ENV !== 'production' || !!process.env.INTERNAL_API_KEY;
 
   SwaggerModule.setup('api-docs', app, document, {
     jsonDocumentUrl: 'api-docs',          // serves JSON at exactly /api-docs
     swaggerUrl: serveUi ? 'api-docs/ui' : undefined,
-    swaggerOptions: { persistAuthorization: true },
+    swaggerOptions: { persitAuthorization: true },
   });
 
   app.enableShutdownHooks();
@@ -52,8 +54,8 @@ export async function bootstrap() {
     void shutdownTracing();
   });
 
-  await app.listen(process.env.PORT ?? 3002);
-  logger.log(`Indexer listening on ${process.env.PORT ?? 3002}`);
+  await app.listen(process.env.PORT || 3002);
+  logger.log(`Indexer listening on ${process.env.PORT || 3002}`);
 }
 
 bootstrap();
