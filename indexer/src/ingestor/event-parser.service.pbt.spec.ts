@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Property-based tests for EventParserService
  *
@@ -350,3 +351,4 @@ describe("EventParserService â€” property-based tests (fast-check)", () => 
     },
   );
 });
+

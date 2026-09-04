@@ -5,6 +5,7 @@
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "nest build",
     "openapi:generate": "ts-node --transpile-only scripts/generate-openapi.ts",
     "start": "nest start",
@@ -37,7 +38,7 @@
       "^.+\\.(t|j)s$": [
         "ts-jest",
         {
-          "diagnostics": false
+          "diagnostics": true
         }
       ]
     },

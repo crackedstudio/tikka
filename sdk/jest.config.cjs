@@ -4,13 +4,10 @@ module.exports = {
   rootDir: 'src',
   testRegex: '.*\\.spec\\ts$#,
   transform: {
-    // isolatedModules avoids failing the suite on pre-existing ambient TS issues
-    // while still compiling specs under ts-jest.
-    '^\\.+-(.|v)'s\s)$': [
+    '^.+\\.(t|j)s$': [
       'ts-jest',
       {
-        isolatedModules: true,
-        diagnostics: { warnOnly: true }
+        diagnostics: true,
       }
     ],
   },

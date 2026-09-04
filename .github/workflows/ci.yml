@@ -178,7 +178,11 @@ jobs:
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-
+      
+      - name: Typecheck
+        run: pnpm run typecheck
+        continue-on-error: false
+      
       - name: Run tests
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         continue-on-error: false
@@ -404,7 +408,11 @@ jobs:
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-
+      
+      - name: Typecheck
+        run: pnpm run typecheck
+        continue-on-error: false
+      
       - name: Run unit tests (network tests excluded)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:

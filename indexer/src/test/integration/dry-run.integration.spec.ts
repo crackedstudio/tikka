@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { LedgerPollerService } from '../../ingestor/ledger-poller.service';
 import { MetricsService } from '../../metrics/metrics.service';
 
@@ -145,3 +146,4 @@ describe('LedgerPoller Dry-Run (Integration)', () => {
     expect(raffleFinalized).toBe(20);
   });
 });
+

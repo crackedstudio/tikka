@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as entryPoint from "./archive-raffle-events";
 
 /**
@@ -49,3 +50,4 @@ describe("archive-raffle-events entry point", () => {
     expect(require.main).not.toBe(module);
   });
 });
+

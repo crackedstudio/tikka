@@ -495,7 +495,7 @@ async getFailedJobs(): Promise<JobInfo[]> {
       return await this.prngService.compute(requestId);
     }
   }
-}async getStuckDrawReport(): Promise<StuckDrawReport> {
+  async getStuckDrawReport(): Promise<StuckDrawReport> {
     const currentLedger = this.lagMonitor.getCurrentLedger();
     const candidates = new Map<string, DrawCandidate>();
     const errorByRequest = this.buildErrorIndex();
