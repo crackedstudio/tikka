@@ -11,7 +11,7 @@ Implemented an extensible event parsing system for the indexer that supports mul
 #### Core System
 1. **event-handler.interface.ts** - Core interfaces for handlers and contracts
 2. **event-handler-registry.service.ts** - Central registry for managing handlers
-3. **event-parser-v2.service.ts** - New extensible parser using the registry
+3. **event-parser.service.ts** - New extensible parser using the registry
 4. **event-handlers.module.ts** - NestJS module tying everything together
 
 #### Handlers
@@ -27,8 +27,8 @@ Implemented an extensible event parsing system for the indexer that supports mul
 12. **config/event-handlers.json** - Contract and handler configuration
 
 #### Documentation
-13. **EVENT_PARSER_EXTENSIBILITY.md** - Comprehensive guide (100+ sections)
-14. **EXTENSIBLE_EVENT_PARSER_README.md** - Quick start guide
+13. **src/ingestor/EVENT_PARSER.md** - Comprehensive guide (100+ sections)
+14. **src/ingestor/EVENT_PARSER.md** - Quick start guide
 15. **IMPLEMENTATION_SUMMARY.md** - This file
 
 #### Tests
@@ -67,31 +67,31 @@ Implemented an extensible event parsing system for the indexer that supports mul
 ## Architecture
 
 ```
-┌─────────────────────┐
-│  RawSorobanEvent    │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ EventParserV2Service│
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│EventHandlerRegistry │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│   IEventHandler     │
-│  (contract-specific │
-│   or default)       │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│   DomainEvent       │
-└─────────────────────┘
+Ã¢â€Å’Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â
+Ã¢â€â€š  RawSorobanEvent    Ã¢â€â€š
+Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Ëœ
+           Ã¢â€â€š
+           Ã¢â€“Â¼
+Ã¢â€Å’Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â
+Ã¢â€â€š EventParserServiceÃ¢â€â€š
+Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Ëœ
+           Ã¢â€â€š
+           Ã¢â€“Â¼
+Ã¢â€Å’Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â
+Ã¢â€â€šEventHandlerRegistry Ã¢â€â€š
+Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Ëœ
+           Ã¢â€â€š
+           Ã¢â€“Â¼
+Ã¢â€Å’Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â
+Ã¢â€â€š   IEventHandler     Ã¢â€â€š
+Ã¢â€â€š  (contract-specific Ã¢â€â€š
+Ã¢â€â€š   or default)       Ã¢â€â€š
+Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Ëœ
+           Ã¢â€â€š
+           Ã¢â€“Â¼
+Ã¢â€Å’Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â
+Ã¢â€â€š   DomainEvent       Ã¢â€â€š
+Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Ëœ
 ```
 
 ## Usage Examples
@@ -100,7 +100,7 @@ Implemented an extensible event parsing system for the indexer that supports mul
 ```typescript
 @Injectable()
 export class MyService {
-  constructor(private eventParser: EventParserV2Service) {}
+  constructor(private eventParser: EventParserService) {}
 
   process(event: RawSorobanEvent) {
     const parsed = this.eventParser.parse(event);
@@ -173,10 +173,10 @@ EVENT_HANDLER_CONFIG_PATH=config/event-handlers.json
 - Contract listing
 
 ### Test Coverage
-- Contract registration ✅
-- Handler registration ✅
-- Event parsing ✅
-- Runtime management ✅
+- Contract registration Ã¢Å“â€¦
+- Handler registration Ã¢Å“â€¦
+- Event parsing Ã¢Å“â€¦
+- Runtime management Ã¢Å“â€¦
 
 ## Migration Path
 
@@ -251,8 +251,8 @@ EVENT_HANDLER_CONFIG_PATH=config/event-handlers.json
 
 ## Documentation
 
-- **EVENT_PARSER_EXTENSIBILITY.md** - Complete guide with examples
-- **EXTENSIBLE_EVENT_PARSER_README.md** - Quick start
+- **src/ingestor/EVENT_PARSER.md** - Complete guide with examples
+- **src/ingestor/EVENT_PARSER.md** - Quick start
 - **handlers/examples/** - Example implementations
 - **event-handler.interface.ts** - API documentation
 

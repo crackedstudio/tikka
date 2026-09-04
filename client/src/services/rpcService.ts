@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { STELLAR_CONFIG } from "../config/stellar";
 
 let _server: any = null;
@@ -39,7 +40,7 @@ export const checkConnection = async () => {
     }
     return true;
   } catch (error) {
-    console.error("Stellar RPC Connection Error:", error);
+    logger.error("Stellar RPC Connection Error:", error);
     return false;
   }
 };

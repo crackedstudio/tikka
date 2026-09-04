@@ -49,9 +49,5 @@ export type ContractFnName = (typeof ContractFn)[keyof typeof ContractFn];
 /**
  * Raffle states as returned by get_raffle_data.
  */
-export enum RaffleStatus {
-  Open = 0,
-  Drawing = 1,
-  Finalized = 2,
-  Cancelled = 3,
-}
+import { RaffleStatus } from "@tikka/types";
+export { RaffleStatus };

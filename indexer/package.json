@@ -5,16 +5,17 @@
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "nest build",
     "openapi:generate": "ts-node --transpile-only scripts/generate-openapi.ts",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\" \"*.js\"",
-    "test": "jest --testPathIgnorePatterns=integration",
+    "test": "jest --coverage --testPathIgnorePatterns=integration",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
-    "test:integration": "jest --config jest.integration.config.js --forceExit --runInBand",
+    "test:integration": "jest --config jest.integration.config.js --runInBand",
     "status": "ts-node --transpile-only src/cli/status.command.ts",
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
     "snapshot:export": "ts-node src/cli/snapshot-export.ts",
@@ -37,7 +38,7 @@
       "^.+\\.(t|j)s$": [
         "ts-jest",
         {
-          "diagnostics": false
+          "diagnostics": true
         }
       ]
     },
@@ -45,7 +46,16 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageReporters": ["lcov", "text"],
+    "coverageThreshold": {
+      "global": {
+        "statements": 60,
+        "branches": 40,
+        "functions": 50,
+        "lines": 60
+      }
+    }
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.500.0",
@@ -64,7 +74,7 @@
     "@opentelemetry/sdk-metrics": "^2.9.0",
     "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@opentelemetry/sdk-trace-node": "^2.10.0",
-    "@stellar/stellar-sdk": "^14.5.0",
+    "@stellar/stellar-sdk": "^16.1.0",
     "@supabase/supabase-js": "^2.45.0",
     "bullmq": "^5.81.0",
     "ioredis": "^5.9.3",
@@ -73,7 +83,8 @@
     "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "typeorm": "^1.1.0"
+    "typeorm": "^1.1.0",
+    "@tikka/types": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",
@@ -99,8 +110,8 @@
     "typescript": "^5.6.0"
   },
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "node": "22",
+    "pnpm": "9.15.9"
   },
   "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
 }
