@@ -104,4 +104,12 @@ module.exports = {
       packages: ['backend', 'client', 'indexer', 'oracle', 'sdk'],
     },
   },
+  
+  /**
+   * Must-match dependencies: these should use the same version across all packages
+   * that depend on them to ensure compatibility and shared schema definitions.
+   */
+  mustMatch: [
+    'zod', // Schema validation - must match to share schemas across packages
+  ],
 };
