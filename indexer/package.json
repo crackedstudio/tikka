@@ -47,7 +47,10 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "coverageReporters": ["lcov", "text"],
+    "coverageReporters": [
+      "lcov",
+      "text"
+    ],
     "coverageThreshold": {
       "global": {
         "statements": 60,
