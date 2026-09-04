@@ -75,7 +75,7 @@ jobs:
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 9.15.9
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -88,7 +88,7 @@ jobs:
       - name: Check colour contrast (WCAG AA)
         run: node scripts/check-contrast.js
         continue-on-error: false
-      
+
       - name: Check generated API types are up to date
         run: |
           pnpm run generate:types
@@ -113,7 +113,7 @@ jobs:
           path: client/coverage/lcov.info
           if-no-files-found: error
           retention-days: 7
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
@@ -132,15 +132,15 @@ jobs:
           name: backend-openapi
           path: openapi.json
           retention-days: 7
-      
+
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
         continue-on-error: false
-      
+
       - name: Run e2e accessibility tests
         run: pnpm run test:e2e -- --grep "Accessibility"
         continue-on-error: true
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -164,7 +164,7 @@ jobs:
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 9.15.9
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -178,7 +178,11 @@ jobs:
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-
+      
+      - name: Typecheck
+        run: pnpm run typecheck
+        continue-on-error: false
+      
       - name: Run tests
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         continue-on-error: false
@@ -190,7 +194,7 @@ jobs:
           path: sdk/coverage/lcov.info
           if-no-files-found: error
           retention-days: 7
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
@@ -206,7 +210,7 @@ jobs:
           pnpm exec api-extractor run --config api-extractor.write.json
           pnpm exec api-extractor run --config api-extractor.light.json
         continue-on-error: false
-      
+
       - name: Check bundle size budgets
         run: |
           pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
@@ -238,7 +242,7 @@ jobs:
             exit $SIZE_CHECK_EXIT_CODE
           fi
         continue-on-error: false
-      
+
       - name: Check bundle size budgets
         run: |
           pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
@@ -270,7 +274,7 @@ jobs:
             exit $SIZE_CHECK_EXIT_CODE
           fi
         continue-on-error: false
-      
+
       - name: Check bundle size budgets
         run: |
           pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
@@ -302,7 +306,7 @@ jobs:
             exit $SIZE_CHECK_EXIT_CODE
           fi
         continue-on-error: false
-      
+
       - name: Generate docs
         run: pnpm run docs
         continue-on-error: false
@@ -330,7 +334,7 @@ jobs:
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 9.15.9
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -351,6 +355,9 @@ jobs:
           NODE_ENV: test
         continue-on-error: false
 
+      - name: Validate OpenAPI Spec
+        run: pnpm run validate:openapi
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -358,11 +365,11 @@ jobs:
           path: backend/coverage/lcov.info
           if-no-files-found: error
           retention-days: 7
-      
+
       - name: Check module boundaries (dependency-cruiser)
         run: pnpm run boundaries
         continue-on-error: false
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
@@ -390,7 +397,7 @@ jobs:
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 9.15.9
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -404,7 +411,11 @@ jobs:
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
-
+      
+      - name: Typecheck
+        run: pnpm run typecheck
+        continue-on-error: false
+      
       - name: Run unit tests (network tests excluded)
         run: pnpm run test -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
         env:
@@ -418,7 +429,7 @@ jobs:
           path: indexer/coverage/lcov.info
           if-no-files-found: error
           retention-days: 7
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
@@ -446,7 +457,7 @@ jobs:
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 9.15.9
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -474,7 +485,7 @@ jobs:
           path: oracle/coverage/lcov.info
           if-no-files-found: error
           retention-days: 7
-      
+
       - name: Build
         run: pnpm run build
         continue-on-error: false
@@ -670,7 +681,7 @@ jobs:
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 9.15.9
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -933,7 +944,7 @@ jobs:
             fi
             return 0
           }
-          
+
           if ! check_status "${{ needs.client.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \
              ! check_status "${{ needs.backend.result }}" || \

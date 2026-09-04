@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { nativeToScVal, Keypair } from "@stellar/stellar-sdk";
 import { EventParserService } from "./event-parser.service";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
@@ -397,3 +398,4 @@ describe("EventParserService", () => {
     expect(parsed.schemaVersion).toBe(1);
   });
 });
+

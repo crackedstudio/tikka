@@ -127,6 +127,11 @@ done
 
 ## Database migrations
 
+Entity ownership is documented in [../docs/database/ENTITY_OWNERSHIP.md](../docs/database/ENTITY_OWNERSHIP.md).
+The backend reads indexer-owned tables through a read-only role; grants are defined in the repository-level `db/baseline-schema.sql`.
+Backend code must not write to those tables, and dependency-cruiser blocks imports of `indexer/src/database/entities/*`.
+These restrictions are enforced by database grants and the dependency-cruiser import rule, not by documentation alone.
+
 The backend includes a migration validator that helps catch schema drift before deployment. Run it after adding or changing SQL migrations and before opening a pull request:
 
 ```bash

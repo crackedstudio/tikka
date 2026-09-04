@@ -23,10 +23,10 @@ function mockResponse(
   events: rpc.Api.EventResponse[],
   overrides: Partial<rpc.Api.GetEventsResponse> = {},
 ): rpc.Api.GetEventsResponse {
-  const latestLedger = overrides.latestLedger ?? (events.at(-1)?.ledger ?? 100);
+  const latestLedger = overrides.latestLedger ?? (events[events.length - 1]?.ledger ?? 100);
   return {
     events,
-    cursor: overrides.cursor ?? events.at(-1)?.id ?? '',
+    cursor: overrides.cursor ?? events[events.length - 1]?.id ?? '',
     latestLedger,
     oldestLedger: overrides.oldestLedger ?? 1,
     latestLedgerCloseTime: '2024-01-01T00:00:00Z',

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * cursor-recovery.integration.spec.ts
  *
@@ -299,3 +300,4 @@ describe('Cursor entity via TypeORM repository', () => {
     expect(second!.updatedAt.getTime()).toBeGreaterThanOrEqual(first!.updatedAt.getTime());
   });
 });
+

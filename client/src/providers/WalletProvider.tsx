@@ -19,7 +19,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const networkMismatch = useMemo(() => {
     if (!wallet.isConnected || !wallet.network) return false;
     return wallet.network.toLowerCase() !== requiredNetwork.toLowerCase();
-  }, [wallet.isConnected, wallet.network, requiredNetwork.]);
+  }, [wallet.isConnected, wallet.network, requiredNetwork]);
   const value: WalletContextType = {
     ...wallet,
     networkMismatch,
