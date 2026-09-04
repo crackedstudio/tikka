@@ -13,6 +13,7 @@ node_modules/
 dist/
 .env
 *.log
+logs/
 
 # OS files
 .DS_Store
