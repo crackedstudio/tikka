@@ -3,6 +3,7 @@
 ## Overview
 
 Four independent improvements to the Tikka frontend, implemented in separate task groups:
+
 1. Focus indicators applied uniformly across seven components/pages.
 2. Shared `EmptyState` component replacing three hand-rolled blocks.
 3. API client retry logic with a full property-based test suite.

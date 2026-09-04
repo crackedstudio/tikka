@@ -5,9 +5,10 @@ import RaffleCreatedSuccess from "./modals/RaffleCreatedSuccess";
 import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { MetadataService } from "../services/metadataService";
-import { createRaffle } from "../services/contractService";
+import { createRaffle } from "../services/sdkClient";
 import { useAuthContext } from "../providers";
 import type { PipelineProgressEvent } from "../services/transactionPipeline";
+import { CreateRaffleFormSchema } from "../utils/raffleValidation";
 
 interface CreateRaffleButtonProps {
   // Form data for metadata
@@ -119,6 +120,19 @@ const CreateRaffleButton = ({
       );
 
       const durationInSeconds = endTime - Math.floor(Date.now() / 1000);
+
+      const formValidation = CreateRaffleFormSchema.safeParse({
+        ticketPrice: ticketPrice,
+        totalTickets: maxTickets,
+        durationInSeconds: Math.max(0, durationInSeconds),
+      });
+
+      if (!formValidation.success) {
+        const errorMessage = formValidation.error.issues
+          .map((e) => e.message)
+          .join("; ");
+        throw new Error(errorMessage);
+      }
 
       // Stage → progress mapping for the modal
       const stageProgress: Record<string, number> = {

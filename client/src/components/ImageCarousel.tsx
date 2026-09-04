@@ -17,6 +17,29 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
 
     const minSwipeDistance = 50;
 
+    const handlePrev = () => {
+        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+    };
+
+    const handleNext = () => {
+        setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (lightboxOpen) return; // Let Lightbox handle keyboard when open
+
+            if (e.key === "ArrowLeft") {
+                handlePrev();
+            } else if (e.key === "ArrowRight") {
+                handleNext();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [currentIndex, lightboxOpen]);
+
     // If only one image, show it without carousel
     if (images.length === 1) {
         return (
@@ -48,14 +71,6 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
         );
     }
 
-    const handlePrev = () => {
-        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
-    };
-
-    const handleNext = () => {
-        setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
-    };
-
     const onTouchStart = (e: React.TouchEvent) => {
         setTouchEnd(null);
         setTouchStart(e.targetTouches[0].clientX);
@@ -78,21 +93,6 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ images, alt = "Prize" }) 
             handlePrev();
         }
     };
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (lightboxOpen) return; // Let Lightbox handle keyboard when open
-            
-            if (e.key === "ArrowLeft") {
-                handlePrev();
-            } else if (e.key === "ArrowRight") {
-                handleNext();
-            }
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [currentIndex, lightboxOpen]);
 
     return (
         <>

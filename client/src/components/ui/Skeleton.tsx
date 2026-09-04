@@ -10,7 +10,7 @@ interface SkeletonProps {
  * Compose multiple <Skeleton /> elements to build page-level loading states.
  */
 const Skeleton: React.FC<SkeletonProps> = ({ className = "" }) => (
-    <div className={`animate-pulse bg-gray-700 rounded ${className}`} />
+    <div className={`animate-pulse bg-gray-200 dark:bg-white/5 rounded-2xl ${className}`} />
 );
 
 export default Skeleton;

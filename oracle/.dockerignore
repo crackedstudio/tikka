@@ -1,0 +1,37 @@
+# Dependencies and build output
+node_modules
+dist
+coverage/
+
+# Environment / secrets
+.env*
+
+# Documentation (never needed in the image)
+*.md
+
+# Operational tooling pulled in by COPY . .
+grafana/
+k8s/
+docs/
+logs/
+database/
+
+# Secrets / deployment config
+.sops.yaml
+
+# Tooling / VCS
+.git
+.gitignore
+.dockerignore
+
+# Tests / local artifacts (not needed at runtime)
+test
+test-implementation.js
+test-key-management.js
+test-rescue-cli.js
+test-rescue.js
+test_output.txt
+
+# Logs and debug
+npm-debug.log
+pnpm-debug.log

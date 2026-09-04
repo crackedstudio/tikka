@@ -104,11 +104,10 @@ To regenerate locally: `cd sdk && npm run docs`
 
 ## Documentation
 
-The [docs/README.md](./docs/README.md) is the canonical index for all documentation.
-
-- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Full ecosystem specification with diagrams, data flows, contract interface, and API design
-- [RAFFLe_LIFECYCLE.md](./docs/RAFFLE_LIFECYCLE.md) - Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
-- [RANDOMNESS_SCHEMEM.md](./docs/RANDOMNESS_SCHENE.md) - Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
+- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — Full ecosystem specification with diagrams, data flows, contract interface, and API design
+- **[RAFFLE_LIFECYCLE.md](./docs/RAFFLE_LIFECYCLE.md)** — Complete raffle lifecycle guide from creation through leaderboard update, with sequence diagrams and directory references
+- **[RANDOMNESS_SCHEME.md](./docs/RANDOMNESS_SCHEME.md)** — Explains the randomness scheme, trust assumptions, and how third parties can verify a past draw
+- **[WALLET_ADAPTERS.md](./docs/WALLET_ADAPTERS.md)** — All six built-in wallet adapters (Freighter, Albedo, Rabet, xBull, LOBSTR, Mock), the shared conformance suite, and a guide to writing a custom seventh adapter
 
 ## Release & Versioning
 
