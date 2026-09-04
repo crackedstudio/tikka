@@ -43,7 +43,7 @@
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^4.4.3",
-    "@tikka/types": "workspace:*"
+    "@tikka/sdk": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",
