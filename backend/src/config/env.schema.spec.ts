@@ -257,4 +257,49 @@ describe('env.schema validate()', () => {
       expect(e.message).toContain('.env.example');
     }
   });
+
+  // CORS origin allowlist tests — Issue #1344
+
+  it('parses comma-separated VITE_FRONTEND_URL into an array of URLs', () => {
+    const result = validate({
+      ...validEnv,
+      VITE_FRONTEND_URL: 'https://app.tikka.io,https://www.tikka.io,https://staging.tikka.io',
+    });
+    expect(result.VITE_FRONTEND_URL).toEqual([
+      'https://app.tikka.io',
+      'https://www.tikka.io',
+      'https://staging.tikka.io',
+    ]);
+  });
+
+  it('parses a single VITE_FRONTEND_URL into a one-element array', () => {
+    const result = validate({
+      ...validEnv,
+      VITE_FRONTEND_URL: 'https://app.tikka.io',
+    });
+    expect(result.VITE_FRONTEND_URL).toEqual(['https://app.tikka.io']);
+  });
+
+  it('rejects invalid URLs in VITE_FRONTEND_URL', () => {
+    expect(() =>
+      validate({
+        ...validEnv,
+        VITE_FRONTEND_URL: 'https://app.tikka.io,not-a-url',
+      }),
+    ).toThrow('Environment validation failed');
+  });
+
+  it('accepts VITE_FRONTEND_URL_REGEX when present', () => {
+    const result = validate({
+      ...validEnv,
+      VITE_FRONTEND_URL: 'https://app.tikka.io',
+      VITE_FRONTEND_URL_REGEX: 'https://.*\\.vercel\\.app',
+    });
+    expect(result.VITE_FRONTEND_URL_REGEX).toBe('https://.*\\.vercel\\.app');
+  });
+
+  it('defaults VITE_FRONTEND_URL_REGEX to undefined when absent', () => {
+    const result = validate(validEnv);
+    expect(result.VITE_FRONTEND_URL_REGEX).toBeUndefined();
+  });
 });

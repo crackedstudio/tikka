@@ -129,9 +129,9 @@ function isExternalContractFailure(msg: string): boolean {
  * Maps each operation to the required raffle state.
  */
 export const LIFECYCLE_REQUIREMENTS: Record<string, number> = {
-  buy_ticket:    0, // RaffleStatus.Open
-  trigger_draw:  0, // RaffleStatus.Open
-  cancel_raffle: 0, // RaffleStatus.Open
+  buy_ticket:    0, // RaffleStatus.OPEN
+  trigger_draw:  0, // RaffleStatus.OPEN
+  cancel_raffle: 0, // RaffleStatus.OPEN
 };
 
 /**

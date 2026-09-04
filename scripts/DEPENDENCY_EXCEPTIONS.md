@@ -116,11 +116,11 @@ This is acceptable as they are patch/minor version differences within the same m
 
 ## TypeORM Versions
 
-TypeORM currently has a major version difference between packages:
-- **backend**: ^0.3.28
+TypeORM is aligned across packages on the 1.x major:
+- **backend**: ^1.1.0
 - **indexer**: ^1.1.0
 
-Major version updates for TypeORM require coordinated migration and testing.
+Both packages read the same PostgreSQL schema and must stay on the same major; the indexer owns the shared migrations. Keep this alignment — verify with `node scripts/check-dependencies.js`.
 
 ## Dependabot Grouping & Major Ignore Policy
 
