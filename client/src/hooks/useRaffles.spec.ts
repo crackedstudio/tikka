@@ -25,7 +25,7 @@ function createQueryWrapper() {
     React.createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
-function renderRaffleHook(hook: () => any, options?: any) {
+function renderRaffleHook(hook: () => unknown, options?: Parameters<typeof renderHook>[1]) {
   return renderHook(hook, { wrapper: createQueryWrapper(), ...options });
 }
 

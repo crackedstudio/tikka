@@ -112,7 +112,7 @@ export interface RequestOptions extends RequestInit {
  * Make an authenticated API request
  * Automatically adds Authorization header if token is available
  */
-export async function apiRequest<T = any>(
+export async function apiRequest<T = unknown>(
   endpoint: string,
   options: RequestOptions = {},
 ): Promise<T> {
@@ -218,12 +218,14 @@ export async function apiRequest<T = any>(
       );
     }
 
-    const errorData = await response.json().catch(() => ({
+    const errorData = (await response.json().catch(() => ({
       message: `Request failed with status ${response.status}`,
       status: response.status,
-    }));
+    }))) as Record<string, unknown>;
 
-    const errorMessage = errorData.message || "Request failed";
+    const errorMessage = typeof errorData.message === "string"
+      ? errorData.message
+      : "Request failed";
 
     // Global Error Toast Notification with Actions
     toast.error("API Request Failed", {
@@ -289,33 +291,33 @@ function shouldRetry(method: string, _error: unknown, response?: Response): bool
  * Convenience methods for common HTTP verbs
  */
 export const api = {
-  get: <T = any>(endpoint: string, options?: RequestOptions) =>
+  get: <T = unknown>(endpoint: string, options?: RequestOptions) =>
     apiRequest<T>(endpoint, { ...options, method: "GET" }),
 
-  post: <T = any>(endpoint: string, data?: any, options?: RequestOptions) =>
+  post: <T = unknown>(endpoint: string, data?: unknown, options?: RequestOptions) =>
     apiRequest<T>(endpoint, {
       ...options,
       method: "POST",
       body:
         data instanceof FormData
           ? data
-          : data
+          : data !== undefined
             ? JSON.stringify(data)
             : undefined,
     }),
 
-  put: <T = any>(endpoint: string, data?: any, options?: RequestOptions) =>
+  put: <T = unknown>(endpoint: string, data?: unknown, options?: RequestOptions) =>
     apiRequest<T>(endpoint, {
       ...options,
       method: "PUT",
       body:
         data instanceof FormData
           ? data
-          : data
+          : data !== undefined
             ? JSON.stringify(data)
             : undefined,
     }),
 
-  delete: <T = any>(endpoint: string, options?: RequestOptions) =>
+  delete: <T = unknown>(endpoint: string, options?: RequestOptions) =>
     apiRequest<T>(endpoint, { ...options, method: "DELETE" }),
 };

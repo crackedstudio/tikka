@@ -4,7 +4,17 @@ import ImageCarousel from './ImageCarousel';
 
 // Mock LazyImage component
 vi.mock('./LazyImage', () => ({
-  default: ({ src, alt, onClick, className }: any) => (
+  default: ({
+    src,
+    alt,
+    onClick,
+    className,
+  }: {
+    src?: string;
+    alt?: string;
+    onClick?: () => void;
+    className?: string;
+  }) => (
     <img
       src={src}
       alt={alt}
