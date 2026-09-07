@@ -82,7 +82,7 @@ describe("RecentParticipants", () => {
         raffleId={1}
         currentUserAddress="GTEST"
         onOptimisticUpdate={onOptimisticUpdate}
-        ref={ref as any}
+        ref={ref}
       />
     );
 
@@ -92,7 +92,7 @@ describe("RecentParticipants", () => {
         raffleId={1}
         currentUserAddress="GTEST"
         onOptimisticUpdate={onOptimisticUpdate}
-        ref={ref as any}
+        ref={ref}
       />
     );
 

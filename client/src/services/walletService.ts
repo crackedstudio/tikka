@@ -1,6 +1,34 @@
 import { logger } from '../utils/logger';
 import type { WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 
+type WalletWindow = Window & {
+  freighter?: {
+    switchNetwork?: (network: string) => Promise<void>;
+    openWallet?: () => Promise<void>;
+    [key: string]: unknown;
+  };
+  lobstr?: Record<string, unknown>;
+  xBull?: {
+    switchNetwork?: (network: string) => Promise<void>;
+    request?: (payload: { method: string; params?: unknown[] }) => Promise<unknown>;
+    [key: string]: unknown;
+  };
+  xbull?: {
+    switchNetwork?: (network: string) => Promise<void>;
+    [key: string]: unknown;
+  };
+  rabet?: Record<string, unknown>;
+};
+
+type WalletKitModule = {
+  getAddress: () => Promise<{ address: string }>;
+  openModal: (options: { onWalletSelected: (option: { id: string }) => Promise<void> | void }) => void;
+  setWallet: (walletId: string) => void;
+  getNetwork: () => Promise<{ network: string }>;
+  signTransaction: (transaction: unknown) => Promise<unknown>;
+  disconnect: () => void;
+};
+
 const SELECTED_WALLET_ID = "selectedWalletId";
 const LAST_CONNECTED_WALLET_TYPE = "tikka_last_connected_wallet";
 const TEST_MODE_WALLET_AVAILABLE_KEY = "tikka_test_wallet_available";
@@ -133,7 +161,7 @@ function detectWalletType(): string {
 
   // Fallback: detect from window object
   if (typeof window !== "undefined") {
-    const g = window as any;
+    const g = window as WalletWindow;
     if (g.freighter) return "freighter";
     if (g.lobstr) return "lobstr";
     if (g.xBull || g.xbull) return "xbull";
@@ -160,7 +188,7 @@ function getWalletSettingsUrl(walletType: string): string | undefined {
 
 function getProgrammaticNetworkSwitcher(walletType: string): ((network: string) => Promise<void>) | undefined {
   if (typeof window === "undefined") return undefined;
-  const g = window as any;
+  const g = window as WalletWindow;
 
   if (walletType === "freighter") {
     if (typeof g.freighter?.switchNetwork === "function") {
@@ -198,7 +226,7 @@ function getProgrammaticNetworkSwitcher(walletType: string): ((network: string) 
   return undefined;
 }
 
-async function openWalletSettings(walletType: string): Promise<void> {
+async function _openWalletSettings(walletType: string): Promise<void> {
   const settingsUrl = getWalletSettingsUrl(walletType);
   if (settingsUrl && typeof window !== "undefined") {
     window.open(settingsUrl, "_blank");
@@ -237,7 +265,7 @@ function getNetworkPassphrase(): string {
     : "Test SDF Network ; September 2015";
 }
 
-let kit: any = null;
+let kit: WalletKitModule | null = null;
 
 export async function getKit() {
   if (!kit) {
@@ -288,27 +316,25 @@ export async function connectWallet(): Promise<{ success: boolean; address?: str
     return { success: true, address: "GTESTADDRESS1234567890ABCDEF" };
   }
 
+  const kit = await getKit();
+
   return new Promise((resolve) => {
-    void (async () => {
-      const kit = await getKit();
-      kit.openModal({
-      onWalletSelected: async (option: any) => {
+    kit.openModal({
+      onWalletSelected: async (option: { id: string }) => {
         try {
           await setWallet(option.id);
           const address = await getAccountAddress();
-          
-          // Store the last connected wallet type
+
           if (typeof window !== "undefined" && address) {
             localStorage.setItem(LAST_CONNECTED_WALLET_TYPE, option.id);
           }
-          
+
           resolve(address ? { success: true, address } : { success: false, error: "No address found" });
-        } catch (error: any) {
-          resolve({ success: false, error: error.message });
+        } catch (error) {
+          resolve({ success: false, error: error instanceof Error ? error.message : "Selection failed" });
         }
       },
     });
-    })();
   });
 }
 
@@ -349,7 +375,7 @@ export async function getNetwork(): Promise<string | null> {
   }
 }
 
-export async function signTransaction(transaction: any): Promise<WalletSignResult> {
+export async function signTransaction(transaction: unknown): Promise<WalletSignResult> {
   const capabilities = getWalletCapabilities();
 
   // Check if wallet supports signing before attempting
@@ -397,10 +423,11 @@ export async function isWalletInstalled(): Promise<boolean> {
   }
 
   // Check if any wallet extension is available
+  const walletWindow = window as WalletWindow;
   return typeof window !== "undefined" && (
-    !!(window as any).freighter ||
-    !!(window as any).xBull ||
-    !!(window as any).rabet
+    !!walletWindow.freighter ||
+    !!walletWindow.xBull ||
+    !!walletWindow.rabet
   );
 }
 
@@ -418,7 +445,7 @@ export async function attemptAutoReconnect(): Promise<{ success: boolean; addres
 
   try {
     // Check if there was a previously connected wallet
-    const lastWalletType = typeof window !== "undefined" 
+    const lastWalletType = typeof window !== "undefined"
       ? localStorage.getItem(LAST_CONNECTED_WALLET_TYPE)
       : null;
 
@@ -429,42 +456,43 @@ export async function attemptAutoReconnect(): Promise<{ success: boolean; addres
     // Currently only Freighter supports auto-reconnect via isConnected API
     if (lastWalletType.toLowerCase().includes("freighter")) {
       // Check if Freighter extension is available
-      if (typeof window === "undefined" || !(window as any).freighter) {
+      const walletWindow = window as WalletWindow;
+      if (typeof window === "undefined" || !walletWindow.freighter) {
         return { success: false };
       }
 
       try {
         // Try to get freighter API
         const freighterApi = await import('@stellar/freighter-api');
-        
+
         // Check if already connected
         if (typeof freighterApi.isConnected === 'function') {
           const connected = await freighterApi.isConnected();
-          
+
           if (connected) {
             // Set the wallet without showing modal
             const selectedWalletId = getSelectedWalletId();
             if (!selectedWalletId) {
               await setWallet(FREIGHTER_ID);
             }
-            
+
             // Get the address
             const address = await getAccountAddress();
-            
+
             if (address) {
               return { success: true, address };
             }
           }
         }
       } catch (error) {
-        console.debug("Auto-reconnect failed:", error);
+        logger.debug("Auto-reconnect failed:", error);
         return { success: false };
       }
     }
 
     return { success: false };
   } catch (error) {
-    console.debug("Auto-reconnect error:", error);
+    logger.debug("Auto-reconnect error:", error);
     return { success: false };
   }
 }

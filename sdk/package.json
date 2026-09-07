@@ -14,6 +14,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "typesVersions": {
+    "*": {
+      "network": [
+        "dist/network/circuit-breaker.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": {
@@ -26,14 +33,14 @@
       }
     },
     "./light": {
-      "import": {
-        "types": "./dist/esm/light.d.ts",
-        "default": "./dist/esm/light.js"
-      },
-      "require": {
-        "types": "./dist/cjs/light.d.ts",
-        "default": "./dist/cjs/light.js"
-      }
+      "import": "./dist/light/index.light.js",
+      "require": "./dist/light/index.light.js",
+      "types": "./dist/light/index.light.d.ts"
+    },
+    "./network": {
+      "import": "./dist/network/circuit-breaker.js",
+      "require": "./dist/network/circuit-breaker.js",
+      "types": "./dist/network/circuit-breaker.d.ts"
     }
   },
   "bin": {

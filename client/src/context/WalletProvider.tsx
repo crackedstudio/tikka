@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { allowAllModules, FREIGHTER_ID, StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
 
 interface WalletContextValue {
   address: string | null;
@@ -9,19 +10,16 @@ interface WalletContextValue {
 
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
 
-let walletKitPromise: Promise<any> | null = null;
+let walletKitPromise: Promise<StellarWalletsKit> | null = null;
 
 function getWalletKit() {
   if (!walletKitPromise) {
-    walletKitPromise = import("@creit.tech/stellar-wallets-kit").then(({ WalletKit }) => {
+    walletKitPromise = import("@creit.tech/stellar-wallets-kit").then(({ StellarWalletsKit: WalletKit }) => {
       const network = import.meta.env.VITE_STELLAR_NETWORK ?? "testnet";
-      const networkPassphrase =
-        network === "mainnet"
-          ? "Public Global Stellar Network ; September 2015"
-          : "Test SDF Network ; September 2015";
       return new WalletKit({
+        modules: allowAllModules(),
+        selectedWalletId: FREIGHTER_ID,
         network,
-        networkPassphrase,
       });
     });
   }
@@ -34,9 +32,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(async () => {
     const walletKit = await getWalletKit();
-    await walletKit.openModal();
-    const publicKey = await walletKit.getPublicKey();
-    setAddress(publicKey);
+    const { address } = await walletKit.getAddress();
+    setAddress(address);
     setIsConnected(true);
   }, []);
 

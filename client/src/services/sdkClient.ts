@@ -59,6 +59,8 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+type ContractReadValue = Record<string, unknown>;
+
 // ─── Wallet adapter bridge ────────────────────────────────────────────────────
 // Bridges the SDK WalletAdapter contract onto the legacy wallet kit wrapper so
 // the SDK lifecycle can sign without the client re-implementing wallet logic.
@@ -371,7 +373,7 @@ export async function getRaffleData(
 ): Promise<ContractResponse<ContractRaffleData>> {
   try {
     assertConfigured();
-    const res = await sdkContractService.simulateReadOnly<any>(
+    const res = await sdkContractService.simulateReadOnly<ContractReadValue>(
       ContractFn.GET_RAFFLE_DATA,
       [raffleId],
     );
@@ -442,7 +444,7 @@ export async function getUserParticipation(
 ): Promise<ContractResponse<ContractUserParticipation | null>> {
   try {
     assertConfigured();
-    const res = await sdkContractService.simulateReadOnly<any>(
+    const res = await sdkContractService.simulateReadOnly<ContractReadValue>(
       CONTRACT_CONFIG.functions.getUserParticipation,
       [userAddress, raffleId],
     );
