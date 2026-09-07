@@ -127,7 +127,7 @@ describe("Leaderboard Component", () => {
       vi.mocked(useLeaderboard).mockReturnValue({
         data: null,
         isLoading: false,
-        error: mockError as any,
+        error: mockError,
         refetch: mockRefetch,
       });
 
@@ -148,7 +148,7 @@ describe("Leaderboard Component", () => {
       vi.mocked(useLeaderboard).mockReturnValue({
         data: null,
         isLoading: false,
-        error: mockError as any,
+        error: mockError,
         refetch: mockRefetch,
       });
 

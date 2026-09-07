@@ -9,7 +9,11 @@ vi.mock("canvas-confetti", () => ({
 }));
 
 vi.mock("../components/RaffleWinnerBanner", () => ({
-    default: vi.fn(({ prizeName, prizeValue, walletAddress }: any) => (
+    default: vi.fn(({ prizeName, prizeValue, walletAddress }: {
+        prizeName: string;
+        prizeValue: string;
+        walletAddress: string;
+    }) => (
         <div data-testid="winner-banner">
             {prizeName} | {prizeValue} | {walletAddress}
         </div>
