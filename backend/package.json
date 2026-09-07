@@ -76,9 +76,14 @@
       "^\\.+\\.(t|j)sx?$": "ts-jest"
     },
     "testEnvironment": "node",
-    "collectCoverageFrom": ["**/*.ts"],
+    "collectCoverageFrom": [
+      "**/*.ts"
+    ],
     "coverageDirectory": "../coverage",
-    "coverageReporters": ["lcov", "text"],
+    "coverageReporters": [
+      "lcov",
+      "text"
+    ],
     "coverageThreshold": {
       "global": {
         "statements": 60,
