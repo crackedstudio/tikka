@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { StatsService, TransparencyStats, VerifyResult } from './stats.service';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 import {
   IndexerService,
   IndexerPlatformStats,

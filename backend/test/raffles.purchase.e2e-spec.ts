@@ -6,7 +6,7 @@ import { PassportModule } from '@nestjs/passport';
 import { APP_GUARD } from '@nestjs/core';
 import { RafflesController } from '../src/api/rest/raffles/raffles.controller';
 import { RafflesService } from '../src/api/rest/raffles/raffles.service';
-import { StorageService } from '../src/services/storage.service';
+import { StorageService } from '../src/services/storage/storage.service';
 import { IdempotencyService } from '../src/common/idempotency/idempotency.service';
 import { AuthModule } from '../src/auth/auth.module';
 import { JwtStrategy } from '../src/auth/jwt.strategy';

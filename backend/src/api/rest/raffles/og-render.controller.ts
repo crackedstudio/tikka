@@ -4,7 +4,7 @@ import { FastifyReply } from "fastify";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { RafflesService, RaffleDetailResponse } from "./raffles.service";
 import { ConfigService } from "@nestjs/config";
-import { MetadataRedisService } from "../../../services/metadata-redis.service";
+import { MetadataRedisService } from "../../../services/metadata/metadata-redis.service";
 import sharp from "sharp";
 
 /**

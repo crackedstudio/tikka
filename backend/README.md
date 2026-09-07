@@ -6,7 +6,9 @@ API layer that merges indexer data with Supabase metadata; handles auth (Sign In
 
 ## Documentation
 
-This `README.md` is the backend package entry point. All other project documentation is indexed in [`../docs/README.md`](../docs/README.md); operational runbooks live in `../docs/runbooks/` and architectural decisions in `../docs/adr/`. Package roots must contain only `README.md` and, if needed, `OPERATIONAL.md`; all other package-root docs have been moved to `docs/` or archived in `docs/archive/`. The former `backend/VALIDATION_*.md` files have been merged and moved to `docs/`; do not reintroduce package-root `.md` files.
+- **[Request validation](../docs/backend/validation.md)** — global `ValidationPipe`, Zod schemas, DTO inventory, and endpoint checklist
+
+> **Note:** Package roots must contain only `README.md` and, if needed, `OPERATIONAL.md`; all other package-root docs have been moved to `docs/` or archived in `docs/archive/`.
 
 ## Raffles API
 
