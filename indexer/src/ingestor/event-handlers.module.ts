@@ -1,9 +1,10 @@
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
-import { EventParserV2Service } from "./event-parser-v2.service";
+import { EventParserService } from "./event-parser.service";
 import { EVENT_PARSER } from "./event-parser.interface";
 import { IEventHandler } from "./event-handler.interface";
+import { ContractEventTopic } from "./event.types";
 import {
   assertValidEventHandlerConfig,
   buildValidationContext,
@@ -34,10 +35,10 @@ import {
   imports: [ConfigModule],
   providers: [
     EventHandlerRegistry,
-    EventParserV2Service,
-    // Bind the parser contract token to the single chosen parser (V2) so
-    // ingestion services depend on IEventParser rather than a concrete class.
-    { provide: EVENT_PARSER, useExisting: EventParserV2Service },
+    EventParserService,
+    // Bind the parser contract token to EventParserService so ingestion
+    // services depend on IEventParser rather than a concrete class.
+    { provide: EVENT_PARSER, useExisting: EventParserService },
     // Register all default handler classes
     RaffleCreatedHandler,
     TicketPurchasedHandler,
@@ -52,7 +53,7 @@ import {
     AdminTransferProposedHandler,
     AdminTransferAcceptedHandler,
   ],
-  exports: [EventHandlerRegistry, EventParserV2Service, EVENT_PARSER],
+  exports: [EventHandlerRegistry, EventParserService, EVENT_PARSER],
 })
 export class EventHandlersModule implements OnModuleInit {
   private readonly logger = new Logger(EventHandlersModule.name);
@@ -76,21 +77,28 @@ export class EventHandlersModule implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Register all default handlers
-    const handlers: IEventHandler[] = [
-      this.raffleCreatedHandler,
-      this.ticketPurchasedHandler,
-      this.raffleFinalizedHandler,
-      this.drawTriggeredHandler,
-      this.randomnessRequestedHandler,
-      this.randomnessReceivedHandler,
-      this.raffleCancelledHandler,
-      this.ticketRefundedHandler,
-      this.contractPausedHandler,
-      this.contractUnpausedHandler,
-      this.adminTransferProposedHandler,
-      this.adminTransferAcceptedHandler,
-    ];
+    // Register all default handlers, keyed by contract event topic.
+    //
+    // The record is typed `Record<ContractEventTopic, IEventHandler>`: adding
+    // a topic to the DomainEvent union without registering a default handler
+    // for it here fails the build — the event cannot be parsed until it is
+    // handled.
+    const handlersByTopic: Record<ContractEventTopic, IEventHandler> = {
+      RaffleCreated: this.raffleCreatedHandler,
+      TicketPurchased: this.ticketPurchasedHandler,
+      RaffleFinalized: this.raffleFinalizedHandler,
+      DrawTriggered: this.drawTriggeredHandler,
+      RandomnessRequested: this.randomnessRequestedHandler,
+      RandomnessReceived: this.randomnessReceivedHandler,
+      RaffleCancelled: this.raffleCancelledHandler,
+      TicketRefunded: this.ticketRefundedHandler,
+      ContractPaused: this.contractPausedHandler,
+      ContractUnpaused: this.contractUnpausedHandler,
+      AdminTransferProposed: this.adminTransferProposedHandler,
+      AdminTransferAccepted: this.adminTransferAcceptedHandler,
+    };
+
+    const handlers: IEventHandler[] = Object.values(handlersByTopic);
 
     for (const handler of handlers) {
       this.registry.registerDefaultHandler(handler);

@@ -54,7 +54,7 @@ function makeContractService(stateValue: number) {
 describe('TicketService.buy() — lifecycle validation', () => {
   it('throws RaffleEnded when raffle is DRAWING', async () => {
     const params = makeParams();
-    const cs = makeContractService(RaffleStatus.Drawing);
+    const cs = makeContractService(RaffleStatus.DRAWING);
     const service = new TicketService(cs);
 
     await expect(service.buy(params)).rejects.toThrow(TikkaSdkError);
@@ -66,7 +66,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
 
   it('throws RaffleEnded when raffle is FINALIZED', async () => {
     const params = makeParams();
-    const cs = makeContractService(RaffleStatus.Finalized);
+    const cs = makeContractService(RaffleStatus.FINALIZED);
     const service = new TicketService(cs);
 
     await expect(service.buy(params)).rejects.toMatchObject({
@@ -77,7 +77,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
 
   it('throws RaffleEnded when raffle is CANCELLED', async () => {
     const params = makeParams();
-    const cs = makeContractService(RaffleStatus.Cancelled);
+    const cs = makeContractService(RaffleStatus.CANCELLED);
     const service = new TicketService(cs);
 
     await expect(service.buy(params)).rejects.toMatchObject({
@@ -88,7 +88,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
 
   it('proceeds and calls invoke when raffle is OPEN', async () => {
     const params = makeParams();
-    const cs = makeContractService(RaffleStatus.Open);
+    const cs = makeContractService(RaffleStatus.OPEN);
     const service = new TicketService(cs);
 
     const result = await service.buy(params);
@@ -103,11 +103,11 @@ describe('TicketService.buy() — lifecycle validation', () => {
 
   it('fetches state before any RPC transaction call', async () => {
     const params = makeParams();
-    const cs = makeContractService(RaffleStatus.Open);
+    const cs = makeContractService(RaffleStatus.OPEN);
     const callOrder: string[] = [];
     cs.simulateReadOnly.mockImplementation(async () => {
       callOrder.push('simulateReadOnly');
-      return { status: 'SUCCESS', value: { status: RaffleStatus.Open } };
+      return { status: 'SUCCESS', value: { status: RaffleStatus.OPEN } };
     });
     cs.invoke.mockImplementation(async () => {
       callOrder.push('invoke');
@@ -126,7 +126,7 @@ describe('TicketService.buy() — lifecycle validation', () => {
 
 describe('AdminService.finalizeRaffle() — lifecycle validation', () => {
   it('throws RaffleEnded when raffle is already DRAWING', async () => {
-    const cs = makeContractService(RaffleStatus.Drawing);
+    const cs = makeContractService(RaffleStatus.DRAWING);
     const service = new AdminService(cs as any);
 
     await expect(service.finalizeRaffle(RAFFLE_ID)).rejects.toMatchObject({
@@ -136,7 +136,7 @@ describe('AdminService.finalizeRaffle() — lifecycle validation', () => {
   });
 
   it('proceeds when raffle is OPEN', async () => {
-    const cs = makeContractService(RaffleStatus.Open);
+    const cs = makeContractService(RaffleStatus.OPEN);
     cs.invoke.mockResolvedValue({ status: 'SUCCESS', value: null, txHash: 'TX', ledger: 1 });
     const service = new AdminService(cs as any);
 
@@ -150,7 +150,7 @@ describe('AdminService.finalizeRaffle() — lifecycle validation', () => {
 
 describe('AdminService.cancelRaffle() — lifecycle validation', () => {
   it('throws RaffleEnded when raffle is FINALIZED', async () => {
-    const cs = makeContractService(RaffleStatus.Finalized);
+    const cs = makeContractService(RaffleStatus.FINALIZED);
     const service = new AdminService(cs as any);
 
     await expect(service.cancelRaffle(RAFFLE_ID)).rejects.toMatchObject({
@@ -160,7 +160,7 @@ describe('AdminService.cancelRaffle() — lifecycle validation', () => {
   });
 
   it('proceeds when raffle is OPEN', async () => {
-    const cs = makeContractService(RaffleStatus.Open);
+    const cs = makeContractService(RaffleStatus.OPEN);
     cs.invoke.mockResolvedValue({ status: 'SUCCESS', value: null, txHash: 'TX', ledger: 1 });
     const service = new AdminService(cs as any);
 
@@ -177,41 +177,41 @@ describe('AdminService.cancelRaffle() — lifecycle validation', () => {
 describe('validateLifecycleTransition', () => {
   it('throws RaffleEnded for buy_ticket on DRAWING state', () => {
     expect(() =>
-      validateLifecycleTransition('buy_ticket', RaffleStatus.Drawing, RAFFLE_ID)
+      validateLifecycleTransition('buy_ticket', RaffleStatus.DRAWING, RAFFLE_ID)
     ).toThrow(TikkaSdkError);
     expect(() =>
-      validateLifecycleTransition('buy_ticket', RaffleStatus.Drawing, RAFFLE_ID)
+      validateLifecycleTransition('buy_ticket', RaffleStatus.DRAWING, RAFFLE_ID)
     ).toThrow(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
   });
 
   it('throws RaffleEnded for buy_ticket on FINALIZED state', () => {
     expect(() =>
-      validateLifecycleTransition('buy_ticket', RaffleStatus.Finalized, RAFFLE_ID)
+      validateLifecycleTransition('buy_ticket', RaffleStatus.FINALIZED, RAFFLE_ID)
     ).toThrow(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
   });
 
   it('throws RaffleEnded for buy_ticket on CANCELLED state', () => {
     expect(() =>
-      validateLifecycleTransition('buy_ticket', RaffleStatus.Cancelled, RAFFLE_ID)
+      validateLifecycleTransition('buy_ticket', RaffleStatus.CANCELLED, RAFFLE_ID)
     ).toThrow(expect.objectContaining({ code: TikkaSdkErrorCode.RaffleEnded }));
   });
 
   it('does NOT throw for buy_ticket on OPEN state', () => {
     expect(() =>
-      validateLifecycleTransition('buy_ticket', RaffleStatus.Open, RAFFLE_ID)
+      validateLifecycleTransition('buy_ticket', RaffleStatus.OPEN, RAFFLE_ID)
     ).not.toThrow();
   });
 
   it('does NOT throw for unknown operations (no requirement defined)', () => {
     expect(() =>
-      validateLifecycleTransition('get_admin', RaffleStatus.Drawing, RAFFLE_ID)
+      validateLifecycleTransition('get_admin', RaffleStatus.DRAWING, RAFFLE_ID)
     ).not.toThrow();
   });
 
   it('error message includes raffle ID and state names', () => {
     let msg = '';
     try {
-      validateLifecycleTransition('buy_ticket', RaffleStatus.Drawing, RAFFLE_ID);
+      validateLifecycleTransition('buy_ticket', RaffleStatus.DRAWING, RAFFLE_ID);
     } catch (e) {
       msg = (e as Error).message;
     }

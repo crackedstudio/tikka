@@ -19,11 +19,11 @@ export const CREATOR_ADDRESS =
 
 /** A 56-character Stellar G-address used as a default buyer across fixtures. */
 export const BUYER_ADDRESS =
-  'GBRAND7QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQBRANDD';
+  'GBRAND7QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQBRAND';
 
 /** A second buyer address used in multi-user scenarios. */
 export const BUYER2_ADDRESS =
-  'GCREATOR2QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQCREATOR2';
+  'GCREATOR2QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQCREATOR';
 
 // ─── TX hash helpers ─────────────────────────────────────────────────────────
 
@@ -154,6 +154,7 @@ export function makeRaffleCreatedEvent(
 
   return {
     type: 'RaffleCreated',
+    schemaVersion: 1,
     raffle_id: f.raffleId,
     creator: f.creator,
     params: {
@@ -175,6 +176,7 @@ export function makeTicketPurchasedEvent(
 
   return {
     type: 'TicketPurchased',
+    schemaVersion: 1,
     raffle_id: f.raffleId,
     buyer: f.buyer,
     ticket_ids: f.ticketIds,
@@ -190,6 +192,7 @@ export function makeRaffleFinalizedEvent(
 
   return {
     type: 'RaffleFinalized',
+    schemaVersion: 1,
     raffle_id: f.raffleId,
     winner: f.winner,
     winning_ticket_id: 1,
@@ -205,6 +208,7 @@ export function makeRaffleCancelledEvent(
 
   return {
     type: 'RaffleCancelled',
+    schemaVersion: 1,
     raffle_id: f.raffleId,
     reason: f.reason,
     ...overrides,
@@ -218,6 +222,7 @@ export function makeTicketRefundedEvent(
 
   return {
     type: 'TicketRefunded',
+    schemaVersion: 1,
     raffle_id: f.raffleId,
     ticket_id: f.ticketId,
     recipient: f.recipient,

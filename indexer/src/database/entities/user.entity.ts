@@ -1,4 +1,5 @@
 import { Column, Entity, Index, PrimaryColumn, UpdateDateColumn } from "typeorm";
+import { User } from "@tikka/types";
 
 /**
  * Aggregated per-user participation statistics.
@@ -37,7 +38,7 @@ import { Column, Entity, Index, PrimaryColumn, UpdateDateColumn } from "typeorm"
   "totalTicketsBought",
   "address",
 ])
-export class UserEntity {
+export class UserEntity implements User {
   /** Stellar account address — primary key. */
   @PrimaryColumn({ type: "varchar", length: 56, name: "address" })
   address!: string;

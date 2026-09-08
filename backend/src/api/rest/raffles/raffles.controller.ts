@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,24 +7,18 @@ import {
   Param,
   ParseIntPipe,
   NotFoundException,
-  PayloadTooLargeException,
   Post,
   Query,
-  Req,
   Res,
-  Sse,
   UseInterceptors,
   UsePipes,
-  Header,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiParam, ApiConsumes, ApiBody, ApiBearerAuth, ApiHeader, ApiResponse, ApiQuery } from "@nestjs/swagger";
-import { FastifyRequest } from "fastify";
-import { MultipartFile } from "@fastify/multipart";
+import { ApiTags, ApiOperation, ApiParam, ApiBearerAuth, ApiHeader, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
 import { RafflesService } from "./raffles.service";
 import { env } from "../../../config/env.config";
-import { UpsertMetadataPayload } from "../../../services/metadata.service";
+import { UpsertMetadataPayload } from "../../../services/metadata/metadata.service";
 import {
   ListRafflesQuerySchema,
   ListRafflesQueryDto,
@@ -39,6 +32,7 @@ import {
 } from "./dto";
 import { createZodPipe } from "./pipes/zod-validation.pipe";
 import {
+import {
   ALLOWED_UPLOAD_MIME_TYPES,
   AllowedUploadMimeType,
   MAX_UPLOAD_IMAGE_HEIGHT,
@@ -46,24 +40,24 @@ import {
   MAX_UPLOAD_IMAGE_WIDTH,
   MAX_UPLOAD_BYTES,
 } from "../../../config/upload.config";
-import { StorageService } from "../../../services/storage.service";
-import { MetadataRedisService } from "../../../services/metadata-redis.service";
-import { SseService } from "../../../services/sse.service";
+import { StorageService } from "../../../services/storage/storage.service";
+import { MetadataRedisService } from "../../../services/metadata/metadata-redis.service";
+import { SseService } from "../../../services/notifications/sse.service";
 import {
   UpsertMetadataSchema,
   UpsertMetadataDto,
 } from "./metadata.schema";
 import { Throttle } from "@nestjs/throttler";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
-import { IdempotencyService } from "../../../common/idempotency/idempotency.service";
 import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
 import { SetMetadata } from "@nestjs/common";
-import * as fileType from "file-type";
 import sharp, { type Metadata } from "sharp";
+import { detectFileTypeFromBuffer } from "../../../utils/detect-file-type";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
+
 
 const RAFFLE_CREATE_RATE_LIMIT = env.rateLimits.raffleCreateLimit;
 const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSeconds;
@@ -71,13 +65,7 @@ const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSecon
 @ApiTags("Raffles")
 @Controller("raffles")
 export class RafflesController {
-  constructor(
-    private readonly rafflesService: RafflesService,
-    private readonly storageService: StorageService,
-    private readonly idempotencyService: IdempotencyService,
-    private readonly sseService: SseService,
-    private readonly metadataRedis: MetadataRedisService,
-  ) {}
+  constructor(private readonly rafflesService: RafflesService) {}
 
   /**
    * GET /raffles — List raffles with optional filters and pagination.
@@ -100,7 +88,7 @@ export class RafflesController {
    * Must be declared before :id to prevent NestJS matching "metadata" as an id param.
    */
   @Public()
-  @Get('metadata')
+  @Get("metadata")
   @ApiOperation({ summary: "Batch fetch off-chain metadata for up to 100 raffle IDs" })
   @ApiResponse({ status: 200, description: "Batch metadata retrieved successfully" })
   @UseInterceptors(CacheHeadersInterceptor)
@@ -150,6 +138,9 @@ export class RafflesController {
     @Param("id", ParseIntPipe) id: number,
     @Query() query: ParticipantListQueryDto,
   ) {
+    if (query.since != null) {
+      return this.rafflesService.getRecentParticipants(id, query.since);
+    }
     return this.rafflesService.getParticipants(id, query.limit, query.offset);
   }
 
@@ -238,6 +229,7 @@ export class RafflesController {
     return this.rafflesService.purchaseTickets(raffleId, payload, address);
   }
 
+
   /**
    * POST /raffles/upload-image — Upload raffle image to Supabase Storage.
    * Accepts multipart/form-data with a single image file and optional raffleId field.
@@ -295,7 +287,7 @@ export class RafflesController {
       throw error;
     }
 
-    const detectedFileType = await fileType.fromBuffer(buffer);
+    const detectedFileType = await detectFileTypeFromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {
@@ -569,4 +561,5 @@ export class RafflesController {
       "",
     );
   }
+
 }

@@ -45,7 +45,7 @@ describe('RaffleService.triggerDraw', () => {
   it('invokes TRIGGER_DRAW when raffle is Open', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Open),
+      makeRaffleData(RaffleStatus.OPEN),
     );
     contractService.invoke.mockResolvedValue({
       success: true,
@@ -65,7 +65,7 @@ describe('RaffleService.triggerDraw', () => {
   it('throws RaffleStateError when raffle is already Drawing', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Drawing),
+      makeRaffleData(RaffleStatus.DRAWING),
     );
 
     await expect(service.triggerDraw({ raffleId: 1 })).rejects.toBeInstanceOf(
@@ -76,7 +76,7 @@ describe('RaffleService.triggerDraw', () => {
   it('throws RaffleStateError when raffle is Finalized', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Finalized),
+      makeRaffleData(RaffleStatus.FINALIZED),
     );
 
     const err = await service
@@ -85,13 +85,13 @@ describe('RaffleService.triggerDraw', () => {
 
     expect(err).toBeInstanceOf(RaffleStateError);
     expect((err as RaffleStateError).attempted).toBe('open→drawing');
-    expect((err as RaffleStateError).currentStatus).toBe(RaffleStatus.Finalized);
+    expect((err as RaffleStateError).currentStatus).toBe(RaffleStatus.FINALIZED);
   });
 
   it('throws RaffleStateError when raffle is Cancelled', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Cancelled),
+      makeRaffleData(RaffleStatus.CANCELLED),
     );
 
     await expect(service.triggerDraw({ raffleId: 1 })).rejects.toBeInstanceOf(
@@ -109,7 +109,7 @@ describe('RaffleService.triggerDraw', () => {
   it('passes memo to invoke', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Open),
+      makeRaffleData(RaffleStatus.OPEN),
     );
     contractService.invoke.mockResolvedValue({ success: true, value: {} });
 
@@ -132,7 +132,7 @@ describe('RaffleService.getWinner', () => {
   it('returns winner data for a finalized raffle', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Finalized, {
+      makeRaffleData(RaffleStatus.FINALIZED, {
         winner: 'GWINNER',
         winningTicketId: 7,
         prizeAmount: '5000',
@@ -153,7 +153,7 @@ describe('RaffleService.getWinner', () => {
   it('returns null value for an open raffle (not finalized)', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Open),
+      makeRaffleData(RaffleStatus.OPEN),
     );
 
     const result = await service.getWinner(1);
@@ -165,7 +165,7 @@ describe('RaffleService.getWinner', () => {
   it('returns null value for a drawing raffle', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Drawing),
+      makeRaffleData(RaffleStatus.DRAWING),
     );
 
     const result = await service.getWinner(1);
@@ -177,7 +177,7 @@ describe('RaffleService.getWinner', () => {
   it('returns null when raffle is finalized but winner field missing', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Finalized, { winner: undefined }),
+      makeRaffleData(RaffleStatus.FINALIZED, { winner: undefined }),
     );
 
     const result = await service.getWinner(1);
@@ -200,7 +200,7 @@ describe('RaffleService.cancel — state guard', () => {
   it('invokes CANCEL_RAFFLE when raffle is Open', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Open),
+      makeRaffleData(RaffleStatus.OPEN),
     );
     contractService.invoke.mockResolvedValue({ success: true, value: undefined });
 
@@ -216,7 +216,7 @@ describe('RaffleService.cancel — state guard', () => {
   it('throws RaffleStateError when trying to cancel a Drawing raffle', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Drawing),
+      makeRaffleData(RaffleStatus.DRAWING),
     );
 
     const err = await service.cancel({ raffleId: 1 }).catch((e) => e);
@@ -227,7 +227,7 @@ describe('RaffleService.cancel — state guard', () => {
   it('throws RaffleStateError when trying to cancel an already-cancelled raffle', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Cancelled),
+      makeRaffleData(RaffleStatus.CANCELLED),
     );
 
     await expect(service.cancel({ raffleId: 1 })).rejects.toBeInstanceOf(
@@ -238,7 +238,7 @@ describe('RaffleService.cancel — state guard', () => {
   it('throws RaffleStateError when trying to cancel a finalized raffle', async () => {
     const { service, contractService } = buildService();
     contractService.simulateReadOnly.mockResolvedValue(
-      makeRaffleData(RaffleStatus.Finalized),
+      makeRaffleData(RaffleStatus.FINALIZED),
     );
 
     await expect(service.cancel({ raffleId: 1 })).rejects.toBeInstanceOf(

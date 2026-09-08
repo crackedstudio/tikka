@@ -77,11 +77,33 @@ Oracle runbooks are in `oracle/database/migrations/README.md`.  Use the
 
 | Rule                          | Example ✅                                                    |
 |-------------------------------|---------------------------------------------------------------|
-| Timestamp prefix (ms epoch)   | `1700000000000-CreateRaffles.ts`                              |
-| PascalCase class name         | `1700000000000-CreateRaffles.ts`                              |
-| Export a class implementing   | `class CreateRaffles1700000000000 implements MigrationInterface` |
+| Timestamp prefix (ms epoch)   | `1748589373000-CreateArchiveCheckpoints.ts`                  |
+| Real generated timestamp      | **Never** hand-write or round the timestamp — see below      |
+| PascalCase class name         | `1748589373000-CreateArchiveCheckpoints.ts`                  |
+| Export a class implementing   | `class CreateArchiveCheckpoints1748589373000 implements MigrationInterface` |
 | `up()` and `down()`           | Both methods must be implemented                              |
 | Transaction mode              | `transaction: 'each'` recommended                             |
+
+#### Timestamp rule (mandatory)
+
+TypeORM runs indexer migrations in ascending order of the numeric filename
+prefix. That order is only correct when the prefix is a **real generation
+timestamp**. Therefore:
+
+- **Always** create migrations with the generator:
+  `pnpm --filter indexer migration:generate -n <Name>`.
+  The timestamp comes from `Date.now()` and reflects the real creation time.
+- **Never** hand-edit, round, or space out the timestamp (no `1700000000000`,
+  `1720000000000`, … style placeholders). A fabricated round number can sort
+  after a later-but-smaller real timestamp, silently inverting execution order.
+- **Never** reuse an existing timestamp for a new migration.
+
+A lint step in `backend/scripts/check-migrations.ts` rejects any new indexer
+migration whose timestamp is a round number (divisible by `1_000_000_000`). A set
+of legacy placeholder timestamps already committed to this directory is
+allow-listed there as a recorded historical exception — see
+[migration-timestamp-exceptions.md](migration-timestamp-exceptions.md). Do not
+add new files to that allow-list.
 
 **Critical:** Every migration **must** be appended to the ordered migration
 lists in:
@@ -211,7 +233,7 @@ For details, see `scripts/check-schema-drift.ts`.
 
 | Script                                      | Checks                                        | Run with                            |
 |---------------------------------------------|-----------------------------------------------|-------------------------------------|
-| `backend/scripts/check-migrations.ts`       | Naming, gaps, duplicates, snake_case          | `npm run migrations:check` (backend)|
+| `backend/scripts/check-migrations.ts`       | Backend: naming, gaps, duplicates, snake_case; Indexer: rejects round-number placeholder timestamps in new files | `npm run migrations:check` (backend)|
 | `indexer/scripts/check-migration-rollback.ts`| Up → down → up cycle on scratch DB           | `npm run migration:rollback-check` (indexer) |
 | `oracle/database/migrations/verify-schema.ts`| Table existence in Supabase                  | `npx ts-node` (oracle)             |
 | `scripts/check-schema-drift.ts`             | Full-schema drift check against scratch DB    | `npm run db:check-drift` (root)    |

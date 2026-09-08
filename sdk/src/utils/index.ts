@@ -20,6 +20,8 @@ export * from './formatting';
 // Export retry utility
 export * from './retry';
 
+// Export logger interface and implementations
+export * from './logger';
 
 /**
  * Re-export BigNumber for consistency across the SDK when 

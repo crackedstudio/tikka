@@ -26,12 +26,24 @@ import {
   validateBuyTicketInputs,
   validateBuyTicketsInputs,
 } from './purchase-validation';
+import { TicketReadService } from './ticket.read.service';
 
+/**
+ * TicketService — high-level API for ticket write operations.
+ *
+ * All write methods (buy, buyTickets, buyBatch, refund, claimPrize) require a
+ * WalletAdapter to be set on the ContractService.
+ * 
+ * For read operations (getUserTickets, getUserTicketCount), use TicketReadService.
+ */
 @Injectable()
 export class TicketService {
   private readonly submissionTracker = new Map<string, Set<string>>();
 
-  constructor(private readonly contractService: ContractService) {}
+  constructor(
+    private readonly contractService: ContractService,
+    private readonly readService: TicketReadService,
+  ) {}
 
   /**
    * Checks for duplicate submission attempts.
@@ -299,25 +311,15 @@ export class TicketService {
    * Gets all ticket IDs owned by a user for a specific raffle.
    * Read-only operation (no signing required).
    *
+   * @deprecated Use TicketReadService.getUserTickets() for read-only operations.
+   * This method delegates to the read service for backward compatibility.
+   * 
    * @throws TikkaSdkError if validation fails or query fails
    */
   async getUserTickets(
     params: GetUserTicketsParams,
   ): Promise<ContractResponse<number[]>> {
-    const { raffleId, userAddress } = params;
-    assertPositiveInt(raffleId, "raffleId");
-
-    if (!userAddress || typeof userAddress !== "string") {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        "userAddress must be a non-empty string",
-      );
-    }
-
-    return this.contractService.simulateReadOnly<number[]>(
-      ContractFn.GET_USER_TICKETS,
-      [raffleId, userAddress],
-    );
+    return this.readService.getUserTickets(params);
   }
 
   /**

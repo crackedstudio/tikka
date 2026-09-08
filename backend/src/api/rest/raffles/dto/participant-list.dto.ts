@@ -1,11 +1,30 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { z } from 'zod';
 import { MAX_PAGE_LIMIT as MAX_PARTICIPANTS_LIMIT, PaginationQuerySchema, PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 
 export { MAX_PARTICIPANTS_LIMIT };
 
-export const ParticipantListQuerySchema = PaginationQuerySchema;
+export const ParticipantListQuerySchema = PaginationQuerySchema.extend({
+  since: z.coerce
+    .number({ invalid_type_error: 'since must be a number' })
+    .int('since must be an integer')
+    .min(0, 'since must be at least 0')
+    .optional(),
+});
 
-export class ParticipantListQueryDto extends PaginationQueryDto {}
+export class ParticipantListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    description: 'Return participants with purchase timestamps after this Unix ms value',
+    minimum: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  since?: number;
+}
 
 export class ParticipantDto {
   @ApiProperty({

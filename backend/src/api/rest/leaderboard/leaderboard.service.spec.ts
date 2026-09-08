@@ -1,6 +1,6 @@
 import { LeaderboardService, LEADERBOARD_CACHE_TTL } from './leaderboard.service';
-import { IndexerService, IndexerLeaderboardResponse } from '../../../services/indexer.service';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
+import { IndexerService, IndexerLeaderboardResponse } from '../../../services/indexer/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 
 const mockData: IndexerLeaderboardResponse = {
   entries: [{ address: 'GABC', total_wins: 5, total_volume_xlm: '100', total_tickets: 10 }],

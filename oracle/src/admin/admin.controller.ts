@@ -1,8 +1,8 @@
 import { Controller, Get, Logger, UseGuards } from '@nestjs/common';
 import {
-  CostEstimatorService,
+  FeeStrategyService,
   SubmissionCostEstimate,
-} from '../submitter/cost-estimator.service';
+} from '../submitter/fee-strategy';
 import { AdminApiKeyGuard } from './admin-api-key.guard';
 
 /**
@@ -19,7 +19,7 @@ export class AdminController {
   private cached: { value: SubmissionCostEstimate; expiresAt: number } | null =
     null;
 
-  constructor(private readonly costEstimator: CostEstimatorService) {}
+  constructor(private readonly costEstimator: FeeStrategyService) {}
 
   /**
    * Returns the estimated cost of submitting a single randomness transaction.

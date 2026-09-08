@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { ContractConfig } from "./event-handler.interface";
+import { CONTRACT_EVENT_TOPICS, ContractEventTopic } from "./event.types";
 
 /**
  * Root shape of `config/event-handlers.json`.
@@ -14,21 +15,13 @@ export interface RootHandlerConfig {
  * Canonical Tikka contract event names (the `DomainEvent` discriminants).
  * An event is "known" if it is one of these or is handled by a registered
  * handler (see {@link buildValidationContext}).
+ *
+ * Derived from `CONTRACT_EVENT_TOPICS` (the single source of truth for the
+ * event union in `event.types.ts`) so this list can never drift from the
+ * union — adding a topic there makes it known here automatically.
  */
-export const KNOWN_EVENT_NAMES = [
-  "RaffleCreated",
-  "TicketPurchased",
-  "DrawTriggered",
-  "RandomnessRequested",
-  "RandomnessReceived",
-  "RaffleFinalized",
-  "RaffleCancelled",
-  "TicketRefunded",
-  "ContractPaused",
-  "ContractUnpaused",
-  "AdminTransferProposed",
-  "AdminTransferAccepted",
-] as const;
+export const KNOWN_EVENT_NAMES: readonly ContractEventTopic[] =
+  CONTRACT_EVENT_TOPICS;
 
 /** Contract schema versions the indexer can route. */
 export const SUPPORTED_SCHEMA_VERSIONS = ["v1", "v2"] as const;

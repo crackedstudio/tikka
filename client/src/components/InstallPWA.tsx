@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import React, { useEffect, useState } from "react";
 
 // The BeforeInstallPromptEvent is not included in standard TS DOM lib
@@ -30,7 +31,7 @@ export function InstallPWA() {
         const appInstalledHandler = () => {
             setSupportsPWA(false);
             setPromptInstall(null);
-            console.log("PWA was installed");
+            logger.log("PWA was installed");
         };
         window.addEventListener("appinstalled", appInstalledHandler);
 
@@ -52,9 +53,9 @@ export function InstallPWA() {
         // Wait for the user to respond to the prompt
         const choiceResult = await promptInstall.userChoice;
         if (choiceResult.outcome === "accepted") {
-            console.log("User accepted the install prompt");
+            logger.log("User accepted the install prompt");
         } else {
-            console.log("User dismissed the install prompt");
+            logger.log("User dismissed the install prompt");
         }
         
         // We no longer need the prompt. Clear it up.

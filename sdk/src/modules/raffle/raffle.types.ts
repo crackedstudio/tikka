@@ -55,24 +55,9 @@ export interface CreateRaffleEstimate {
 }
 
 /** On-chain raffle data. */
-export interface RaffleData {
-  raffleId: number;
-  creator: string;
-  status: RaffleStatus;
-  ticketPrice: string;
-  maxTickets: number;
-  ticketsSold: number;
-  endTime: number;
-  /** Resolved asset code, e.g. "XLM" or "USDC" */
-  asset: string;
-  /** Issuer account when asset is non-native */
-  assetIssuer?: string;
-  allowMultiple: boolean;
-  metadataCid: string;
-  winner?: string;
-  winningTicketId?: number;
-  prizeAmount?: string;
-}
+import { Pick } from "typescript";
+import { Raffle } from "@tikka/types";
+export type RaffleData = Pick<Raffle, "creator" | "status" | "ticketPrice" | "asset" | "maxTickets" | "ticketsSold" | "endTime" | "winner" | "winningTicketId" | "prizeAmount"> & { raffleId: number, allowMultiple: boolean, metadataCid: string, assetIssuer?: string };
 
 /** Result of cancelling a raffle. */
 export interface CancelRaffleResult {

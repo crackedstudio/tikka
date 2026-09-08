@@ -157,3 +157,53 @@ When a change touches more than one package, verify the following:
 - Keep `ops` focused on deployment, CI/CD, and repository automation.
 
 > If you are unsure where a feature belongs, open an issue and tag package maintainers. Cross-package work is allowed, but it should be deliberate and reviewed by all affected teams.
+
+## Backend ↔ indexer boundary (anti-corruption layer)
+
+The backend reads indexer-sourced data only through the anti-corruption layer in
+`backend/src/services/indexer/`. This directory owns **all** indexer integration
+in the backend: the HTTP client, the backfill/replay pipeline, and the types on
+each side of the boundary.
+
+### The contract
+
+- **Raw indexer wire shapes** live in `backend/src/services/indexer/indexer-api.types.ts`
+  and mirror what the indexer actually returns over HTTP (see `indexer/src/api/controllers/`
+  and its DTOs). These are the indexer's row shapes — the schema the indexer owns.
+- **Backend-owned response types** live in `backend/src/services/indexer/indexer.types.ts`.
+  These are the stable shapes `IndexerService` returns and that controllers — and
+  through them the client — consume. This is the API contract the backend owns.
+- **Translation** happens once, in `backend/src/services/indexer/indexer.mapper.ts`,
+  and is pinned by `backend/src/services/indexer/indexer.mapper.spec.ts`. A change
+  to an indexer row shape must be absorbed in the mapper; if the mapping breaks,
+  a backend test fails instead of an API consumer seeing a silently changed response.
+
+### The rule
+
+`IndexerService` is the only module that may import the raw indexer wire shapes.
+This is enforced automatically by dependency-cruiser
+(`backend/.dependency-cruiser.js`, run via `pnpm run boundaries` in `backend/` and
+in CI):
+
+- Rule `no-indexer-row-shapes-outside-boundary`: importing
+  `src/services/indexer/indexer-api.types` from anywhere outside
+  `src/services/indexer/` fails the check.
+- Consumers outside the boundary must import the backend-owned response types
+  from `src/services/indexer/indexer.types` (or its re-exports via `indexer.service`),
+  never `indexer-api.types`.
+
+### Adding a new indexer-backed endpoint
+
+1. Add the wire shape to `indexer-api.types.ts` (from the indexer's controller/DTO).
+2. Add the backend-owned response type to `indexer.types.ts`.
+3. Add a mapper function in `indexer.mapper.ts` and a test in `indexer.mapper.spec.ts`.
+4. Expose the method on `IndexerService`, returning only backend-owned types.
+
+## Enforcement in CI
+
+Module-boundary checks run automatically:
+
+- Backend: `pnpm run boundaries` (dependency-cruiser) in the backend CI job.
+
+If a PR introduces a forbidden cross-boundary import, CI fails with a message
+pointing at this document.

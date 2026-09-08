@@ -16,13 +16,20 @@ export default tseslint.config([
       reactRefresh.configs.vite,
     ],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'react-refresh/only-export-components': 'off',
+      'no-console': 'error',
     },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
     },
   },
+  {
+    files: ['src/utils/logger.ts'],
+    rules: {
+      'no-console': 'off'
+    }
+  }
 ])

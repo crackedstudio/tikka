@@ -205,6 +205,9 @@ export class MultiOracleCoordinatorService {
           headers: {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(body),
+            // Propagate the correlation id so the peer oracle can attach it to
+            // its own logs for the same logical draw operation.
+            'x-request-id': requestId,
           },
           timeout: this.multiTimeoutMs,
         },

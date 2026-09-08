@@ -1,5 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { runWithRequestContext } from './request-context';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
 
@@ -19,6 +20,8 @@ export class RequestIdMiddleware implements NestMiddleware {
     req.headers[REQUEST_ID_HEADER] = requestId;
     res.setHeader(REQUEST_ID_HEADER, requestId);
 
-    next();
+    // Bind the id to the async context so downstream services (e.g. IndexerService,
+    // which forwards it as an `x-request-id` header) and log lines can recover it.
+    runWithRequestContext(requestId, () => next());
   }
 }

@@ -17,11 +17,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tikka-pass}
       POSTGRES_DB: ${POSTGRES_DB:-tikka}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tikka} -d ${POSTGRES_DB:-tikka}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tikka} -d ${POSTGRES_DB:-tikka}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,15 +38,15 @@ services:
       - --maxmemory-policy
       - noeviction
       - --appendonly
-      - "yes"
+      - 'yes'
       - --appendfsync
       - everysec
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,11 +54,11 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     profiles: [backend, full, client]
     ports:
-      - "3001:3001"
+      - '3001:3001'
     env_file: ./backend/.env.local
     environment:
       NODE_ENV: development
@@ -72,7 +72,7 @@ services:
         condition: service_healthy
     # The runner image is node:alpine, which ships busybox wget (not curl).
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3001/health || exit 1"]
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:3001/health || exit 1']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -80,11 +80,11 @@ services:
 
   indexer:
     build:
-      context: ./indexer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: indexer/Dockerfile
     profiles: [indexer, full, client]
     ports:
-      - "3002:3002"
+      - '3002:3002'
     env_file: ./indexer/.env.local
     environment:
       NODE_ENV: development
@@ -97,7 +97,7 @@ services:
         condition: service_healthy
     # The runner image is node:alpine, which ships busybox wget (not curl).
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3002/health || exit 1"]
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:3002/health || exit 1']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -105,11 +105,11 @@ services:
 
   oracle:
     build:
-      context: ./oracle
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: oracle/Dockerfile
     profiles: [oracle, full, client]
     ports:
-      - "3003:3003"
+      - '3003:3003'
     env_file: ./oracle/.env.local
     environment:
       NODE_ENV: development
@@ -119,7 +119,7 @@ services:
         condition: service_healthy
     # The runner image is node:alpine, which ships busybox wget (not curl).
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3003/health || exit 1"]
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:3003/health || exit 1']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -131,7 +131,7 @@ services:
       dockerfile: Dockerfile
     profiles: [client]
     ports:
-      - "5173:5173"
+      - '5173:5173'
     env_file: ./client/.env.local
     depends_on:
       backend:

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useEffect, useRef } from "react";
 
 interface UseEventSourceOptions {
@@ -30,7 +31,7 @@ export function useEventSource(
 
     // Fall back gracefully if the browser doesn't support SSE
     if (typeof EventSource === "undefined") {
-      console.warn("useEventSource: EventSource is not supported in this browser.");
+      logger.warn("useEventSource: EventSource is not supported in this browser.");
       return;
     }
 

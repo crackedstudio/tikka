@@ -90,8 +90,7 @@ beforeEach(async () => {
   await ds.query(`SET session_replication_role = 'replica'`);
   await ds.query(
     `TRUNCATE TABLE raffle_events, tickets, users, raffles RESTART IDENTITY CASCADE`,
-  );
-  await ds.query(`SET session_replication_role = 'DEFAULT'`);
+  );   await ds.query(`SET session_replication_role = 'origin'`);
 });
 ```
 
@@ -176,8 +175,7 @@ beforeEach(async () => {
   await ds.query(`SET session_replication_role = 'replica'`);
   await ds.query(
     `TRUNCATE TABLE raffle_events, tickets, users, raffles RESTART IDENTITY CASCADE`,
-  );
-  await ds.query(`SET session_replication_role = 'DEFAULT'`);
+  );   await ds.query(`SET session_replication_role = 'origin'`);
 });
 
 describe('TicketPurchased → DB (example)', () => {

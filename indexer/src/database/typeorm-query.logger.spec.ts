@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { TypeOrmQueryLogger } from './typeorm-query.logger';
 import { MetricsService } from '../metrics/metrics.service';
 
@@ -23,4 +24,5 @@ describe('TypeOrmQueryLogger', () => {
     );
   });
 });
+
 

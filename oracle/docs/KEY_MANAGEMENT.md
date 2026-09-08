@@ -204,7 +204,7 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/oracle-key.json
 ### AWS KMS with IRSA (IAM Roles for Service Accounts)
 
 ```yaml
-# k8s/deployment.yaml
+# Illustrative — the tracked overlay is oracle/k8s/kustomization.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -237,7 +237,7 @@ spec:
 ### Google Cloud KMS with Workload Identity
 
 ```yaml
-# k8s/deployment.yaml
+# Illustrative — the tracked overlay is oracle/k8s/kustomization.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:

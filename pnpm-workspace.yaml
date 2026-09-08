@@ -1,0 +1,7 @@
+packages:
+  - 'packages/types'
+  - 'client'
+  - 'sdk'
+  - 'backend'
+  - 'indexer'
+  - 'oracle'

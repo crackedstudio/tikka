@@ -5,12 +5,12 @@ import {
   NotificationSubscription,
   NotificationPreferences,
   UpdatePreferencesPayload,
-} from '../../../services/notification.service';
+} from '../../../services/notifications/notification.service';
 import {
   PushNotificationService,
   PushNotificationPayload,
   PushTokenRecord,
-} from '../../../services/push-notification.service';
+} from '../../../services/notifications/push-notification.service';
 import { NotificationPreferencesResponse } from './dto/notification-preferences.dto';
 
 /** API response format (camelCase for frontend) */

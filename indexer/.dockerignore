@@ -1,0 +1,28 @@
+# Dependencies and build output
+node_modules
+dist
+coverage/
+
+# Environment / secrets
+.env*
+
+# Documentation (never needed in the image)
+*.md
+
+# Operational tooling pulled in by COPY . .
+grafana/
+prometheus/
+kubernetes/
+docs/
+docker-compose.yml
+redis.conf
+
+# Tooling / VCS
+.git
+.gitignore
+.dockerignore
+.tool-versions
+
+# Logs and debug
+npm-debug.log
+pnpm-debug.log

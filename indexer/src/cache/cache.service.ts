@@ -4,6 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { CacheKeys } from './cache.keys';
 import { CacheTTL } from './cache.ttl';
 
+function stackOf(error: unknown): string | undefined {
+  return error instanceof Error ? error.stack : undefined;
+}
+
 export type CacheBucket = 'raffles' | 'users' | 'stats' | 'others';
 
 export type CacheStats = {
@@ -54,8 +58,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.memMonitorTimer = setInterval(() => {
-      this.monitorMemoryUsage().catch((error) => {
-        this.logger.error('Redis memory monitoring failed', error.stack);
+      this.monitorMemoryUsage().catch((error: unknown) => {
+        this.logger.error('Redis memory monitoring failed', stackOf(error));
       });
     }, this.MEM_MONITOR_INTERVAL_MS);
   }
@@ -74,7 +78,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const result = await this.redis.ping();
       return result === 'PONG';
     } catch (error) {
-      this.logger.error('Redis ping error', error.stack);
+      this.logger.error('Redis ping error', stackOf(error));
       return false;
     }
   }
@@ -125,7 +129,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
       return data ? JSON.parse(data) : null;
     } catch (error) {
-      this.logger.error(`Error getting key ${key} from Redis`, error.stack);
+      this.logger.error(`Error getting key ${key} from Redis`, stackOf(error));
       return null;
     }
   }
@@ -134,7 +138,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.redis.set(key, JSON.stringify(value), 'EX', ttl);
     } catch (error) {
-      this.logger.error(`Error setting key ${key} in Redis`, error.stack);
+      this.logger.error(`Error setting key ${key} in Redis`, stackOf(error));
     }
   }
 
@@ -142,7 +146,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.redis.del(key);
     } catch (error) {
-      this.logger.error(`Error deleting key ${key} from Redis`, error.stack);
+      this.logger.error(`Error deleting key ${key} from Redis`, stackOf(error));
     }
   }
 
@@ -243,7 +247,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
       return { usedMemory, maxMemory, usagePercent };
     } catch (error) {
-      this.logger.error('Error getting Redis memory usage', error.stack);
+      this.logger.error('Error getting Redis memory usage', stackOf(error));
       return { usedMemory: 0, maxMemory: 0, usagePercent: 0 };
     }
   }

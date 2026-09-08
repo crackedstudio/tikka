@@ -1,40 +1,38 @@
 # Grafana Dashboards
 
-## Current Dashboards
+All dashboards and Prometheus configuration live in this directory — one place,
+so a metric renamed in code has exactly one set of panels to fix (#1480).
 
-### Indexer Dashboards
+## Committed dashboards
 
-| UID | File | Panels |
-|-----|------|--------|
-| `tikka-indexer` | `indexer/grafana/dashboard.json` | Events Processed Rate, Indexer Lag, Error Rate, Memory Usage |
-| `tikka-indexer-health` | `indexer/grafana/indexer-dashboard.json` | Indexer Lag (Gauge), Events Processed Rate by Type, Average Poll Duration |
+| UID | File | Service | Panels |
+|-----|------|---------|--------|
+| `tikka-indexer` | [`indexer-dashboard.json`](indexer-dashboard.json) | Indexer | Ledger Lag, Events Processed Rate, Average Poll Duration, Error Rate, DLQ Depth, Memory Usage |
+| `tikka-oracle` | [`oracle-dashboard.json`](oracle-dashboard.json) | Oracle | Submission Outcomes Rate, Fee Estimates vs Actual, Memory Usage, VRF Proof Success/Failure |
+| `tikka-overview` | [`cross-service-dashboard.json`](cross-service-dashboard.json) | Cross-service | Events Rate, Submission Outcomes, Lag Comparison, Memory Comparison, Error Rate |
 
-#### Dashboard: `tikka-indexer` (uid: tikka-indexer)
+One dashboard per service, plus one cross-service overview. The indexer
+previously had two — `dashboard.json` (uid `tikka-indexer`) and
+`indexer-dashboard.json` (uid `tikka-indexer-health`) — with nothing to say which
+was deployed. They are merged into the single `tikka-indexer` dashboard above,
+which carries the union of their panels; `tikka-indexer-health` is retired, so
+re-import rather than expecting that UID to resolve.
 
-| Panel | Query | Type |
-|-------|-------|------|
-| Events Processed Rate | `rate(tikka_indexer_events_processed_total[5m])` | Timeseries |
-| Indexer Ingestion Lag (Ledgers) | `tikka_indexer_ingestion_lag_ledgers` | Timeseries (threshold: 50) |
-| Indexer Ingestion Lag (Seconds) | `tikka_indexer_ingestion_lag_seconds` | Timeseries (threshold: 90) |
-| Error Rate | `rate(tikka_indexer_errors_total[5m])` | Timeseries |
-| Memory Usage | `tikka_indexer_memory_usage_bytes` | Timeseries |
+Every panel expression must name a metric listed in
+[`METRICS_MAP.md`](METRICS_MAP.md). That is enforced, not merely asked for — see
+"Validating panel queries" below.
 
-#### Dashboard: `tikka-indexer-health` (uid: tikka-indexer-health)
-
-| Panel | Query | Type | Thresholds |
-|-------|-------|------|------------|
-| Indexer Ingestion Lag (Ledgers) | `tikka_indexer_ingestion_lag_ledgers` | Gauge | 10 (yellow), 50 (red) |
-| Indexer Ingestion Lag (Seconds) | `tikka_indexer_ingestion_lag_seconds` | Gauge | 30 (yellow), 90 (red) |
-| Events Processed Rate (per min) | `sum by (event_type) (rate(tikka_indexer_events_processed_total[1m]))` | Timeseries | — |
-| Average Poll Duration | `rate(tikka_indexer_poll_duration_seconds_sum[1m]) / rate(tikka_indexer_poll_duration_seconds_count[1m])` | Timeseries | — |
-
-### Oracle Dashboards
-
-The oracle exports Prometheus metrics at `GET /metrics` (port 3003) but does **not** currently have a committed Grafana dashboard JSON. A recommended dashboard layout is provided below.
+The backend is not represented: it serves JSON from `GET /metrics`, not
+Prometheus text, so its panels would need a JSON API data source. The
+recommended layout is sketched under "Backend Dashboards" below.
 
 ---
 
-## Oracle Dashboard (Recommended)
+## Oracle dashboard — panel reference
+
+The oracle dashboard is committed as [`oracle-dashboard.json`](oracle-dashboard.json).
+The panels below document what it contains, plus two panels that need a JSON API
+data source and so are not part of the Prometheus dashboard.
 
 ### Dashboard UID: `tikka-oracle`
 
@@ -155,75 +153,31 @@ This dashboard correlates events across backend, indexer, and oracle in a single
 
 ---
 
-## Prometheus Scrape Config (Full)
+## Prometheus configuration
 
-A consolidated Prometheus scrape config for all three services:
+The scrape config and alert rules are **not** duplicated here. They are the files
+next to this one, and they are the only copies in the repository:
 
-```yaml
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+- [`prometheus.yml`](prometheus.yml) — scrape targets for indexer, oracle, and backend
+- [`alerts.rules.yml`](alerts.rules.yml) — alert rules, loaded via `rule_files`
 
-scrape_configs:
-  - job_name: 'tikka-indexer'
-    static_configs:
-      - targets: ['localhost:3002']
-    metrics_path: '/metrics'
+Both used to have a second, indexer-only copy under `indexer/prometheus/`, which
+drifted: the oracle and backend targets existed in one file and not the other.
+Edit these files; do not re-inline them into documentation.
 
-  - job_name: 'tikka-oracle'
-    static_configs:
-      - targets: ['localhost:3003']
-    metrics_path: '/metrics'
+## Validating panel queries
 
-  - job_name: 'tikka-backend'
-    static_configs:
-      - targets: ['localhost:3001']
-    metrics_path: '/metrics'
-    # Backend returns JSON, not Prometheus format.
-    # Use Prometheus static_config or a Prometheus `json` exporter.
+A dashboard panel that queries a metric the code no longer emits renders an empty
+graph and says nothing about why. To catch that at review time rather than during
+an incident, run:
+
+```sh
+node scripts/check-dashboard-metrics.js
 ```
 
-## Prometheus Alert Rules (Consolidated)
-
-```yaml
-groups:
-  - name: tikka-indexer-alerts
-    rules:
-      - alert: IndexerIngestionLagLedgers
-        expr: tikka_indexer_ingestion_lag_ledgers > 50
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Indexer has fallen more than 50 ledgers behind the Stellar network tip"
-          description: "tikka_indexer_ingestion_lag_ledgers={{ $value }} ledgers for 5m. See docs/observability/INGESTION_LAG.md."
-
-      - alert: IndexerIngestionLagSeconds
-        expr: tikka_indexer_ingestion_lag_seconds > 90
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Indexer is more than 90s behind the last closed network ledger"
-          description: "tikka_indexer_ingestion_lag_seconds={{ $value }}s for 5m. See docs/observability/INGESTION_LAG.md."
-
-      - alert: IndexerFallingBehind
-        # Deprecated alias of IndexerIngestionLagLedgers; retained so operators
-        # with pre-#1110 dashboards do not see a silent alert gap.
-        expr: tikka_indexer_lag_ledgers > 20
-        for: 5m
-        labels:
-          severity: critical
-
-      - alert: IndexerHighLatency
-        expr: rate(tikka_indexer_poll_duration_seconds_sum[5m]) / rate(tikka_indexer_poll_duration_seconds_count[5m]) > 10
-        for: 10m
-        labels:
-          severity: warning
-
-      - alert: IndexerErrors
-        expr: rate(tikka_indexer_errors_total[5m]) > 0.1
-        for: 2m
-        labels:
-          severity: warning
-```
+It extracts every metric referenced by the dashboards and alert rules in this
+directory, checks each one against the registry in
+[`METRICS_MAP.md`](METRICS_MAP.md), and checks that each metric the registry
+marks as emitted is actually created somewhere in the service source. Renaming a
+metric in `indexer/src/metrics/` without updating the map and the panels fails
+the check.

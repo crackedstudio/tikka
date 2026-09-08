@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * useWallet Hook
  * 
@@ -19,6 +20,7 @@ import {
     normalizeNetworkName,
     attemptAutoReconnect,
     type WalletCapabilities,
+    type WalletSignResult,
 } from "../services/walletService";
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -38,7 +40,7 @@ export interface UseWalletReturn extends WalletState {
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
     refresh: () => Promise<void>;
-    signTx: (transaction: any) => Promise<any>;
+    signTx: (transaction: unknown) => Promise<WalletSignResult>;
     switchNetwork: () => Promise<void>;
 }
 
@@ -76,7 +78,7 @@ export function useWallet(): UseWalletReturn {
                 error: null,
             });
         } catch (error) {
-            console.error("Wallet refresh failed:", error);
+            logger.error("Wallet refresh failed:", error);
         }
     }, [APP_REQUIRED_NETWORK, store.setWalletState]);
 
@@ -131,7 +133,7 @@ export function useWallet(): UseWalletReturn {
         }
     }, [refresh, APP_REQUIRED_NETWORK, store.setWalletState]);
 
-    const signTx = useCallback(async (transaction: any) => {
+    const signTx = useCallback(async (transaction: unknown): Promise<WalletSignResult> => {
         if (!store.isConnected) throw new Error("Wallet not connected");
         if (store.isWrongNetwork) throw new Error(`Please switch to ${APP_REQUIRED_NETWORK}`);
         

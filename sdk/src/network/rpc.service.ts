@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { rpc, xdr } from '@stellar/stellar-sdk';
-import { DEFAULT_RPC_CONFIG } from './network.config';
+import { DEFAULT_RPC_CONFIG, buildRetryConfig } from './network.config';
 import type { NetworkConfig, RpcConfig } from './network.config';
+import { CircuitBreaker, type CircuitState } from './circuit-breaker';
 import {
   TikkaSdkError,
   TikkaSdkErrorCode,
@@ -13,6 +14,7 @@ import {
   ContractFailureError,
 } from '../utils/errors';
 import { withRetry } from '../utils/retry';
+import { defaultLogger, type TikkaLogger } from '../utils/logger';
 
 
 interface RequestOptions {
@@ -27,19 +29,22 @@ interface RequestOptions {
 export class RpcService {
   private server: rpc.Server;
   private rpcConfig: RpcConfig;
-  private circuitState: 'closed' | 'open' | 'half-open' = 'closed';
-  private consecutiveFailures = 0;
-  private circuitOpenedAt: number | null = null;
+  /** Shared, standalone circuit breaker (single source of truth across the monorepo). */
+  private circuitBreaker: CircuitBreaker;
 
   constructor(
     private readonly networkConfig: NetworkConfig,
     rpcConfig?: RpcConfig,
+    logger?: TikkaLogger,
   ) {
+    this.logger = logger ?? defaultLogger;
     this.rpcConfig = this.normalizeConfig({
       ...DEFAULT_RPC_CONFIG,
       ...rpcConfig,
       endpoint: rpcConfig?.endpoint ?? networkConfig.rpcUrl,
     });
+
+    this.circuitBreaker = this.createCircuitBreaker();
 
     this.server = new rpc.Server(networkConfig.rpcUrl, {
       allowHttp: networkConfig.rpcUrl.startsWith('http://'),
@@ -54,6 +59,27 @@ export class RpcService {
   /** Update RPC config at runtime */
   configure(config: Partial<RpcConfig>): void {
     this.rpcConfig = this.normalizeConfig({ ...this.rpcConfig, ...config });
+    // Keep breaker tuning in sync without resetting its state.
+    this.circuitBreaker.updateConfig({
+      failureThreshold: this.rpcConfig.circuitBreakerFailureThreshold,
+      resetTimeoutMs: this.rpcConfig.circuitBreakerResetTimeoutMs,
+    });
+  }
+
+  private createCircuitBreaker(): CircuitBreaker {
+    return new CircuitBreaker({
+      failureThreshold: this.rpcConfig.circuitBreakerFailureThreshold ?? 5,
+      resetTimeoutMs: this.rpcConfig.circuitBreakerResetTimeoutMs ?? 10_000,
+      hooks: {
+        onStateChange: (from, to) => {
+          if (from === 'half-open' && to === 'open') {
+            console.warn('[RpcService] Circuit breaker probe failed. Re-entered OPEN state.');
+          } else if (from === 'half-open' && to === 'closed') {
+            console.log('[RpcService] Circuit breaker recovered. State set to CLOSED.');
+          }
+        },
+      },
+    });
   }
 
   /** Override RPC endpoint */
@@ -134,21 +160,17 @@ export class RpcService {
         suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
       };
     } catch (err: any) {
-      console.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
+      this.logger.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
       return { minFee: 100, suggestedFee: 100 };
     }
   }
 
   /** Get the current state of the circuit breaker */
-  getCircuitState(): 'closed' | 'open' | 'half-open' {
-    if (this.circuitState === 'open') {
-      const resetTimeout = this.rpcConfig.circuitBreakerResetTimeoutMs ?? 10_000;
-      const elapsed = Date.now() - (this.circuitOpenedAt ?? 0);
-      if (elapsed >= resetTimeout) {
-        this.circuitState = 'half-open';
-      }
-    }
-    return this.circuitState;
+  getCircuitState(): CircuitState {
+    // Lazily reflect the half-open probe window on read, matching the
+    // previous behavior where an expired open breaker surfaced as half-open.
+    this.circuitBreaker.refresh();
+    return this.circuitBreaker.getState();
   }
 
   /**
@@ -157,28 +179,22 @@ export class RpcService {
    * - Currently experiencing consecutive failures (> 0)
    */
   isDegraded(): boolean {
-    return this.getCircuitState() !== 'closed' || this.consecutiveFailures > 0;
+    return this.getCircuitState() !== 'closed' || this.circuitBreaker.getFailureCount() > 0;
   }
 
   private checkCircuitBreaker(): void {
-    const state = this.getCircuitState();
-    if (state === 'open') {
-      const resetTimeout = this.rpcConfig.circuitBreakerResetTimeoutMs ?? 10_000;
-      const elapsed = Date.now() - (this.circuitOpenedAt ?? 0);
-      const remaining = resetTimeout - elapsed;
-      throw new UnavailableError(
-        `Circuit breaker is OPEN. Request blocked. Cooldown remaining: ${remaining > 0 ? remaining : 0}ms`,
-        { remainingMs: remaining > 0 ? remaining : 0 }
-      );
+    if (this.circuitBreaker.canAttempt()) {
+      return;
     }
+    const remainingMs = this.circuitBreaker.getRemainingCooldownMs();
+    throw new UnavailableError(
+      `Circuit breaker is OPEN. Request blocked. Cooldown remaining: ${remainingMs}ms`,
+      { remainingMs }
+    );
   }
 
   private recordSuccess(): void {
-    if (this.circuitState === 'half-open') {
-      this.circuitState = 'closed';
-      console.log(`[RpcService] Circuit breaker recovered. State set to CLOSED.`);
-    }
-    this.consecutiveFailures = 0;
+    this.circuitBreaker.recordSuccess();
   }
 
   private recordFailure(error: any): void {
@@ -193,21 +209,11 @@ export class RpcService {
       return;
     }
 
-    const threshold = this.rpcConfig.circuitBreakerFailureThreshold ?? 5;
-
-    if (this.circuitState === 'closed') {
-      this.consecutiveFailures++;
-      if (this.consecutiveFailures >= threshold) {
-        this.circuitState = 'open';
-        this.circuitOpenedAt = Date.now();
-        console.warn(
-          `[RpcService] Circuit breaker tripped to OPEN after ${this.consecutiveFailures} consecutive failures.`
-        );
-      }
-    } else if (this.circuitState === 'half-open') {
-      this.circuitState = 'open';
-      this.circuitOpenedAt = Date.now();
-      console.warn(`[RpcService] Circuit breaker probe failed. Re-entered OPEN state.`);
+    this.circuitBreaker.recordFailure();
+    if (this.circuitBreaker.getState() === 'open') {
+      console.warn(
+        `[RpcService] Circuit breaker tripped to OPEN after ${this.circuitBreaker.getFailureCount()} consecutive failures.`
+      );
     }
   }
 
@@ -262,17 +268,15 @@ export class RpcService {
 
     return withRetry(
       () => this.executeSingleRequest<T>(url, method, params),
-      {
-        maxAttempts: this.rpcConfig.maxRetryAttempts ?? 3,
-        baseDelayMs: this.rpcConfig.retryBaseDelayMs ?? 500,
-        maxDelayMs: this.rpcConfig.maxRetryDelayMs ?? 8000,
-        retryOn: this.rpcConfig.retryableStatusCodes ?? [429, 502, 503, 504, 'RATE_LIMIT', 'UNAVAILABLE', 'TIMEOUT', 'ECONNRESET'],
-        onRetry: (attempt, error, delay) => {
+      buildRetryConfig(this.rpcConfig, {
+        onRetry: (info) => {
           console.warn(
-            `[RpcService] ${method} retry ${attempt} in ${Math.round(delay)}ms (${url}): ${error?.message ?? error}`,
+            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(info.delayMs)}ms (${url}): ${
+              info.error instanceof Error ? info.error.message : String(info.error)
+            }`,
           );
         },
-      },
+      }),
     );
   }
 

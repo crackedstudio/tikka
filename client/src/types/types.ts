@@ -278,138 +278,20 @@ export interface RaffleEndedEvent {
 // ============================================
 // BACKEND API RESPONSE TYPES
 // ============================================
+// These types live in api-types.ts and are re-exported here for backwards
+// compatibility with components that still import from types.ts.
 
-/** Raffle list item from GET /raffles (indexer contract data, snake_case) */
-export interface ApiRaffleListItem {
-  id: number;
-  creator: string;
-  status: string;
-  ticket_price: string;
-  asset: string;
-  max_tickets: number;
-  tickets_sold: number;
-  end_time: string;
-  winner: string | null;
-  prize_amount: string | null;
-  created_ledger: number;
-  finalized_ledger: number | null;
-  metadata_cid: string | null;
-  created_at: string;
-  participant_count?: number;
-}
-
-/** Response from GET /raffles */
-export interface ApiRaffleListResponse {
-  raffles: ApiRaffleListItem[];
-  total?: number;
-}
-
-/** Raffle detail from GET /raffles/:id (contract data + off-chain metadata merged) */
-export interface ApiRaffleDetail extends ApiRaffleListItem {
-  title?: string;
-  description?: string;
-  image_url?: string | null;
-  category?: string | null;
-  winnings_withdrawn?: boolean | null;
-  winningsWithdrawn?: boolean | null;
-  prize_claimed?: boolean | null;
-  prizeClaimed?: boolean | null;
-}
-
-/** Query filters for GET /raffles */
-export interface RaffleListFilters {
-  status?: string;
-  category?: string;
-  creator?: string;
-  asset?: string;
-  limit?: number;
-  offset?: number;
-}
-
-/** Formatted raffle object used by UI components */
-export interface FormattedRaffle {
-  id: number;
-  creator: string;
-  title?: string;
-  status: string;
-  description: string;
-  endTime: number;
-  maxTickets: number;
-  allowMultipleTickets: boolean;
-  ticketPrice: string;
-  ticketToken: string | undefined;
-  totalTicketsSold: number;
-  winner: string | null;
-  winningTicketId: number;
-  isActive: boolean;
-  isFinalized: boolean;
-  winningsWithdrawn: boolean;
-  countdown: {
-    days: string;
-    hours: string;
-    minutes: string;
-    seconds: string;
-  };
-  progress: number;
-  entries: number;
-  ticketPriceFormatted: string;
-  prizeValue: string;
-  prizeCurrency: string;
-  buttonText: string;
-  image: string;
-  metadata: {
-    title: string;
-    description: string;
-    image: string;
-    images?: string[];
-    prizeName: string;
-    prizeValue: string;
-    prizeCurrency: string;
-    category: string;
-    tags: string[];
-    createdBy: string;
-    createdAt: number;
-    updatedAt: number;
-  };
-}
-
-// ============================================
-// USER API TYPES
-// ============================================
-
-/** User profile from GET /users/:address */
-export interface ApiUserProfile {
-  address: string;
-  total_tickets_bought: number;
-  total_raffles_entered: number;
-  total_raffles_won: number;
-  total_prize_xlm: string;
-  first_seen_ledger: number;
-  updated_at: string;
-  creator_stats?: {
-    raffles_created: number;
-    total_tickets_sold: number;
-    total_xlm_raised: string;
-    participant_win_rate: number;
-  };
-}
-
-/** Single history item from GET /users/:address/history */
-export interface ApiUserHistoryItem {
-  raffle_id: number;
-  status: string;
-  tickets_bought: number;
-  purchased_at_ledger: number;
-  purchase_tx_hash: string;
-  prize_amount: string | null;
-  is_winner: boolean;
-}
-
-/** Response from GET /users/:address/history */
-export interface ApiUserHistoryResponse {
-  items: ApiUserHistoryItem[];
-  total: number;
-}
+export type {
+  ApiRaffleListItem,
+  ApiRaffleListResponse,
+  ApiRaffleDetail,
+  RaffleListFilters,
+  FormattedRaffle,
+  ApiUserProfile,
+  ApiUserHistoryItem,
+  ApiUserHistoryResponse,
+  LeaderboardParams,
+} from "./api-types";
 
 // ============================================
 // NOTIFICATION TYPES

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+.next
+
+# Test output
+playwright-report
+test-results
+coverage
+
+# Environment files (use env_file in docker-compose instead)
+.env
+.env.local
+.env.*.local
+
+# IDE and OS
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Miscellaneous
+.cache
+.temp
+*.tmp

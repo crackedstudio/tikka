@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import { ArchiveCheckpointEntity } from "../database/entities/archive-checkpoint.entity";
 import { ArchiveJobStatus } from "../database/entities/archive-checkpoint.entity";
-import { computeIntegrityHash } from "../maintenance/archive-raffle-events";
+import { computeIntegrityHash } from "../maintenance/archive/integrity";
 
 export type ArchiveIntegrityIndicator =
   | "ok"

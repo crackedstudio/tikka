@@ -74,6 +74,7 @@ describe('DlqService', () => {
   describe('insert', () => {
     const event: DomainEvent = {
       type: 'RaffleCreated',
+      schemaVersion: 1,
       raffle_id: 1,
       creator: 'GABC',
       params: {} as any,
@@ -295,6 +296,7 @@ describe('DlqService', () => {
     it.each(cases)('%s → retryable=%s', async (reason, expectedRetryable) => {
       const event: DomainEvent = {
         type: 'TicketPurchased',
+        schemaVersion: 1,
         raffle_id: 1,
         buyer: 'G123',
         ticket_ids: [],

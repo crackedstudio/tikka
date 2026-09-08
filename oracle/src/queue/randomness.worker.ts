@@ -17,7 +17,7 @@ import { AlertingService } from '../health/alerting.service';
 import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed, InjectQueue } from '@nestjs/bull';
 import { Job, Queue } from 'bull';
 import { RANDOMNESS_QUEUE, RandomnessJobPayload } from './randomness.queue';
-import { Injectable, Logger, Optional, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MetricsService } from '../metrics/metrics.service';
 
@@ -31,6 +31,9 @@ export class RandomnessWorker implements OnApplicationShutdown {
   private readonly dlqDepthAlertThreshold: number;
   private readonly processedRequestIds = new Set<string>();
   private highPriorityJobStartTimes = new Map<string, number>();
+  private shuttingDown = false;
+  private readonly activeJobPromises = new Map<string, Promise<void>>();
+  private readonly shutdownTimeoutMs: number;
 
   constructor(
     private readonly logger: OracleLoggerService,
@@ -48,13 +51,16 @@ export class RandomnessWorker implements OnApplicationShutdown {
     private readonly auditLogService: AuditLogService,
     private readonly alertingService: AlertingService,
     @Optional() private readonly metricsService?: MetricsService,
-    @InjectQueue(RANDOMNESS_QUEUE) private readonly queue: Queue,
+@Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
     );
     this.dlqDepthAlertThreshold = Number(
       this.configService.get<string>('DLQ_DEPTH_ALERT_THRESHOLD', '5'),
+    );
+    this.shutdownTimeoutMs = Number(
+      this.configService.get<string>('ORACLE_SHUTDOWN_HARD_TIMEOUT_MS', '25000'),
     );
   }
 
@@ -69,7 +75,7 @@ export class RandomnessWorker implements OnApplicationShutdown {
     this.logger.log('RandomnessWorker shutting down — draining in-flight jobs…',
       JSON.stringify({ component: 'queue', event: 'shutdown' } as OracleLogFields),
     );
-    await this.queue.close();
+    await this.randomnessQueue?.close();
     this.logger.log('RandomnessWorker shut down cleanly',
       JSON.stringify({ component: 'queue', event: 'shutdown-complete' } as OracleLogFields),
     );
@@ -77,7 +83,14 @@ export class RandomnessWorker implements OnApplicationShutdown {
 
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
-    return CorrelationContext.run(String(job.id), async () => {
+    if (this.shuttingDown) {
+      throw new Error('Oracle shutting down — rejecting job for retry');
+    }
+
+    // Use the draw's request id as the correlation id so oracle logs for this
+    // job line up with the backend/indexer `x-request-id` for the same
+    // logical operation. Fall back to the Bull job id if it is unavailable.
+    return CorrelationContext.run(job.data.requestId ?? String(job.id), async () => {
     // Main-loop heartbeat — updated on every job the queue worker picks up.
     this.metricsService?.recordComponentHeartbeat('queue');
 
@@ -138,25 +151,7 @@ export class RandomnessWorker implements OnApplicationShutdown {
     if (isHighPriority) {
       this.trackHighPrioritySLA(job.data.requestId);
     }
-    } catch (err: any) {
-      const maxRetries = this.stateManager.getConfig().maxRetries;
-      const attemptCount = job.attemptsMade + 1; // Include the current attempt
-
-      if (attemptCount >= maxRetries) {
-        if (job.data?.requestId) {
-          this.stateManager.transitionState(
-            job.data.requestId,
-            JobState.DEAD_LETTERED,
-            `Exhausted ${maxRetries} attempts due to handler crash`,
-            err.message
-          );
-        }
-        await this.quarantineJob(job, err);
-        return;
-      }
-      throw err; // Let Bull retry it
-    }
-    }); // end CorrelationContext.run
+    });
   }
 
   private async quarantineJob(job: Job<RandomnessJobPayload>, error: any) {
@@ -214,7 +209,6 @@ export class RandomnessWorker implements OnApplicationShutdown {
       return;
     }
 
-    // Support ORACLE_MODE=multi env toggle as well as legacy isMultiOracleMode()
     const oracleMode = this.configService.get<string>('ORACLE_MODE', 'single').toLowerCase();
     const isMultiOracle = oracleMode === 'multi' || this.oracleRegistry.isMultiOracleMode();
     const localOracleId = this.oracleRegistry.getLocalOracleId();
@@ -253,7 +247,6 @@ export class RandomnessWorker implements OnApplicationShutdown {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
 
-      // Record audit log immediately after successful submission
       const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
       await this.auditLogService.record({
         raffleId,
@@ -275,10 +268,10 @@ export class RandomnessWorker implements OnApplicationShutdown {
       this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
-        `Failed to process randomness request for raffle ${raffleId}: ${error.message}`,
+        `Failed to process randomness request for raffle ${raffleId}: ${(error as Error).message}`,
         JSON.stringify({ raffle_id: raffleId, request_id: requestId, outcome: 'failure' } as OracleLogFields),
       );
-      this.healthService.recordFailure(requestId, raffleId, error.message);
+      this.healthService.recordFailure(requestId, raffleId, (error as Error).message);
       throw error;
     }
   }
@@ -312,10 +305,8 @@ export class RandomnessWorker implements OnApplicationShutdown {
         JSON.stringify({ raffle_id: raffleId, request_id: requestId, provider, oracle_id: localOracleId } as OracleLogFields),
       );
 
-      // Compute local oracle's VRF output
       const localRandomness = await this.computeRandomness(method, requestId);
 
-      // Broadcast to peers and collect responses; aggregate via XOR
       const { aggregated, usedOracles, fellBack } =
         await this.multiOracleCoordinator.broadcastAndCollect(requestId, localRandomness);
 
@@ -335,7 +326,6 @@ export class RandomnessWorker implements OnApplicationShutdown {
         throw new Error(`Transaction submission failed for raffle ${raffleId}`);
       }
 
-      // Record audit log immediately after successful submission
       const oracleAddress = await this.txSubmitter['keyService'].getPublicKey();
       await this.auditLogService.record({
         raffleId,
@@ -349,14 +339,13 @@ export class RandomnessWorker implements OnApplicationShutdown {
 
       this.processedRequestIds.add(requestId);
 
-      // Record in coordinator for observability
       if (!this.multiOracleCoordinator.isTracked(raffleId, requestId)) {
         await this.multiOracleCoordinator.startTracking(raffleId, requestId);
       }
       const localOracle = this.oracleRegistry.getLocalOracle();
       if (localOracle) {
-       this.multiOracleCoordinator.recordSubmission(
-  raffleId, requestId, localOracleId, localOracle.publicKey, aggregated
+        this.multiOracleCoordinator.recordSubmission(
+          raffleId, requestId, localOracleId, localOracle.publicKey, aggregated
         );
       }
 
@@ -368,10 +357,10 @@ export class RandomnessWorker implements OnApplicationShutdown {
       this.lagMonitor.fulfillRequest(requestId);
     } catch (error) {
       this.logger.error(
-        `Failed to process multi-oracle request for raffle ${raffleId}: ${error.message}`,
+        `Failed to process multi-oracle request for raffle ${raffleId}: ${(error as Error).message}`,
         JSON.stringify({ raffle_id: raffleId, request_id: requestId, oracle_id: localOracleId, outcome: 'failure' } as OracleLogFields),
       );
-      this.healthService.recordFailure(`${requestId}:${localOracleId}`, raffleId, error.message);
+      this.healthService.recordFailure(`${requestId}:${localOracleId}`, raffleId, (error as Error).message);
       throw error;
     }
   }
@@ -427,7 +416,7 @@ export class RandomnessWorker implements OnApplicationShutdown {
     if (!startTime) return;
 
     const processingTime = Date.now() - startTime;
-    const SLA_THRESHOLD_MS = 5000; // 5 seconds for high-priority jobs
+    const SLA_THRESHOLD_MS = 5000;
 
     if (processingTime > SLA_THRESHOLD_MS) {
       this.logger.warn(
@@ -443,12 +432,10 @@ export class RandomnessWorker implements OnApplicationShutdown {
   }
 
   determinePriority(prizeAmount?: number, priorityFlag?: number): number {
-    // If priority flag is explicitly set in contract event, use it
     if (priorityFlag !== undefined) {
       return priorityFlag;
     }
 
-    // Otherwise, determine priority based on prize amount
     if (!prizeAmount) {
       return JobPriority.NORMAL;
     }

@@ -3,35 +3,35 @@
  * It is a no-op in production unless the VITE_DEBUG flag is set.
  */
 
-const isProduction = import.meta.env.PROD;
+const isDev = import.meta.env.DEV;
 const isDebug = import.meta.env.VITE_DEBUG === 'true';
 
-const shouldLog = !isProduction || isDebug;
+const shouldLog = isDev || isDebug;
 
 export const logger = {
-    log: (...args: any[]) => {
+    log: (...args: unknown[]) => {
         if (shouldLog) {
             console.log(...args);
         }
     },
-    info: (...args: any[]) => {
+    info: (...args: unknown[]) => {
         if (shouldLog) {
             console.info(...args);
         }
     },
-    warn: (...args: any[]) => {
+    warn: (...args: unknown[]) => {
         if (shouldLog) {
             console.warn(...args);
         }
     },
-    error: (...args: any[]) => {
+    error: (...args: unknown[]) => {
         // We typically want errors to log even in production, but per requirements: 
         // "is a no-op in production unless a VITE_DEBUG flag is set"
         if (shouldLog) {
             console.error(...args);
         }
     },
-    debug: (...args: any[]) => {
+    debug: (...args: unknown[]) => {
         if (shouldLog) {
             console.debug(...args);
         }

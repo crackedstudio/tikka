@@ -70,48 +70,58 @@ For ingestion-lag alert thresholds and the runbook, see [`docs/observability/ING
 
 ### Prometheus Metrics
 
-| Metric Name | Type | Labels | Description |
-|-------------|------|--------|-------------|
-| `tikka_indexer_events_processed_total` | Counter | `event_type` | Total events processed by type |
-| `tikka_indexer_errors_total` | Counter | (none) | Total errors during polling or processing |
-| `tikka_indexer_reorg_detected_total` | Counter | (none) | Total ledger reorgs detected |
-| `tikka_indexer_lag_ledgers` | Gauge | (none) | **[Deprecated alias]** Ledger lag behind the network; kept for backward compatibility, prefer `tikka_indexer_ingestion_lag_ledgers`. |
-| `tikka_indexer_ingestion_lag_ledgers` | ObservableGauge | (none) | Ingestion lag in ledgers: `latest_network_ledger_sequence - cursor.lastLedger`. Refreshed every `LAG_PROBE_REFRESH_MS` (default 15s) via `LagProbeService`. **Alert when > `INDEXER_LAG_ALERT_THRESHOLD_LEDGERS` (default 50) for 5m (critical).** See [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md). |
-| `tikka_indexer_ingestion_lag_seconds` | ObservableGauge | (none) | Ingestion lag in seconds: `latest_network_ledger.closedAt - cursor.lastSavedAt`. Refreshed every `LAG_PROBE_REFRESH_MS` (default 15s). **Alert when > `INDEXER_LAG_ALERT_THRESHOLD_SECONDS` (default 90) for 5m (warning).** See [`docs/observability/INGESTION_LAG.md`](INGESTION_LAG.md). |
-| `tikka_indexer_poll_duration_seconds` | Histogram | (none) | Duration of ledger polling cycles |
-| `tikka_indexer_memory_usage_bytes` | ObservableGauge | (none) | Current heap used |
-| `tikka_db_slow_query_total` | Counter | `query_hash` | Slow database queries |
-| `tikka_db_query_duration_seconds` | Histogram | `query_hash` | Database query duration |
-| `indexer_dlq_depth` | Gauge | `contract_address` | Current DLQ depth per contract |
-| `indexer_dlq_events_total` | Counter | `reason`, `event_type` | Total DLQ events added/replayed |
-| `tikka_indexer_queue_waiting` | Gauge | `queue` | Number of jobs waiting in queue |
-| `tikka_indexer_queue_active` | Gauge | `queue` | Number of actively processing jobs |
-| `tikka_indexer_queue_completed` | Gauge | `queue` | Number of completed jobs |
-| `tikka_indexer_queue_failed` | Gauge | `queue` | Number of failed jobs |
-| `tikka_indexer_queue_delayed` | Gauge | `queue` | Number of delayed jobs |
-| `tikka_indexer_queue_paused` | Gauge | `queue` | Number of paused jobs |
-| `tikka_indexer_queue_oldest_job_age_seconds` | Gauge | `queue` | Age of oldest waiting job in seconds |
-| `tikka_indexer_queue_total` | Gauge | `queue` | Total jobs across all states |
+`Status` is what makes this table a registry rather than a wish list:
+**Emitted** means a service actually creates the instrument, **Planned** means it
+is designed but not yet implemented. `scripts/check-dashboard-metrics.js` enforces
+both directions — an Emitted metric must exist in the source, and no dashboard
+panel may query a Planned one.
+
+| Metric Name | Type | Status | Labels | Description |
+|-------------|------|--------|--------|-------------|
+| `tikka_indexer_events_processed_total` | Counter | Emitted | `event_type` | Total events processed by type |
+| `tikka_indexer_errors_total` | Counter | Emitted | (none) | Total errors during polling or processing |
+| `tikka_indexer_reorg_detected_total` | Counter | Emitted | (none) | Total ledger reorgs detected |
+| `tikka_indexer_lag_ledgers` | Gauge | Emitted | (none) | Ledger lag behind the network tip. Updated opportunistically when the SSE stream falls back to polling. One of two non-conforming aliases for the same quantity — see the note below. |
+| `indexer_ledger_lag` | Gauge | Emitted | (none) | The second alias for ledger lag. Does not carry the `tikka_` prefix the naming convention requires. Charted alongside `tikka_indexer_lag_ledgers` on the indexer dashboard so a divergence between the two update paths is visible. |
+| `tikka_indexer_ingestion_lag_ledgers` | ObservableGauge | **Planned** | (none) | Ingestion lag in ledgers: `latest_network_ledger_sequence - cursor.lastLedger`, refreshed via `LagProbeService`. `LagProbeService` exists and caches the network tip, but no gauge is registered against it yet, so this metric is **not currently exported**. Intended to replace both aliases above. See [`INGESTION_LAG.md`](INGESTION_LAG.md). |
+| `tikka_indexer_ingestion_lag_seconds` | ObservableGauge | **Planned** | (none) | Ingestion lag in seconds: `latest_network_ledger.closedAt - cursor.lastSavedAt`. Not currently exported, for the same reason. See [`INGESTION_LAG.md`](INGESTION_LAG.md). |
+| `tikka_indexer_poll_duration_seconds` | Histogram | Emitted | (none) | Duration of ledger polling cycles |
+| `tikka_indexer_memory_usage_bytes` | ObservableGauge | Emitted | (none) | Current heap used |
+| `tikka_db_slow_query_total` | Counter | Emitted | `query_hash` | Slow database queries |
+| `tikka_db_query_duration_seconds` | Histogram | Emitted | `query_hash` | Database query duration |
+| `indexer_dlq_depth` | Gauge | Emitted | `contract_address` | Current DLQ depth per contract |
+| `indexer_dlq_events_total` | Counter | Emitted | `reason`, `event_type` | Total DLQ events added/replayed |
+| `tikka_indexer_queue_waiting` | Gauge | Emitted | `queue` | Number of jobs waiting in queue |
+| `tikka_indexer_queue_active` | Gauge | Emitted | `queue` | Number of actively processing jobs |
+| `tikka_indexer_queue_completed` | Gauge | Emitted | `queue` | Number of completed jobs |
+| `tikka_indexer_queue_failed` | Gauge | Emitted | `queue` | Number of failed jobs |
+| `tikka_indexer_queue_delayed` | Gauge | Emitted | `queue` | Number of delayed jobs |
+| `tikka_indexer_queue_paused` | Gauge | Emitted | `queue` | Number of paused jobs |
+| `tikka_indexer_queue_oldest_job_age_seconds` | Gauge | Emitted | `queue` | Age of oldest waiting job in seconds |
+| `tikka_indexer_queue_total` | Gauge | Emitted | `queue` | Total jobs across all states |
 
 ### Prometheus Scrape Config
 
-```yaml
-scrape_configs:
-  - job_name: 'tikka-indexer'
-    static_configs:
-      - targets: ['localhost:3002']
-    metrics_path: '/metrics'
-```
+See [`prometheus.yml`](prometheus.yml) — the single scrape config for the whole
+stack. It is deliberately not reproduced here.
 
 ### Prometheus Alert Rules
 
+Defined in [`alerts.rules.yml`](alerts.rules.yml), loaded by
+[`prometheus.yml`](prometheus.yml) via `rule_files`:
+
 | Alert Name | Expression | Severity |
 |------------|-----------|----------|
-| `IndexerIngestionLagLedgers` | `tikka_indexer_ingestion_lag_ledgers > 50` for 5m | critical |
-| `IndexerIngestionLagSeconds` | `tikka_indexer_ingestion_lag_seconds > 90` for 5m | warning |
-| `IndexerFallingBehind` | `tikka_indexer_lag_ledgers > 20` for 5m (deprecated alias) | critical |
+| `IndexerFallingBehind` | `tikka_indexer_lag_ledgers > 20` for 5m | critical |
+| `IndexerLedgerLagHigh` | `indexer_ledger_lag > 100` for 5m | critical |
 | `IndexerHighLatency` | avg poll duration > 10s for 10m | warning |
-| `IndexerErrors` | error rate > 0.1/s for 2m | warning |
+| `IndexerErrors` | `rate(tikka_indexer_errors_total[5m]) > 0.1` for 2m | warning |
+
+Proposed but **not yet defined** in `alerts.rules.yml` — the queue metrics are
+exported, so these only need writing:
+
+| Alert Name | Expression | Severity |
+|------------|-----------|----------|
 | `IndexerQueueBacklog` | `tikka_indexer_queue_waiting > 100` for 5m | warning |
 | `IndexerQueueStalled` | `tikka_indexer_queue_oldest_job_age_seconds > 300` for 5m | critical |
 | `IndexerQueueFailureRate` | `rate(tikka_indexer_queue_failed[5m]) > 0.1` for 5m | warning |
@@ -141,13 +151,23 @@ scrape_configs:
 
 ### Prometheus Metrics
 
-| Metric Name | Type | Labels | Description |
-|-------------|------|--------|-------------|
-| `tikka_oracle_estimated_fee_stroops` | Gauge | `network`, `method` | Estimated fee for next submission |
-| `tikka_oracle_actual_fee_total_stroops` | Counter | `network`, `method` | Total actual fee paid for submissions |
-| `tikka_oracle_submission_outcome_total` | Counter | `outcome`, `network`, `method` | Submission outcomes (success/failure/retry) |
-| `tikka_oracle_component_heartbeat_unixtime` | Gauge | `component` | Unix seconds of last main-loop activity (`listener`, `queue`, `submitter`) |
-| `tikka_oracle_memory_usage_bytes` | ObservableGauge | (none) | Current heap used |
+| Metric Name | Type | Status | Labels | Description |
+|-------------|------|--------|--------|-------------|
+| `tikka_oracle_estimated_fee_stroops` | Gauge | Emitted | `network`, `method` | Estimated fee for next submission |
+| `tikka_oracle_actual_fee_total_stroops` | Counter | Emitted | `network`, `method` | Total actual fee paid for submissions |
+| `tikka_oracle_submission_outcome_total` | Counter | Emitted | `outcome`, `network`, `method` | Submission outcomes (success/failure/retry) |
+| `tikka_oracle_fee_bumps_total` | Counter | Emitted | `network`, `method` | Fee-bump transactions issued for stuck submissions |
+| `tikka_oracle_component_heartbeat_unixtime` | Gauge | Emitted | `component` | Unix seconds of last main-loop activity (`listener`, `queue`, `submitter`) |
+| `tikka_oracle_memory_usage_bytes` | ObservableGauge | Emitted | (none) | Current heap used |
+| `oracle_vrf_proofs_total` | Counter | Emitted | (none) | VRF proofs generated successfully. Charted on the oracle dashboard. Missing the `tikka_` prefix the convention requires. |
+| `oracle_vrf_failures_total` | Counter | Emitted | `reason` | VRF proof generation failures by reason. Missing the `tikka_` prefix. |
+| `oracle_event_listener_gaps_total` | Counter | Emitted | (none) | Gaps detected in the Horizon event stream. Missing the `tikka_` prefix. |
+| `oracle_event_listener_backfill_events_total` | Counter | Emitted | (none) | Events recovered by backfill after a stream gap. Missing the `tikka_` prefix. |
+
+Four oracle metrics above predate the `tikka_<service>_` naming convention in
+[`README.md`](README.md). Renaming them is a breaking change for any dashboard or
+alert already pointing at them, so they are recorded here as they actually are
+rather than as they should be.
 
 ### Component heartbeat (liveness)
 
@@ -200,9 +220,38 @@ Events flow across services. Use these fields to correlate:
 
 | Correlation Key | Backend | Indexer | Oracle |
 |----------------|---------|---------|--------|
-| `requestId` | Log field, Sentry tag | — | Log field (`TelemetryContext`) |
+| `x-request-id` (header) | Generated per request, logged + echoed on response | Read from inbound header, stamped on every log line | Read from inbound header / peer `x-request-id` into `correlationId` |
+| `requestId` | Log field, Sentry tag, error-response body | Log field (same value as `x-request-id`) | Log field (`correlationId`), queue metadata |
 | `raffleId` | DB field (`oracle_jobs`) | — | Log field, queue metadata |
 | `txHash` | DB field (`oracle_jobs`) | — | Log field, `TransactionOutcome` |
 | `ledger` | Log field | Log field, metric context | Queue metadata |
 | `eventType` | — | Metric label (`event_type`) | — |
 | `jobId` | DB field | — | Queue metadata |
+
+### Trace header propagation
+
+The canonical correlation id is **`x-request-id`** (W3C-style request id; not the
+full `traceparent`, but compatible with it). Propagation path:
+
+1. **Backend** — `RequestIdMiddleware` generates an `x-request-id` if the caller
+   did not supply one, stores it in an `AsyncLocalStorage` request context, and
+   echoes it on the response. `RequestLoggingInterceptor` and
+   `BaseExceptionFilter` attach it to every log line and to the error-response
+   body (`requestId`), so a user-reported id maps straight back to backend logs.
+2. **Backend → Indexer** — `IndexerService` forwards the active `x-request-id`
+   as a request header on every `fetch` call. The indexer's
+   `RequestIdMiddleware` reuses that id (falling back to a generated one) and the
+   indexer's `RequestLoggerService` stamps it on every log line, so a single id
+   spans backend + indexer for one logical operation.
+3. **Indexer outbound** — webhook fan-out forwards the same `x-request-id` to
+   downstream webhook consumers.
+4. **Oracle** — the draw's `request_id` arrives from the on-chain event (and, for
+   multi-oracle, peer `/vrf/compute` calls forward `x-request-id`). The event
+   listener runs the draw handler inside `CorrelationContext.run(requestId, …)`
+   and the randomness worker uses `requestId` as its `correlationId`, so every
+   oracle log for that draw carries the same id.
+
+> To correlate a failed raffle draw end-to-end: take the `requestId` from the
+> backend error response, then grep backend, indexer, and oracle logs for that
+> value (backend/indexer: `x-request-id` / `requestId`; oracle: `correlationId`
+> and `request_id` fields).

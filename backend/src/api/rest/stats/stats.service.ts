@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 import {
   IndexerService,
   IndexerPlatformStats,
   IndexerTransparencyEntry,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 
 export interface TransparencyStats extends IndexerPlatformStats {
   oracle_public_key: string;

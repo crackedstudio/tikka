@@ -1,10 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Search } from 'lucide-react';
 import { faqData } from './FAQContent';
-import React, { useMemo } from 'react';
-import { faqContent } from './FAQContent';
 
 const HighlightText = ({ text, highlight }: { text: string; highlight: string }) => {
   if (!highlight.trim()) {
@@ -99,7 +97,7 @@ const FAQItem = ({
 export const FAQPage: React.FC = () => {
   // Flatten array and format valid structural JSON-LD matching Schema.org expectations
   const jsonLdSchema = useMemo(() => {
-    const mainEntities = faqContent.flatMap((category) =>
+    const mainEntities = faqData.flatMap((category) =>
       category.items.map((item) => ({
         "@type": "Question",
         "name": item.question,
@@ -133,7 +131,7 @@ export const FAQPage: React.FC = () => {
       </header>
 
       <div className="faq-categories-wrapper space-y-8">
-        {faqContent.map((category, catIdx) => (
+        {faqData.map((category, catIdx) => (
           <section key={catIdx} className="faq-category-block">
             <h2 className="text-xl font-semibold border-b pb-2 mb-4 text-primary">
               {category.title}

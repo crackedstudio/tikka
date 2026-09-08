@@ -1,7 +1,7 @@
 import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OracleLogFields } from '../logger/oracle-logger';
+import { OracleLogFields, CorrelationContext } from '../logger/oracle-logger';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -355,16 +355,27 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         const raffleId = payload['raffle_id'];
         const requestId = payload['request_id'];
 
-        if (raffleId !== undefined && requestId !== undefined) {
-            const fields: OracleLogFields = { raffle_id: raffleId, request_id: String(requestId) };
-            this.logger.log(`[DrawTriggered] scheduling reveal`, JSON.stringify(fields));
-            this.commitRevealWorker.processReveal({ 
-                raffleId, 
-                requestId: String(requestId) 
-            }).catch(err => {
-                const errFields: OracleLogFields = { raffle_id: raffleId, request_id: String(requestId), outcome: 'failure' };
-                this.logger.error(`Reveal processing failed for raffle ${raffleId}: ${err.message}`, JSON.stringify(errFields));
-            });
+        const handle = () => {
+            if (raffleId !== undefined && requestId !== undefined) {
+                const fields: OracleLogFields = { raffle_id: raffleId, request_id: String(requestId) };
+                this.logger.log(`[DrawTriggered] scheduling reveal`, JSON.stringify(fields));
+                this.commitRevealWorker.processReveal({
+                    raffleId,
+                    requestId: String(requestId)
+                }).catch(err => {
+                    const errFields: OracleLogFields = { raffle_id: raffleId, request_id: String(requestId), outcome: 'failure' };
+                    this.logger.error(`Reveal processing failed for raffle ${raffleId}: ${err.message}`, JSON.stringify(errFields));
+                });
+            }
+        };
+
+        // Bind the draw's request id to the async context so every downstream
+        // log line (reveal worker, queue, submitter) carries the same
+        // correlation id the backend/indexer already use.
+        if (requestId !== undefined) {
+            CorrelationContext.run(String(requestId), handle);
+        } else {
+            handle();
         }
     }
 
@@ -383,7 +394,11 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         const prizeAmount = payload['prize_amount'];
         const priorityFlag = payload['priority'];
 
-        if (raffleId !== undefined && requestId !== undefined) {
+        const handle = async () => {
+            if (raffleId === undefined || requestId === undefined) {
+                this.logger.warn(`Could not parse RandomnessRequested payload: ${JSON.stringify(payload)}`);
+                return;
+            }
             const reqIdStr = String(requestId);
             const prizeAmountNum = prizeAmount ? Number(prizeAmount) / 10_000_000 : undefined; // Convert stroops to XLM
             const priority = this.determinePriority(prizeAmountNum, priorityFlag);
@@ -444,9 +459,15 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
                     this.logger.error(`Direct request processing failed for raffle ${raffleId}: ${err.message}`);
                 });
             }
-        } else {
-            this.logger.warn(`Could not parse RandomnessRequested payload: ${JSON.stringify(payload)}`);
+        };
+
+        // Bind the draw's request id to the async context so all logs emitted
+        // while enqueuing/processing the randomness job share the same
+        // correlation id the backend/indexer already use.
+        if (requestId !== undefined) {
+            return CorrelationContext.run(String(requestId), handle);
         }
+        return handle();
     }
 
     private determinePriority(prizeAmount?: number, priorityFlag?: any): number {

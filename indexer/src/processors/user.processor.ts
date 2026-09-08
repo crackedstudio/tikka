@@ -51,7 +51,7 @@ export class UserProcessor {
       // 2. Idempotency check — skip if this tx was already applied
       const existing = await runner.manager.findOne(UserEntity, {
         where: { address: buyer },
-        select: ['lastTxHash', 'firstSeenLedger'],
+        select: { lastTxHash: true, firstSeenLedger: true },
       });
       if (existing?.lastTxHash === txHash) {
         this.logger.debug(`TicketPurchased ${txHash} already applied for ${buyer}, skipping`);
@@ -152,7 +152,7 @@ export class UserProcessor {
       // 2. Idempotency check
       const existing = await runner.manager.findOne(UserEntity, {
         where: { address: winner },
-        select: ['lastTxHash'],
+        select: { lastTxHash: true },
       });
       if (existing?.lastTxHash === txHash) {
         this.logger.debug(`RaffleFinalized ${raffleId} already applied for ${winner}, skipping`);

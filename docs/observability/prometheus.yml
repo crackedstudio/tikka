@@ -1,6 +1,18 @@
+# Single scrape config for the whole stack (#1480).
+#
+# This replaces the indexer-only copy that used to live in indexer/prometheus/.
+# Two scrape configs for one stack meant a target added to one was invisible in
+# the other; there is now exactly one file, and every service is listed here.
+#
+# Targets assume the services are reachable on localhost (docker-compose or a
+# port-forward). In-cluster, replace the static_configs with kubernetes_sd_configs
+# or point them at <service>.tikka.svc.cluster.local.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+
+rule_files:
+  - alerts.rules.yml
 
 scrape_configs:
   - job_name: 'tikka-indexer'
@@ -13,6 +25,9 @@ scrape_configs:
       - targets: ['localhost:3003']
     metrics_path: '/metrics'
 
+  # The backend exposes JSON, not Prometheus text, so this target will not
+  # produce usable series until it grows a Prometheus exporter. It is listed
+  # here so the gap is visible rather than forgotten. See METRICS_MAP.md.
   - job_name: 'tikka-backend'
     static_configs:
       - targets: ['localhost:3001']

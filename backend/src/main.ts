@@ -1,4 +1,4 @@
-import { Logger } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import {
@@ -56,6 +56,14 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new SentryInterceptor(), new RequestLoggingInterceptor());
   app.useGlobalFilters(new BaseExceptionFilter());
+  app.enableShutdownHooks();
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   // Enable NestJS lifecycle hooks so SIGTERM triggers onApplicationShutdown
   // on all providers (workers drain in-flight jobs before exit).

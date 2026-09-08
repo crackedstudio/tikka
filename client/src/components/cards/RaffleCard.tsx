@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import React from "react";
 import { Link } from "react-router-dom";
 import { ProgressBar } from "../ui/ProgressBar";
@@ -26,9 +27,8 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
         buttonText = "Enter Raffle",
         status,
         winner,
+        isActive,
     } = viewModel;
-
-    const isActive = status === "live" || status === "ending-soon";
 
     const statusSection = isActive ? (
         <div>
@@ -58,13 +58,11 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
             )}
         </div>
     ) : (
-        /* cancelled — just a divider */
         <Line />
     );
 
     const cardContent = (
         <>
-            {/* Image */}
             <div className="w-full">
                 <LazyImage
                     src={imageUrl}
@@ -75,7 +73,6 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
                 />
             </div>
 
-            {/* Title & Prize */}
             <div>
                 <p className="text-[22px] font-bold">{title}</p>
                 <p className="text-gray-600 dark:text-[#9CA3AF] text-sm">
@@ -86,10 +83,8 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
                 </p>
             </div>
 
-            {/* Status section */}
             {statusSection}
 
-            {/* Ticket & Entries */}
             <div className="flex justify-between">
                 <div>
                     <p className="text-gray-600 dark:text-[#9CA3AF] text-[12px]">Ticket price</p>
@@ -101,7 +96,6 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
                 </div>
             </div>
 
-            {/* Progress */}
             <ProgressBar value={progress} />
         </>
     );
@@ -112,7 +106,7 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
             ticketPrice={ticketPrice}
             onSuccess={() => onEnter?.()}
             onError={(error) => {
-                console.error("Error purchasing ticket:", error);
+                logger.error("Error purchasing ticket:", error);
                 alert(error);
             }}
         >
@@ -138,7 +132,6 @@ const RaffleCard: React.FC<RaffleCardProps> = ({ viewModel, onEnter }) => {
                     >
                         {cardContent}
                     </Link>
-                    {/* CTA — outside the Link to prevent navigation on button click */}
                     {ctaButton}
                 </>
             ) : (

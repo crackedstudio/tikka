@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
 import { WebhookDeliveryWorker } from './webhook-delivery.worker';
-import { SUPABASE_CLIENT } from '../services/supabase.provider';
+import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
 import { Job } from 'bullmq';
 import { WebhookDeliveryJobData } from './webhook-delivery.constants';
 

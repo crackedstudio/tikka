@@ -33,6 +33,12 @@ describe('CacheService', () => {
     service.onModuleInit();
   });
 
+  afterEach(() => {
+    // Tear down the memory-monitor interval and Redis connection started in
+    // onModuleInit(), otherwise Jest keeps an open handle and never exits.
+    service.onModuleDestroy();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });

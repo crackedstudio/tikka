@@ -1,3 +1,4 @@
+import { RaffleParams } from "../ingestor/event.types";
 import { Injectable, Logger } from "@nestjs/common";
 import { DataSource, QueryRunner } from "typeorm";
 import { CacheService } from "../cache/cache.service";
@@ -30,14 +31,7 @@ export class RaffleProcessor {
     creator: string,
     ledger: number,
     txHash: string,
-    params: {
-      ticket_price: string;
-      max_tickets: number;
-      end_time: number;
-      asset: string;
-      metadata_cid: string;
-      allow_multiple: boolean;
-    },
+    params: RaffleParams,
     schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleCreated for raffle ${raffleId} (tx ${txHash})`);
@@ -100,7 +94,10 @@ export class RaffleProcessor {
     } catch (e) {
       await runner.rollbackTransaction();
       await runner.release();
-      this.logger.error(`Error processing RaffleCreated for raffle ${raffleId} (tx ${txHash})`, e as any);
+      this.logger.error(
+        `Error processing RaffleCreated for raffle ${raffleId} (tx ${txHash})`,
+        e instanceof Error ? e.stack : String(e),
+      );
       throw e;
     }
   }
@@ -176,7 +173,10 @@ export class RaffleProcessor {
     } catch (e) {
       await runner.rollbackTransaction();
       await runner.release();
-      this.logger.error(`Error processing RaffleFinalized for raffle ${raffleId} (tx ${txHash})`, e as any);
+      this.logger.error(
+        `Error processing RaffleFinalized for raffle ${raffleId} (tx ${txHash})`,
+        e instanceof Error ? e.stack : String(e),
+      );
       throw e;
     }
   }
@@ -243,7 +243,10 @@ export class RaffleProcessor {
     } catch (e) {
       await runner.rollbackTransaction();
       await runner.release();
-      this.logger.error(`Error processing RaffleCancelled for raffle ${raffleId} (tx ${txHash})`, e as any);
+      this.logger.error(
+        `Error processing RaffleCancelled for raffle ${raffleId} (tx ${txHash})`,
+        e instanceof Error ? e.stack : String(e),
+      );
       throw e;
     }
   }
