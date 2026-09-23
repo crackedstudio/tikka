@@ -34,13 +34,13 @@ export class ReadOnlyRaffleService {
   /** Fetch on-chain data for a single raffle by ID. Alias for `get`. */
   async getById(raffleId: number): Promise<ContractResponse<RaffleData>> {
     const raw = await this.simulate<any>(ContractFn.GET_RAFFLE_DATA, [raffleId]);
-    return { status: 'SUCCESS', value: this.mapRaffle(raffleId, raw) };
+    return { success: true, status: 'SUCCESS', value: this.mapRaffle(raffleId, raw) };
   }
 
   /** Return IDs of all raffles (any state). Alias for `listAll`. */
   async getAll(): Promise<ContractResponse<number[]>> {
     const ids = await this.simulate<number[]>(ContractFn.GET_ALL_RAFFLE_IDS, []);
-    return { status: 'SUCCESS', value: ids };
+    return { success: true, status: 'SUCCESS', value: ids };
   }
 
   private async simulate<T>(method: string, params: any[]): Promise<T> {

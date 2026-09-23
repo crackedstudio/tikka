@@ -14,7 +14,7 @@ export function validateEnv() {
 
   if (result.error) {
     const details = result.error.details
-      .map((detail) => `- ${detail.message}`)
+      .map((detail: { message: string }) => `- ${detail.message}`)
       .join('\n');
     throw new Error(`Invalid environment configuration:\n${details}`);
   }

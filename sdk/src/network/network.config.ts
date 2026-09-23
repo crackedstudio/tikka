@@ -140,7 +140,10 @@ export function classifySorobanRpcError(error: unknown): RetryDecision {
   const lower = message.toLowerCase();
 
   // Malformed XDR is a request/encoding defect, never transient.
-  if (/xdr/i.test(lower) && /(malformed|invalid|corrupt|unable to parse|could not (?:read|parse)|bad)/.test(lower)) {
+  if (
+    /xdr/i.test(lower) &&
+    /(malformed|invalid|corrupt|unable to parse|could not (?:read|parse)|bad)/.test(lower)
+  ) {
     return { retry: false, reason: 'fatal', message: 'Malformed XDR — not retryable' };
   }
 
@@ -171,7 +174,11 @@ export function classifySorobanRpcError(error: unknown): RetryDecision {
     err instanceof ContractFailureError ||
     err instanceof TransactionRejectedError
   ) {
-    return { retry: false, reason: 'fatal', message: 'Contract / validation failure — not retryable' };
+    return {
+      retry: false,
+      reason: 'fatal',
+      message: 'Contract / validation failure — not retryable',
+    };
   }
 
   // Rate limiting (429) and 5xx server errors are retryable.
@@ -280,9 +287,8 @@ export interface RpcConfig {
   circuitBreakerResetTimeoutMs?: number;
 }
 
-export const SOROBAN_RPC_MAX_RETRIES = 3;
-export const SOROBAN_RPC_BASE_DELAY_MS = 300;
-export const SOROBAN_RPC_MAX_DELAY_MS = 8_000;
+// NOTE: the SOROBAN_RPC_* retry constants are declared once at the top of
+// this file and reused by both `DEFAULT_RETRY_CONFIG` and `DEFAULT_RPC_CONFIG`.
 
 export const DEFAULT_RPC_CONFIG: RpcConfig = {
   headers: {},
@@ -292,7 +298,17 @@ export const DEFAULT_RPC_CONFIG: RpcConfig = {
   maxRetryAttempts: SOROBAN_RPC_MAX_RETRIES,
   retryBaseDelayMs: SOROBAN_RPC_BASE_DELAY_MS,
   retryBackoffFactor: 2,
-  retryableStatusCodes: [429, 500, 502, 503, 504, 'RATE_LIMIT', 'UNAVAILABLE', 'TIMEOUT', 'ECONNRESET'],
+  retryableStatusCodes: [
+    429,
+    500,
+    502,
+    503,
+    504,
+    'RATE_LIMIT',
+    'UNAVAILABLE',
+    'TIMEOUT',
+    'ECONNRESET',
+  ],
   circuitBreakerFailureThreshold: 5,
   circuitBreakerResetTimeoutMs: 10_000,
 };
@@ -359,7 +375,11 @@ export function validateNetworkConfig(config: NetworkConfig): NetworkConfig {
   assertUrl('horizonUrl', config.horizonUrl);
 
   if (typeof config.networkPassphrase !== 'string' || config.networkPassphrase.trim() === '') {
-    throw new NetworkConfigError('networkPassphrase', config.networkPassphrase, 'must be a non-empty string');
+    throw new NetworkConfigError(
+      'networkPassphrase',
+      config.networkPassphrase,
+      'must be a non-empty string',
+    );
   }
 
   // A passphrase that does not match the named network is the dangerous case:
@@ -407,7 +427,8 @@ function assertUrl(field: string, value: unknown): void {
  * @throws {NetworkConfigError}
  */
 export function resolveNetworkConfig(
-  networkOrConfig: TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork }),
+  networkOrConfig:
+    TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork }),
 ): NetworkConfig {
   if (typeof networkOrConfig === 'string') {
     const cfg = NETWORK_CONFIGS[networkOrConfig];
@@ -423,7 +444,11 @@ export function resolveNetworkConfig(
   }
 
   if (!networkOrConfig || typeof networkOrConfig !== 'object') {
-    throw new NetworkConfigError('config', networkOrConfig, 'must be a network name or a config object');
+    throw new NetworkConfigError(
+      'config',
+      networkOrConfig,
+      'must be a network name or a config object',
+    );
   }
 
   const base = NETWORK_CONFIGS[networkOrConfig.network];

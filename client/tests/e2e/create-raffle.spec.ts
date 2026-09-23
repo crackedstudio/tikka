@@ -41,6 +41,7 @@ test.describe('Raffle creation flow', () => {
 
     // Review -> Publish
     const allButtons = await page.locator('button').allTextContents();
+    // eslint-disable-next-line no-console -- e2e diagnostics during recording/debugging
     console.log('Buttons on Review step:', allButtons);
     await page.waitForTimeout(1000);
     await page.waitForSelector('button:has-text("Publish Raffle")', { timeout: 20000 });

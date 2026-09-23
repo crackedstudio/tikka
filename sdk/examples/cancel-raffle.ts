@@ -18,10 +18,11 @@ import { RaffleService } from '../src/modules/raffle/raffle.service';
 import { MockWalletAdapter } from '../src/wallet/mock-wallet.adapter';
 import { TikkaNetwork } from '../src/network/network.config';
 import { TxResponse } from '../src/contract/response';
+import { TxMemo } from '../src/contract/contract.service';
 
 export async function cancelRaffleFlow(
   raffleService: RaffleService,
-  params: { raffleId: number; memo?: string },
+  params: { raffleId: number; memo?: TxMemo },
 ): Promise<TxResponse<void>> {
   return raffleService.cancel(params);
 }
@@ -42,10 +43,9 @@ async function main() {
 
   const wallet = new MockWalletAdapter({ publicKey });
 
-  const app = await NestFactory.createApplicationContext(
-    AppModule.forRoot({ network, wallet }),
-    { logger: false },
-  );
+  const app = await NestFactory.createApplicationContext(AppModule.forRoot({ network, wallet }), {
+    logger: false,
+  });
 
   const raffleService = app.get(RaffleService);
 

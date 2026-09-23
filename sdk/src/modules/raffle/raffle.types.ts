@@ -55,9 +55,24 @@ export interface CreateRaffleEstimate {
 }
 
 /** On-chain raffle data. */
-import { Pick } from "typescript";
-import { Raffle } from "@tikka/types";
-export type RaffleData = Pick<Raffle, "creator" | "status" | "ticketPrice" | "asset" | "maxTickets" | "ticketsSold" | "endTime" | "winner" | "winningTicketId" | "prizeAmount"> & { raffleId: number, allowMultiple: boolean, metadataCid: string, assetIssuer?: string };
+export interface RaffleData {
+  raffleId: number;
+  creator: string;
+  status: RaffleStatus;
+  /** Ticket price as a string to preserve precision (stroops / token base unit). */
+  ticketPrice: string;
+  asset: string;
+  maxTickets: number;
+  ticketsSold: number;
+  /** Unix timestamp in milliseconds. */
+  endTime: number;
+  allowMultiple: boolean;
+  metadataCid: string;
+  assetIssuer?: string;
+  winner?: string;
+  winningTicketId?: number;
+  prizeAmount?: string;
+}
 
 /** Result of cancelling a raffle. */
 export interface CancelRaffleResult {
@@ -87,10 +102,7 @@ export interface CancelRaffleParams {
  * Any other transition is rejected by the contract and surfaced as
  * `RaffleStateError`.
  */
-export type RaffleTransition =
-  | 'open→drawing'
-  | 'drawing→finalized'
-  | 'open→cancelled';
+export type RaffleTransition = 'open→drawing' | 'drawing→finalized' | 'open→cancelled';
 
 /**
  * Thrown when an operation is attempted in an invalid state.
@@ -103,7 +115,7 @@ export class RaffleStateError extends Error {
     public readonly attempted: RaffleTransition,
   ) {
     super(
-      `Raffle ${raffleId} is in state ${RaffleStatus[currentStatus]} — ` +
+      `Raffle ${raffleId} is in state ${String(currentStatus)} — ` +
         `transition "${attempted}" is not allowed.`,
     );
     this.name = 'RaffleStateError';
