@@ -155,8 +155,10 @@ oracle/src/config/
 ├── ENVIRONMENT_VARIABLES.md      # Complete env var reference (60+ vars)
 ├── IMPLEMENTATION_SUMMARY.md     # Implementation overview
 ├── VERIFICATION_CHECKLIST.md     # Step-by-step verification guide
-├── usage.example.ts              # 10 practical code examples
 └── DELIVERABLES.md              # This file
+
+oracle/examples/
+└── usage.example.ts              # 10 practical code examples (outside the build)
 ```
 
 ### Tools (1 file)
@@ -362,7 +364,7 @@ See `IMPLEMENTATION_SUMMARY.md` for migration examples.
 ## 📞 Support
 
 - **Documentation**: See `ENVIRONMENT_VARIABLES.md` for complete reference
-- **Examples**: See `usage.example.ts` for code examples
+- **Examples**: See `oracle/examples/usage.example.ts` for code examples
 - **Verification**: Run `npm run config:verify` to check configuration
 - **Testing**: Run `npm test -- src/config/` to run all config tests
 

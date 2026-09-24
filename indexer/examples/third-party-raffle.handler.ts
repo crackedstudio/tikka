@@ -1,20 +1,28 @@
 /**
- * Example: Third-party raffle contract handlers
+ * Worked example: third-party raffle contract handlers
  *
- * This demonstrates how to create handlers for a third-party contract
- * that has a different event schema than the default raffle contract.
+ * This demonstrates how to create handlers for a third-party contract that has
+ * a different event schema than the default raffle contract. The contract
+ * itself is described in docs/indexer/CUSTOM_HANDLERS.md; this file is the
+ * runnable companion to that page.
+ *
+ * It lives outside `src/` on purpose: it is documentation, not production code,
+ * so `tsconfig.build.json` keeps it out of the compiled output. It is still
+ * inside the project, so `pnpm --filter tikka-indexer typecheck` type-checks it
+ * against the real handler interfaces — that is what keeps the example honest
+ * when those interfaces change.
  */
 
 import { Injectable } from "@nestjs/common";
 import { xdr } from "@stellar/stellar-sdk";
-import { BaseEventHandler } from "../base-event.handler";
+import { BaseEventHandler } from "../src/ingestor/handlers/base-event.handler";
 import {
   EventPayload,
   RaffleCreatedEvent,
-} from "../../event.types";
-import { RawSorobanEvent } from "../../event-parser.interface";
-import { IEventHandler } from "../../event-handler.interface";
-import { DomainEvent } from "../../event.types";
+} from "../src/ingestor/event.types";
+import { RawSorobanEvent } from "../src/ingestor/event-parser.interface";
+import { IEventHandler } from "../src/ingestor/event-handler.interface";
+import { DomainEvent } from "../src/ingestor/event.types";
 import {
   asNumber,
   asRecord,
@@ -22,7 +30,7 @@ import {
   pickNumber,
   pickString,
   toNativeValue,
-} from "../decode-utils";
+} from "../src/ingestor/handlers/decode-utils";
 
 /**
  * Example: Third-party RaffleCreated event with a different schema.

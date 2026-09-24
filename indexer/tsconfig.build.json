@@ -5,6 +5,8 @@
     "test",
     "dist",
     "**/*spec.ts",
-    "src/**/testing/**"
+    "src/**/testing/**",
+    "**/examples/**",
+    "**/*.example.ts"
   ]
 }

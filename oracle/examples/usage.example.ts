@@ -6,7 +6,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { OracleConfigService } from './oracle-config.service';
+import { OracleConfigService } from '../src/config/oracle-config.service';
 
 // ============================================================================
 // Example 1: Basic Service Usage

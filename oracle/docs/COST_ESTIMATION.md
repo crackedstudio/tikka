@@ -265,11 +265,9 @@ Run cost estimator tests:
 pnpm test cost-estimator.service.spec.ts
 ```
 
-Run example:
-
-```bash
-npx ts-node src/submitter/cost-estimator.example.ts
-```
+Examples for this package live in `oracle/examples/`, outside the compiled build
+(see `oracle/examples/usage.example.ts`). There is no cost-estimator example in
+the tree — the estimator is exercised through its service specs.
 
 ## Best Practices
 
