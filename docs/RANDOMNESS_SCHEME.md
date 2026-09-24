@@ -73,13 +73,44 @@ Users should trust a draw only as much as the path used:
 - VRF path: strong verifiability, assuming the oracle private key remains secret and the contract verifies the proof.
 - PRNG path: reproducible and inspectable, but weaker trust because the contract does not validate it with a public-key signature.
 
-## 4. Why outcomes are verifiable
+## 4. Multi-oracle consensus and Byzantine fault tolerance
+
+When the oracle runs in multi-oracle mode, randomness is derived from multiple independent oracle nodes. This prevents a single malicious or compromised node from manipulating the draw outcome.
+
+### How consensus works
+
+Each round has two parameters:
+
+- **Threshold (N):** the minimum number of oracle nodes that must respond before a round can proceed.
+- **Consensus threshold (K):** the number of nodes that must agree on the same seed value for their response to be accepted.
+
+A round succeeds when at least K out of the responding nodes produce identical seed values. The aggregated seed is the XOR of all seeds in the consensus group; proofs are combined. Every node in the consensus group is recorded in the submission payload.
+
+### Byzantine failure modes handled
+
+| Failure mode | Behaviour |
+|---|---|
+| **Honest minority (unanimous)** | All nodes agree, consensus succeeds, submission proceeds. |
+| **Threshold met with dissent** | Enough nodes agree (≥K) despite some dissenters. Those who agreed form the consensus group; the dissenting nodes are excluded. The submission uses only the consensus group's values. |
+| **Threshold not met** | Fewer than K nodes agree on the same seed. Consensus fails; the system **refuses to submit** the randomness. No fallback to a single node's value ever occurs — the draw is simply not finalized in this round. |
+| **Non-revealing node** | A node that committed to participate but never reveals its seed. If the remaining nodes still meet the threshold and consensus threshold, the round proceeds without the non-revealing node. If not, the round fails (refuses to submit, no single-node fallback). |
+| **Equivocating node (commit-reveal mismatch)** | A node that reveals a seed whose hash does not match its earlier commitment. The node is excluded from the round, and its operator is alerted at severity critical. |
+| **Insufficient quorum** | Fewer than N nodes respond at all (data-availability failure). The system falls back to the local node's value so the raffle can still be drawn, but this path offers no Byzantine protection. |
+
+### What this guarantees
+
+- A single dishonest node cannot cause a submission of manipulated randomness unless it also controls K-1 other responding nodes.
+- Consensus failure never degrades to a single node's value — the system refuses to submit rather than fall back.
+- Equivocation (different values to different peers) is detectable through the commitment binding: a node that commits to hash H but reveals seed S where SHA-256(S) ≠ H is excluded and its operator is alerted.
+- A node that participates in the commit phase but vanishes before reveal is treated as missing; if sufficient honest nodes remain, the round proceeds without it.
+
+## 5. Why outcomes are verifiable
 
 The VRF path is verifiable because the contract can check the proof against the registered oracle public key and then recompute the seed from the proof. A third party can reproduce the same check from the on-chain request and the submitted payload.
 
 The PRNG path is still inspectable because the derivation is deterministic and public. A skeptical user can recompute the expected seed/proof from the request input and compare it with the values submitted on-chain.
 
-## 5. How a third party can verify a past draw
+## 6. How a third party can verify a past draw
 
 1. Find the raffle and its randomness request on-chain.
    - Look for the contract event that emitted the draw request.
