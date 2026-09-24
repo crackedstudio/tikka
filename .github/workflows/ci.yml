@@ -385,6 +385,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Validate migrations
+        run: pnpm run migrations:check -- --indexer-only
+        continue-on-error: false
+
       - name: Check module boundaries (dependency-cruiser)
         run: pnpm run boundaries
         continue-on-error: false
@@ -433,6 +437,10 @@ jobs:
 
       - name: Typecheck
         run: pnpm run typecheck
+        continue-on-error: false
+
+      - name: Validate migration timestamps
+        run: pnpm --filter tikka-backend run migrations:check -- --indexer-only
         continue-on-error: false
 
       - name: Run unit tests (network tests excluded)

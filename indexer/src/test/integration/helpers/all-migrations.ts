@@ -22,8 +22,8 @@ import { AddRaffleEventIndexes1750000000000 } from '../../../database/migrations
 import { BackfillSchemaVersions1750000000001 } from '../../../database/migrations/1750000000001-BackfillSchemaVersions';
 import { CreateWebhookDeliveries1760000000000 } from '../../../database/migrations/1760000000000-CreateWebhookDeliveries';
 import { RelaxTicketsPurchaseTxHashUnique1760000000001 } from '../../../database/migrations/1760000000001-RelaxTicketsPurchaseTxHashUnique';
-import { CreateWebhookDeadLetterDeliveries1770000000000 } from '../../../database/migrations/1770000000000-CreateWebhookDeadLetterDeliveries';
 import { AuditHotPathIndexes1770000000000 } from '../../../database/migrations/1770000000000-AuditHotPathIndexes';
+import { CreateWebhookDeadLetterDeliveries1785513791000 } from '../../../database/migrations/1785513791000-CreateWebhookDeadLetterDeliveries';
 
 export const ALL_INDEXER_MIGRATIONS = [
   CreateRaffles1700000000000,
@@ -46,8 +46,8 @@ export const ALL_INDEXER_MIGRATIONS = [
   BackfillSchemaVersions1750000000001,
   CreateWebhookDeliveries1760000000000,
   RelaxTicketsPurchaseTxHashUnique1760000000001,
-  CreateWebhookDeadLetterDeliveries1770000000000,
   AuditHotPathIndexes1770000000000,
+  CreateWebhookDeadLetterDeliveries1785513791000,
 ];
 
 /** Default number of latest migrations to revert then re-apply. */

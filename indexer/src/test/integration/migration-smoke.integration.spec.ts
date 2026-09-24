@@ -44,8 +44,8 @@ describe('migration smoke test', () => {
       'BackfillSchemaVersions1750000000001',
       'CreateWebhookDeliveries1760000000000',
       'RelaxTicketsPurchaseTxHashUnique1760000000001',
-      'CreateWebhookDeadLetterDeliveries1770000000000',
       'AuditHotPathIndexes1770000000000',
+      'CreateWebhookDeadLetterDeliveries1785513791000',
     ]);
   });
 
@@ -80,7 +80,7 @@ describe('migration smoke test', () => {
         'IDX_USERS_TOTAL_RAFFLES_WON_ADDRESS',
         'idx_tickets_owner_raffle_id',
         'idx_raffles_status_created_at',
-        // Added by CreateWebhookDeadLetterDeliveries1770000000000
+        // Added by CreateWebhookDeadLetterDeliveries1785513791000
         'idx_whdl_status',
       ]),
     );
