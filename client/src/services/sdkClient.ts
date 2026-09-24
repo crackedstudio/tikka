@@ -45,9 +45,9 @@ import type {
   ContractRaffleData,
   ContractUserParticipation,
   CreateRaffleParams,
-  BuyTicketParams,
   ContractResponse,
-} from "../types/types";
+} from "../types/contract";
+import type { BuyTicketParams } from "../types/ticket";
 
 /** Pre-confirmation fee preview for raffle creation (simulation-based, no submit). */
 export interface CreateRaffleEstimate {

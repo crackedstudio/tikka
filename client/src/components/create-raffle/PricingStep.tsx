@@ -1,5 +1,5 @@
 import React from "react";
-import type { StepComponentProps } from "../../types/types";
+import type { StepComponentProps } from "../../types/forms";
 import { CreateRaffleFormSchema } from "../../utils/raffleValidation";
 
 const PricingStep: React.FC<StepComponentProps> = ({

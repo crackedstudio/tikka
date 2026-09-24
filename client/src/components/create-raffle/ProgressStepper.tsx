@@ -1,5 +1,5 @@
 import React from "react";
-import type { ProgressStepperProps } from "../../types/types";
+import type { ProgressStepperProps } from "../../types/forms";
 
 const ProgressStepper: React.FC<ProgressStepperProps> = ({
     steps,

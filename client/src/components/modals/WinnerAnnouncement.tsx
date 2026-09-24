@@ -4,7 +4,7 @@ import confetti from "canvas-confetti";
 import type {
     WinnerAnnouncementProps,
     SocialPlatform,
-} from "../../types/types";
+} from "../../types/ui";
 
 const WinnerAnnouncement: React.FC<WinnerAnnouncementProps> = ({
     onClose,

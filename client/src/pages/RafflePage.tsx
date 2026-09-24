@@ -11,7 +11,7 @@ import RecentParticipants, { type RecentParticipantsHandle } from "../components
 import { ArrowLeft, Share2 } from "lucide-react";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import { useTranslation } from "react-i18next";
-import type { FormattedRaffle } from "../types/types";
+import type { FormattedRaffle } from "../types/raffle";
 import RaffleSeo from "../components/raffle/RaffleSeo";
 import RaffleHero from "../components/raffle/RaffleHero";
 import RaffleInfo from "../components/raffle/RaffleInfo";

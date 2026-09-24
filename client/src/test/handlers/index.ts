@@ -7,19 +7,21 @@
  *    ../../tests/e2e/msw.ts, so the two suites cannot drift from each other.
  *
  * Handlers are seeded from the fixtures in ../fixtures and typed against the
- * `Api*` response contracts in ../../types/types. Once the OpenAPI types are
- * generated from backend/openapi.json, the resolvers below should be typed
- * against those generated schemas so the mocks can never drift from the
- * backend contract.
+ * `Api*` response contracts in the per-domain modules under ../../types (raffle
+ * and user). Once the OpenAPI types are generated from backend/openapi.json,
+ * the resolvers below should be typed against those generated schemas so the
+ * mocks can never drift from the backend contract.
  */
 
 import { http, HttpResponse } from 'msw';
 import type {
   ApiRaffleDetail,
   ApiRaffleListResponse,
+} from '../../types/raffle';
+import type {
   ApiUserProfile,
   ApiUserHistoryResponse,
-} from '../../types/types';
+} from '../../types/user';
 import { fakeRaffleDetail } from '../fixtures';
 
 // The origin the app's apiClient sends requests to (see config/api.ts). MSW

@@ -8,7 +8,7 @@ import {
   RAFFLE_DRAFT_STORAGE_KEY,
   type RaffleDraftData,
 } from "./raffleDraftStorage";
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 
 function createDraft(overrides: Partial<RaffleDraftData> = {}): RaffleDraftData {
   return {
