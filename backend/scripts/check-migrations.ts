@@ -18,6 +18,8 @@
  *    (e.g. 1700000000000) can silently invert execution order versus real
  *    generated timestamps. Legacy placeholders are allow-listed as a recorded
  *    historical exception (see docs/database/migration-timestamp-exceptions.md).
+ * 7. No two indexer migrations may share a timestamp prefix: a tie leaves the
+ *    execution order to directory read order. Duplicates are a hard error.
  *
  * Exit codes:
  * - 0: All checks pass
@@ -237,7 +239,10 @@ function validateIndexerMigrations(
   // Sort by timestamp (mirrors TypeORM execution order)
   migrations.sort((a, b) => a.sequence - b.sequence);
 
-  // Warn on duplicate timestamps (legacy duplicates are allow-listed)
+  // Duplicate timestamps are an error: TypeORM's execution order is the numeric
+  // prefix, so a tie is decided by directory read order, which is not
+  // guaranteed to be stable across filesystems. (Replaces the previous
+  // warning-level check, which allow-listed the 1770000000000 tie.)
   const timestampMap = new Map<number, string[]>();
   for (const migration of migrations) {
     if (!timestampMap.has(migration.sequence)) {
@@ -246,9 +251,14 @@ function validateIndexerMigrations(
     timestampMap.get(migration.sequence)!.push(migration.filename);
   }
   for (const [timestamp, filenames] of timestampMap) {
-    if (filenames.length > 1 && !INDEXER_LEGACY_PLACEHOLDER_TIMESTAMPS.has(timestamp)) {
-      result.warnings.push(
-        `DUPLICATE INDEXER TIMESTAMP: ${timestamp} used by: ${filenames.join(', ')}`,
+    if (filenames.length > 1) {
+      result.valid = false;
+      result.errors.push(
+        `DUPLICATE INDEXER TIMESTAMP: ${timestamp} used by: ${filenames.join(', ')}. ` +
+          `TypeORM orders migrations by this prefix, so a tie leaves the order to ` +
+          `directory read order. Renumber the later migration to a real generated ` +
+          `timestamp (pnpm --filter indexer migration:generate) and record the ` +
+          `remediation in docs/database/migration-timestamp-exceptions.md.`,
       );
     }
   }

@@ -1,7 +1,9 @@
 # Indexer Migration Timestamp Exceptions
 
-> Historical record for `indexer/src/database/migrations/`. Read this alongside
-> [migration-conventions.md](migration-conventions.md) §2.3.
+> Historical record for `indexer/src/database/migrations/`, plus the one
+> `backend/database/migrations/` sequence collision resolved with it. Read
+> alongside [migration-conventions.md](migration-conventions.md) §2.3 (indexer)
+> and §2.1 (backend).
 
 ## Background
 
@@ -52,15 +54,32 @@ passing; any *new* file using a placeholder timestamp (a timestamp divisible by
 | `1730000000000`     | `1730000000000-CreateDeadLetterEvents`, `1730000000001-AddLedgerHashesToCursor` |
 | `1750000000000`     | `1750000000000-AddRaffleEventIndexes`, `1750000000001-BackfillSchemaVersions` |
 | `1760000000000`     | `1760000000000-CreateWebhookDeliveries`, `1760000000001-RelaxTicketsPurchaseTxHashUnique` |
-| `1770000000000`     | `1770000000000-AuditHotPathIndexes`, `1770000000000-CreateWebhookDeadLetterDeliveries` |
+| `1770000000000`     | `1770000000000-CreateWebhookDeadLetterDeliveries` (the `AuditHotPathIndexes` file was renumbered — see below) |
 
-### Known duplicate timestamp (also a historical exception)
+### Resolved duplicate timestamp: `1770000000000`
 
 `1770000000000-AuditHotPathIndexes.ts` and
-`1770000000000-CreateWebhookDeadLetterDeliveries.ts` share the same prefix. This
-is a latent ordering hazard (TypeORM falls back to stable file order for equal
-timestamps). Both migrations are independent of each other and of any later file,
-so it is harmless today. Future migrations must not reuse an existing timestamp.
+`1770000000000-CreateWebhookDeadLetterDeliveries.ts` shared one prefix. The two
+were unrelated — `AuditHotPathIndexes` touches `users`, `tickets`, `raffles`,
+`raffle_events` and `dead_letter_events`, all created by earlier migrations, and
+neither references the other's table — but the tie still left their relative
+order to directory read order, which is not stable across filesystems.
+
+`AuditHotPathIndexes` was renumbered to a real generated timestamp
+(`1790249299096-AuditHotPathIndexes`), so it sorts deterministically after the
+webhook dead-letter table. Every statement in it is `IF NOT EXISTS` / `IF EXISTS`,
+so applying it later is safe on any environment. A deployment that already
+recorded the old name in TypeORM's history table should reconcile it:
+
+```sql
+UPDATE migrations
+   SET name = 'AuditHotPathIndexes1790249299096'
+ WHERE name = 'AuditHotPathIndexes1770000000000';
+```
+
+Without that update the renamed file looks unapplied and TypeORM runs it again —
+harmless here because of the idempotent statements, but the history table should
+not keep pointing at a name that no longer exists in the tree.
 
 ## Ordering audit against the dependency graph
 
@@ -81,8 +100,47 @@ it** — the current order is safe to apply from a clean database.
 | `1750000000000-AddRaffleEventIndexes` | `raffle_events` | `1700000000003` | ✅ |
 | `1750000000001-BackfillSchemaVersions` | `raffle_events.schema_version` | `1720000000003` | ✅ |
 | `1760000000001-RelaxTicketsPurchaseTxHashUnique` | `tickets` | `1700000000001` | ✅ |
-| `1770000000000-AuditHotPathIndexes` | `users`, `tickets`, `raffles`, `raffle_events`, `dead_letter_events` | all earlier | ✅ |
+| `1790249299096-AuditHotPathIndexes` | `users`, `tickets`, `raffles`, `raffle_events`, `dead_letter_events` | all earlier | ✅ |
 | `1770000000000-CreateWebhookDeadLetterDeliveries` | new table only | — | ✅ |
 
 The remaining migrations create brand-new tables and have no forward
 dependency.
+
+## Backend (Supabase SQL): duplicate sequence `014`
+
+`backend/database/migrations/` uses the sequential `NNN_name.sql` scheme, where
+`migration-conventions.md` §2.1 requires one file per number and no gaps. Three
+files were committed with a `014_` prefix, which
+`backend/scripts/check-migrations.ts` reports as both a duplicate sequence and a
+gap:
+
+| File | Now |
+|------|-----|
+| `014_notification_preferences.sql` | kept at `014_` (first alphabetically) |
+| `014_support_tickets.sql` | `016_support_tickets.sql` |
+| `014_webhook_atomic_increment.sql` | `017_webhook_atomic_increment.sql` |
+
+The three are independent — a preferences table, a support-ticket table, and the
+`increment_webhook_failure_count` function over `webhooks` — and no later
+migration references any of their objects, so moving two of them into free
+numbers leaves every dependency satisfied. `015_webhook_dead_letters.sql` stays
+where it is.
+
+An environment that already applied the old names should reconcile the record
+Supabase keeps before the next `db push`:
+
+```sql
+UPDATE supabase_migrations.schema_migrations
+   SET version = '016'
+ WHERE version = '014' AND name = 'support_tickets';
+
+UPDATE supabase_migrations.schema_migrations
+   SET version = '017'
+ WHERE version = '014' AND name = 'webhook_atomic_increment';
+```
+
+Both statements are idempotent, and the migration SQL itself only uses
+`CREATE TABLE IF NOT EXISTS` / `CREATE OR REPLACE FUNCTION` / `CREATE INDEX IF
+NOT EXISTS`, so re-applying is safe. Three documents under `docs/archive/` still
+name the old filename; they are historical records and were deliberately left
+untouched.

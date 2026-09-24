@@ -9,9 +9,18 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  * partially-applied environments are safe.
  *
  * See: docs/performance/indexer-index-audit.md
+ *
+ * Renumbered from the shared placeholder `1770000000000` (#1588). That prefix
+ * was used by both this file and `CreateWebhookDeadLetterDeliveries`, and
+ * TypeORM orders migrations by it, so the execution order between them came
+ * from directory read order rather than from either migration's intent. The
+ * two are not related: this one touches `users`, `tickets`, `dead_letter_events`
+ * and the raffle tables, all created by earlier migrations, and it references
+ * nothing from the webhook dead-letter table. It now carries a real generated
+ * timestamp, which also sorts it deterministically after that table's creation.
  */
-export class AuditHotPathIndexes1770000000000 implements MigrationInterface {
-  name = "AuditHotPathIndexes1770000000000";
+export class AuditHotPathIndexes1790249299096 implements MigrationInterface {
+  name = "AuditHotPathIndexes1790249299096";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // --- Leaderboard (users) — previously unapplied orphan migration ---
