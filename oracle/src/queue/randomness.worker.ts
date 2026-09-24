@@ -51,7 +51,7 @@ export class RandomnessWorker implements OnApplicationShutdown {
     private readonly auditLogService: AuditLogService,
     private readonly alertingService: AlertingService,
     @Optional() private readonly metricsService?: MetricsService,
-    @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue,
+@Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -61,6 +61,23 @@ export class RandomnessWorker implements OnApplicationShutdown {
     );
     this.shutdownTimeoutMs = Number(
       this.configService.get<string>('ORACLE_SHUTDOWN_HARD_TIMEOUT_MS', '25000'),
+    );
+  }
+
+  /**
+   * Called by NestJS on SIGTERM (requires app.enableShutdownHooks()).
+   * Closes the Bull queue which:
+   *  1. Stops the worker from picking up new jobs
+   *  2. Waits for in-flight jobs to finish (or fail)
+   *  3. Closes the Redis connection
+   */
+  async onApplicationShutdown(): Promise<void> {
+    this.logger.log('RandomnessWorker shutting down — draining in-flight jobs…',
+      JSON.stringify({ component: 'queue', event: 'shutdown' } as OracleLogFields),
+    );
+    await this.randomnessQueue?.close();
+    this.logger.log('RandomnessWorker shut down cleanly',
+      JSON.stringify({ component: 'queue', event: 'shutdown-complete' } as OracleLogFields),
     );
   }
 
