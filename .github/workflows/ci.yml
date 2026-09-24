@@ -632,9 +632,10 @@ jobs:
       - name: Validate dashboard and alert queries against METRICS_MAP.md
         run: node scripts/check-dashboard-metrics.js
 
-  # Secret scanning - blocks PRs that contain verified secrets
+  # Secret scanning and dependency audit - blocks PRs that contain verified
+  # secrets or that introduce a high-severity advisory in the dependency graph
   security-scan:
-    name: Secret Scanning (TruffleHog)
+    name: Security Scan (secrets + dependency audit)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full history
@@ -651,6 +652,63 @@ jobs:
           extra_args: >-
             --only-verified
             --exclude-paths .trufflehog-exclude
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # `pnpm audit` exits non-zero as soon as it reports anything, which is
+      # expected while the inherited backlog is still listed - the gate below
+      # is what decides whether a finding is acceptable.
+      - name: Audit dependencies against the RustSec/GitHub advisory database
+        run: |
+          pnpm audit --audit-level=high --json > "${{ runner.temp }}/audit-report.json" || true
+          node scripts/check-dependency-audit.js "${{ runner.temp }}/audit-report.json"
+
+  # CycloneDX SBOM for the deployed services. Runs on main only: a pull request
+  # does not deploy anything, and the file is large (2.5 MB, ~2400 components).
+  sbom:
+    name: SBOM (CycloneDX)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version-file: .nvmrc
+
+      # Reads pnpm-lock.yaml directly - no `pnpm install` needed, which keeps
+      # this job to about a minute.
+      - name: Generate SBOM
+        run: pnpm dlx @cyclonedx/cdxgen -t pnpm -o sbom.cdx.json
+
+      # An SBOM that is an empty file is worse than no SBOM: the artifact looks
+      # like it exists. Fail instead.
+      - name: Check the SBOM has components
+        run: |
+          node -e "const b = require('./sbom.cdx.json'); if (!Array.isArray(b.components) || b.components.length === 0) { throw new Error('SBOM contains no components'); } console.log('SBOM', b.bomFormat, b.specVersion + ':', b.components.length, 'components');"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
 
   coverage-summary:
     name: Coverage Summary
