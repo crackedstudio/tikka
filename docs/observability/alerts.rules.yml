@@ -35,3 +35,35 @@ groups:
         annotations:
           summary: "Indexer encountering errors"
           description: "The indexer is encountering errors at a rate of {{ $value }} per second."
+
+  - name: tikka-oracle-alerts
+    rules:
+      - alert: OracleStuckDrawAboveThreshold
+        expr: tikka_oracle_stuck_draws_total > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Oracle has {{ $value }} stuck draws that may need rescue"
+          description: "At least one raffle draw has been stuck for longer than the configured threshold (ledger lag or queue age). Stuck count: {{ $value }}."
+          runbook_url: "https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md"
+
+      - alert: OracleStuckDrawMaxAgeCritical
+        expr: tikka_oracle_stuck_draw_max_age_seconds > 600
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Oldest stuck draw exceeded 10 minutes"
+          description: "The oldest stuck draw is {{ $value | humanizeDuration }} old. Immediate rescue likely required."
+          runbook_url: "https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md"
+
+      - alert: OracleStuckDrawMaxAgeWarning
+        expr: tikka_oracle_stuck_draw_max_age_seconds > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Oldest stuck draw exceeded 5 minutes"
+          description: "The oldest stuck draw is {{ $value | humanizeDuration }} old. Investigate before the situation escalates."
+          runbook_url: "https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md"

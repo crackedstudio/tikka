@@ -32,6 +32,9 @@ const RafflePage = () => {
     const raffleId = id ? parseInt(id) : 0;
     const { data, purchaseTickets } = useRafflePageData(raffleId);
 
+    const handleIncrement = () => setTicketCount((c) => Math.min(c + 1, 100));
+    const handleDecrement = () => setTicketCount((c) => Math.max(c - 1, 1));
+
     const handleTicketPurchase = () => {
         // Only purchasable once the raffle data has loaded
         if (data.status !== "ready") return;
@@ -104,6 +107,7 @@ const RafflePage = () => {
         creator,
         isActive,
         isFinalized,
+        hasDelayedDraw,
         winner,
         metadata,
         ticketPrice,
@@ -170,6 +174,7 @@ const RafflePage = () => {
                     endTime={endTime}
                     isActive={isActive}
                     isFinalized={isFinalized}
+                    hasDelayedDraw={hasDelayedDraw}
                     winner={winner}
                     ticketCount={ticketCount}
                     onIncrement={handleIncrement}

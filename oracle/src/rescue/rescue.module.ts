@@ -10,9 +10,10 @@ import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { HealthModule } from '../health/health.module';
+import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
-  imports: [QueueModule, HealthModule],
+  imports: [QueueModule, HealthModule, MetricsModule],
   controllers: [RescueController],
   providers: [
     RescueService,

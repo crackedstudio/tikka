@@ -146,6 +146,17 @@ export function mapDetailToFormattedRaffle(
       : 0;
   const ticketPrice = parseFloat(detail.ticket_price);
   const isActive = detail.status === "open" || detail.status === "OPEN";
+  const isFinalized =
+    detail.status === "finalized" ||
+    detail.status === "FINALIZED" ||
+    detail.status === "cancelled" ||
+    detail.status === "CANCELLED";
+  const nowSec = Math.floor(Date.now() / 1000);
+  const hasDelayedDraw =
+    !isActive &&
+    !isFinalized &&
+    !detail.winner &&
+    endTimeUnix < nowSec;
   const winningsWithdrawn = Boolean(
     detail.winnings_withdrawn ??
     detail.winningsWithdrawn ??
@@ -167,7 +178,8 @@ export function mapDetailToFormattedRaffle(
         winner: detail.winner,
         winningTicketId: 0,
         isActive,
-        isFinalized: !isActive,
+        isFinalized,
+        hasDelayedDraw,
         winningsWithdrawn: false,
         countdown: {
             days: days.toString().padStart(2, "0"),
