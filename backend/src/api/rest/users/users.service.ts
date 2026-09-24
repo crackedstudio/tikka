@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { normalizeStellarAddress } from '@tikka/types';
 import {
   IndexerService,
   IndexerUserData,
@@ -12,11 +13,33 @@ import { PassThrough } from 'stream';
 export class UsersService {
   constructor(private readonly indexerService: IndexerService) {}
 
+  /**
+   * Reduce a client-supplied address to the canonical strkey form used as the
+   * `users` primary key.
+   *
+   * The indexer keys user rows by the canonical strkey (`UserProcessor` writes
+   * `normalizeStellarAddress(...)`), and the indexer's own lookup is an exact
+   * string match. Without this step a request for `" gabc… "` is forwarded as
+   * `/users/%20gabc…%20` and comes back as a 404 for an account that exists.
+   *
+   * The message deliberately does not echo the rejected value: it is
+   * unvalidated client input, and the response body is not the place to reflect
+   * it back.
+   */
+  private canonicalAddress(address: string): string {
+    const canonical = normalizeStellarAddress(address);
+    if (!canonical) {
+      throw new BadRequestException('address must be a Stellar account address');
+    }
+    return canonical;
+  }
+
   /** Get user profile by Stellar address. */
   async getByAddress(address: string): Promise<IndexerUserData> {
-    const user = await this.indexerService.getUser(address);
+    const canonical = this.canonicalAddress(address);
+    const user = await this.indexerService.getUser(canonical);
     if (!user) {
-      throw new NotFoundException(`User ${address} not found`);
+      throw new NotFoundException(`User ${canonical} not found`);
     }
     return user;
   }
@@ -26,12 +49,13 @@ export class UsersService {
     address: string,
     query: UserHistoryQueryDto,
   ): Promise<IndexerUserHistoryResponse> {
+    const canonical = this.canonicalAddress(address);
     // Ensure user exists before fetching history
-    const user = await this.indexerService.getUser(address);
+    const user = await this.indexerService.getUser(canonical);
     if (!user) {
-      throw new NotFoundException(`User ${address} not found`);
+      throw new NotFoundException(`User ${canonical} not found`);
     }
-    return this.indexerService.getUserHistory(address, query.limit, query.offset);
+    return this.indexerService.getUserHistory(canonical, query.limit, query.offset);
   }
 
   /**
@@ -39,15 +63,25 @@ export class UsersService {
    * Columns: raffle_id, tickets_bought, purchased_at_ledger, is_winner, prize_amount
    */
   async getHistoryAsCsvStream(address: string): Promise<PassThrough> {
-    const user = await this.indexerService.getUser(address);
+    const canonical = this.canonicalAddress(address);
+    const user = await this.indexerService.getUser(canonical);
     if (!user) {
-      throw new NotFoundException(`User ${address} not found`);
+      throw new NotFoundException(`User ${canonical} not found`);
     }
 
     const stringifier = stringify({
       header: true,
       columns: ['raffle_id', 'tickets_bought', 'purchased_at_ledger', 'is_winner', 'prize_amount'],
     });
+
+    // Need to return something fastify reply can stream from.
+    // `pipe()` does not forward errors from the source, so without this listener a
+    // failed page fetch would leave the response open — and the caller's
+    // rate-limit slot occupied — until the client gave up. Forwarding the error
+    // aborts the download instead.
+    const passThrough = new PassThrough();
+    stringifier.on('error', (err) => passThrough.destroy(err));
+    stringifier.pipe(passThrough);
 
     // Stream generation in the background
     (async () => {
@@ -56,7 +90,7 @@ export class UsersService {
         const limit = 100;
 
         while (true) {
-          const { items } = await this.indexerService.getUserHistory(address, limit, offset);
+          const { items } = await this.indexerService.getUserHistory(canonical, limit, offset);
           if (items.length === 0) {
             break;
           }
@@ -83,10 +117,6 @@ export class UsersService {
         stringifier.destroy(err as Error);
       }
     })();
-
-    // Need to return something fastify reply can stream from
-    const passThrough = new PassThrough();
-    stringifier.pipe(passThrough);
 
     return passThrough;
   }

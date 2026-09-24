@@ -18,8 +18,8 @@ import {
   MAX_UPLOAD_IMAGE_WIDTH,
   MAX_UPLOAD_BYTES,
 } from "../../../config/upload.config";
-import { StorageService } from "../../../services/storage.service";
-import { ImageOptimizerService } from "../../../services/image-optimizer.service";
+import { StorageService } from "../../../services/storage/storage.service";
+import { ImageOptimizerService } from "../../../services/metadata/image-optimizer.service";
 import * as fileType from "file-type";
 import sharp, { type Metadata } from "sharp";
 

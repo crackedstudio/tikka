@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Query, Res, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { normalizeStellarAddress } from '@tikka/types';
 import { FastifyReply } from 'fastify';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
@@ -62,11 +63,18 @@ export class UsersController {
     @CurrentUser('address') currentUserAddress: string,
     @Res() reply: FastifyReply,
   ) {
-    if (currentUserAddress !== address) {
+    // Compare canonical forms, not raw strings: the JWT claim is already
+    // canonical (SIWS verifies the signature against `Keypair.fromPublicKey`,
+    // which only accepts the uppercase strkey), but the path parameter is not.
+    // A raw `!==` would reject a correctly authenticated caller who spelled
+    // their own address differently.
+    const requested = normalizeStellarAddress(address);
+    const authenticated = normalizeStellarAddress(currentUserAddress);
+    if (!requested || !authenticated || requested !== authenticated) {
       throw new UnauthorizedException('You can only export your own history');
     }
 
-    const stream = await this.usersService.getHistoryAsCsvStream(address);
+    const stream = await this.usersService.getHistoryAsCsvStream(requested);
 
     reply
       .header('Content-Type', 'text/csv')
