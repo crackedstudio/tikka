@@ -17,6 +17,7 @@ export interface FormattedRaffle {
   winningTicketId: number;
   isActive: boolean;
   isFinalized: boolean;
+  hasDelayedDraw: boolean;
   winningsWithdrawn: boolean;
   countdown: {
     days: string;
