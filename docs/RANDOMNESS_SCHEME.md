@@ -132,8 +132,110 @@ The PRNG path is still inspectable because the derivation is deterministic and p
    - Recompute commitment = SHA-256(secret || nonce).
    - Confirm that the published commitment matches and that the reveal values are the ones that produce it.
 
+## 6. Audit log tamper evidence
+
+The oracle records every randomness submission in the `vrf_audit_log` table in Supabase. This table is the evidence trail — it proves that a specific VRF proof, seed, and transaction hash were used for a given raffle.
+
+### 6.1 Hash chain
+
+Each audit record carries a `chain_hash` column. This value is computed as:
+
+```
+chain_hash = SHA-256(
+  raffle_id ||
+  commitment_hash ||
+  reveal_hash ||
+  proof ||
+  seed ||
+  oracle_public_key ||
+  status ||
+  committed_at ||
+  previous_chain_hash
+)
+```
+
+Where `previous_chain_hash` is the `chain_hash` of the immediately preceding record (ordered by the surrogate `id` column). The first record in the chain uses the string `"GENESIS"` as its predecessor.
+
+This means every record cryptographically binds to its predecessor. Modifying any field of any record changes its `chain_hash`, which breaks the link to every subsequent record.
+
+### 6.2 Verification
+
+The oracle exposes a verification command that walks every record in order, recomputes each `chain_hash`, and compares it with what is stored. If any record has been tampered with, the command reports the exact position of the first broken link and exits with a non-zero status.
+
+```
+npx ts-node src/audit/audit-cli.ts verify-chain
+# or start from a specific record ID:
+npx ts-node src/audit/audit-cli.ts verify-chain --from-id 100
+```
+
+A REST endpoint is also available:
+
+```
+GET /oracle/audit/chain/verify?fromId=100
+```
+
+### 6.3 External anchoring
+
+The hash chain alone prevents *internal* tampering (modifying individual records), but an attacker with full database access could rewrite the entire chain — including all `chain_hash` values. To defend against this, the operator periodically anchors the chain head to an external location.
+
+Anchoring works by recording a point-in-time snapshot of the current chain head hash into a separate `audit_chain_anchors` table:
+
+```
+npx ts-node src/audit/audit-cli.ts anchor --type daily --external-ref https://example.com/audit-hashes
+```
+
+The resulting anchor record stores:
+
+- `chain_head_hash` — the `chain_hash` of the most recent audit record at anchor time
+- `record_count` — total number of audit records at anchor time
+- `anchored_at` — when the anchor was created
+- `anchor_type` — a label (e.g. `"cli"`, `"scheduled-cron"`)
+- `external_ref` — an optional URL, transaction hash, or other identifier where the hash was published externally
+
+The anchored hash should be published to a public, immutable location:
+
+- A tweet, toot, or other public social-media post
+- A GitHub Gist (pinned in the repository)
+- A transaction memo on the Stellar blockchain
+- A hash in a public bulletin board or transparency log
+
+Once published, anyone can verify that the current audit chain head matches what was published at a known point in time.
+
+```
+npx ts-node src/audit/audit-cli.ts anchor-verify
+```
+
+Returns whether the latest anchor's chain head hash matches the current chain head.
+
+### 6.4 Tamper-evident ≠ tamper-proof
+
+This system is **tamper-evident**, not **tamper-proof**. The distinction is important:
+
+- **Tamper-evident**: any modification to the audit records is detectable by running the verification command and comparing anchored hashes.
+- **Tamper-proof**: no modification could ever be made, even by an operator with full database access.
+
+An attacker who can simultaneously:
+
+1. Modify audit records in the `vrf_audit_log` table,
+2. Recompute all subsequent `chain_hash` values to match their modifications, and
+3. Modify or delete all rows in the `audit_chain_anchors` table, **and**
+4. Suppress the external publication (or forge the external record)
+
+…could falsify the audit trail without detection. The external anchor raises the bar dramatically: an attacker would need to compromise both the database and every independent location where the anchor hash was published.
+
+### 6.5 Recommended operational practices
+
+| Practice | Why |
+|---|---|
+| Run `verify-chain` after every restart | Detects drift from interrupted operations. |
+| Anchor the chain head at least once per day | Limits the window for undetected rewriting. |
+| Publish the anchor hash to two independent locations | Prevents a single external compromise from hiding a rewrite. |
+| Monitor verification results via the health endpoint | Surfaces silent failures before they compound. |
+
 ## 7. Operational notes
 
 The oracle also records audit information such as the proof, transaction hash, and public key used for the submission. That audit trail helps operators and third parties reconstruct the randomness path after the fact.
 
 In short: the system is verifiable when the contract and the oracle public key are available, and the trust assumption is that the oracle key is not abused. The PRNG path is simpler and deterministic, but it provides less cryptographic assurance than the VRF path.
+
+The audit log hash chain makes the evidence trail tamper-evident: any retroactive edit is detectable, and external anchoring ensures the entire chain cannot be rewritten without detection by anyone watching the published anchors.

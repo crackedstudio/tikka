@@ -2,7 +2,7 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord, AuditStatus } from './audit.types';
+import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord, AuditStatus, AuditChainAnchor, ChainVerificationResult } from './audit.types';
 import { SUPABASE_CLIENT } from './supabase.provider';
 
 @Injectable()
@@ -347,9 +347,9 @@ export class AuditLogService {
 
   /**
    * Verifies the chain hash integrity of all records, optionally starting from fromId.
-   * Returns true if all chain hashes are valid, false if any mismatch is found.
+   * Returns detailed results including the location of the first broken link.
    */
-  public async verifyChain(fromId?: number): Promise<boolean> {
+  public async verifyChain(fromId?: number): Promise<ChainVerificationResult> {
     let query = this.supabase
       .from('vrf_audit_log')
       .select('*')
@@ -366,7 +366,14 @@ export class AuditLogService {
     }
 
     if (!data || data.length === 0) {
-      return true;
+      return {
+        valid: true,
+        total_records: 0,
+        first_broken_at: null,
+        first_broken_record_id: null,
+        expected_hash: null,
+        stored_hash: null,
+      };
     }
 
     const records = data as VrfAuditRecord[];
@@ -379,15 +386,164 @@ export class AuditLogService {
       previousChainHash = 'GENESIS';
     }
 
-    for (const record of records) {
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
       const expected = this.computeChainHash(record, previousChainHash);
       if (expected !== record.chain_hash) {
-        return false;
+        return {
+          valid: false,
+          total_records: records.length,
+          first_broken_at: i + 1,
+          first_broken_record_id: record.id,
+          expected_hash: expected,
+          stored_hash: record.chain_hash,
+        };
       }
       previousChainHash = record.chain_hash;
     }
 
-    return true;
+    return {
+      valid: true,
+      total_records: records.length,
+      first_broken_at: null,
+      first_broken_record_id: null,
+      expected_hash: null,
+      stored_hash: null,
+    };
+  }
+
+  /**
+   * Returns the chain_hash of the most recent record (the chain head).
+   * Returns "GENESIS" if no records exist.
+   */
+  public async getChainHead(): Promise<string> {
+    const { data, error } = await this.supabase
+      .from('vrf_audit_log')
+      .select('chain_hash')
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw new Error(`Failed to fetch chain head: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      return 'GENESIS';
+    }
+
+    return data[0].chain_hash as string;
+  }
+
+  /**
+   * Anchors the current chain head into the audit_chain_anchors table.
+   * This creates a point-in-time snapshot that should be published externally
+   * (e.g. a hash on a public bulletin, a tweet, or an on-chain memo) so that
+   * retroactive modification of the entire chain becomes detectable.
+   *
+   * @param anchorType - Free-text label (e.g. "cli", "scheduled-cron").
+   * @param externalRef - Optional URL, tx hash, or external identifier.
+   */
+  public async anchorChainHead(
+    anchorType: string = 'cli',
+    externalRef?: string,
+  ): Promise<AuditChainAnchor> {
+    const chainHeadHash = await this.getChainHead();
+
+    // Count total records for provenance
+    const { count, error: countError } = await this.supabase
+      .from('vrf_audit_log')
+      .select('id', { count: 'exact', head: true });
+
+    if (countError) {
+      throw new Error(`Failed to count audit records: ${countError.message}`);
+    }
+
+    const { data, error } = await this.supabase
+      .from('audit_chain_anchors')
+      .insert({
+        chain_head_hash: chainHeadHash,
+        record_count: count || 0,
+        anchored_at: new Date().toISOString(),
+        anchor_type: anchorType,
+        external_ref: externalRef || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to anchor chain head: ${error.message}`);
+    }
+
+    const anchor = data as AuditChainAnchor;
+
+    this.logger.log(
+      `Chain anchored at record #${anchor.record_count}: head=${anchor.chain_head_hash.slice(0, 16)}... (type=${anchorType})`,
+    );
+
+    return anchor;
+  }
+
+  /**
+   * Returns the most recent chain anchor, or null if none exists.
+   */
+  public async getLatestAnchor(): Promise<AuditChainAnchor | null> {
+    const { data, error } = await this.supabase
+      .from('audit_chain_anchors')
+      .select('*')
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw new Error(`Failed to fetch latest anchor: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    return data[0] as AuditChainAnchor;
+  }
+
+  /**
+   * Returns the full anchor history, most recent first.
+   */
+  public async getAnchorHistory(limit: number = 10): Promise<AuditChainAnchor[]> {
+    const { data, error } = await this.supabase
+      .from('audit_chain_anchors')
+      .select('*')
+      .order('id', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Failed to fetch anchor history: ${error.message}`);
+    }
+
+    return (data as AuditChainAnchor[]) || [];
+  }
+
+  /**
+   * Verifies that the latest anchor's chain head hash matches the current chain head.
+   * Returns null if no anchor exists.
+   */
+  public async verifyAnchor(): Promise<{
+    matches: boolean;
+    anchoredHash: string | null;
+    currentHead: string;
+    anchoredAt: string | null;
+  } | null> {
+    const latest = await this.getLatestAnchor();
+    if (!latest) {
+      return null;
+    }
+
+    const currentHead = await this.getChainHead();
+
+    return {
+      matches: latest.chain_head_hash === currentHead,
+      anchoredHash: latest.chain_head_hash,
+      currentHead,
+      anchoredAt: latest.anchored_at,
+    };
   }
 
   /**
