@@ -91,12 +91,6 @@ export async function withRetry<T>(
       const info: RetryAttemptInfo = { attempt, error, delayMs: delay, decision };
       if (onRetry) {
         onRetry(info);
-      } else {
-        console.debug(
-          `[withRetry] Attempt ${attempt} failed, retrying in ${Math.round(delay)}ms: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
       }
 
       await sleep(delay);

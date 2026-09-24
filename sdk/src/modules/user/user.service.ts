@@ -80,8 +80,11 @@ export class UserService {
       raffle_ids: number[];
     }>(ContractFn.GET_USER_PARTICIPATION, [address]);
 
-    if (response.status !== 'SUCCESS') {
-      return { status: 'ERROR', error: response.error };
+    // Tolerate both response conventions: callers/mocks may return either a
+    // TxResponse (`status`) or a bare ContractResponse (`success`).
+    const ok = response.status === 'SUCCESS' || response.success === true;
+    if (!ok) {
+      return { status: 'ERROR', error: response.error ?? 'Unknown simulation error' };
     }
 
     const d = response.value!;
@@ -110,7 +113,8 @@ export class UserService {
     assertValidPublicKey(address);
 
     const participation = await this.getParticipation({ address });
-    if (!participation.success) {
+    // getParticipation returns a TxResponse (`status`), not a ContractResponse.
+    if (participation.status !== 'SUCCESS') {
       return { success: false, error: participation.error };
     }
 
@@ -155,7 +159,8 @@ export class UserService {
     assertValidPublicKey(address);
 
     const participation = await this.getParticipation({ address });
-    if (!participation.success) {
+    // getParticipation returns a TxResponse (`status`), not a ContractResponse.
+    if (participation.status !== 'SUCCESS') {
       return { success: false, error: participation.error };
     }
 
@@ -180,9 +185,8 @@ export class UserService {
       );
 
       const raffleData = raffleRes.success ? raffleRes.value : null;
-      const ticketIds: number[] = ticketRes.success && Array.isArray(ticketRes.value)
-        ? ticketRes.value
-        : [];
+      const ticketIds: number[] =
+        ticketRes.success && Array.isArray(ticketRes.value) ? ticketRes.value : [];
 
       for (const ticketId of ticketIds) {
         allTickets.push({ ticketId, raffleId });
@@ -200,9 +204,10 @@ export class UserService {
         ticketIds,
         isCreator,
         isWinner,
-        prizeAmount: isWinner && raffleData?.prize_amount != null
-          ? String(raffleData.prize_amount)
-          : undefined,
+        prizeAmount:
+          isWinner && raffleData?.prize_amount != null
+            ? String(raffleData.prize_amount)
+            : undefined,
       });
     }
 
@@ -225,7 +230,7 @@ export class UserService {
 
     return { success: true, value: summary };
   }
- /**
+  /**
    * Returns claimable prize entries for a given address.
    *
    * Filters the user's activity summary for won raffles, then checks

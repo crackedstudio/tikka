@@ -36,6 +36,7 @@ import type { Transaction, FeeBumpTransaction } from "@stellar/stellar-sdk";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { CONTRACT_CONFIG } from "../config/contract";
 import { getAccountAddress, signTransaction } from "./walletService";
+import { logger } from "../utils/logger";
 import {
   runPipeline,
   sdkErrorToPipelineError,
@@ -239,7 +240,7 @@ export async function createRaffle(
   options?: PipelineOptions,
 ): Promise<PipelineResult> {
   if (import.meta.env.VITE_TEST_MODE === "true") {
-    console.log(
+    logger.log(
       "✍️ sdkClient.createRaffle (test mode): Mocked success",
       params,
     );

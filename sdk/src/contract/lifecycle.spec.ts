@@ -44,9 +44,9 @@ const NET_CFG: NetworkConfig = {
 };
 
 const CONTRACT_ID = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
-const SOURCE_KEY  = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
-const TX_HASH     = 'abcdef1234567890'.repeat(4);
-const SIGNED_XDR  = 'AAAAAA=='; // minimal placeholder
+const SOURCE_KEY = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+const TX_HASH = 'abcdef1234567890'.repeat(4);
+const SIGNED_XDR = 'AAAAAA=='; // minimal placeholder
 
 /** Returns a minimal mock account stub accepted by TransactionBuilder. */
 const mockAccount = () => ({
@@ -56,17 +56,18 @@ const mockAccount = () => ({
 });
 
 /** Builds the minimal SimulateTransactionSuccessResponse stub. */
-function makeSimSuccess(overrides: Partial<{
-  minResourceFee: string;
-  retval: any;
-  readOnly: number;
-  readWrite: number;
-}> = {}) {
+function makeSimSuccess(
+  overrides: Partial<{
+    minResourceFee: string;
+    retval: any;
+    readOnly: number;
+    readWrite: number;
+  }> = {},
+) {
   return {
     minResourceFee: overrides.minResourceFee ?? '5000',
-    result: overrides.retval !== undefined
-      ? { retval: { toXDR: () => Buffer.alloc(0) } }
-      : undefined,
+    result:
+      overrides.retval !== undefined ? { retval: { toXDR: () => Buffer.alloc(0) } } : undefined,
     transactionData: {
       build: () => ({
         resources: () => ({
@@ -179,10 +180,14 @@ afterEach(() => jest.restoreAllMocks());
 
 describe('simulate()', () => {
   it('calls simulateTransaction and returns parsed result', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess({ minResourceFee: '7500' }) as any);
+    rpcService.simulateTransaction.mockResolvedValue(
+      makeSimSuccess({ minResourceFee: '7500' }) as any,
+    );
 
     const lc = buildLifecycle();
-    const result = await lc.simulate(ContractFn.GET_RAFFLE_DATA, [1], { sourcePublicKey: SOURCE_KEY });
+    const result = await lc.simulate(ContractFn.GET_RAFFLE_DATA, [1], {
+      sourcePublicKey: SOURCE_KEY,
+    });
 
     expect(rpcService.simulateTransaction).toHaveBeenCalledTimes(1);
     expect(result.minResourceFee).toBe('7500');
@@ -248,9 +253,9 @@ describe('simulate()', () => {
     } as any);
 
     const lc = buildLifecycle();
-    await expect(
-      lc.simulate('create_raffle', [], { sourcePublicKey: SOURCE_KEY }),
-    ).rejects.toThrow(/create_raffle/);
+    await expect(lc.simulate('create_raffle', [], { sourcePublicKey: SOURCE_KEY })).rejects.toThrow(
+      /create_raffle/,
+    );
   });
 
   it('gracefully handles Horizon loadAccount failure (uses fallback account)', async () => {
@@ -276,10 +281,9 @@ describe('sign()', () => {
     const lc = buildLifecycle();
     const xdr = await lc.sign('UNSIGNED_XDR==');
 
-    expect(wallet.signTransaction).toHaveBeenCalledWith(
-      'UNSIGNED_XDR==',
-      { networkPassphrase: Networks.TESTNET },
-    );
+    expect(wallet.signTransaction).toHaveBeenCalledWith('UNSIGNED_XDR==', {
+      networkPassphrase: Networks.TESTNET,
+    });
     expect(xdr).toBe('SIGNED_ENVELOPE==');
   });
 
@@ -289,10 +293,9 @@ describe('sign()', () => {
     const lc = buildLifecycle();
     await lc.sign('XDR==', Networks.PUBLIC);
 
-    expect(wallet.signTransaction).toHaveBeenCalledWith(
-      'XDR==',
-      { networkPassphrase: Networks.PUBLIC },
-    );
+    expect(wallet.signTransaction).toHaveBeenCalledWith('XDR==', {
+      networkPassphrase: Networks.PUBLIC,
+    });
   });
 
   it('throws WalletNotInstalled when no wallet adapter is set', async () => {
@@ -350,7 +353,7 @@ describe('submit()', () => {
 
     const lc = buildLifecycle();
     await expect(lc.submit(SIGNED_XDR)).rejects.toMatchObject({
-      code: TikkaSdkErrorCode.SubmissionFailed,
+      code: TikkaSdkErrorCode.TransactionRejected,
     });
   });
 
@@ -387,7 +390,9 @@ describe('poll()', () => {
   });
 
   it('throws ExternalContractError when resultXdr contains "HostError"', async () => {
-    rpcService.getTransaction.mockResolvedValue(makeGetFailed('HostError: cross-contract call') as any);
+    rpcService.getTransaction.mockResolvedValue(
+      makeGetFailed('HostError: cross-contract call') as any,
+    );
 
     const lc = buildLifecycle();
     await expect(lc.poll(TX_HASH)).rejects.toMatchObject({
@@ -512,9 +517,9 @@ describe('invoke()', () => {
 
   it('throws WalletNotInstalled immediately when no wallet is set', async () => {
     const lc = buildLifecycle(false);
-    await expect(
-      lc.invoke(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1]),
-    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.WalletNotInstalled });
+    await expect(lc.invoke(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1])).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.WalletNotInstalled,
+    });
 
     // Should not reach simulation
     expect(rpcService.simulateTransaction).not.toHaveBeenCalled();
@@ -558,7 +563,7 @@ describe('invoke()', () => {
     const lc = buildLifecycle();
     await expect(
       lc.invoke(ContractFn.BUY_TICKET, [1], { sourcePublicKey: SOURCE_KEY }),
-    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.SubmissionFailed });
+    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.TransactionRejected });
 
     expect(rpcService.getTransaction).not.toHaveBeenCalled();
   });
@@ -628,11 +633,10 @@ describe('simulate() with memo', () => {
     rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
 
     const lc = buildLifecycle();
-    const result = await lc.simulate(
-      ContractFn.BUY_TICKET,
-      [1, SOURCE_KEY, 1],
-      { sourcePublicKey: SOURCE_KEY, memo: { type: 'text', value: 'test-memo' } },
-    );
+    const result = await lc.simulate(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1], {
+      sourcePublicKey: SOURCE_KEY,
+      memo: { type: 'text', value: 'test-memo' },
+    });
 
     expect(rpcService.simulateTransaction).toHaveBeenCalledTimes(1);
     expect(result.assembledXdr).toBeTruthy();
@@ -642,11 +646,10 @@ describe('simulate() with memo', () => {
     rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
 
     const lc = buildLifecycle();
-    const result = await lc.simulate(
-      ContractFn.BUY_TICKET,
-      [1, SOURCE_KEY, 1],
-      { sourcePublicKey: SOURCE_KEY, memo: { type: 'id', value: '42' } },
-    );
+    const result = await lc.simulate(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1], {
+      sourcePublicKey: SOURCE_KEY,
+      memo: { type: 'id', value: '42' },
+    });
 
     expect(result.assembledXdr).toBeTruthy();
   });
@@ -665,18 +668,16 @@ import * as fc from 'fast-check';
 describe('poll() — Task 6.1 additional unit tests', () => {
   it('throws Timeout immediately when timeoutMs is 0 (no RPC calls)', async () => {
     const lc = buildLifecycle();
-    await expect(
-      lc.poll(TX_HASH, { timeoutMs: 0 }),
-    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.Timeout });
+    await expect(lc.poll(TX_HASH, { timeoutMs: 0 })).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.Timeout,
+    });
 
     expect(rpcService.getTransaction).not.toHaveBeenCalled();
   });
 
   it('retries on NetworkError then succeeds', async () => {
     rpcService.getTransaction
-      .mockRejectedValueOnce(
-        new TikkaSdkError(TikkaSdkErrorCode.NetworkError, 'RPC unreachable'),
-      )
+      .mockRejectedValueOnce(new TikkaSdkError(TikkaSdkErrorCode.NetworkError, 'RPC unreachable'))
       .mockResolvedValue(makeGetSuccess(210) as any);
 
     const lc = buildLifecycle();
@@ -867,10 +868,7 @@ describe('Property 9: Transient RPC errors are retried with backoff', () => {
     await fc.assert(
       fc.asyncProperty(
         fc.record({
-          errorCode: fc.constantFrom(
-            TikkaSdkErrorCode.NetworkError,
-            TikkaSdkErrorCode.Timeout,
-          ),
+          errorCode: fc.constantFrom(TikkaSdkErrorCode.NetworkError, TikkaSdkErrorCode.Timeout),
           errorCount: fc.integer({ min: 1, max: 3 }),
         }),
         async ({ errorCode, errorCount }) => {
@@ -920,9 +918,9 @@ describe('invoke() — Task 7.1 additional unit tests', () => {
 
   it('throws WalletNotInstalled when no wallet adapter is set', async () => {
     const lc = buildLifecycle(false);
-    await expect(
-      lc.invoke(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1]),
-    ).rejects.toMatchObject({ code: TikkaSdkErrorCode.WalletNotInstalled });
+    await expect(lc.invoke(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1])).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.WalletNotInstalled,
+    });
 
     expect(rpcService.simulateTransaction).not.toHaveBeenCalled();
   });
@@ -933,7 +931,12 @@ describe('invoke() — Task 7.1 additional unit tests', () => {
     const lc = buildLifecycle();
     const pollSpy = jest.spyOn(lc, 'poll');
 
-    const pollConfig = { timeoutMs: 45_000, intervalMs: 3_000, backoffFactor: 2.0, maxIntervalMs: 15_000 };
+    const pollConfig = {
+      timeoutMs: 45_000,
+      intervalMs: 3_000,
+      backoffFactor: 2.0,
+      maxIntervalMs: 15_000,
+    };
     await lc.invoke(ContractFn.BUY_TICKET, [1], {
       sourcePublicKey: SOURCE_KEY,
       poll: pollConfig,
