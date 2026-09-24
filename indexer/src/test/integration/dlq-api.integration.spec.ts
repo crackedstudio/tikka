@@ -34,9 +34,10 @@ describe('DLQ Service Integration', () => {
   });
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     await ds.query(`SET session_replication_role = 'replica'`);
     await ds.query(`TRUNCATE TABLE dead_letter_events RESTART IDENTITY CASCADE`);
-    await ds.query(`SET session_replication_role = 'DEFAULT'`);
+    await ds.query(`SET session_replication_role = 'origin'`);
   });
 
   describe('Replay DLQ entries', () => {

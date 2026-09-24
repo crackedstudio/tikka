@@ -9,34 +9,34 @@ updates:
     groups:
       nestjs:
         patterns:
-          - "@nestjs/*"
+          - '@nestjs/*'
       stellar:
         patterns:
-          - "@stellar/*"
+          - '@stellar/*'
       typescript-tooling:
         patterns:
-          - "typescript"
-          - "eslint"
-          - "@eslint/*"
-          - "typescript-eslint"
-          - "@typescript-eslint/*"
-          - "prettier"
-          - "eslint-config-prettier"
-          - "eslint-plugin-prettier"
+          - 'typescript'
+          - 'eslint'
+          - '@eslint/*'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - 'prettier'
+          - 'eslint-config-prettier'
+          - 'eslint-plugin-prettier'
       testing:
         patterns:
-          - "jest"
-          - "@types/jest"
-          - "ts-jest"
-          - "vitest"
-          - "@vitest/*"
+          - 'jest'
+          - '@types/jest'
+          - 'ts-jest'
+          - 'vitest'
+          - '@vitest/*'
     ignore:
-      - dependency-name: "typeorm"
+      - dependency-name: 'typeorm'
         update-types:
-          - "version-update:semver-major"
-      - dependency-name: "@stellar/stellar-sdk"
+          - 'version-update:semver-major'
+      - dependency-name: '@stellar/stellar-sdk'
         update-types:
-          - "version-update:semver-major"
+          - 'version-update:semver-major'
 
   - package-ecosystem: docker
     directory: /
@@ -53,4 +53,3 @@ updates:
     labels:
       - dependencies
       - github-actions
-

@@ -62,3 +62,6 @@ export * from './utils';
 
 // ── Auth (SEP-10) ───────────────────────────────────────────────────────────
 export * from './auth/sep10';
+
+// ── Schemas ─────────────────────────────────────────────────────────────────
+export * from './schemas/raffle-metadata.schema';

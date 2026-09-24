@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import React, { useState } from "react";
 import Modal from "./modals/Modal";
 import ProcessingRaffleCreation from "./modals/ProcessingRaffleCreation";
@@ -5,9 +6,10 @@ import RaffleCreatedSuccess from "./modals/RaffleCreatedSuccess";
 import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { MetadataService } from "../services/metadataService";
-import { createRaffle } from "../services/contractService";
+import { createRaffle } from "../services/sdkClient";
 import { useAuthContext } from "../providers";
 import type { PipelineProgressEvent } from "../services/transactionPipeline";
+import { CreateRaffleFormSchema } from "../utils/raffleValidation";
 
 interface CreateRaffleButtonProps {
   // Form data for metadata
@@ -120,6 +122,19 @@ const CreateRaffleButton = ({
 
       const durationInSeconds = endTime - Math.floor(Date.now() / 1000);
 
+      const formValidation = CreateRaffleFormSchema.safeParse({
+        ticketPrice: ticketPrice,
+        totalTickets: maxTickets,
+        durationInSeconds: Math.max(0, durationInSeconds),
+      });
+
+      if (!formValidation.success) {
+        const errorMessage = formValidation.error.issues
+          .map((e) => e.message)
+          .join("; ");
+        throw new Error(errorMessage);
+      }
+
       // Stage → progress mapping for the modal
       const stageProgress: Record<string, number> = {
         BUILD: 40,
@@ -176,7 +191,7 @@ const CreateRaffleButton = ({
       }, 1200);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create raffle";
-      console.error("Error creating raffle:", err);
+      logger.error("Error creating raffle:", err);
       setCurrentStep(message);
       setProgress(0);
       onError?.(message);

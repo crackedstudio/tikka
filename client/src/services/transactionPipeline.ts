@@ -1,34 +1,34 @@
 /**
- * transactionPipeline.ts — Issue #523
+ * transactionPipeline.ts — Issue #523 / SDK-consumption refactor.
  *
- * FINDINGS (from reading contractService.ts, walletService.ts, types.ts):
+ * This module is now a **thin progress-emitter adapter** over the `@tikka/sdk`
+ * `ContractService` stage methods (`simulate` → `sign` → `submit` → `poll`).
+ * All transaction mechanics — building, fee bumping, auth gathering, signing,
+ * submission, polling — live in the SDK (`TransactionLifecycle`). This file only:
  *
- * SDK: @stellar/stellar-sdk v14 (Soroban).
- *   - Build:    TransactionBuilder + contract.call() → unsigned Transaction
- *   - Estimate: sorobanRpcServer.simulateTransaction() — inline in submitTransaction today
- *   - Sign:     walletService.signTransaction(tx) via @creit.tech/stellar-wallets-kit
- *               Returns { success: boolean; signedTransaction?: any; error?: string }
- *               No typed UserRejectedRequestError — user rejection surfaces as thrown Error
- *               with message containing "rejected" / "cancelled" / "denied"
- *   - Submit:   sorobanRpcServer.sendTransaction() → { hash, status }
- *               status "ERROR" means immediate failure; "PENDING"/"TRY_AGAIN_LATER" need polling
- *   - Poll:     NOT implemented today — submitTransaction returns hash without waiting
- *   - Fee est:  simulateTransaction result used via rpc.assembleTransaction; no override today
+ *   1. Sequences the stage calls so the UI can watch BUILD→ESTIMATE→SIGN→
+ *      SUBMIT→POLL→DONE progress via `PipelineProgressEvent`.
+ *   2. Translates SDK `TikkaSdkError`s into the typed `PipelineError` union the
+ *      UI already knows how to display.
  *
- * Error handling today: try/catch → ContractResponse<string> { success, data?, error? }
- * This module replaces that with a typed Result union so callers never need to catch.
+ * The BUILD stage is a UI-compat no-op: the SDK performs build + simulate
+ * atomically inside `simulate`, so there is no separate unsigned-transaction
+ * build step to report.
  *
- * UI state today: CreateRaffleButton tracks currentStep/progress with manual setters.
- * After this refactor it receives PipelineProgressEvent via onProgress callback.
- *
- * Test framework: Vitest (globals: true, environment: jsdom).
+ * Error guarantee: `runPipeline` never throws — every failure is returned as
+ * `{ ok: false, error: PipelineError }`.
  */
 
-import { rpc } from "@stellar/stellar-sdk";
-import type { Transaction } from "@stellar/stellar-sdk";
-import { sorobanRpcServer } from "./rpcService";
-import { signTransaction } from "./walletService";
-import type { WalletSignResult } from "./walletService";
+import {
+  TikkaSdkError,
+  TikkaSdkErrorCode,
+} from "@tikka/sdk";
+import type {
+  SimulateResult,
+  SubmitResult,
+  PollConfig,
+  TxMemo,
+} from "@tikka/sdk";
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -37,10 +37,10 @@ export type PipelineStage = "BUILD" | "ESTIMATE" | "SIGN" | "SUBMIT" | "POLL" | 
 /**
  * Progress event emitted by `runPipeline` before and after each stage.
  *
- * - `BUILD pending/done/error`   — assembling the unsigned transaction
+ * - `BUILD pending/done/error`   — UI-compat no-op stage (the SDK builds inside `simulate`)
  * - `ESTIMATE pending/done/error` — simulating via Soroban RPC; `estimatedFee` is the
- *   assembled tx fee (or `feeOverride` if set) and is present only on `done`
- * - `SIGN pending/done/error`    — waiting for the wallet adapter to sign
+ *   simulation's `minResourceFee` (or `feeOverride` if set) and is present only on `done`
+ * - `SIGN pending/done/error`    — waiting for the SDK wallet adapter to sign
  * - `SUBMIT pending/done/error`  — broadcasting to the network; `txHash` is present on `done`
  * - `POLL pending/done/error`    — polling for ledger finality; `confirmations` is always 1 on `done`
  * - `DONE done`                  — terminal success; `txHash` matches the SUBMIT hash
@@ -58,14 +58,14 @@ export type PipelineProgressEvent =
 /**
  * Typed error returned (never thrown) by `runPipeline`.
  *
- * - `BUILD_FAILED`      — `buildTx` threw; `cause` is the original error
- * - `SIMULATION_FAILED` — Soroban RPC simulation returned an error or threw; `cause` is the raw response or error
+ * - `BUILD_FAILED`      — unexpected pipeline failure; `cause` is the original error
+ * - `SIMULATION_FAILED` — SDK simulation threw; `cause` is the original error
  * - `INSUFFICIENT_FEES` — simulation error message indicates fee/balance problem; `estimatedFee` is `"unknown"`
- * - `USER_REJECTED`     — wallet adapter threw with "reject"/"cancel"/"denied"/"declined"/"user closed"
- * - `SIGNING_FAILED`    — wallet adapter threw for any other reason; `cause` is the original error
- * - `SUBMISSION_FAILED` — `sendTransaction` returned `status: "ERROR"` or threw; `cause` is the raw response or error
- * - `TIMEOUT`           — `pollTimeoutMs` elapsed before ledger confirmed; `txHash` is set if submission succeeded
- * - `FINALITY_FAILED`   — ledger returned `FAILED` status for the transaction; `txHash` identifies it
+ * - `USER_REJECTED`     — user dismissed the wallet signing prompt
+ * - `SIGNING_FAILED`    — wallet unavailable/not connected or signing failed; `cause` is the original error
+ * - `SUBMISSION_FAILED` — SDK submit threw; `cause` is the original error
+ * - `TIMEOUT`           — SDK poll timed out; `txHash` is set once submission succeeded
+ * - `FINALITY_FAILED`   — ledger/chain rejected the transaction; `txHash` identifies it
  */
 export type PipelineError =
   | { code: "BUILD_FAILED";       message: string; cause?: unknown }
@@ -97,8 +97,8 @@ export interface PipelineOptions {
   onProgress?: (event: PipelineProgressEvent) => void;
   /**
    * Override the fee reported in `ESTIMATE:done` and used for display.
-   * Does not affect the actual fee negotiated by `rpc.assembleTransaction`.
-   * Useful for fee-bump flows and tests. Default: assembled tx fee.
+   * Does not affect the fee actually negotiated by the SDK simulation.
+   * Default: the SDK `minResourceFee`.
    */
   feeOverride?: string;
   /**
@@ -113,8 +113,34 @@ export interface PipelineOptions {
   pollIntervalMs?: number;
 }
 
-export interface PipelineInput<TParams> {
-  params: TParams;
+/**
+ * Minimal contract fulfilled by the SDK `ContractService` stage methods, so
+ * tests can inject a fake without pulling the whole SDK transport in.
+ */
+export interface SdkPipelineTarget {
+  simulate<T = unknown>(
+    method: string,
+    params: unknown[],
+    options?: { sourcePublicKey?: string; fee?: string; memo?: TxMemo },
+  ): Promise<SimulateResult<T>>;
+  sign(
+    assembledXdr: string,
+    networkPassphrase?: string,
+  ): Promise<string>;
+  submit(signedXdr: string): Promise<string>;
+  poll<T = unknown>(
+    txHash: string,
+    config?: PollConfig,
+  ): Promise<SubmitResult<T>>;
+}
+
+export interface PipelineInput {
+  /** The SDK ContractService stage methods to drive. */
+  target: SdkPipelineTarget;
+  /** Contract function name, e.g. `ContractFn.CREATE_RAFFLE`. */
+  method: string;
+  /** Contract parameter list (native values or pre-built scVals — the SDK converts). */
+  params: unknown[];
   options?: PipelineOptions;
 }
 
@@ -132,77 +158,93 @@ function emit(
   }
 }
 
-/** Map wallet-kit errors to USER_REJECTED vs SIGNING_FAILED. */
-function classifySignError(err: unknown): PipelineError {
-  // Explicit typed rejection from walletService
-  if (err instanceof Error && err.name === "WalletUserRejectedError") {
-    return { code: "USER_REJECTED", message: err.message };
-  }
-  // Keyword fallback for wallet adapters that throw plain Errors
-  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-  if (
-    msg.includes("reject") ||
-    msg.includes("cancel") ||
-    msg.includes("denied") ||
-    msg.includes("declined") ||
-    msg.includes("user closed")
-  ) {
-    return { code: "USER_REJECTED", message: "Transaction was rejected by the user." };
-  }
-  return { code: "SIGNING_FAILED", message: "Failed to sign transaction.", cause: err };
+function codeOf(err: unknown): TikkaSdkErrorCode | undefined {
+  return err instanceof TikkaSdkError ? err.code : undefined;
 }
 
-/** Poll sorobanRpcServer until SUCCESS/FAILED or timeout. */
-async function pollFinality(
-  txHash: string,
-  timeoutMs: number,
-  intervalMs: number,
-): Promise<{ ok: true; ledger: number } | { ok: false; error: PipelineError }> {
-  const deadline = Date.now() + timeoutMs;
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
-  while (Date.now() < deadline) {
-    await new Promise<void>((r) => setTimeout(r, intervalMs));
+/**
+ * Translates a thrown SDK `TikkaSdkError` into the typed `PipelineError` union,
+ * for callers that drive a single SDK entry point (e.g. `TicketService`) rather
+ * than the stage-by-stage pipeline.
+ */
+export function sdkErrorToPipelineError(
+  err: unknown,
+  opts: { txHash?: string } = {},
+): PipelineError {
+  const code = codeOf(err);
+  const msg = messageOf(err);
 
-    let response: rpc.Api.GetTransactionResponse;
-    try {
-      response = await sorobanRpcServer.getTransaction(txHash);
-    } catch (_err) {
-      // transient network error — keep polling until deadline
-      continue;
-    }
-
-    if (response.status === rpc.Api.GetTransactionStatus.SUCCESS) {
-      return { ok: true, ledger: response.ledger ?? 0 };
-    }
-
-    if (response.status === rpc.Api.GetTransactionStatus.FAILED) {
-      return {
-        ok: false,
-        error: { code: "FINALITY_FAILED", message: "Transaction failed on-chain.", txHash },
-      };
-    }
-    // NOT_FOUND / other → keep polling
+  switch (code) {
+    case TikkaSdkErrorCode.UserRejected:
+      return { code: "USER_REJECTED", message: "Transaction was rejected by the user." };
+    case TikkaSdkErrorCode.WalletNotConnected:
+    case TikkaSdkErrorCode.WalletNotInstalled:
+      return { code: "SIGNING_FAILED", message: msg, cause: err };
+    case TikkaSdkErrorCode.Timeout:
+      return { code: "TIMEOUT", message: msg, txHash: opts.txHash };
+    case TikkaSdkErrorCode.NetworkError:
+    case TikkaSdkErrorCode.Unavailable:
+    case TikkaSdkErrorCode.RateLimit:
+      return { code: "SUBMISSION_FAILED", message: msg, cause: err };
+    default:
+      if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("fee")) {
+        return { code: "INSUFFICIENT_FEES", message: msg, estimatedFee: "unknown" };
+      }
+      return { code: "SUBMISSION_FAILED", message: msg, cause: err };
   }
+}
 
-  return {
-    ok: false,
-    error: { code: "TIMEOUT", message: "Timed out waiting for transaction finality.", txHash },
-  };
+/** ESTIMATE-stage classifier (keeps the old INSUFFICIENT_FEES heuristic). */
+function estimateError(err: unknown): PipelineError {
+  const code = codeOf(err);
+  if (code === TikkaSdkErrorCode.Timeout || code === TikkaSdkErrorCode.NetworkError) {
+    return { code: "SIMULATION_FAILED", message: messageOf(err), cause: err };
+  }
+  const msg = messageOf(err);
+  if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("fee")) {
+    return { code: "INSUFFICIENT_FEES", message: msg, estimatedFee: "unknown" };
+  }
+  return { code: "SIMULATION_FAILED", message: msg, cause: err };
+}
+
+/** SIGN-stage classifier. */
+function signError(err: unknown): PipelineError {
+  if (codeOf(err) === TikkaSdkErrorCode.UserRejected) {
+    return { code: "USER_REJECTED", message: "Transaction was rejected by the user." };
+  }
+  return { code: "SIGNING_FAILED", message: messageOf(err), cause: err };
+}
+
+/** SUBMIT-stage classifier. */
+function submitError(err: unknown): PipelineError {
+  return { code: "SUBMISSION_FAILED", message: messageOf(err), cause: err };
+}
+
+/** POLL-stage classifier. */
+function pollError(err: unknown, txHash: string): PipelineError {
+  if (codeOf(err) === TikkaSdkErrorCode.Timeout) {
+    return { code: "TIMEOUT", message: messageOf(err), txHash };
+  }
+  return { code: "FINALITY_FAILED", message: messageOf(err), txHash };
 }
 
 // ─── Core pipeline ────────────────────────────────────────────────────────────
 
 /**
- * Run the full BUILD → ESTIMATE → SIGN → SUBMIT → POLL pipeline for a Soroban transaction.
+ * Run the full BUILD → ESTIMATE → SIGN → SUBMIT → POLL pipeline by driving the
+ * SDK `ContractService` stage methods.
  *
- * Stage sequence:
- * 1. **BUILD**   — calls `buildTx(params)` to produce an unsigned `Transaction`
- * 2. **ESTIMATE** — simulates via `sorobanRpcServer.simulateTransaction`, assembles the
- *    prepared tx with `rpc.assembleTransaction`, and resolves the fee
- * 3. **SIGN**    — passes the prepared tx to `walletService.signTransaction`
- * 4. **SUBMIT**  — broadcasts via `sorobanRpcServer.sendTransaction`
- * 5. **POLL**    — polls `sorobanRpcServer.getTransaction` until `SUCCESS`, `FAILED`,
- *    or `pollTimeoutMs` elapses
+ * Stage sequence (BUILD is a UI-compat no-op since the SDK builds+simulates
+ * atomically):
+ * 1. **ESTIMATE**  — `target.simulate(method, params)` returns the assembled XDR,
+ *    resource fee, and network passphrase
+ * 2. **SIGN**      — `target.sign(assembledXdr, networkPassphrase)` via the SDK wallet
+ * 3. **SUBMIT**    — `target.submit(signedXdr)` broadcasts and returns the tx hash
+ * 4. **POLL**      — `target.poll(txHash, config)` waits for ledger finality
  *
  * Progress contract:
  * - `onProgress` fires with `status: "pending"` before each stage starts
@@ -214,124 +256,76 @@ async function pollFinality(
  * - This function **never throws**. All failures are returned as `{ ok: false, error: PipelineError }`.
  * - Callers should switch on `result.ok` rather than wrapping in try/catch.
  *
- * @param buildTx  Contract-specific function that assembles the unsigned transaction from `params`
- * @param input    Pipeline input containing `params` and optional `PipelineOptions`
- * @returns        `{ ok: true, data: PipelineSuccess }` or `{ ok: false, error: PipelineError }`
+ * @param input Pipeline input carrying the SDK stage methods, contract method, params, and options
+ * @returns     `{ ok: true, data: PipelineSuccess }` or `{ ok: false, error: PipelineError }`
  */
-export async function runPipeline<TParams>(
-  buildTx: (params: TParams) => Promise<Transaction>,
-  input: PipelineInput<TParams>,
-): Promise<PipelineResult> {
+export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
   try {
-    return await _runPipeline(buildTx, input);
+    return await _runPipeline(input);
   } catch (err) {
     // Safety net: runPipeline must never throw under any circumstances.
     return { ok: false, error: { code: "BUILD_FAILED", message: "Unexpected pipeline error.", cause: err } };
   }
 }
 
-async function _runPipeline<TParams>(
-  buildTx: (params: TParams) => Promise<Transaction>,
-  input: PipelineInput<TParams>,
-): Promise<PipelineResult> {
-  const { params, options = {} } = input;
-  const {
-    onProgress,
-    pollTimeoutMs = 30_000,
-    pollIntervalMs = 2_000,
-  } = options;
+async function _runPipeline(input: PipelineInput): Promise<PipelineResult> {
+  const { target, method, params, options = {} } = input;
+  const { onProgress, pollTimeoutMs = 30_000, pollIntervalMs = 2_000 } = options;
 
-  // ── 1. BUILD ──────────────────────────────────────────────────────────────
+  // ── 1. BUILD (UI-compat no-op) ─────────────────────────────────────────────
   emit(onProgress, { stage: "BUILD", status: "pending" });
-  let unsignedTx: Transaction;
-  try {
-    unsignedTx = await buildTx(params);
-  } catch (err) {
-    emit(onProgress, { stage: "BUILD", status: "error" });
-    return { ok: false, error: { code: "BUILD_FAILED", message: "Failed to build transaction.", cause: err } };
-  }
   emit(onProgress, { stage: "BUILD", status: "done" });
 
-  // ── 2. ESTIMATE ───────────────────────────────────────────────────────────
+  // ── 2. ESTIMATE ────────────────────────────────────────────────────────────
   emit(onProgress, { stage: "ESTIMATE", status: "pending" });
-  let preparedTx: Transaction;
+  let sim: SimulateResult;
   let estimatedFee: string | undefined;
   try {
-    const simResult = await sorobanRpcServer.simulateTransaction(unsignedTx);
-
-    if (rpc.Api.isSimulationError(simResult)) {
-      const msg = simResult.error ?? "Simulation failed";
-      emit(onProgress, { stage: "ESTIMATE", status: "error" });
-      // Detect insufficient-fee codes from Soroban simulation
-      if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("fee")) {
-        return {
-          ok: false,
-          error: { code: "INSUFFICIENT_FEES", message: msg, estimatedFee: "unknown" },
-        };
-      }
-      return { ok: false, error: { code: "SIMULATION_FAILED", message: msg, cause: simResult } };
-    }
-
-    preparedTx = rpc.assembleTransaction(unsignedTx, simResult).build();
-    // Extract fee from the assembled transaction
-    estimatedFee = options.feeOverride ?? preparedTx.fee;
+    sim = await target.simulate(method, params);
+    // feeOverride only affects what we *report* — the SDK negotiates the real fee.
+    estimatedFee = options.feeOverride ?? sim.minResourceFee;
   } catch (err) {
     emit(onProgress, { stage: "ESTIMATE", status: "error" });
-    return { ok: false, error: { code: "SIMULATION_FAILED", message: "Simulation threw unexpectedly.", cause: err } };
+    return { ok: false, error: estimateError(err) };
   }
   emit(onProgress, { stage: "ESTIMATE", status: "done", estimatedFee });
 
-  // ── 3. SIGN ───────────────────────────────────────────────────────────────
+  // ── 3. SIGN ────────────────────────────────────────────────────────────────
   emit(onProgress, { stage: "SIGN", status: "pending" });
-  let signedTx: unknown;
+  let signedXdr: string;
   try {
-    const signResult = await signTransaction(preparedTx);
-    if (!signResult.success || !signResult.signedTransaction) {
-      const pipelineErr = classifySignError(new Error(signResult.error ?? "sign returned no transaction"));
-      emit(onProgress, { stage: "SIGN", status: "error" });
-      return { ok: false, error: pipelineErr };
-    }
-    signedTx = signResult.signedTransaction;
+    signedXdr = await target.sign(sim.assembledXdr, sim.networkPassphrase);
   } catch (err) {
-    const pipelineErr = classifySignError(err);
     emit(onProgress, { stage: "SIGN", status: "error" });
-    return { ok: false, error: pipelineErr };
+    return { ok: false, error: signError(err) };
   }
   emit(onProgress, { stage: "SIGN", status: "done" });
 
-  // ── 4. SUBMIT ─────────────────────────────────────────────────────────────
+  // ── 4. SUBMIT ──────────────────────────────────────────────────────────────
   emit(onProgress, { stage: "SUBMIT", status: "pending" });
   let txHash: string;
   try {
-    const submitResult = await sorobanRpcServer.sendTransaction(signedTx as Transaction);
-    if (submitResult.status === "ERROR") {
-      emit(onProgress, { stage: "SUBMIT", status: "error" });
-      return {
-        ok: false,
-        error: {
-          code: "SUBMISSION_FAILED",
-          message: `Transaction submission failed: ${String(submitResult.errorResult ?? "unknown error")}`,
-          cause: submitResult,
-        },
-      };
-    }
-    txHash = submitResult.hash;
+    txHash = await target.submit(signedXdr);
   } catch (err) {
     emit(onProgress, { stage: "SUBMIT", status: "error" });
-    return { ok: false, error: { code: "SUBMISSION_FAILED", message: "Failed to submit transaction.", cause: err } };
+    return { ok: false, error: submitError(err) };
   }
   emit(onProgress, { stage: "SUBMIT", status: "done", txHash });
 
-  // ── 5. POLL ───────────────────────────────────────────────────────────────
+  // ── 5. POLL ────────────────────────────────────────────────────────────────
   emit(onProgress, { stage: "POLL", status: "pending" });
-  const pollResult = await pollFinality(txHash, pollTimeoutMs, pollIntervalMs);
-  if (!pollResult.ok) {
+  let polled: SubmitResult;
+  try {
+    const pollConfig: PollConfig = { timeoutMs: pollTimeoutMs, intervalMs: pollIntervalMs };
+    polled = await target.poll(txHash, pollConfig);
+  } catch (err) {
     emit(onProgress, { stage: "POLL", status: "error" });
-    return { ok: false, error: pollResult.error };
+    return { ok: false, error: pollError(err, txHash) };
   }
   emit(onProgress, { stage: "POLL", status: "done", confirmations: 1 });
 
-  // ── 6. DONE ───────────────────────────────────────────────────────────────
-  emit(onProgress, { stage: "DONE", status: "done", txHash });
-  return { ok: true, data: { txHash, confirmedAt: pollResult.ledger } };
+  // ── 6. DONE ────────────────────────────────────────────────────────────────
+  const finalHash = polled.txHash ?? txHash;
+  emit(onProgress, { stage: "DONE", status: "done", txHash: finalHash });
+  return { ok: true, data: { txHash: finalHash, confirmedAt: polled.ledger } };
 }

@@ -43,14 +43,22 @@ export class KeyProviderFactory {
         return this.createGcpKmsProvider(configService);
 
       default:
-        this.logger.warn(
-          `Unknown KEY_PROVIDER type: ${providerType}. Falling back to 'env' provider.`,
+        throw new Error(
+          `Unknown KEY_PROVIDER type: '${providerType}'. Must be one of: 'env', 'aws-kms', 'aws', 'gcp-kms', 'gcp', 'google'.`,
         );
-        return this.createEnvProvider(configService);
     }
   }
 
   private static createEnvProvider(configService: ConfigService): EnvKeyProvider {
+    if (
+      configService.get<string>('NODE_ENV') === 'production' &&
+      configService.get<string>('ALLOW_ENV_PROVIDER_IN_PRODUCTION') !== 'true'
+    ) {
+      throw new Error(
+        'EnvKeyProvider is not allowed in production unless ALLOW_ENV_PROVIDER_IN_PRODUCTION=true is set',
+      );
+    }
+
     const privateKey =
       configService.get<string>('ORACLE_SECRET_KEY') ||
       configService.get<string>('ORACLE_PRIVATE_KEY');

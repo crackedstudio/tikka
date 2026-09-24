@@ -89,8 +89,9 @@ export class ContractService {
     private readonly horizon: HorizonService,
     @Inject("NETWORK_CONFIG") private readonly networkConfig: NetworkConfig,
     @Optional() @Inject("WALLET_ADAPTER") private wallet?: WalletAdapter,
+    contractId?: string,
   ) {
-    this.contractId = getRaffleContractId(networkConfig.network);
+    this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
     this.lifecycle = new TransactionLifecycle(
       rpc,
       horizon,

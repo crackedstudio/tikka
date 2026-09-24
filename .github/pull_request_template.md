@@ -25,6 +25,7 @@ Implements a comprehensive manual intervention system for failed oracle jobs. Pr
 When oracle jobs fail after all automatic retries (5 attempts with exponential backoff), they remain in a failed state with no recovery mechanism. This blocks raffles from being finalized and requires manual intervention.
 
 **Current pain points:**
+
 - No way to retry failed jobs
 - No manual submission capability
 - No audit trail of interventions
@@ -41,6 +42,7 @@ A three-pronged rescue system:
 ## 🚀 Features
 
 ### Core Operations
+
 - ✅ **Re-enqueue** - Retry failed jobs (temporary failures like RPC timeout)
 - ✅ **Force Submit** - Manually compute and submit randomness (persistent failures)
 - ✅ **Force Fail** - Mark jobs as invalid (malicious/invalid requests)
@@ -48,6 +50,7 @@ A three-pronged rescue system:
 - ✅ **Audit Logs** - Complete history of rescue operations
 
 ### API Endpoints (6)
+
 ```
 POST   /rescue/re-enqueue      - Re-enqueue a failed job
 POST   /rescue/force-submit    - Force submit randomness
@@ -59,6 +62,7 @@ GET    /rescue/logs/:raffleId  - View logs for specific raffle
 ```
 
 ### CLI Commands (6)
+
 ```bash
 # Re-enqueue a failed job
 npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason "<reason>"
@@ -80,6 +84,7 @@ npm run oracle:rescue logs [--raffle <id>] [--limit <n>]
 ```
 
 ### Security Features
+
 - ✅ **Operator identification** - All operations require operator name
 - ✅ **Reason tracking** - All operations require explanation
 - ✅ **Complete audit trail** - Timestamp, operator, reason, result logged
@@ -87,6 +92,7 @@ npm run oracle:rescue logs [--raffle <id>] [--limit <n>]
 - ✅ **Raffle state validation** - Checks if already finalized before submission
 
 ### Smart Features
+
 - ✅ **Auto VRF/PRNG selection** - Based on prize amount (≥500 XLM = VRF)
 - ✅ **Auto prize fetch** - Fetches from contract if not provided
 - ✅ **Comprehensive error handling** - Graceful failures with clear messages
@@ -97,6 +103,7 @@ npm run oracle:rescue logs [--raffle <id>] [--limit <n>]
 ### New Files (22 files, 4,418+ lines)
 
 **Source Code (5 files)**
+
 ```
 oracle/src/rescue/
 ├── rescue.module.ts              # NestJS module configuration
@@ -108,6 +115,7 @@ oracle/src/rescue/
 ```
 
 **Documentation (10 files, 2,500+ lines)**
+
 ```
 oracle/
 ├── RESCUE_GUIDE.md                    # Comprehensive user guide (500+ lines)
@@ -123,6 +131,7 @@ oracle/
 ```
 
 **Test Files (2 files)**
+
 ```
 oracle/
 ├── test-rescue.js                     # Automated test script
@@ -130,6 +139,7 @@ oracle/
 ```
 
 **Modified Files (3 files)**
+
 ```
 oracle/
 ├── README.md          # Added rescue tool section
@@ -142,6 +152,7 @@ oracle/
 ### ✅ All Tests Passed (9/9)
 
 **Automated Test Results:**
+
 1. ✅ CLI Help Command - PASSED
 2. ✅ Module Structure (5 files) - PASSED
 3. ✅ Documentation (10 files) - PASSED
@@ -153,6 +164,7 @@ oracle/
 9. ✅ App Module Integration - PASSED
 
 **Unit Test Coverage:**
+
 - ✅ `reEnqueueJob` - Success, job not found, already finalized
 - ✅ `forceSubmit` - Low-stakes (PRNG), high-stakes (VRF), auto-fetch prize, failures
 - ✅ `forceFail` - Success, job not found
@@ -160,6 +172,7 @@ oracle/
 - ✅ `getRescueLogs` - Audit log retrieval and filtering
 
 **Code Quality:**
+
 - ✅ **TypeScript Errors**: 0
 - ✅ **Linting Issues**: 0
 - ✅ **Test Coverage**: 15+ test cases
@@ -168,6 +181,7 @@ oracle/
 ## 💡 Usage Examples
 
 ### Scenario 1: RPC Timeout (Re-enqueue)
+
 ```bash
 npm run oracle:rescue re-enqueue 12345 \
   --operator alice \
@@ -175,6 +189,7 @@ npm run oracle:rescue re-enqueue 12345 \
 ```
 
 ### Scenario 2: All Retries Exhausted (Force Submit)
+
 ```bash
 npm run oracle:rescue force-submit 42 req_abc123 \
   --operator bob \
@@ -182,6 +197,7 @@ npm run oracle:rescue force-submit 42 req_abc123 \
 ```
 
 ### Scenario 3: Invalid Request (Force Fail)
+
 ```bash
 npm run oracle:rescue force-fail 12345 \
   --operator alice \
@@ -189,6 +205,7 @@ npm run oracle:rescue force-fail 12345 \
 ```
 
 ### Scenario 4: Audit Review
+
 ```bash
 # View recent rescue operations
 npm run oracle:rescue logs --limit 50
@@ -198,6 +215,7 @@ npm run oracle:rescue logs --raffle 42
 ```
 
 ### API Usage
+
 ```bash
 # Re-enqueue via API
 curl -X POST http://localhost:3003/rescue/re-enqueue \
@@ -219,10 +237,12 @@ curl http://localhost:3003/rescue/logs?limit=50
 ## 📚 Documentation
 
 ### For Users
+
 - **[RESCUE_GUIDE.md](oracle/RESCUE_GUIDE.md)** - Complete usage guide with examples, decision trees, best practices
 - **[RESCUE_QUICK_REF.md](oracle/RESCUE_QUICK_REF.md)** - One-page quick reference card for emergency use
 
 ### For On-Call Engineers
+
 - **[ON_CALL_TROUBLESHOOTING.md](oracle/ON_CALL_TROUBLESHOOTING.md)** - Comprehensive troubleshooting handbook with:
   - Common failure scenarios and resolutions
   - Escalation matrix
@@ -230,14 +250,17 @@ curl http://localhost:3003/rescue/logs?limit=50
   - Monitoring checklist
 
 ### For Developers
+
 - **[RESCUE_IMPLEMENTATION.md](oracle/RESCUE_IMPLEMENTATION.md)** - Technical architecture and implementation details
 - **[src/rescue/README.md](oracle/src/rescue/README.md)** - Module-level documentation
 
 ### For Operations
+
 - **[RESCUE_DEPLOYMENT_CHECKLIST.md](oracle/RESCUE_DEPLOYMENT_CHECKLIST.md)** - Production deployment guide
 - **[VERIFICATION_CHECKLIST.md](oracle/VERIFICATION_CHECKLIST.md)** - 120-item completion checklist
 
 ### Navigation
+
 - **[RESCUE_INDEX.md](oracle/RESCUE_INDEX.md)** - Complete documentation index and navigation guide
 
 ## 🏗️ Architecture
@@ -275,19 +298,23 @@ curl http://localhost:3003/rescue/logs?limit=50
 ## 🚀 Deployment
 
 ### Prerequisites
+
 - ✅ No new dependencies required
 - ✅ Uses existing Redis configuration
 - ✅ Uses existing Soroban RPC configuration
 - ✅ No database migrations needed
 
 ### Configuration
+
 Uses existing environment variables:
+
 - `REDIS_HOST` / `REDIS_PORT` - Queue access
 - `SOROBAN_RPC_URL` - Contract interaction
 - `RAFFLE_CONTRACT_ID` - Contract address
 - `ORACLE_SECRET_KEY` - Transaction signing
 
 ### Deployment Steps
+
 1. Merge this PR
 2. Deploy to staging
 3. Run tests: `npm test src/rescue/rescue.service.spec.ts`
@@ -296,23 +323,27 @@ Uses existing environment variables:
 6. Set up monitoring alerts
 
 ### Rollback Plan
+
 If issues arise, simply remove `RescueModule` from `app.module.ts` and redeploy. No data migrations to rollback.
 
 ## 📊 Impact
 
 ### Operational Benefits
+
 - ✅ Reduced downtime for stuck raffles
 - ✅ Faster incident resolution (minutes vs hours)
 - ✅ Clear audit trail for compliance
 - ✅ Reduced manual work for operators
 
 ### Technical Benefits
+
 - ✅ Idempotent operations (safe retries)
 - ✅ Comprehensive error handling
 - ✅ Extensible architecture
 - ✅ Well-tested codebase (15+ tests)
 
 ### Business Benefits
+
 - ✅ Improved reliability
 - ✅ Better user experience
 - ✅ Reduced support burden
@@ -343,6 +374,7 @@ N/A - CLI tool (can add terminal screenshots if needed)
 ## 🎓 Training Materials
 
 Complete training materials included:
+
 - User guides with step-by-step examples
 - On-call troubleshooting handbook
 - Quick reference cards
@@ -351,6 +383,7 @@ Complete training materials included:
 ## 🔮 Future Enhancements
 
 Potential improvements (not in this PR):
+
 1. Persistent audit log storage (database)
 2. Web dashboard for rescue operations
 3. Bulk operation commands
@@ -361,6 +394,7 @@ Potential improvements (not in this PR):
 ## 📝 Additional Notes
 
 This is a **critical operational tool** for handling failed oracle jobs. It provides:
+
 - Manual intervention capabilities when automation fails
 - Complete audit trail for compliance
 - Operator accountability
@@ -373,6 +407,7 @@ This is a **critical operational tool** for handling failed oracle jobs. It prov
 ## 🙏 Reviewers
 
 Please review:
+
 - [ ] Code quality and architecture
 - [ ] Test coverage
 - [ ] Documentation completeness
@@ -384,4 +419,3 @@ Please review:
 ---
 
 **Questions?** Check [RESCUE_INDEX.md](oracle/RESCUE_INDEX.md) for documentation navigation or [RESCUE_GUIDE.md](oracle/RESCUE_GUIDE.md) for usage details.
-

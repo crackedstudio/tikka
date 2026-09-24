@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useState } from "react";
 import Footer from "../components/landing/Footer";
 import Modal from "../components/modals/Modal";
@@ -10,7 +11,7 @@ const LandingLayout = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("Sign Up");
     const changeModal = () => {
-        console.log("clicked");
+        logger.log("clicked");
         setModalOpen(true);
     };
     return (

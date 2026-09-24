@@ -15,6 +15,9 @@ concurrency:
   group: supabase-backup
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   backup:
     name: pg_dump → Cloudflare R2
@@ -177,7 +180,7 @@ jobs:
     steps:
       - name: Notify Slack on backup failure
         if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
-        uses: slackapi/slack-github-action@v4.0.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -206,7 +209,7 @@ jobs:
             }
 
       - name: Create GitHub Issue on failure
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const title = `Backup workflow failed — ${new Date().toISOString().split('T')[0]}`;

@@ -1,4 +1,4 @@
-t/**
+/**
  * Settings Page
  *
  * User settings and preferences management

@@ -13,9 +13,9 @@
  */
 
 import { NestFactory } from '@nestjs/core';
-import { IndexerBackfillModule } from '../src/services/indexer-backfill.module';
-import { IndexerBackfillService } from '../src/services/indexer-backfill.service';
-import { BackfillLockError } from '../src/services/backfill-lock';
+import { IndexerBackfillModule } from '../src/services/indexer/indexer-backfill.module';
+import { IndexerBackfillService } from '../src/services/indexer/indexer-backfill.service';
+import { BackfillLockError } from '../src/services/indexer/backfill-lock';
 
 /**
  * Parse a named numeric argument from process.argv.

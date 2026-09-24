@@ -1,0 +1,63 @@
+﻿{
+  "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+
+  "projectFolder": ".",
+
+  "mainEntryPointFilePath": "<projectFolder>/dist/index.write.d.ts",
+
+  "bundledPackages": [],
+
+  "compiler": {
+    "tsconfigFilePath": "<projectFolder>/tsconfig.build.json",
+    "overrideTsconfig": {
+      "compilerOptions": {
+        "paths": {}
+      }
+    }
+  },
+
+  "apiReport": {
+    "enabled": true,
+    "reportFolder": "<projectFolder>/etc",
+    "reportFileName": "tikka-sdk-write.api.md",
+    "reportTempFolder": "<projectFolder>/temp/api-write"
+  },
+
+  "docModel": {
+    "enabled": true,
+    "apiJsonFilePath": "<projectFolder>/temp/api-write/tikka-sdk-write.api.json"
+  },
+
+  "dtsRollup": {
+    "enabled": false
+  },
+
+  "tsdocMetadata": {
+    "enabled": false
+  },
+
+  "messages": {
+    "compilerMessageReporting": {
+      "default": {
+        "logLevel": "warning"
+      }
+    },
+    "extractorMessageReporting": {
+      "ae-missing-release-tag": {
+        "logLevel": "none"
+      },
+      "ae-internal-missing-underscore": {
+        "logLevel": "none"
+      },
+      "default": {
+        "logLevel": "warning"
+      }
+    },
+    "tsdocMessageReporting": {
+      "default": {
+        "logLevel": "warning"
+      }
+    }
+  }
+}
+

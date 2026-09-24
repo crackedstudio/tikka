@@ -23,15 +23,32 @@ import {
   CONTAINER_STARTUP_MS,
 } from "./helpers/db-container";
 import { ConfigService } from "@nestjs/config";
-import { S3Client } from "@aws-sdk/client-s3";
+
+/**
+ * S3 client `send` mock, wired into the module factory below.
+ *
+ * Name deliberately starts with `mock` so the `jest.mock(...)` factory (which
+ * is hoisted) may reference it. SnapshotService constructs its S3Client lazily
+ * on the first export/import, so we can't grab the client from `mock.results`
+ * in `beforeAll` — instead the factory returns a shared client whose `send` we
+ * configure here.
+ */
+const mockS3Send = jest.fn().mockRejectedValue(new Error("S3 not yet configured"));
 
 jest.mock("@aws-sdk/client-s3", () => {
   return {
     S3Client: jest.fn().mockImplementation(() => ({
-      send: jest.fn(),
+      send: mockS3Send,
     })),
-    PutObjectCommand: jest.fn(),
-    GetObjectCommand: jest.fn(),
+    // Return the input object from `new PutObjectCommand(...)` / `new
+    // GetObjectCommand(...)` so the send mock can inspect it. A plain `jest.fn()`
+    // would yield `undefined` here and break the round-trip.
+    PutObjectCommand: jest
+      .fn()
+      .mockImplementation((input: any) => ({ input })),
+    GetObjectCommand: jest
+      .fn()
+      .mockImplementation((input: any) => ({ input })),
   };
 });
 
@@ -105,18 +122,14 @@ describe("SnapshotService Integration", () => {
       configService,
     );
 
-    const s3ClientMock = (S3Client as jest.Mock).mock.results[0].value;
-    s3ClientMock.send.mockImplementation(async (command: any) => {
-      if (
-        command.constructor.name === "PutObjectCommand" ||
-        (command.input && !command.constructor.name)
-      ) {
-        const key = command.Key || command.input.Key;
-        const body = command.Body || command.input.Body;
-        mockS3Store[key] = body;
+    mockS3Send.mockImplementation(async (command: any) => {
+      const input = command.input ?? command;
+      const key = input.Key;
+      // A PutObjectCommand carries a `Body`; GetObjectCommand does not.
+      if (input.Body !== undefined) {
+        mockS3Store[key] = input.Body;
         return {};
       } else {
-        const key = command.Key || command.input.Key;
         if (!mockS3Store[key]) throw new Error("Not found");
         return {
           Body: {
@@ -133,9 +146,10 @@ describe("SnapshotService Integration", () => {
 
   beforeEach(async () => {
     mockS3Store = {};
+    mockS3Send.mockClear();
     await ds.query(`SET session_replication_role = 'replica'`);
     await ds.query(`TRUNCATE TABLE ${ALL_TABLES} RESTART IDENTITY CASCADE`);
-    await ds.query(`SET session_replication_role = 'DEFAULT'`);
+    await ds.query(`SET session_replication_role = 'origin'`);
   });
 
   async function seedAllEntityTypes() {
@@ -291,7 +305,7 @@ describe("SnapshotService Integration", () => {
     // Wipe
     await ds.query(`SET session_replication_role = 'replica'`);
     await ds.query(`TRUNCATE TABLE ${ALL_TABLES} RESTART IDENTITY CASCADE`);
-    await ds.query(`SET session_replication_role = 'DEFAULT'`);
+    await ds.query(`SET session_replication_role = 'origin'`);
 
     expect(await userRepo.count()).toBe(0);
     expect(await raffleRepo.count()).toBe(0);

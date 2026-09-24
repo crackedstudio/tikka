@@ -3,8 +3,8 @@ import {
   IndexerService,
   IndexerLeaderboardResponse,
   IndexerLeaderboardFilters,
-} from '../../../services/indexer.service';
-import { MetadataRedisService } from '../../../services/metadata-redis.service';
+} from '../../../services/indexer/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 import { LeaderboardQueryDto } from './dto/leaderboard-query.dto';
 
 export const LEADERBOARD_CACHE_TTL = 60;

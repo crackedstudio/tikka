@@ -3,20 +3,29 @@
 /**
  * Migration Validator
  *
- * Validates migration files in backend/database/migrations for:
+ * Validates migration files for:
+ *
+ * backend/database/migrations (Supabase SQL):
  * 1. No duplicate sequence numbers
  * 2. Zero-padded 3-digit sequence numbers
  * 3. Sequential numbering (no gaps)
  * 4. Snake_case naming convention
  * 5. .sql extension
  *
+ * indexer/src/database/migrations (TypeORM):
+ * 6. No round-number placeholder timestamps in NEW files. TypeORM orders
+ *    migrations by the numeric filename prefix, so hand-authored round numbers
+ *    (e.g. 1700000000000) can silently invert execution order versus real
+ *    generated timestamps. Legacy placeholders are allow-listed as a recorded
+ *    historical exception (see docs/database/migration-timestamp-exceptions.md).
+ *
  * Exit codes:
  * - 0: All checks pass
  * - 1: Validation errors found
  */
 
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface Migration {
   filename: string;
@@ -32,7 +41,11 @@ interface ValidationResult {
 }
 
 function getMigrationsDir(): string {
-  return path.join(__dirname, '..', 'database', 'migrations');
+  // Resolved from the package root (this script is always run via
+  // `npm run migrations:check`, so cwd is the backend package directory).
+  // Avoids relying on __dirname, which is unavailable when ts-node executes
+  // the file as an ES module.
+  return path.join(process.cwd(), 'database', 'migrations');
 }
 
 function parseMigrationFile(filename: string): Migration | null {
@@ -147,6 +160,117 @@ function validateMigrations(migrationsDir: string): ValidationResult {
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Indexer (TypeORM) migration validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Legacy placeholder timestamps that were already committed to
+ * indexer/src/database/migrations/. They are hand-written round numbers and
+ * must NOT be renumbered (they are applied on existing databases), but they are
+ * recorded as a historical exception. New files using a placeholder timestamp
+ * are rejected — this allow-list is intentionally frozen.
+ *
+ * See docs/database/migration-timestamp-exceptions.md.
+ */
+const INDEXER_LEGACY_PLACEHOLDER_TIMESTAMPS = new Set<number>([
+  1700000000000,
+  1720000000000,
+  1730000000000,
+  1750000000000,
+  1760000000000,
+  1770000000000,
+]);
+
+/**
+ * A real `Date.now()` timestamp is essentially never divisible by this. The
+ * hand-authored "round" block bases in the repo all have 10–11 trailing zeros
+ * (e.g. 1700000000000, 1720000000000, … 1770000000000), so a threshold of
+ * 1_000_000_000 (9 trailing zeros) reliably rejects them while still accepting
+ * the genuine generated timestamps (1748589373000, 1748736000000,
+ * 1748900000000) committed alongside them.
+ */
+const INDEXER_PLACEHOLDER_DIVISOR = 1_000_000_000;
+
+function getIndexerMigrationsDir(): string {
+  // Resolved from the package root (see getMigrationsDir for rationale).
+  return path.join(process.cwd(), '..', 'indexer', 'src', 'database', 'migrations');
+}
+
+function parseIndexerMigrationFile(filename: string): Migration | null {
+  // Match pattern: <13-digit-timestamp>-<PascalCaseName>.ts
+  const match = filename.match(/^(\d{13})-([A-Z][A-Za-z0-9]*)\.ts$/);
+  if (!match) {
+    return null;
+  }
+  return { filename, sequence: parseInt(match[1], 10), name: match[2] };
+}
+
+function validateIndexerMigrations(
+  migrationsDir: string,
+  result: ValidationResult,
+): void {
+  let files: string[];
+  try {
+    files = fs.readdirSync(migrationsDir);
+  } catch (err) {
+    result.warnings.push(`Could not read indexer migrations directory: ${err}`);
+    return;
+  }
+
+  const migrations: Migration[] = [];
+  for (const file of files) {
+    if (!file.endsWith('.ts')) {
+      continue;
+    }
+    const migration = parseIndexerMigrationFile(file);
+    if (!migration) {
+      result.warnings.push(
+        `Skipping invalid indexer migration filename: ${file} ` +
+          `(expected format: <13-digit-timestamp>-<PascalCaseName>.ts)`,
+      );
+      continue;
+    }
+    migrations.push(migration);
+  }
+
+  // Sort by timestamp (mirrors TypeORM execution order)
+  migrations.sort((a, b) => a.sequence - b.sequence);
+
+  // Warn on duplicate timestamps (legacy duplicates are allow-listed)
+  const timestampMap = new Map<number, string[]>();
+  for (const migration of migrations) {
+    if (!timestampMap.has(migration.sequence)) {
+      timestampMap.set(migration.sequence, []);
+    }
+    timestampMap.get(migration.sequence)!.push(migration.filename);
+  }
+  for (const [timestamp, filenames] of timestampMap) {
+    if (filenames.length > 1 && !INDEXER_LEGACY_PLACEHOLDER_TIMESTAMPS.has(timestamp)) {
+      result.warnings.push(
+        `DUPLICATE INDEXER TIMESTAMP: ${timestamp} used by: ${filenames.join(', ')}`,
+      );
+    }
+  }
+
+  // Reject round-number placeholder timestamps in any NEW file
+  for (const migration of migrations) {
+    const isPlaceholder =
+      migration.sequence % INDEXER_PLACEHOLDER_DIVISOR === 0 &&
+      !INDEXER_LEGACY_PLACEHOLDER_TIMESTAMPS.has(migration.sequence);
+    if (isPlaceholder) {
+      result.valid = false;
+      result.errors.push(
+        `PLACEHOLDER TIMESTAMP: ${migration.filename} uses a round-number timestamp ` +
+          `(${migration.sequence}) divisible by ${INDEXER_PLACEHOLDER_DIVISOR}. ` +
+          `Indexer migrations must use a real generated timestamp from ` +
+          `\`pnpm --filter indexer migration:generate\`. ` +
+          `See docs/database/migration-timestamp-exceptions.md.`,
+      );
+    }
+  }
+}
+
 function printResults(result: ValidationResult): void {
   console.log('\n📋 Migration Validation Results\n');
   console.log(`Found ${result.migrations.length} migrations:\n`);
@@ -188,6 +312,9 @@ function printResults(result: ValidationResult): void {
 async function main(): Promise<void> {
   const migrationsDir = getMigrationsDir();
   const result = validateMigrations(migrationsDir);
+
+  const indexerDir = getIndexerMigrationsDir();
+  validateIndexerMigrations(indexerDir, result);
 
   printResults(result);
 

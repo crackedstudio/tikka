@@ -14,7 +14,9 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 
-// Entity and migration imports
+// Entity imports — every entity the indexer declares must be listed here so
+// TypeORM knows about the full schema for relation loading, query building,
+// and migration verification.
 import { RaffleEntity } from '../../../database/entities/raffle.entity';
 import { TicketEntity } from '../../../database/entities/ticket.entity';
 import { UserEntity } from '../../../database/entities/user.entity';
@@ -24,19 +26,15 @@ import { PlatformStateEntity } from '../../../database/entities/platform-state.e
 import { IndexerCursorEntity } from '../../../database/entities/indexer-cursor.entity';
 import { WebhookEntity } from '../../../database/entities/webhook.entity';
 import { ArchiveCheckpointEntity } from '../../../database/entities/archive-checkpoint.entity';
+import { DeadLetterEventEntity } from '../../../database/entities/dead-letter-event.entity';
+import { WebhookDeliveryEntity } from '../../../database/entities/webhook-delivery.entity';
+import { WebhookDeadLetterEntity } from '../../../database/entities/webhook-dead-letter.entity';
 
-import { CreateRaffles1700000000000 } from '../../../database/migrations/1700000000000-CreateRaffles';
-import { CreateTickets1700000000001 } from '../../../database/migrations/1700000000001-CreateTickets';
-import { CreateUsers1700000000002 } from '../../../database/migrations/1700000000002-CreateUsers';
-import { CreateRaffleEvents1700000000003 } from '../../../database/migrations/1700000000003-CreateRaffleEvents';
-import { CreatePlatformStats1700000000004 } from '../../../database/migrations/1700000000004-CreatePlatformStats';
-import { CreateIndexerCursor1700000000005 } from '../../../database/migrations/1700000000005-CreateIndexerCursor';
-import { CreatePlatformState1700000000006 } from '../../../database/migrations/1700000000006-CreatePlatformState';
-import { AddWebhooksTable1720000000000 } from '../../../database/migrations/1720000000000-AddWebhooksTable';
-import { AddUserLastTxHash1720000000001 } from '../../../database/migrations/1720000000001-AddUserLastTxHash';
-import { AddLedgerHashesToCursor1730000000001 } from '../../../database/migrations/1730000000001-AddLedgerHashesToCursor';
-import { AddCheckpointIntegrityColumns1748736000000 } from '../../../database/migrations/1748736000000-AddCheckpointIntegrityColumns';
-import { AddArchiveCheckpointIntegrityFields1748900000000 } from '../../../database/migrations/1748900000000-AddArchiveCheckpointIntegrityFields';
+// Single source of truth for migration ordering — every migration the indexer
+// ships is listed in chronological order in all-migrations.ts.  The list is
+// deliberately kept in ONE file so adding a new migration never requires
+// hunting through multiple helpers.
+import { ALL_INDEXER_MIGRATIONS } from './all-migrations';
 
 /** How long to wait for the container to be ready (ms). */
 export const CONTAINER_STARTUP_MS = 120_000;
@@ -70,7 +68,27 @@ export async function startDb(): Promise<DbContainerContext> {
  * Should be called in `afterAll` to free resources.
  */
 export async function stopDb(ctx: DbContainerContext): Promise<void> {
-  await ctx.dataSource.destroy();
+  // Ensure the DataSource is fully destroyed before stopping the container.
+  // TypeORM's DataSource.destroy() should tear down the underlying pg pool,
+  // but we explicitly call pool.terminate() as a safety net against open
+  // handles that prevent Jest from exiting.
+  if (ctx.dataSource?.isInitialized) {
+    await ctx.dataSource.destroy();
+  }
+
+  // Access the underlying pg Pool to guarantee it is terminated, even if
+  // TypeORM's destroy() path did not fully clean it up.  The `any` cast is
+  // intentional: TypeORM does not expose the pool on its public API.
+  try {
+    const driver = (ctx.dataSource as any).driver;
+    const pool = driver?.pool;
+    if (pool && typeof pool.terminate === 'function') {
+      await pool.terminate();
+    }
+  } catch {
+    // Pool may already be destroyed — ignore.
+  }
+
   await ctx.container.stop();
 }
 
@@ -97,21 +115,11 @@ export function buildDataSource(container: StartedPostgreSqlContainer): DataSour
       IndexerCursorEntity,
       WebhookEntity,
       ArchiveCheckpointEntity,
+      DeadLetterEventEntity,
+      WebhookDeliveryEntity,
+      WebhookDeadLetterEntity,
     ],
-    migrations: [
-      CreateRaffles1700000000000,
-      CreateTickets1700000000001,
-      CreateUsers1700000000002,
-      CreateRaffleEvents1700000000003,
-      CreatePlatformStats1700000000004,
-      CreateIndexerCursor1700000000005,
-      CreatePlatformState1700000000006,
-      AddWebhooksTable1720000000000,
-      AddUserLastTxHash1720000000001,
-      AddLedgerHashesToCursor1730000000001,
-      AddCheckpointIntegrityColumns1748736000000,
-      AddArchiveCheckpointIntegrityFields1748900000000,
-    ],
+    migrations: ALL_INDEXER_MIGRATIONS,
     migrationsRun: false,
     synchronize: false,
     logging: false,

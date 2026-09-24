@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { SseService } from "../services/sse.service";
+import { SseService } from "../services/notifications/sse.service";
 
 @Injectable()
 export class TicketProcessor {

@@ -6,201 +6,198 @@
 import { Injectable } from "@nestjs/common";
 import { xdr } from "@stellar/stellar-sdk";
 import { BaseEventHandler } from "./base-event.handler";
-import { DomainEvent } from "../event.types";
+import {
+  AdminTransferAcceptedEvent,
+  AdminTransferProposedEvent,
+  ContractPausedEvent,
+  ContractUnpausedEvent,
+  DrawTriggeredEvent,
+  EventPayload,
+  RandomnessReceivedEvent,
+  RandomnessRequestedEvent,
+  TicketRefundedEvent,
+} from "../event.types";
 import { RawSorobanEvent } from "../event-parser.interface";
 import { RaffleCancelledHandler } from "./raffle-cancelled.handler";
+import { asNumber, asString } from "./decode-utils";
 
 export { RaffleCancelledHandler };
 
 @Injectable()
-export class DrawTriggeredHandler extends BaseEventHandler {
+export class DrawTriggeredHandler extends BaseEventHandler<DrawTriggeredEvent> {
   constructor() {
     super("DrawTriggered");
   }
 
-  parse(topics: xdr.ScVal[], value: xdr.ScVal): DomainEvent | null {
-    try {
-      const raffleId = this.toNumber(topics[1]);
-      const data = this.toNative(value);
+  protected decode(
+    topics: xdr.ScVal[],
+    value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<DrawTriggeredEvent> | null {
+    const raffleId = this.toNumber(topics[1]);
+    const data = this.toRecord(value);
 
-      if (raffleId === null || !data) return null;
+    if (raffleId === null || !data) return null;
 
-      return {
-        type: "DrawTriggered",
-        raffle_id: raffleId,
-        ledger: Number(data.ledger),
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing DrawTriggered: ${error.message}`);
-      return null;
-    }
+    return {
+      raffle_id: raffleId,
+      ledger: asNumber(data.ledger) ?? 0,
+    };
   }
 }
 
 @Injectable()
-export class RandomnessRequestedHandler extends BaseEventHandler {
+export class RandomnessRequestedHandler extends BaseEventHandler<RandomnessRequestedEvent> {
   constructor() {
     super("RandomnessRequested");
   }
 
-  parse(topics: xdr.ScVal[], value: xdr.ScVal): DomainEvent | null {
-    try {
-      const raffleId = this.toNumber(topics[1]);
-      const data = this.toNative(value);
+  protected decode(
+    topics: xdr.ScVal[],
+    value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<RandomnessRequestedEvent> | null {
+    const raffleId = this.toNumber(topics[1]);
+    const data = this.toRecord(value);
 
-      if (raffleId === null || !data) return null;
+    if (raffleId === null || !data) return null;
 
-      return {
-        type: "RandomnessRequested",
-        raffle_id: raffleId,
-        request_id: Number(data.request_id),
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing RandomnessRequested: ${error.message}`);
-      return null;
-    }
+    return {
+      raffle_id: raffleId,
+      request_id: asNumber(data.request_id) ?? 0,
+    };
   }
 }
 
 @Injectable()
-export class RandomnessReceivedHandler extends BaseEventHandler {
+export class RandomnessReceivedHandler extends BaseEventHandler<RandomnessReceivedEvent> {
   constructor() {
     super("RandomnessReceived");
   }
 
-  parse(topics: xdr.ScVal[], value: xdr.ScVal): DomainEvent | null {
-    try {
-      const raffleId = this.toNumber(topics[1]);
-      const data = this.toNative(value);
+  protected decode(
+    topics: xdr.ScVal[],
+    value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<RandomnessReceivedEvent> | null {
+    const raffleId = this.toNumber(topics[1]);
+    const data = this.toRecord(value);
 
-      if (raffleId === null || !data) return null;
+    if (raffleId === null || !data) return null;
 
-      return {
-        type: "RandomnessReceived",
-        raffle_id: raffleId,
-        seed: this.toHexString(data.seed),
-        proof: this.toHexString(data.proof),
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing RandomnessReceived: ${error.message}`);
-      return null;
-    }
+    return {
+      raffle_id: raffleId,
+      seed: this.toHexString(data.seed),
+      proof: this.toHexString(data.proof),
+    };
   }
 }
 
 @Injectable()
-export class TicketRefundedHandler extends BaseEventHandler {
+export class TicketRefundedHandler extends BaseEventHandler<TicketRefundedEvent> {
   constructor() {
     super("TicketRefunded");
   }
 
-  parse(topics: xdr.ScVal[], value: xdr.ScVal): DomainEvent | null {
-    try {
-      const raffleId = this.toNumber(topics[1]);
-      const ticketId = this.toNumber(topics[2]);
-      const data = this.toNative(value);
+  protected decode(
+    topics: xdr.ScVal[],
+    value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<TicketRefundedEvent> | null {
+    const raffleId = this.toNumber(topics[1]);
+    const ticketId = this.toNumber(topics[2]);
+    const data = this.toRecord(value);
 
-      if (raffleId === null || ticketId === null || !data) return null;
+    if (raffleId === null || ticketId === null || !data) return null;
 
-      return {
-        type: "TicketRefunded",
-        raffle_id: raffleId,
-        ticket_id: ticketId,
-        recipient: data.recipient,
-        amount: data.amount.toString(),
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing TicketRefunded: ${error.message}`);
-      return null;
-    }
+    return {
+      raffle_id: raffleId,
+      ticket_id: ticketId,
+      recipient: asString(data.recipient) ?? "",
+      amount: asString(data.amount) ?? "0",
+    };
   }
 }
 
 @Injectable()
-export class ContractPausedHandler extends BaseEventHandler {
+export class ContractPausedHandler extends BaseEventHandler<ContractPausedEvent> {
   constructor() {
     super("ContractPaused");
   }
 
-  parse(topics: xdr.ScVal[]): DomainEvent | null {
-    try {
-      const admin = this.toString(topics[1]);
-      if (admin === null) return null;
+  protected decode(
+    topics: xdr.ScVal[],
+    _value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<ContractPausedEvent> | null {
+    const admin = this.toString(topics[1]);
+    if (admin === null) return null;
 
-      return { type: "ContractPaused", admin };
-    } catch (error) {
-      this.logger.error(`Error parsing ContractPaused: ${error.message}`);
-      return null;
-    }
+    return { admin };
   }
 }
 
 @Injectable()
-export class ContractUnpausedHandler extends BaseEventHandler {
+export class ContractUnpausedHandler extends BaseEventHandler<ContractUnpausedEvent> {
   constructor() {
     super("ContractUnpaused");
   }
 
-  parse(topics: xdr.ScVal[]): DomainEvent | null {
-    try {
-      const admin = this.toString(topics[1]);
-      if (admin === null) return null;
+  protected decode(
+    topics: xdr.ScVal[],
+    _value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<ContractUnpausedEvent> | null {
+    const admin = this.toString(topics[1]);
+    if (admin === null) return null;
 
-      return { type: "ContractUnpaused", admin };
-    } catch (error) {
-      this.logger.error(`Error parsing ContractUnpaused: ${error.message}`);
-      return null;
-    }
+    return { admin };
   }
 }
 
 @Injectable()
-export class AdminTransferProposedHandler extends BaseEventHandler {
+export class AdminTransferProposedHandler extends BaseEventHandler<AdminTransferProposedEvent> {
   constructor() {
     super("AdminTransferProposed");
   }
 
-  parse(topics: xdr.ScVal[]): DomainEvent | null {
-    try {
-      const currentAdmin = this.toString(topics[1]);
-      const proposedAdmin = this.toString(topics[2]);
+  protected decode(
+    topics: xdr.ScVal[],
+    _value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<AdminTransferProposedEvent> | null {
+    const currentAdmin = this.toString(topics[1]);
+    const proposedAdmin = this.toString(topics[2]);
 
-      if (currentAdmin === null || proposedAdmin === null) return null;
+    if (currentAdmin === null || proposedAdmin === null) return null;
 
-      return {
-        type: "AdminTransferProposed",
-        current_admin: currentAdmin,
-        proposed_admin: proposedAdmin,
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing AdminTransferProposed: ${error.message}`);
-      return null;
-    }
+    return {
+      current_admin: currentAdmin,
+      proposed_admin: proposedAdmin,
+    };
   }
 }
 
 @Injectable()
-export class AdminTransferAcceptedHandler extends BaseEventHandler {
+export class AdminTransferAcceptedHandler extends BaseEventHandler<AdminTransferAcceptedEvent> {
   constructor() {
     super("AdminTransferAccepted");
   }
 
-  parse(topics: xdr.ScVal[]): DomainEvent | null {
-    try {
-      const oldAdmin = this.toString(topics[1]);
-      const newAdmin = this.toString(topics[2]);
+  protected decode(
+    topics: xdr.ScVal[],
+    _value: xdr.ScVal,
+    _rawEvent: RawSorobanEvent,
+  ): EventPayload<AdminTransferAcceptedEvent> | null {
+    const oldAdmin = this.toString(topics[1]);
+    const newAdmin = this.toString(topics[2]);
 
-      if (oldAdmin === null || newAdmin === null) return null;
+    if (oldAdmin === null || newAdmin === null) return null;
 
-      return {
-        type: "AdminTransferAccepted",
-        old_admin: oldAdmin,
-        new_admin: newAdmin,
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing AdminTransferAccepted: ${error.message}`);
-      return null;
-    }
+    return {
+      old_admin: oldAdmin,
+      new_admin: newAdmin,
+    };
   }
 }
 

@@ -14,11 +14,11 @@ The indexer now supports an extensible event parsing system that allows:
 ### 1. Using the New Parser
 
 ```typescript
-import { EventParserV2Service } from './ingestor/event-parser-v2.service';
+import { EventParserService } from './ingestor/event-parser.service';
 
 @Injectable()
 export class MyService {
-  constructor(private eventParser: EventParserV2Service) {}
+  constructor(private eventParser: EventParserService) {}
 
   processEvent(rawEvent: RawSorobanEvent) {
     const parsed = this.eventParser.parse(rawEvent);
@@ -102,8 +102,8 @@ The system categorizes events:
 
 Example logs:
 ```
-[EventParserV2Service] [unhandled_supported] Event "NewType" from known contract CDLZ...
-[EventParserV2Service] [unknown] Event "CustomEvent" from unknown contract ABCD...
+[EventParserService] [unhandled_supported] Event "NewType" from known contract CDLZ...
+[EventParserService] [unknown] Event "CustomEvent" from unknown contract ABCD...
 ```
 
 ## Configuration
@@ -132,7 +132,7 @@ EVENT_HANDLER_CONFIG_PATH=config/event-handlers.json
 
 The old `EventParserService` still works. To migrate:
 
-1. Import `EventParserV2Service` instead of `EventParserService`
+1. Import `EventParserService` instead of `EventParserService`
 2. Update dependency injection
 3. Test thoroughly
 4. No code changes needed - API is compatible
@@ -202,7 +202,7 @@ For detailed documentation, see:
 ```
 RawSorobanEvent
     ↓
-EventParserV2Service
+EventParserService
     ↓
 EventHandlerRegistry
     ↓

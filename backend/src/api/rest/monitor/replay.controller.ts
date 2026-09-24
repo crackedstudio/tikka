@@ -11,12 +11,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
-import { ReplayService, type ReplayJobConfig, type ReplayJobStatus } from '../../../services/replay.service';
+import { ReplayService, type ReplayJobStatus } from '../../../services/indexer/replay.service';
 import { AdminGuard } from './admin.guard';
 import {
   ReplayJobStartResponseDto,
   ReplayJobStatusDto,
 } from './dto/replay-response.dto';
+import { ReplayJobConfigDto } from './dto/replay-request.dto';
 
 @ApiTags('Admin - Replay')
 @ApiSecurity('admin-token')
@@ -48,7 +49,7 @@ export class ReplayController {
     status: 401,
     description: 'Invalid or missing admin token',
   })
-  async startReplay(@Body() config: ReplayJobConfig) {
+  async startReplay(@Body() config: ReplayJobConfigDto) {
     try {
       const jobId = this.replayService.startReplay(config);
       return {

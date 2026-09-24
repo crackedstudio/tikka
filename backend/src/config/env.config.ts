@@ -110,7 +110,8 @@ export const env = {
     return {
       port: parseInt(process.env.PORT ?? '3001', 10),
       maintenanceMode: process.env.MAINTENANCE_MODE === 'true',
-      frontendUrl: process.env.VITE_FRONTEND_URL ?? '',
+      frontendUrls: (process.env.VITE_FRONTEND_URL ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      frontendUrlRegex: process.env.VITE_FRONTEND_URL_REGEX ?? undefined,
       nodeEnv: process.env.NODE_ENV ?? 'development',
       swaggerEnabled: process.env.SWAGGER_ENABLED === 'true',
     };

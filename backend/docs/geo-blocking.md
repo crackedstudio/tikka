@@ -10,12 +10,14 @@ The Tikka backend provides two middleware components for handling geographic loc
 ## Architecture
 
 ### GeoMiddleware
+
 - **Purpose**: Country detection and header setting
 - **Location**: `src/middleware/geo.middleware.ts`
 - **Function**: Resolves the client's country from their IP address and sets the `x-country-code` header
 - **Behavior**: Never blocks requests, always continues to next middleware
 
 ### GeoBlockingMiddleware
+
 - **Purpose**: Geographic access control
 - **Location**: `src/middleware/geo-blocking.middleware.ts`
 - **Function**: Blocks requests from countries specified in `BLOCKED_COUNTRIES` environment variable
@@ -25,11 +27,11 @@ The Tikka backend provides two middleware components for handling geographic loc
 
 ### Environment Variables
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `BLOCKED_COUNTRIES` | string | `""` | Comma-separated list of ISO 3166-1 alpha-2 country codes to block |
-| `GEO_PROVIDER_URL` | string | `http://ip-api.com/json` | URL for IP geolocation service |
-| `GEO_TIMEOUT_MS` | number | `3000` | Timeout for geolocation requests in milliseconds |
+| Variable            | Type   | Default                  | Description                                                       |
+| ------------------- | ------ | ------------------------ | ----------------------------------------------------------------- |
+| `BLOCKED_COUNTRIES` | string | `""`                     | Comma-separated list of ISO 3166-1 alpha-2 country codes to block |
+| `GEO_PROVIDER_URL`  | string | `http://ip-api.com/json` | URL for IP geolocation service                                    |
+| `GEO_TIMEOUT_MS`    | number | `3000`                   | Timeout for geolocation requests in milliseconds                  |
 
 ### BLOCKED_COUNTRIES Format
 
@@ -83,14 +85,10 @@ import { GeoBlockingMiddleware } from './middleware/geo-blocking.middleware';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Apply geo-location first (sets headers)
-    consumer
-      .apply(GeoMiddleware)
-      .forRoutes('*');
-    
+    consumer.apply(GeoMiddleware).forRoutes('*');
+
     // Apply geo-blocking second (uses headers + IP)
-    consumer
-      .apply(GeoBlockingMiddleware)
-      .forRoutes('*');
+    consumer.apply(GeoBlockingMiddleware).forRoutes('*');
   }
 }
 ```
@@ -99,14 +97,10 @@ export class AppModule implements NestModule {
 
 ```typescript
 // Apply only to specific routes
-consumer
-  .apply(GeoBlockingMiddleware)
-  .forRoutes('raffles', 'tickets');
+consumer.apply(GeoBlockingMiddleware).forRoutes('raffles', 'tickets');
 
 // Apply to specific path patterns
-consumer
-  .apply(GeoBlockingMiddleware)
-  .forRoutes({ path: 'api/v1/*', method: RequestMethod.ALL });
+consumer.apply(GeoBlockingMiddleware).forRoutes({ path: 'api/v1/*', method: RequestMethod.ALL });
 ```
 
 ## Local Development
@@ -157,6 +151,7 @@ When a request is blocked:
 ### GeoMiddleware Errors
 
 GeoMiddleware never blocks requests. On geo lookup failures:
+
 - Sets `x-country-code` header to empty string
 - Logs warning message
 - Continues to next middleware
@@ -166,6 +161,7 @@ GeoMiddleware never blocks requests. On geo lookup failures:
 ### Geo-Location Provider
 
 The default provider (ip-api.com) has limitations:
+
 - **Free tier**: 45 requests/minute per IP
 - **Protocol**: HTTP only (HTTPS requires paid plan)
 - **Recommended**: Use paid/self-hosted provider in production
@@ -194,6 +190,7 @@ GEO_TIMEOUT_MS=5000
 ### Fail-Open Policy
 
 Both middlewares follow fail-open principles:
+
 - GeoMiddleware: Allows requests when lookup fails
 - GeoBlockingMiddleware: Allows requests when lookup fails (logs warning)
 
@@ -204,14 +201,16 @@ This prevents accidental blocking of legitimate users due to service failures.
 ### Unit Tests
 
 Comprehensive unit tests are provided:
+
 - `src/middleware/geo.middleware.spec.ts` - GeoMiddleware tests
 - `src/middleware/geo-blocking.middleware.spec.ts` - GeoBlockingMiddleware tests
 
 ### Test Coverage
 
 Tests cover:
+
 - ✅ Allowed regions
-- ✅ Blocked regions  
+- ✅ Blocked regions
 - ✅ Missing headers
 - ✅ Wildcard allow-all (`*`)
 - ✅ IP extraction logic
@@ -301,7 +300,7 @@ export class GeoGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
     const countryCode = request.headers['x-country-code'];
-    
+
     // Custom logic based on country
     return this.isCountryAllowed(countryCode);
   }
@@ -317,12 +316,12 @@ import { Injectable } from '@nestjs/common';
 export class RaffleService {
   async createRaffle(createRaffleDto: CreateRaffleDto, request: Request) {
     const countryCode = request.headers['x-country-code'];
-    
+
     // Apply business rules based on country
     if (this.isCountryRestricted(countryCode)) {
       throw new ForbiddenException('Raffle not available in your region');
     }
-    
+
     // ... create raffle logic
   }
 }

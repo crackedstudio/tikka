@@ -21,6 +21,9 @@ import { AddArchiveCheckpointIntegrityFields1748900000000 } from '../../../datab
 import { AddRaffleEventIndexes1750000000000 } from '../../../database/migrations/1750000000000-AddRaffleEventIndexes';
 import { BackfillSchemaVersions1750000000001 } from '../../../database/migrations/1750000000001-BackfillSchemaVersions';
 import { CreateWebhookDeliveries1760000000000 } from '../../../database/migrations/1760000000000-CreateWebhookDeliveries';
+import { RelaxTicketsPurchaseTxHashUnique1760000000001 } from '../../../database/migrations/1760000000001-RelaxTicketsPurchaseTxHashUnique';
+import { CreateWebhookDeadLetterDeliveries1770000000000 } from '../../../database/migrations/1770000000000-CreateWebhookDeadLetterDeliveries';
+import { AuditHotPathIndexes1770000000000 } from '../../../database/migrations/1770000000000-AuditHotPathIndexes';
 
 export const ALL_INDEXER_MIGRATIONS = [
   CreateRaffles1700000000000,
@@ -42,6 +45,9 @@ export const ALL_INDEXER_MIGRATIONS = [
   AddRaffleEventIndexes1750000000000,
   BackfillSchemaVersions1750000000001,
   CreateWebhookDeliveries1760000000000,
+  RelaxTicketsPurchaseTxHashUnique1760000000001,
+  CreateWebhookDeadLetterDeliveries1770000000000,
+  AuditHotPathIndexes1770000000000,
 ];
 
 /** Default number of latest migrations to revert then re-apply. */

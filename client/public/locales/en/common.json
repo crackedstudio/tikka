@@ -50,5 +50,20 @@
     "fairnessDetail": "Winner selection uses Soroban VRF for ultimate transparency and fairness.",
     "stayUpdated": "Stay Updated",
     "getNotified": "Get notified when this raffle ends or you win"
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "sortByWins": "By Wins",
+    "sortByVolume": "By Volume",
+    "sortByTickets": "By Tickets",
+    "loading": "Loading Leaderboard...",
+    "errorTitle": "Error Loading Leaderboard",
+    "emptyTitle": "No Leaderboard Data Yet",
+    "emptyHint": "The leaderboard will populate as users participate in raffles.",
+    "rank": "Rank",
+    "address": "Address",
+    "wins": "Wins",
+    "volume": "Volume (XLM)",
+    "tickets": "Tickets"
   }
 }

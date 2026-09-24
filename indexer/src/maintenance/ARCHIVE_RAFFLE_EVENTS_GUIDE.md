@@ -427,9 +427,15 @@ rm -f ./archives/*.csv
 
 ### Unit Tests
 
+The archiver is split into one module per concern under `archive/`, each with its
+own spec.
+
 ```bash
-# Run archiving tests
-npm test -- archive-raffle-events.spec.ts
+# Run every archiving spec
+npm test -- src/maintenance/archive
+
+# Run a single unit (e.g. checkpoint integrity)
+npm test -- src/maintenance/archive/integrity.spec.ts
 ```
 
 ### Integration Tests
@@ -472,10 +478,12 @@ A: Not currently, but you can pipe CSV output to S3 upload in a wrapper script.
 
 ## References
 
+- [Production Runbook](../../../docs/runbooks/archive-raffle-events.md)
 - [Archive Checkpoint Entity](../database/entities/archive-checkpoint.entity.ts)
 - [Raffle Event Entity](../database/entities/raffle-event.entity.ts)
-- [Archive Implementation](./archive-raffle-events.ts)
-- [Archive Tests](./archive-raffle-events.spec.ts)
+- [CLI Entry Point](./archive-raffle-events.ts)
+- [Archiver Modules](./archive)
+- [Entry-Point Contract Test](./archive-raffle-events.spec.ts)
 
 ## Support
 

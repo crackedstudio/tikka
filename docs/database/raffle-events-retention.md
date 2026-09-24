@@ -1,7 +1,8 @@
 # Raffle Events Retention Policy
 
 **Command:** `npm run archive:raffle-events` (in `indexer/`)  
-**Implementation:** `indexer/src/maintenance/archive-raffle-events.ts`  
+**Implementation:** `indexer/src/maintenance/archive-raffle-events.ts` (modules in `indexer/src/maintenance/archive/`)  
+**Runbook:** [`docs/runbooks/archive-raffle-events.md`](../runbooks/archive-raffle-events.md)  
 **Table:** `raffle_events` (indexer PostgreSQL)
 
 This document answers the operator question: *where did last year's events go, and how do I get them back?*

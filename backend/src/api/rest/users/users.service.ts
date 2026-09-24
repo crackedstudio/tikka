@@ -3,7 +3,7 @@ import {
   IndexerService,
   IndexerUserData,
   IndexerUserHistoryResponse,
-} from '../../../services/indexer.service';
+} from '../../../services/indexer/indexer.service';
 import { UserHistoryQueryDto } from './dto/user-history-query.dto';
 import { stringify } from 'csv-stringify';
 import { PassThrough } from 'stream';

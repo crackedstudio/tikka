@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 /**
  * AddToCalendar Component Examples
  * 
@@ -252,7 +253,7 @@ export function ErrorHandlingExample() {
         try {
             downloadIcsFile(title, endDate, raffleUrl);
         } catch (error) {
-            console.error('Failed to download calendar:', error);
+            logger.error('Failed to download calendar:', error);
             // Show user-friendly error message
             alert('Could not download calendar file. Please try again.');
         }

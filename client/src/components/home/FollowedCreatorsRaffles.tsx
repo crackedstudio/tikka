@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import React, { useEffect, useState } from "react";
 import { fetchRaffles } from "../../services/raffleService";
 import { toRaffleCardViewModel } from "../cards/raffleCardViewModel";
@@ -41,7 +42,7 @@ const FollowedRafflesList: React.FC<{ addresses: string[] }> = ({ addresses }) =
                 
                 setAllRaffles(unique.slice(0, 4));
             } catch (err) {
-                console.error("Failed to fetch followed creators raffles", err);
+                logger.error("Failed to fetch followed creators raffles", err);
             } finally {
                 setLoading(false);
             }

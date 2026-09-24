@@ -5,7 +5,7 @@ import {
   ArchiveCheckpointEntity,
   ArchiveJobStatus,
 } from '../database/entities/archive-checkpoint.entity';
-import { computeIntegrityHash } from '../maintenance/archive-raffle-events';
+import { computeIntegrityHash } from '../maintenance/archive/integrity';
 
 function makeCheckpoint(overrides: Partial<ArchiveCheckpointEntity> = {}): ArchiveCheckpointEntity {
   const cp = new ArchiveCheckpointEntity();

@@ -1,17 +1,26 @@
-/**
- * Dependency Version Check Configuration
- * 
- * Define accepted version mismatches for shared frameworks.
- * Add entries here when intentional version drift is acceptable.
- * 
- * Format:
- * 'framework-name': {
- *   reason: 'explanation',
- *   packages: ['pkg1', 'pkg2'],
- * }
- */
 
 module.exports = {
+  /**
+   * Frameworks listed here must resolve to the same major version across
+   * every package that declares them. These represent shared, tightly-coupled
+   * libraries where cross-package drift is dangerous and never allowed.
+   *
+   * Unlike `allowed`, entries here are NOT exemptions — they are enforced
+   * as hard mismatches when versions drift.
+   */
+  mustMatch: {
+    /**
+     * typeorm: Both backend and indexer read the same PostgreSQL schema and
+     * must agree on entity metadata and migration behaviour. The indexer owns
+     * the shared migrations under indexer/src/database/migrations/, so any
+     * major-version drift between the two packages is blocked.
+     */
+    'typeorm': {
+      reason: 'Both packages read the same PostgreSQL schema and must stay on the same major; indexer owns the shared migrations.',
+      packages: ['backend', 'indexer'],
+    },
+  },
+
   allowed: {
     /**
      * NestJS CLI: backend/sdk use 11.0.x for newer features,
@@ -82,14 +91,13 @@ module.exports = {
       reason: 'Backend uses pinned fast-check 3.22.0; client/sdk use 4.7, oracle uses 4.6, indexer uses 3.23.2',
       packages: ['backend', 'client', 'indexer', 'oracle', 'sdk'],
     },
-    
-    /**
-     * typeorm: Major version mismatch requiring coordinated migration
-     * backend on 0.3.x, indexer on 1.1.x
-     */
-    'typeorm': {
-      reason: 'Backend uses TypeORM 0.3.x; indexer upgraded to 1.1.x; major migration pending for backend',
-      packages: ['backend', 'indexer'],
-    },
   },
+  
+  /**
+   * Must-match dependencies: these should use the same version across all packages
+   * that depend on them to ensure compatibility and shared schema definitions.
+   */
+  mustMatch: [
+    'zod', // Schema validation - must match to share schemas across packages
+  ],
 };

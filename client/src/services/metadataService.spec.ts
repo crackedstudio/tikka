@@ -67,9 +67,9 @@ describe('MetadataService', () => {
       const mockSelect = vi.fn().mockReturnThis();
       const mockSingle = vi.fn().mockResolvedValue({ data: { id: 'test-id' }, error: null });
 
-      (supabase.from as any).mockReturnValue({
+      vi.mocked(supabase.from).mockReturnValue({
         insert: mockInsert,
-      });
+      } as ReturnType<typeof supabase.from>);
       mockInsert.mockReturnValue({ select: mockSelect });
       mockSelect.mockReturnValue({ single: mockSingle });
 
@@ -85,7 +85,7 @@ describe('MetadataService', () => {
     it('throws error if metadata is invalid before calling supabase', async () => {
       const invalidMetadata = { ...validMetadata, title: '' } as RaffleMetadata;
       const mockInsert = vi.fn();
-      (supabase.from as any).mockReturnValue({ insert: mockInsert });
+      vi.mocked(supabase.from).mockReturnValue({ insert: mockInsert } as ReturnType<typeof supabase.from>);
 
       await expect(MetadataService.uploadRaffleMetadata(invalidMetadata)).rejects.toThrow();
       expect(mockInsert).not.toHaveBeenCalled();

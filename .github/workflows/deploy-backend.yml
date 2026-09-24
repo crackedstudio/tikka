@@ -1,0 +1,41 @@
+name: Deploy Backend
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-backend-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Backend to Railway
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify Railway deploy hook is configured
+        env:
+          RAILWAY_DEPLOY_HOOK_URL: ${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RAILWAY_DEPLOY_HOOK_URL" ]; then
+            echo "RAILWAY_DEPLOY_HOOK_URL is required for backend deployment."
+            exit 1
+          fi
+
+      - name: Deploy backend
+        env:
+          RAILWAY_DEPLOY_HOOK_URL: ${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}
+        run: curl --fail --show-error --silent --request POST "$RAILWAY_DEPLOY_HOOK_URL"

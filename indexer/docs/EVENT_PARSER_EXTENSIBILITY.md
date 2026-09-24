@@ -13,7 +13,7 @@ The system follows the **Event-Driven Architecture** pattern with a **Registry P
 1. **EventHandlerRegistry** - Central registry managing all event handlers
 2. **IEventHandler** - Interface that all event handlers must implement
 3. **BaseEventHandler** - Abstract base class providing common utilities
-4. **EventParserV2Service** - New parser service using the registry
+4. **EventParserService** - New parser service using the registry
 5. **Configuration System** - JSON-based configuration for contracts and handlers
 
 ## Directory Structure
@@ -22,7 +22,7 @@ The system follows the **Event-Driven Architecture** pattern with a **Registry P
 indexer/src/ingestor/
 ├── event-handler.interface.ts       # Core interfaces
 ├── event-handler-registry.service.ts # Registry implementation
-├── event-parser-v2.service.ts       # New extensible parser
+├── event-parser.service.ts       # New extensible parser
 ├── event-parser.service.ts          # Legacy parser (backward compatible)
 ├── handlers/
 │   ├── base-event.handler.ts        # Base handler class
@@ -179,7 +179,7 @@ EVENT_HANDLER_CONFIG_PATH=config/event-handlers.json
 ```
 1. Raw Soroban Event
    ↓
-2. EventParserV2Service.parse()
+2. EventParserService.parse()
    ↓
 3. Extract contract address and event name
    ↓
@@ -195,7 +195,7 @@ EVENT_HANDLER_CONFIG_PATH=config/event-handlers.json
 ## Schema Versioning Contract
 
 - Every parsed `DomainEvent` includes `schemaVersion` (defaults to `1`).
-- `EventParserV2Service` extracts `schemaVersion` from `topics[1]` when it is a positive numeric value.
+- `EventParserService` extracts `schemaVersion` from `topics[1]` when it is a positive numeric value.
 - `EventHandlerRegistry` routes handlers by `{ contractAddress, eventName, schemaVersion }`.
 - Multiple versions of handlers for the same event can coexist for rolling contract upgrades.
 - When no exact versioned handler exists, registry falls back to schema version `1` for backward compatibility.
@@ -221,8 +221,8 @@ The system logs events in three categories:
 ### Log Examples
 
 ```
-[EventParserV2Service] [unhandled_supported] Event "NewEventType" from known contract CDLZ...
-[EventParserV2Service] [unknown] Event "CustomEvent" from unknown contract ABCD...
+[EventParserService] [unhandled_supported] Event "NewEventType" from known contract CDLZ...
+[EventParserService] [unknown] Event "CustomEvent" from unknown contract ABCD...
 [EventHandlerRegistry] Registered handler for CDLZ...: RaffleCreated
 ```
 
@@ -313,7 +313,7 @@ describe('CustomEventHandler', () => {
 The legacy `EventParserService` remains available for backward compatibility. To migrate:
 
 1. Keep using `EventParserService` for existing code
-2. Gradually migrate to `EventParserV2Service`
+2. Gradually migrate to `EventParserService`
 3. Register default handlers in the registry
 4. Test thoroughly before switching
 
@@ -333,7 +333,7 @@ export class MyService {
 // New way
 @Injectable()
 export class MyService {
-  constructor(private eventParser: EventParserV2Service) {}
+  constructor(private eventParser: EventParserService) {}
   
   process(event: RawSorobanEvent) {
     const parsed = this.eventParser.parse(event);

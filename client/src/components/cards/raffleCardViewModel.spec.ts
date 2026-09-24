@@ -144,6 +144,14 @@ describe("toRaffleCardViewModel", () => {
             expect(vm.statusLabel).toBe("Ending Soon");
         });
 
+        it("sets status to 'ending-soon' exactly at the 24 h threshold", () => {
+            const item = makeItem({
+                end_time: new Date((NOW_S + 24 * 3600) * 1000).toISOString(),
+            });
+            const vm = toRaffleCardViewModel(item);
+            expect(vm.status).toBe("ending-soon");
+        });
+
         it("sets status to 'finalized' for a finalized raffle regardless of end_time", () => {
             const item = makeItem({
                 status: "finalized",
@@ -154,6 +162,14 @@ describe("toRaffleCardViewModel", () => {
 
         it("sets status to 'cancelled' for a cancelled raffle", () => {
             const item = makeItem({ status: "cancelled" });
+            expect(toRaffleCardViewModel(item).status).toBe("cancelled");
+        });
+
+        it("keeps status as 'cancelled' when end_time has passed", () => {
+            const item = makeItem({
+                status: "cancelled",
+                end_time: new Date((NOW_S - 86400) * 1000).toISOString(),
+            });
             expect(toRaffleCardViewModel(item).status).toBe("cancelled");
         });
 
@@ -216,6 +232,11 @@ describe("toRaffleCardViewModel", () => {
 
         it("returns 0 when max_tickets is 0", () => {
             const vm = toRaffleCardViewModel(makeItem({ max_tickets: 0, tickets_sold: 0 }));
+            expect(vm.progress).toBe(0);
+        });
+
+        it("returns 0 progress when no tickets have been sold", () => {
+            const vm = toRaffleCardViewModel(makeItem({ tickets_sold: 0, max_tickets: 100 }));
             expect(vm.progress).toBe(0);
         });
     });

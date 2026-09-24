@@ -674,7 +674,7 @@ Writes: Client → @tikka/sdk → Soroban RPC → Stellar blockchain
 
 ## 7. Shared Package: `@tikka/types`
 
-> Single npm package of shared TypeScript interfaces used across all packages. Lives in `types/` (pnpm workspace). Currently hosts the shared raffle, ticket, contract, and contract-event types re-exported by `client/src/types`.
+> Single npm package of shared TypeScript interfaces used across all packages. Lives in `packages/types/` (pnpm workspace). Currently hosts the shared raffle, ticket, contract, contract-event, and user types re-exported by `client/src/types`.
 
 ```typescript
 // Domain types
