@@ -57,10 +57,7 @@ export default function Modal({ open, onClose, children }: ModalProps) {
                     node.querySelectorAll<HTMLElement>(
                         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
                     )
-                ).filter(
-                    (el) =>
-                        !el.hasAttribute("disabled") && el.offsetParent !== null
-                );
+                ).filter((el) => !el.hasAttribute("disabled"));
                 if (focusable.length === 0) {
                     e.preventDefault();
                     return;
