@@ -5,15 +5,15 @@ import { KeyProviderError } from '../key-provider.error';
 
 /**
  * AWS KMS KeyProvider.
- * 
+ *
  * Uses AWS Key Management Service to perform signing operations.
  * The private key never leaves the HSM, ensuring maximum security.
- * 
+ *
  * Prerequisites:
  * - AWS SDK installed: npm install @aws-sdk/client-kms
  * - IAM permissions: kms:Sign, kms:GetPublicKey
  * - KMS key must be configured for SIGN_VERIFY with ECC_SECG_P256K1 or similar
- * 
+ *
  * Note: AWS KMS does not natively support Ed25519. This implementation
  * requires a custom solution or using ECDSA as an alternative.
  * For true Ed25519 support, consider using AWS CloudHSM or storing
@@ -21,13 +21,16 @@ import { KeyProviderError } from '../key-provider.error';
  */
 @Injectable()
 export class AwsKmsKeyProvider implements KeyProvider {
-  
   private kmsClient: any;
   private keyId: string;
   private publicKey: Buffer | null = null;
   private publicKeyString: string | null = null;
 
-  constructor(private readonly logger: OracleLoggerService, region: string, keyId: string) {
+  constructor(
+    private readonly logger: OracleLoggerService,
+    region: string,
+    keyId: string,
+  ) {
     if (!region || !keyId) {
       throw new KeyProviderError('AWS region and keyId are required for AwsKmsKeyProvider');
     }
@@ -40,10 +43,12 @@ export class AwsKmsKeyProvider implements KeyProvider {
       this.kmsClient = new KMSClient({ region });
       this.logger.log(`AwsKmsKeyProvider initialized for key: ${keyId}`);
     } catch (error: any) {
-      this.logger.error(`Failed to initialize AWS KMS client: ${error.message}`);
+      this.logger.error(
+        `Failed to initialize AWS KMS client: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new KeyProviderError(
         'AWS SDK not installed. Run: npm install @aws-sdk/client-kms',
-        error
+        error,
       );
     }
   }
@@ -80,7 +85,9 @@ export class AwsKmsKeyProvider implements KeyProvider {
 
       this.logger.log('Public key loaded from AWS KMS');
     } catch (error: any) {
-      this.logger.error(`Failed to load public key from AWS KMS: ${error.message}`);
+      this.logger.error(
+        `Failed to load public key from AWS KMS: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new KeyProviderError('Failed to retrieve public key from AWS KMS', error);
     }
   }
@@ -105,7 +112,9 @@ export class AwsKmsKeyProvider implements KeyProvider {
       this.logger.debug(`Signed ${data.length} bytes using AWS KMS`);
       return signature;
     } catch (error: any) {
-      this.logger.error(`AWS KMS signing failed: ${error.message}`);
+      this.logger.error(
+        `AWS KMS signing failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new KeyProviderError('Failed to sign data with AWS KMS', error);
     }
   }

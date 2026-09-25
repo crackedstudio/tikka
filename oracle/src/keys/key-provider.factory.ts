@@ -1,7 +1,6 @@
-import { OracleLoggerService } from '../logger/oracle-logger';
-import { Logger } from '@nestjs/common';
+import { OracleLoggerService, redact } from '../logger/oracle-logger';
 import { ConfigService } from '@nestjs/config';
-import { KeyProvider, KeyProviderConfig } from './key-provider.interface';
+import { KeyProvider } from './key-provider.interface';
 import { EnvKeyProvider } from './providers/env-key.provider';
 import { AwsKmsKeyProvider } from './providers/aws-kms-key.provider';
 import { GcpKmsKeyProvider } from './providers/gcp-kms-key.provider';
@@ -11,23 +10,30 @@ import { GcpKmsKeyProvider } from './providers/gcp-kms-key.provider';
  */
 export class KeyProviderFactory {
   private static readonly logger = new OracleLoggerService();
-  
 
   /**
    * Creates a KeyProvider based on the configuration.
-   * 
-   * Configuration priority:
-   * 1. Explicit KEY_PROVIDER environment variable
-   * 2. Presence of cloud-specific environment variables
-   * 3. Fallback to 'env' provider
-   * 
-   * @param configService NestJS ConfigService
-   * @returns KeyProvider instance
+   *
+   * An unknown provider name throws. A missing name is allowed only outside
+   * production, where local development defaults to the env provider.
+   * In production a missing name does not silently fall back to env.
    */
   static create(configService: ConfigService): KeyProvider {
-    const providerType = configService.get<string>('KEY_PROVIDER', 'env').toLowerCase();
+    const raw = configService.get<string>('KEY_PROVIDER');
+    const providerType = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
 
-    this.logger.log(`Creating KeyProvider of type: ${providerType}`);
+    if (!providerType) {
+      if (configService.get<string>('NODE_ENV') === 'production') {
+        throw new Error(
+          'KEY_PROVIDER is required in production. Refusing to default to the env provider. ' +
+            "Set KEY_PROVIDER to one of: 'env', 'aws-kms', 'aws', 'gcp-kms', 'gcp', 'google'.",
+        );
+      }
+      this.logger.log('KEY_PROVIDER is unset; using env provider outside production');
+      return this.createEnvProvider(configService);
+    }
+
+    this.logger.log(`Creating KeyProvider of type: ${safeProviderLabel(providerType)}`);
 
     switch (providerType) {
       case 'env':
@@ -44,7 +50,8 @@ export class KeyProviderFactory {
 
       default:
         throw new Error(
-          `Unknown KEY_PROVIDER type: '${providerType}'. Must be one of: 'env', 'aws-kms', 'aws', 'gcp-kms', 'gcp', 'google'.`,
+          `Unknown KEY_PROVIDER type '${safeProviderLabel(providerType)}'. ` +
+            "Must be one of: 'env', 'aws-kms', 'aws', 'gcp-kms', 'gcp', 'google'.",
         );
     }
   }
@@ -71,7 +78,7 @@ export class KeyProviderFactory {
 
     this.logger.warn(
       'Using EnvKeyProvider: Private key is stored in memory. ' +
-      'For production, use AWS KMS or GCP KMS.',
+        'For production, use AWS KMS or GCP KMS.',
     );
 
     return new EnvKeyProvider(this.logger, privateKey);
@@ -104,4 +111,10 @@ export class KeyProviderFactory {
     this.logger.log('Using Google Cloud KMS for secure key management');
     return new GcpKmsKeyProvider(this.logger, projectId, keyPath);
   }
+}
+
+function safeProviderLabel(providerType: string): string {
+  const redacted = String(redact(providerType));
+  if (redacted.includes('[REDACTED]') || providerType.length > 32) return '[redacted]';
+  return providerType;
 }
