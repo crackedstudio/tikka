@@ -27,6 +27,7 @@
     "check:observability": "node scripts/check-dashboard-metrics.js",
     "check:boundaries": "depcruise .",
     "db:check-drift": "npx tsx scripts/check-schema-drift.ts",
+    "test:scripts": "jest --config jest.config.cjs",
     "prepare": "husky"
   },
   "devDependencies": {
