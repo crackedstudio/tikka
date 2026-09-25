@@ -1,20 +1,16 @@
-import { Logger } from "@nestjs/common";
-import { DataSource, QueryRunner } from "typeorm";
-import { AdminProcessor } from "../processors/admin.processor";
-import { RaffleProcessor } from "../processors/raffle.processor";
-import { TicketProcessor } from "../processors/ticket.processor";
-import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
-import { DomainEvent } from "./event.types";
-import { CURRENT_SCHEMA_VERSION } from "./handlers/schema-version";
+import { Logger } from '@nestjs/common';
+import { DataSource, QueryRunner } from 'typeorm';
+import { AdminProcessor } from '../processors/admin.processor';
+import { RaffleProcessor } from '../processors/raffle.processor';
+import { TicketProcessor } from '../processors/ticket.processor';
+import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
+import { DomainEvent } from './event.types';
+import { CURRENT_SCHEMA_VERSION } from './handlers/schema-version';
 
 type AdminDomainEvent = Extract<
   DomainEvent,
   {
-    type:
-      | "ContractPaused"
-      | "ContractUnpaused"
-      | "AdminTransferProposed"
-      | "AdminTransferAccepted";
+    type: 'ContractPaused' | 'ContractUnpaused' | 'AdminTransferProposed' | 'AdminTransferAccepted';
   }
 >;
 
@@ -40,11 +36,11 @@ export class CursorAdvance {
     raw: Record<string, unknown>,
   ): Promise<QueryRunner | null> {
     const ledger = Number(raw.ledger);
-    const txHash = String(raw.id || raw.paging_token || "");
+    const txHash = String(raw.id || raw.paging_token || '');
     const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
 
     switch (event.type) {
-      case "RaffleCreated":
+      case 'RaffleCreated':
         return this.raffleProcessor.handleRaffleCreated(
           event.raffle_id,
           event.creator,
@@ -54,7 +50,7 @@ export class CursorAdvance {
           schemaVersion,
         );
 
-      case "RaffleFinalized":
+      case 'RaffleFinalized':
         return this.raffleProcessor.handleRaffleFinalized(
           event.raffle_id,
           event.winner,
@@ -65,7 +61,7 @@ export class CursorAdvance {
           schemaVersion,
         );
 
-      case "RaffleCancelled":
+      case 'RaffleCancelled':
         return this.raffleProcessor.handleRaffleCancelled(
           event.raffle_id,
           event.reason,
@@ -74,7 +70,7 @@ export class CursorAdvance {
           schemaVersion,
         );
 
-      case "TicketPurchased":
+      case 'TicketPurchased':
         return this.applyTicketEvent(async (runner) => {
           await this.ticketProcessor.handleTicketPurchased(
             event.raffle_id,
@@ -87,7 +83,7 @@ export class CursorAdvance {
           );
         });
 
-      case "TicketRefunded":
+      case 'TicketRefunded':
         return this.applyTicketEvent(async (runner) => {
           await this.ticketProcessor.handleTicketRefunded(
             event.raffle_id,
@@ -99,25 +95,27 @@ export class CursorAdvance {
           );
         });
 
-      case "ContractPaused":
-      case "ContractUnpaused":
-      case "AdminTransferProposed":
-      case "AdminTransferAccepted":
+      case 'ContractPaused':
+      case 'ContractUnpaused':
+      case 'AdminTransferProposed':
+      case 'AdminTransferAccepted':
         return this.applyAdminEvent(event, raw);
 
-      case "DrawTriggered":
-        this.logger.log(
-          `DrawTriggered for raffle ${event.raffle_id} at ledger ${event.ledger}`,
+      case 'DrawTriggered':
+        return this.raffleProcessor.handleDrawTriggered(
+          event.raffle_id,
+          ledger,
+          txHash,
+          schemaVersion,
         );
-        return null;
 
-      case "RandomnessRequested":
+      case 'RandomnessRequested':
         this.logger.log(
           `RandomnessRequested for raffle ${event.raffle_id}, request ID ${event.request_id}`,
         );
         return null;
 
-      case "RandomnessReceived":
+      case 'RandomnessReceived':
         this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
         return null;
 
@@ -168,13 +166,13 @@ export class CursorAdvance {
       }
 
       switch (event.type) {
-        case "ContractPaused":
+        case 'ContractPaused':
           await this.adminProcessor.handleContractPaused(event.admin, ledger, runner);
           break;
-        case "ContractUnpaused":
+        case 'ContractUnpaused':
           await this.adminProcessor.handleContractUnpaused(event.admin, ledger, runner);
           break;
-        case "AdminTransferProposed":
+        case 'AdminTransferProposed':
           await this.adminProcessor.handleAdminTransferProposed(
             event.current_admin,
             event.proposed_admin,
@@ -182,7 +180,7 @@ export class CursorAdvance {
             runner,
           );
           break;
-        case "AdminTransferAccepted":
+        case 'AdminTransferAccepted':
           await this.adminProcessor.handleAdminTransferAccepted(
             event.old_admin,
             event.new_admin,
@@ -212,34 +210,34 @@ export class CursorAdvance {
     raw: Record<string, unknown>,
   ): Partial<RaffleEventEntity> | null {
     const ledger = Number(raw.ledger);
-    const txHash = String(raw.id || raw.paging_token || "");
+    const txHash = String(raw.id || raw.paging_token || '');
     if (!txHash || Number.isNaN(ledger)) {
       return null;
     }
 
     switch (event.type) {
-      case "ContractPaused":
+      case 'ContractPaused':
         return {
           raffleId: 0,
-          eventType: "ContractPaused",
+          eventType: 'ContractPaused',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
         };
-      case "ContractUnpaused":
+      case 'ContractUnpaused':
         return {
           raffleId: 0,
-          eventType: "ContractUnpaused",
+          eventType: 'ContractUnpaused',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
         };
-      case "AdminTransferProposed":
+      case 'AdminTransferProposed':
         return {
           raffleId: 0,
-          eventType: "AdminTransferProposed",
+          eventType: 'AdminTransferProposed',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
@@ -248,10 +246,10 @@ export class CursorAdvance {
             proposed_admin: event.proposed_admin,
           },
         };
-      case "AdminTransferAccepted":
+      case 'AdminTransferAccepted':
         return {
           raffleId: 0,
-          eventType: "AdminTransferAccepted",
+          eventType: 'AdminTransferAccepted',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,

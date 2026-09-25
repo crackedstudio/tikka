@@ -1,18 +1,7 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Put,
-  UseInterceptors,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UsePipes } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { WebhookService } from '../../../services/webhooks/webhook.service';
-import { WebhookSignatureVerificationInterceptor } from './webhook-signature-verification.interceptor';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
 import {
   CreateWebhookDto,
@@ -25,15 +14,12 @@ import {
 @ApiBearerAuth()
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(private readonly webhookService: WebhookService) { }
+  constructor(private readonly webhookService: WebhookService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new webhook subscription' })
   @UsePipes(new (createZodPipe(CreateWebhookSchema))())
-  async createWebhook(
-    @CurrentUser('address') address: string,
-    @Body() payload: CreateWebhookDto,
-  ) {
+  async createWebhook(@CurrentUser('address') address: string, @Body() payload: CreateWebhookDto) {
     return this.webhookService.createWebhook({
       ownerAddress: address,
       targetUrl: payload.targetUrl,
@@ -50,10 +36,7 @@ export class WebhooksController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific webhook by ID' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  async getWebhook(
-    @CurrentUser('address') address: string,
-    @Param('id') id: string,
-  ) {
+  async getWebhook(@CurrentUser('address') address: string, @Param('id') id: string) {
     return this.webhookService.getWebhook(id, address);
   }
 
@@ -72,10 +55,7 @@ export class WebhooksController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a webhook' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  async deleteWebhook(
-    @CurrentUser('address') address: string,
-    @Param('id') id: string,
-  ) {
+  async deleteWebhook(@CurrentUser('address') address: string, @Param('id') id: string) {
     await this.webhookService.deleteWebhook(id, address);
     return { success: true };
   }
@@ -83,20 +63,14 @@ export class WebhooksController {
   @Get(':id/deliveries')
   @ApiOperation({ summary: 'Get recent delivery logs for a webhook' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  async getDeliveries(
-    @CurrentUser('address') address: string,
-    @Param('id') id: string,
-  ) {
+  async getDeliveries(@CurrentUser('address') address: string, @Param('id') id: string) {
     return this.webhookService.getDeliveries(id, address);
   }
 
   @Get(':id/dead-letters')
   @ApiOperation({ summary: 'Get permanently failed (dead letter) deliveries for a webhook' })
   @ApiParam({ name: 'id', description: 'Webhook UUID' })
-  async getDeadLetters(
-    @CurrentUser('address') address: string,
-    @Param('id') id: string,
-  ) {
+  async getDeadLetters(@CurrentUser('address') address: string, @Param('id') id: string) {
     return this.webhookService.getDeadLetters(id, address);
   }
 }

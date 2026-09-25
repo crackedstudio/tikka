@@ -1,47 +1,43 @@
-import { Logger, ValidationPipe } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
-import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from "@nestjs/platform-fastify";
-import multipart from "@fastify/multipart";
-import { AppModule } from "./app.module";
-import { configureSecurity } from "./bootstrap";
-import { MAX_UPLOAD_BYTES } from "./config/upload.config";
-import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
-import { SentryInterceptor } from "./sentry/sentry.interceptor";
-import { BaseExceptionFilter } from "./common/filters/base-exception.filter";
-import { initSentry } from "./sentry/sentry";
-import { Logger as PinoLogger } from "nestjs-pino";
-import { env } from "./config/env.config";
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import multipart from '@fastify/multipart';
+import { AppModule } from './app.module';
+import { configureSecurity } from './bootstrap';
+import { MAX_UPLOAD_BYTES } from './config/upload.config';
+import { RequestLoggingInterceptor } from './middleware/request-logging.interceptor';
+import { SentryInterceptor } from './sentry/sentry.interceptor';
+import { BaseExceptionFilter } from './common/filters/base-exception.filter';
+import { initSentry } from './sentry/sentry';
+import { Logger as PinoLogger } from 'nestjs-pino';
+import { env } from './config/env.config';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   initSentry(logger);
   // Avoid generic constraints mismatch between Nest Fastify and Cors types
-  const app = (await NestFactory.create(
-    AppModule,
-    new FastifyAdapter() as any,
-    { bufferLogs: true },
-  )) as NestFastifyApplication;
+  const app = (await NestFactory.create(AppModule, new FastifyAdapter() as any, {
+    bufferLogs: true,
+    rawBody: true,
+  })) as NestFastifyApplication;
   app.useLogger(app.get(PinoLogger));
 
   const isProd = env.server.nodeEnv === 'production';
   const isSwaggerEnabled = env.server.swaggerEnabled;
 
   const config = new DocumentBuilder()
-    .setTitle("Tikka API")
-    .setDescription("The Tikka API description")
-    .setVersion("0.1.0")
-    .addTag("tikka")
+    .setTitle('Tikka API')
+    .setDescription('The Tikka API description')
+    .setVersion('0.1.0')
+    .addTag('tikka')
     .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app as any, config);
 
   if (!isProd || isSwaggerEnabled) {
-    SwaggerModule.setup("api/docs", app as any, document);
+    SwaggerModule.setup('api/docs', app as any, document);
   }
   await configureSecurity(app);
 
@@ -69,7 +65,7 @@ async function bootstrap() {
   // on all providers (workers drain in-flight jobs before exit).
   app.enableShutdownHooks();
 
-  await app.listen(env.server.port, "0.0.0.0");
+  await app.listen(env.server.port, '0.0.0.0');
   logger.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
