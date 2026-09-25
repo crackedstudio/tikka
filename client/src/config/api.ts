@@ -21,6 +21,8 @@ export const API_CONFIG = {
     raffles: {
       list: '/raffles',
       detail: (id: string) => `/raffles/${id}`,
+      // Canonical raffle social card. Do not advertise /og/raffles/:id.
+      ogImage: (id: string | number) => `/raffles/${id}/og`,
       events: (id: string) => `/raffles/${id}/events`,
       metadata: '/raffles/metadata',
       uploadImage: '/raffles/upload-image',

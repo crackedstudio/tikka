@@ -118,7 +118,7 @@ const RafflePage = () => {
 
     return (
         <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-8 flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <RaffleSeo title={title} description={description} image={image} />
+            <RaffleSeo raffleId={raffleId} title={title} description={description} />
 
             <Breadcrumbs
                 items={[
