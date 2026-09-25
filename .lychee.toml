@@ -1,0 +1,20 @@
+# Lychee link-checker configuration
+# https://lychee.cli.rs/usage/config/
+
+# Exclude archived docs — links within docs/archive/ are historical and may be stale.
+# Exclude generated SDK docs.
+exclude_path = [
+  "docs/archive",
+  "sdk/docs",
+  "node_modules",
+]
+
+# Tolerate redirects (common with GitHub links)
+accept = [200, 301, 302, 403, 429]
+
+# Retry on rate-limit
+max_retries = 3
+timeout = 20
+
+# Skip anchor/fragment checks — too many false positives on generated pages
+include_fragments = false
