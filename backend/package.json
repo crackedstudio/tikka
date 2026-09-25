@@ -71,9 +71,9 @@
       "tsx"
     ],
     "rootDir": "src",
-    "testRegex": ".*\\.Spec\\.ts$",
+    "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^\\.+\\.(t|j)sx?$": "ts-jest"
+      "^.+\\.(t|j)sx?$": "ts-jest"
     },
     "testEnvironment": "node",
     "collectCoverageFrom": [
@@ -92,7 +92,9 @@
         "lines": 60
       }
     },
-    "setupFiles": ["../test/jest-setup.ts"]
+    "setupFiles": [
+      "../test/jest-setup.ts"
+    ]
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",

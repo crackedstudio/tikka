@@ -1,11 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  PayloadTooLargeException,
-} from '@nestjs/common';
+import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { RaffleImagesController } from './raffle-images.controller';
-import { StorageService } from '../../../services/storage.service';
-import { ImageOptimizerService } from '../../../services/image-optimizer.service';
+import { StorageService } from '../../../services/storage/storage.service';
+import { ImageOptimizerService } from '../../../services/metadata/image-optimizer.service';
 import {
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_IMAGE_HEIGHT,
@@ -102,18 +99,24 @@ describe('RaffleImagesController — uploadImage', () => {
     ['image/jpeg', 'image/jpeg'],
     ['image/png', 'image/png'],
     ['image/webp', 'image/webp'],
-  ] as const)('accepts %s uploads based on detected MIME type', async (mimeType, detectedMimeType) => {
-    mockFileTypeFromBuffer.mockResolvedValueOnce({ mime: detectedMimeType, ext: detectedMimeType.split('/')[1] } as any);
+  ] as const)(
+    'accepts %s uploads based on detected MIME type',
+    async (mimeType, detectedMimeType) => {
+      mockFileTypeFromBuffer.mockResolvedValueOnce({
+        mime: detectedMimeType,
+        ext: detectedMimeType.split('/')[1],
+      } as any);
 
-    const file = createMockFile({ mimetype: 'application/octet-stream' });
-    const request = createMockRequest(file);
+      const file = createMockFile({ mimetype: 'application/octet-stream' });
+      const request = createMockRequest(file);
 
-    await controller.uploadImage(request, 'GABC123');
+      await controller.uploadImage(request, 'GABC123');
 
-    expect(storageService.uploadRaffleImage).toHaveBeenCalledWith(
-      expect.objectContaining({ mimeType }),
-    );
-  });
+      expect(storageService.uploadRaffleImage).toHaveBeenCalledWith(
+        expect.objectContaining({ mimeType }),
+      );
+    },
+  );
 
   it('includes variantUrls in the upload response', async () => {
     const file = createMockFile();
@@ -172,9 +175,7 @@ describe('RaffleImagesController — uploadImage', () => {
   it('throws BadRequestException when no file is provided', async () => {
     const request = createMockRequest(null);
 
-    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(BadRequestException);
   });
 
   it('throws BadRequestException for unsupported MIME type', async () => {
@@ -183,9 +184,7 @@ describe('RaffleImagesController — uploadImage', () => {
 
     mockFileTypeFromBuffer.mockResolvedValueOnce(null as any);
 
-    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(BadRequestException);
   });
 
   it('throws BadRequestException when the detected MIME type is not allowed', async () => {
@@ -194,9 +193,7 @@ describe('RaffleImagesController — uploadImage', () => {
 
     mockFileTypeFromBuffer.mockResolvedValueOnce({ mime: 'text/plain', ext: 'txt' } as any);
 
-    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(BadRequestException);
     expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
   });
 
@@ -237,9 +234,7 @@ describe('RaffleImagesController — uploadImage', () => {
     const file = createMockFile();
     const request = createMockRequest(file);
 
-    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(BadRequestException);
     expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
   });
 
@@ -250,9 +245,7 @@ describe('RaffleImagesController — uploadImage', () => {
     const file = createMockFile();
     const request = createMockRequest(file);
 
-    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(BadRequestException);
     expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
   });
 });

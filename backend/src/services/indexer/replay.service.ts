@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { BackfillLock, BackfillLockError } from './indexer/backfill-lock';
+import { BackfillLock, BackfillLockError } from './backfill-lock';
 import { HorizonClientService } from './horizon-client.service';
-import { IndexerService } from './indexer/indexer.service';
+import { IndexerService } from './indexer.service';
 
 export interface ReplayJobConfig {
   fromLedger: number;
@@ -105,28 +105,20 @@ export class ReplayService {
    */
   private validateConfig(config: ReplayJobConfig): void {
     if (!Number.isInteger(config.fromLedger) || config.fromLedger <= 0) {
-      throw new Error(
-        `fromLedger must be a positive integer, got: ${config.fromLedger}`,
-      );
+      throw new Error(`fromLedger must be a positive integer, got: ${config.fromLedger}`);
     }
 
     if (!Number.isInteger(config.toLedger) || config.toLedger <= 0) {
-      throw new Error(
-        `toLedger must be a positive integer, got: ${config.toLedger}`,
-      );
+      throw new Error(`toLedger must be a positive integer, got: ${config.toLedger}`);
     }
 
     if (config.fromLedger > config.toLedger) {
-      throw new Error(
-        `fromLedger (${config.fromLedger}) must be <= toLedger (${config.toLedger})`,
-      );
+      throw new Error(`fromLedger (${config.fromLedger}) must be <= toLedger (${config.toLedger})`);
     }
 
     const range = config.toLedger - config.fromLedger + 1;
     if (range > this.maxRange) {
-      throw new Error(
-        `Range of ${range} ledgers exceeds BACKFILL_MAX_RANGE (${this.maxRange})`,
-      );
+      throw new Error(`Range of ${range} ledgers exceeds BACKFILL_MAX_RANGE (${this.maxRange})`);
     }
 
     const isDryRun = config.dryRun === true;
@@ -155,7 +147,8 @@ export class ReplayService {
     try {
       const { fromLedger, toLedger, dryRun } = job.config;
       const missingLedgers: number[] = [];
-      const plannedActions: Array<{ ledger: number; action: 'submit' | 'skip'; reason?: string }> = [];
+      const plannedActions: Array<{ ledger: number; action: 'submit' | 'skip'; reason?: string }> =
+        [];
       const runStart = Date.now();
 
       this.logger.log(
@@ -211,9 +204,7 @@ export class ReplayService {
           if (!dryRun) {
             await this.indexer.submitLedger(ledgerData, seq);
           } else {
-            this.logger.debug(
-              `Replay job ${jobId} (dry-run): Would submit ledger seq=${seq}`,
-            );
+            this.logger.debug(`Replay job ${jobId} (dry-run): Would submit ledger seq=${seq}`);
           }
           job.progress.processedCount++;
           plannedActions.push({
