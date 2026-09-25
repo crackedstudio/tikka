@@ -1,10 +1,20 @@
 {
+  // nest build uses this file: @nestjs/cli getDefaultTsconfigPath() prefers
+  // tsconfig.build.json when it exists, and nest-cli.json sets tsConfigPath
+  // to the same file so the production program cannot fall back to tsconfig.json.
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
     "test",
     "dist",
     "**/*spec.ts",
+    "**/*.spec.ts",
+    "src/test/**",
     "src/**/testing/**"
   ]
 }
