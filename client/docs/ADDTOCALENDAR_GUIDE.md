@@ -35,11 +35,11 @@ The `AddToCalendar` component provides a user-friendly way to add raffle end tim
 
 ```typescript
 export interface AddToCalendarProps {
-    title: string;           // Raffle name (required)
-    endTimeUnix: number;     // Unix timestamp in seconds (required)
-    url?: string;            // Raffle URL (defaults to window.location.href)
-    location?: string;       // Event location (optional)
-    className?: string;      // Custom CSS classes for wrapper (optional)
+  title: string; // Raffle name (required)
+  endTimeUnix: number; // Unix timestamp in seconds (required)
+  url?: string; // Raffle URL (defaults to window.location.href)
+  location?: string; // Event location (optional)
+  className?: string; // Custom CSS classes for wrapper (optional)
 }
 ```
 
@@ -49,17 +49,17 @@ export interface AddToCalendarProps {
 import AddToCalendar from '@/components/ui/AddToCalendar';
 
 export function RaffleCard() {
-    const endTime = 1735689600; // Unix timestamp
-    const raffleUrl = 'https://tikka.example.com/raffle/123';
+  const endTime = 1735689600; // Unix timestamp
+  const raffleUrl = 'https://tikka.example.com/raffle/123';
 
-    return (
-        <AddToCalendar 
-            title="Luxury Watch Raffle"
-            endTimeUnix={endTime}
-            url={raffleUrl}
-            location="Online"
-        />
-    );
+  return (
+    <AddToCalendar
+      title="Luxury Watch Raffle"
+      endTimeUnix={endTime}
+      url={raffleUrl}
+      location="Online"
+    />
+  );
 }
 ```
 
@@ -68,37 +68,37 @@ export function RaffleCard() {
 ### In RafflePage
 
 ```tsx
-import AddToCalendar from "@/components/ui/AddToCalendar";
+import AddToCalendar from '@/components/ui/AddToCalendar';
 
 const RafflePage = () => {
-    const { raffle } = useRaffle(raffleId);
-    const raffleUrl = `${window.location.origin}/raffle/${raffle.id}`;
-    
-    return (
-        <div className="space-y-4">
-            <h1>{raffle.title}</h1>
-            
-            {/* Calendar integration */}
-            <AddToCalendar 
-                title={raffle.title}
-                endTimeUnix={Math.floor(new Date(raffle.end_time).getTime() / 1000)}
-                url={raffleUrl}
-                location={raffle.location}
-                className="mt-4"
-            />
-        </div>
-    );
+  const { raffle } = useRaffle(raffleId);
+  const raffleUrl = `${window.location.origin}/raffle/${raffle.id}`;
+
+  return (
+    <div className="space-y-4">
+      <h1>{raffle.title}</h1>
+
+      {/* Calendar integration */}
+      <AddToCalendar
+        title={raffle.title}
+        endTimeUnix={Math.floor(new Date(raffle.end_time).getTime() / 1000)}
+        url={raffleUrl}
+        location={raffle.location}
+        className="mt-4"
+      />
+    </div>
+  );
 };
 ```
 
 ### With Custom Styling
 
 ```tsx
-<AddToCalendar 
-    title="Premium Raffle"
-    endTimeUnix={endTime}
-    url={raffleUrl}
-    className="absolute top-0 right-0"
+<AddToCalendar
+  title="Premium Raffle"
+  endTimeUnix={endTime}
+  url={raffleUrl}
+  className="absolute top-0 right-0"
 />
 ```
 
@@ -126,10 +126,10 @@ Generates complete ICS file content.
 import { generateIcs } from '@/components/ui/AddToCalendar';
 
 const icsContent = generateIcs(
-    "Luxury Watch Raffle",
-    new Date('2025-12-31T23:59:59Z'),
-    "https://tikka.example.com/raffle/123",
-    "Online Event"
+  'Luxury Watch Raffle',
+  new Date('2025-12-31T23:59:59Z'),
+  'https://tikka.example.com/raffle/123',
+  'Online Event',
 );
 ```
 
@@ -141,10 +141,10 @@ Generates Google Calendar deep link.
 import { googleCalendarUrl } from '@/components/ui/AddToCalendar';
 
 const url = googleCalendarUrl(
-    "Luxury Watch Raffle",
-    new Date('2025-12-31T23:59:59Z'),
-    "https://tikka.example.com/raffle/123",
-    "Online Event"
+  'Luxury Watch Raffle',
+  new Date('2025-12-31T23:59:59Z'),
+  'https://tikka.example.com/raffle/123',
+  'Online Event',
 );
 // Opens Google Calendar with pre-filled event
 window.open(url, '_blank');
@@ -158,10 +158,10 @@ Generates Outlook Calendar deep link.
 import { outlookCalendarUrl } from '@/components/ui/AddToCalendar';
 
 const url = outlookCalendarUrl(
-    "Luxury Watch Raffle",
-    new Date('2025-12-31T23:59:59Z'),
-    "https://tikka.example.com/raffle/123",
-    "Online Event"
+  'Luxury Watch Raffle',
+  new Date('2025-12-31T23:59:59Z'),
+  'https://tikka.example.com/raffle/123',
+  'Online Event',
 );
 window.open(url, '_blank');
 ```
@@ -171,6 +171,7 @@ window.open(url, '_blank');
 ### Automatic Handling
 
 The component automatically handles:
+
 - Special characters in titles (™, ®, &, ", etc.)
 - Long titles (500+ characters)
 - Special characters in descriptions
@@ -179,11 +180,12 @@ The component automatically handles:
 - Backslashes
 
 Example:
+
 ```tsx
-<AddToCalendar 
-    title='Raffle™ with "Quotes" & Special; Characters'
-    endTimeUnix={endTime}
-    url={raffleUrl}
+<AddToCalendar
+  title='Raffle™ with "Quotes" & Special; Characters'
+  endTimeUnix={endTime}
+  url={raffleUrl}
 />
 ```
 
@@ -199,6 +201,7 @@ For ICS generation, use the internal escaping:
 ## Event Time Calculation
 
 The component automatically calculates:
+
 - **Start Time**: 1 hour before raffle end time
 - **End Time**: Raffle end time
 - **Duration**: 1 hour
@@ -236,30 +239,33 @@ END:VCALENDAR
 
 ## Browser Compatibility
 
-| Browser | Support | Notes |
-|---------|---------|-------|
-| Chrome/Chromium | ✅ | Full support |
-| Firefox | ✅ | Full support |
-| Safari | ✅ | Full support, requires hosted .ics for Apple Calendar |
-| Edge | ✅ | Full support |
-| Mobile Safari | ✅ | iCal download triggers Apple Calendar |
-| Chrome Mobile | ✅ | Links open in respective apps |
-| Firefox Mobile | ✅ | Links open in respective apps |
+| Browser         | Support | Notes                                                 |
+| --------------- | ------- | ----------------------------------------------------- |
+| Chrome/Chromium | ✅      | Full support                                          |
+| Firefox         | ✅      | Full support                                          |
+| Safari          | ✅      | Full support, requires hosted .ics for Apple Calendar |
+| Edge            | ✅      | Full support                                          |
+| Mobile Safari   | ✅      | iCal download triggers Apple Calendar                 |
+| Chrome Mobile   | ✅      | Links open in respective apps                         |
+| Firefox Mobile  | ✅      | Links open in respective apps                         |
 
 ## Accessibility
 
 ### ARIA Attributes
+
 - `aria-haspopup="menu"` - Button indicates menu behavior
 - `aria-expanded` - Reflects menu open/close state
 - `role="menu"` - Container has proper menu role
 - `role="menuitem"` - Each calendar option has menuitem role
 
 ### Keyboard Navigation
+
 - Tab to focus button
 - Enter/Space to open menu
 - Escape to close (standard browser behavior)
 
 ### Screen Readers
+
 - Button label: "Add to Calendar"
 - Menu label: "Calendar options"
 - Each option: "Google Calendar", "Outlook Calendar", "Download .ics"
@@ -440,17 +446,20 @@ Total: 59 tests passing
 ## Security Considerations
 
 ### XSS Prevention
+
 - No direct innerHTML usage
 - All URLs properly encoded
 - Event titles escaped for ICS format
 - Safe React rendering practices
 
 ### URL Validation
+
 - URLs not validated client-side (user's responsibility)
 - Links open in `_blank` with `noopener` and `noreferrer`
 - No sensitive data in URLs
 
 ### Best Practices
+
 - Don't include sensitive info in raffle URL
 - Use HTTPS URLs only
 - Validate raffle data before passing to component
@@ -458,7 +467,9 @@ Total: 59 tests passing
 ## Migration from Previous Versions
 
 ### v1 → v2
+
 The component has been enhanced with:
+
 - Location support
 - Improved accessibility
 - Better error handling
@@ -475,11 +486,11 @@ The component has been enhanced with:
 
 ```typescript
 interface AddToCalendarProps {
-    title: string;           // Required - Raffle name
-    endTimeUnix: number;     // Required - Unix timestamp (seconds)
-    url?: string;            // Optional - Defaults to window.location.href
-    location?: string;       // Optional - Event location
-    className?: string;      // Optional - Custom CSS classes
+  title: string; // Required - Raffle name
+  endTimeUnix: number; // Required - Unix timestamp (seconds)
+  url?: string; // Optional - Defaults to window.location.href
+  location?: string; // Optional - Event location
+  className?: string; // Optional - Custom CSS classes
 }
 ```
 
@@ -490,26 +501,21 @@ interface AddToCalendarProps {
 export function formatIcsDate(date: Date): string;
 
 // ICS generation
-export function generateIcs(
-    title: string,
-    endDate: Date,
-    url: string,
-    location?: string
-): string;
+export function generateIcs(title: string, endDate: Date, url: string, location?: string): string;
 
 // URL generation
 export function googleCalendarUrl(
-    title: string,
-    endDate: Date,
-    url: string,
-    location?: string
+  title: string,
+  endDate: Date,
+  url: string,
+  location?: string,
 ): string;
 
 export function outlookCalendarUrl(
-    title: string,
-    endDate: Date,
-    url: string,
-    location?: string
+  title: string,
+  endDate: Date,
+  url: string,
+  location?: string,
 ): string;
 
 // Component
@@ -521,6 +527,7 @@ export default AddToCalendar;
 ### Reporting Issues
 
 When reporting issues, include:
+
 1. Browser and version
 2. Calendar provider (Google/Outlook/Apple)
 3. Error message and console output
@@ -530,6 +537,7 @@ When reporting issues, include:
 ### Contributing Enhancements
 
 Contributions welcome for:
+
 - Additional calendar providers (Caldav, etc.)
 - Internationalization
 - Performance optimizations
