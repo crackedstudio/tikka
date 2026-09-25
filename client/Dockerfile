@@ -4,7 +4,7 @@
 # ========================================
 # Base stage - dependencies
 # ========================================
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
