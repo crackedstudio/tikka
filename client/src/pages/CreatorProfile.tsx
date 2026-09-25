@@ -5,8 +5,10 @@ import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import RaffleCard from "../components/cards/RaffleCard";
 import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import EmptyState from "../components/ui/EmptyState";
 import Skeleton from "../components/ui/Skeleton";
 import { ApiError, ApiErrorCode } from "../services/apiClient";
+import { isValidStellarAddress } from "../utils/stellarAddress";
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 
@@ -51,20 +53,24 @@ const CreatorProfileSkeleton: React.FC = () => (
 
 const CreatorNotFound: React.FC<{ address?: string }> = ({ address }) => (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B0F1A] flex items-center justify-center">
-        <div className="text-center px-6">
-            <p className="text-6xl mb-4" aria-hidden="true">🔍</p>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Creator not found</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm font-mono break-all max-w-sm mx-auto">
-                {address ?? "Unknown address"}
-            </p>
+        <div className="w-full max-w-md px-6">
+            <EmptyState
+                icon={<span aria-hidden="true" className="text-2xl">🔍</span>}
+                title="Creator not found"
+                hint={address ?? "Unknown address"}
+            />
         </div>
     </div>
 );
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const CreatorProfile: React.FC = () => {
-    const { address } = useParams<{ address: string }>();
+/**
+ * The page body. Mounted only once `address` is known to be a well-formed
+ * Stellar account, so an invalid `:address` never reaches the profile or
+ * raffle queries below.
+ */
+const CreatorProfileView: React.FC<{ address: string }> = ({ address }) => {
     const [isFollowed, setIsFollowed] = useState(false);
 
     const { profile, isLoading: profileLoading, error: profileError, refetch: refetchProfile } = useUserProfile(address || null);
@@ -212,8 +218,12 @@ const CreatorProfile: React.FC = () => {
                             </button>
                         </div>
                     ) : raffles.length === 0 ? (
-                        <div className="text-center py-20 bg-white dark:bg-[#11172E] rounded-3xl">
-                            <p className="text-gray-500 dark:text-gray-400">This creator hasn't published any raffles yet.</p>
+                        <div className="bg-white dark:bg-[#11172E] rounded-3xl">
+                            <EmptyState
+                                icon={<span aria-hidden="true" className="text-2xl">🎟️</span>}
+                                title="No raffles yet"
+                                hint="This creator hasn't published any raffles yet."
+                            />
                         </div>
                     ) : (
                         <>
@@ -254,6 +264,23 @@ const CreatorProfile: React.FC = () => {
             </div>
         </div>
     );
+};
+
+/**
+ * Route component for `/creators/:address` (#1541).
+ *
+ * The address is read straight from the URL, so it is validated before the
+ * body — and therefore before any query — mounts. A malformed address renders
+ * the not-found state without issuing a request.
+ */
+const CreatorProfile: React.FC = () => {
+    const { address } = useParams<{ address: string }>();
+
+    if (!isValidStellarAddress(address)) {
+        return <CreatorNotFound address={address} />;
+    }
+
+    return <CreatorProfileView address={address} />;
 };
 
 export default CreatorProfile;
