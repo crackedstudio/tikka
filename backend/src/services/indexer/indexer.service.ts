@@ -2,7 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { captureIngestionError } from '../../sentry/sentry';
 import { BackfillLock } from './backfill-lock';
-import { getRequestIdHeaders, REQUEST_ID_HEADER } from '../middleware/request-context';
+import { getRequestIdHeaders } from '../../middleware/request-context';
 import type {
   IndexerApiLeaderboardResponse,
   IndexerApiParticipantListResponse,
