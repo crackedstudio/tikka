@@ -30,3 +30,6 @@ yarn-error.log*
 
 # API Extractor temporary output (committed reports live in etc/)
 /temp
+
+# size-limit JSON output (written by `pnpm size-check --json`)
+size-summary.json
