@@ -144,21 +144,13 @@ function validateSorobanConfig() {
  * Validate Supabase configuration
  */
 function validateSupabaseConfig() {
-    const url = getEnvVar('VITE_SUPABASE_URL', false);
-    const anonKey = getEnvVar('VITE_SUPABASE_ANON_KEY', false);
+    const url = getEnvVar('VITE_SUPABASE_URL', true);
+    const anonKey = getEnvVar('VITE_SUPABASE_ANON_KEY', true);
     const table = getEnvVar('VITE_SUPABASE_TABLE', false, 'raffle_metadata');
 
-    if (!url || !anonKey) {
-        logger.warn(
-            'Supabase configuration incomplete.\n' +
-            'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required for metadata storage.\n' +
-            'See DEVELOPMENT.md for setup instructions.'
-        );
-    }
-
     return {
-        url: url || 'https://your-project.supabase.co',
-        anonKey: anonKey || 'your-anon-key',
+        url,
+        anonKey,
         table,
     };
 }
