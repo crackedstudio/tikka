@@ -1,8 +1,9 @@
 import { logger } from '../utils/logger';
-import { useEffect, useRef } from "react";
+import { TICKET_COUNT_UPDATED_EVENT, type TicketCountUpdatedPayload } from '@tikka/types';
+import { useEffect, useRef } from 'react';
 
 interface UseEventSourceOptions {
-  onMessage: (event: MessageEvent) => void;
+  onMessage: (payload: TicketCountUpdatedPayload, event: MessageEvent<string>) => void;
   onError?: (event: Event) => void;
   enabled?: boolean;
 }
@@ -30,15 +31,26 @@ export function useEventSource(
     if (!enabled) return;
 
     // Fall back gracefully if the browser doesn't support SSE
-    if (typeof EventSource === "undefined") {
-      logger.warn("useEventSource: EventSource is not supported in this browser.");
+    if (typeof EventSource === 'undefined') {
+      logger.warn('useEventSource: EventSource is not supported in this browser.');
       return;
     }
 
     const es = new EventSource(url);
 
-    const handleMessage = (event: MessageEvent) => {
-      onMessageRef.current(event);
+    const handleMessage = (event: Event) => {
+      const message = event as MessageEvent<string>;
+      let payload: TicketCountUpdatedPayload;
+      try {
+        payload = JSON.parse(message.data) as TicketCountUpdatedPayload;
+      } catch (error) {
+        logger.warn(
+          `useEventSource: Ignoring malformed ${TICKET_COUNT_UPDATED_EVENT} payload.`,
+          error,
+        );
+        return;
+      }
+      onMessageRef.current(payload, message);
     };
 
     const handleError = (event: Event) => {
@@ -47,12 +59,12 @@ export function useEventSource(
       }
     };
 
-    es.addEventListener("ticket_count_updated", handleMessage);
-    es.addEventListener("error", handleError);
+    es.addEventListener(TICKET_COUNT_UPDATED_EVENT, handleMessage);
+    es.addEventListener('error', handleError);
 
     return () => {
-      es.removeEventListener("ticket_count_updated", handleMessage);
-      es.removeEventListener("error", handleError);
+      es.removeEventListener(TICKET_COUNT_UPDATED_EVENT, handleMessage);
+      es.removeEventListener('error', handleError);
       es.close();
     };
   }, [url, enabled]);

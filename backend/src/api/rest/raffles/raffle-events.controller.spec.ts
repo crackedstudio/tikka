@@ -1,37 +1,45 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Subject } from 'rxjs';
+import { firstValueFrom, take } from 'rxjs';
+import { TICKET_COUNT_UPDATED_EVENT } from '@tikka/types';
 import { RaffleEventsController } from './raffle-events.controller';
-import { SseService, TicketCountEvent } from '../../../services/sse.service';
+import { SseService } from '../../../services/notifications/sse.service';
 
 describe('RaffleEventsController', () => {
   let controller: RaffleEventsController;
-  let subject: Subject<TicketCountEvent>;
+  let sseService: SseService;
 
   beforeEach(async () => {
-    subject = new Subject<TicketCountEvent>();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RaffleEventsController],
-      providers: [
-        {
-          provide: SseService,
-          useValue: {
-            subscribe: jest.fn().mockReturnValue(subject),
-          },
-        },
-      ],
+      providers: [SseService],
     }).compile();
 
     controller = module.get(RaffleEventsController);
+    sseService = module.get(SseService);
   });
 
-  it('streams ticket count events for a raffle', (done) => {
-    const stream$ = controller.stream(42);
-    stream$.subscribe({
-      next: (event) => {
-        expect(event.data).toEqual({ raffleId: 42, ticketsSold: 7 });
-        done();
-      },
+  it('emits a named ticket-count frame matching the shared payload contract', (done) => {
+    const subscription = controller.stream(42).subscribe((frame) => {
+      expect(frame.id).toBe('1');
+      expect(frame.type).toBe(TICKET_COUNT_UPDATED_EVENT);
+      expect(frame.data).toEqual({
+        raffleId: 42,
+        ticketsSold: 7,
+        updatedAt: expect.any(Number),
+      });
+      subscription.unsubscribe();
+      done();
     });
-    subject.next({ raffleId: 42, ticketsSold: 7 });
+
+    sseService.emit(42, 7);
+  });
+
+  it('replays updates newer than Last-Event-ID after reconnect', async () => {
+    sseService.emit(42, 6);
+    sseService.emit(42, 7);
+
+    const frame = await firstValueFrom(controller.stream(42, '1').pipe(take(1)));
+    expect(frame.id).toBe('2');
+    expect(frame.data.ticketsSold).toBe(7);
   });
 });
