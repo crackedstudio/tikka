@@ -2,7 +2,7 @@
 
 [![![Deploy SDK Docs ](https://github.com/crackedstudio/tikka/actions/workflows/docs.yml/badge.svg)Zhttps://github.com/crackedstudio/tikka/actions/workflows/docs.yml)
 
-This repository is the *Tikka ecosystem*: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a ***separate repo/folder*** and are not included here.
+This repository is the _Tikka ecosystem_: frontend, SDK, backend, indexer, and oracle. Soroban smart contracts (Rust) live in a **_separate repo/folder_** and are not included here.
 
 ## Architecture
 
@@ -22,9 +22,9 @@ flowchart TD
     Indexer -->|Decoded Data| API
     API -->|Merged Data| Client
     Supabase -->|Off-chain Metadata| API
-    
+
     Oracle -->|Submits Randomness| Chain
-    
+
     Client -->|Writes via| SDK
     SDK -->|Transactions| Chain
     SDK -->|Reads/Writes| API
@@ -32,13 +32,13 @@ flowchart TD
 
 ## Packages
 
-| Package | Role |
-|---------|-------|
-| [**client**](./client/) | Consumer web app - React 19, Vite, TypeScript. Reads from backend, writes via SDK. |
-| [**sdk**](./sdk/) | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). Published as `@tikka/sdk`. |
-| [**backend**](./backend/) | API layer - auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase. |
-| [**indexer**](./indexer/) | Blockchain event ingestion - horizon -> decode -> postgresQL (+ Redis cache). NestJS. |
-| [**oracle**](./oracle/) | Randomness oracle - listens for draw requests, computes VRF/PRNG, submits to contract. NestJS. |
+| Package                   | Role                                                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [**client**](./client/)   | Consumer web app - React 19, Vite, TypeScript. Reads from backend, writes via SDK.                             |
+| [**sdk**](./sdk/)         | NestJS library for Soroban contract interaction (tx build, simulate, sign, submit). Published as `@tikka/sdk`. |
+| [**backend**](./backend/) | API layer - auth (SIWS), metadata, indexer merge, notifications. NestJS, Fastify, Supabase.                    |
+| [**indexer**](./indexer/) | Blockchain event ingestion - horizon -> decode -> postgresQL (+ Redis cache). NestJS.                          |
+| [**oracle**](./oracle/)   | Randomness oracle - listens for draw requests, computes VRF/PRNG, submits to contract. NestJS.                 |
 
 ## Local Development
 
@@ -57,20 +57,31 @@ cp oracle/.env.example oracle/.env.local
 
 ### Profiles
 
-| Profile | What starts |
-|---------|-------------|
-| `deps` | Postgres + Redis only |
-| `backend` | deps + backend API (port 3001) |
-| `indexer` | deps + indexer (port 3002) |
-| `oracle` | deps + oracle (port 3003) |
-| `full` | deps + backend + indexer + oracle |
-| `client` | full + Vite client (port 5173) |
+| Profile   | What starts                       |
+| --------- | --------------------------------- |
+| `deps`    | Postgres + Redis only             |
+| `backend` | deps + backend API (port 3001)    |
+| `indexer` | deps + indexer (port 3002)        |
+| `oracle`  | deps + oracle (port 3003)         |
+| `full`    | deps + backend + indexer + oracle |
+| `client`  | full + Vite client (port 5173)    |
+| `seed`    | PostgreSQL + one-shot demo seeder |
 
 ### Full stack (no client)
 
 ```bash
 docker compose --profile full up --build
 ```
+
+### Seed local demo data
+
+Populate the indexer database with the deterministic demo raffles, tickets, and users:
+
+```bash
+pnpm seed:demo
+```
+
+The command starts PostgreSQL if needed and seeds raffle IDs 9001–9005: live, ending soon, finalized, cancelled, and many-participant scenarios. Re-running it refreshes only those demo raffle IDs and their related tickets, users, and event records.
 
 ### Individual service + deps
 
@@ -123,4 +134,4 @@ Module boundary and package ownership guidance: [docs/contributing/MODULE_BOUNDA
 
 ## Contracts
 
-Soroban (Rust) raffle contracts are maintained **outside this repo***. Deploy and invoke them via the SDK once addresses are configured.
+Soroban (Rust) raffle contracts are maintained **outside this repo\***. Deploy and invoke them via the SDK once addresses are configured.

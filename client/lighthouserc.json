@@ -4,9 +4,7 @@
       "startServerCommand": "pnpm run preview",
       "startServerReadyPattern": "Local:.*http://localhost:([0-9]+)",
       "startServerReadyTimeout": 30000,
-      "url": [
-        "http://localhost:4173/"
-      ],
+      "url": ["http://localhost:4173/", "http://localhost:4173/raffles/9001"],
       "numberOfRuns": 3,
       "settings": {
         "preset": "desktop",

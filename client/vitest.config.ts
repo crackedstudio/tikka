@@ -36,6 +36,14 @@ export default defineConfig({
         find: /^@tikka\/sdk(\/.*)?$/,
         replacement: path.resolve(__dirname, '../sdk/src/index.light.ts'),
       },
+      ...['contract', 'events', 'raffle', 'ticket', 'user'].map((subpath) => ({
+        find: `@tikka/types/${subpath}`,
+        replacement: path.resolve(__dirname, `../packages/types/src/${subpath}.ts`),
+      })),
+      {
+        find: '@tikka/types',
+        replacement: path.resolve(__dirname, '../packages/types/src/index.ts'),
+      },
     ],
   },
 });
