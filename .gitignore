@@ -24,6 +24,7 @@ build*.txt
 *-output.txt
 *_output.txt
 *.tsbuildinfo
+/*.py
 debug_*.py
 fix_*.py
 PUSH_TO_BRANCH.sh
