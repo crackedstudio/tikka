@@ -18,7 +18,9 @@ module.exports = [
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: './tsconfig.json',
+        // Specs are excluded from the production program. Type-aware lint
+        // still has to see them, via the noEmit test program.
+        project: ['./tsconfig.json', './tsconfig.spec.json'],
         sourceType: 'module',
         tsconfigRootDir: __dirname,
       },
