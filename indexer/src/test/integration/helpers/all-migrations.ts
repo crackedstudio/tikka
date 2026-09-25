@@ -24,6 +24,7 @@ import { CreateWebhookDeliveries1760000000000 } from '../../../database/migratio
 import { RelaxTicketsPurchaseTxHashUnique1760000000001 } from '../../../database/migrations/1760000000001-RelaxTicketsPurchaseTxHashUnique';
 import { CreateWebhookDeadLetterDeliveries1770000000000 } from '../../../database/migrations/1770000000000-CreateWebhookDeadLetterDeliveries';
 import { AuditHotPathIndexes1770000000000 } from '../../../database/migrations/1770000000000-AuditHotPathIndexes';
+import { GrantBackendReaderRole1780000000000 } from '../../../database/migrations/1780000000000-GrantBackendReaderRole';
 
 export const ALL_INDEXER_MIGRATIONS = [
   CreateRaffles1700000000000,
@@ -48,6 +49,7 @@ export const ALL_INDEXER_MIGRATIONS = [
   RelaxTicketsPurchaseTxHashUnique1760000000001,
   CreateWebhookDeadLetterDeliveries1770000000000,
   AuditHotPathIndexes1770000000000,
+  GrantBackendReaderRole1780000000000,
 ];
 
 /** Default number of latest migrations to revert then re-apply. */

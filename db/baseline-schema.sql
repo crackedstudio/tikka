@@ -14,10 +14,27 @@
 -- update command above and push the baseline change as part of your PR.
 
 -- Enforce read-only access from backend to indexer-owned tables.
+--
+-- Table names are sourced directly from the @Entity(...) decorators in
+-- indexer/src/database/entities/.  Update this list whenever a new entity
+-- is added to that directory (see docs/database/ENTITY_OWNERSHIP.md).
 DO $$
 DECLARE
-    table_name text;
-    indexer_tables text[] := ARRAY['raffle', 'participant'];
+    tbl text;
+    indexer_tables text[] := ARRAY[
+        'raffles',
+        'tickets',
+        'users',
+        'raffle_events',
+        'platform_stats',
+        'platform_state',
+        'indexer_cursor',
+        'dead_letter_events',
+        'webhooks',
+        'webhook_deliveries',
+        'webhook_dead_letter_deliveries',
+        'archive_checkpoints'
+    ];
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'backend_reader') THEN
         CREATE ROLE backend_reader NOLOGIN;
@@ -25,11 +42,18 @@ BEGIN
 
     GRANT USAGE ON SCHEMA public TO backend_reader;
 
-    FOREACH table_name IN ARRAY indexer_tables
+    FOREACH tbl IN ARRAY indexer_tables
     LOOP
-        IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = table_name) THEN
-            EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE public.%I FROM backend_reader', table_name);
-            EXECUTE format('GRANT SELECT ON TABLE public.%I TO backend_reader', table_name);
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = tbl
+        ) THEN
+            RAISE WARNING 'backend_reader grant: table public.% does not exist — skipping. '
+                          'Run migrations before applying this baseline.',
+                          tbl;
+            CONTINUE;
         END IF;
+
+        EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE public.%I FROM backend_reader', tbl);
+        EXECUTE format('GRANT SELECT ON TABLE public.%I TO backend_reader', tbl);
     END LOOP;
 END $$;
