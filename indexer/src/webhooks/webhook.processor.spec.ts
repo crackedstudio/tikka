@@ -44,11 +44,16 @@ describe("WebhookProcessor", () => {
 
       await processor.process(job);
 
+      // The signature, source, and delivery-id headers ride along with the
+      // content type, so assert the content type is present rather than
+      // pinning the header set to exactly one entry.
       expect(mockFetch).toHaveBeenCalledWith(
         "https://example.com/hook",
         expect.objectContaining({
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: expect.objectContaining({
+            "Content-Type": "application/json",
+          }),
         }),
       );
       expect(deliveryRepo.save).toHaveBeenCalledWith(

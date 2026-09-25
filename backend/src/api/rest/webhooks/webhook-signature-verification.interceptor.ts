@@ -38,6 +38,16 @@ export class WebhookSignatureVerificationInterceptor
             'indexer';
 
         const secret = this.getSecretForSource(source);
+        if (!secret) {
+            // Fail closed. HMAC with an empty key is still a valid-looking
+            // signature, so treating an unconfigured secret as "" would let
+            // anyone who knows the scheme forge a request. A misconfigured
+            // receiver must reject, not accept everything.
+            throw new UnauthorizedException(
+                'Webhook signature secret is not configured',
+            );
+        }
+
         const expected = this.computeSignatureHex(secret, rawBody);
 
         const providedBuf = Buffer.from(signatureHeader, 'hex');
@@ -54,15 +64,20 @@ export class WebhookSignatureVerificationInterceptor
         return next.handle();
     }
 
-    private getSecretForSource(source: string): string {
+    /**
+     * Resolve the shared secret for a source.
+     *
+     * Returns `undefined` when unconfigured so the caller can reject rather
+     * than verify against an empty key.
+     */
+    private getSecretForSource(source: string): string | undefined {
         // Per-source env vars (only indexer is used today, but structure supports others)
         if (source === 'indexer') {
-            return this.configService.get<string>('INDEXER_WEBHOOK_SECRET') ?? '';
+            return this.configService.get<string>('INDEXER_WEBHOOK_SECRET') || undefined;
         }
 
-        // Fallback (still verify, but will fail if empty)
         const key = `${source.toUpperCase()}_WEBHOOK_SECRET`;
-        return this.configService.get<string>(key) ?? '';
+        return this.configService.get<string>(key) || undefined;
     }
 
     private computeSignatureHex(secret: string, rawBody: Buffer): string {

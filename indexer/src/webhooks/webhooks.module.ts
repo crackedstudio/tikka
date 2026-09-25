@@ -8,6 +8,7 @@ import { WebhookDlqController } from "./webhook-dlq.controller";
 import { WebhookDeadLetterService } from "./webhook-dlq.service";
 import { WebhookEntity } from "../database/entities/webhook.entity";
 import { WebhookDeliveryEntity } from "../database/entities/webhook-delivery.entity";
+import { WebhookDeadLetterEntity } from "../database/entities/webhook-dead-letter.entity";
 import { DatabaseModule } from "../database/database.module";
 import { MetricsModule } from "../metrics/metrics.module";
 import { MetricsService } from "../metrics/metrics.service";
@@ -15,7 +16,15 @@ import { MetricsService } from "../metrics/metrics.service";
 @Module({
   imports: [
     DatabaseModule,
-    TypeOrmModule.forFeature([WebhookEntity]),
+    // Listed explicitly rather than relying on DatabaseModule's exports: this
+    // module injects all three repositories, and the dead-letter one was
+    // missing from every forFeature/entities list — so WebhookDeadLetterService
+    // could not be constructed and the indexer failed to boot.
+    TypeOrmModule.forFeature([
+      WebhookEntity,
+      WebhookDeliveryEntity,
+      WebhookDeadLetterEntity,
+    ]),
     MetricsModule,
     BullModule.forRoot({
       connection: {

@@ -3,9 +3,21 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { randomUUID } from "crypto";
 import { WebhookDeliveryEntity } from "../database/entities/webhook-delivery.entity";
 import { WebhookDeadLetterService } from "./webhook-dlq.service";
 import { WebhookDlqReason } from "../database/entities/webhook-dead-letter.entity";
+import { getRequestIdHeaders } from "../common/request-context";
+import {
+  DELIVERY_TIMEOUT_MS,
+  classifyDeliveryFailure,
+} from "./webhook-delivery-policy";
+import {
+  WEBHOOK_SIGNATURE_HEADER,
+  WEBHOOK_SIGNATURE_SECRET_ENV,
+  buildWebhookHeaders,
+  resolveWebhookSignatureSecret,
+} from "./webhook-signature";
 
 const WEBHOOK_QUEUE = "webhook";
 
@@ -32,12 +44,34 @@ export class WebhookProcessor extends WorkerHost {
     const { url, eventType, payload } = job.data;
     let errorResponse: string | null = null;
 
+    // BullMQ calls `process` once per attempt, but all of those attempts are
+    // one logical delivery — so the id comes from the job, which is stable
+    // across them, and only falls back to a fresh uuid for a job without one.
+    // A per-call id would look like a brand new event to a subscriber that
+    // already processed an attempt whose response we never saw.
+    const deliveryId = job.id ? String(job.id) : randomUUID();
+
+    // Serialize once and sign these exact bytes — the consumer verifies the
+    // raw body, so signing a different serialization would not match.
+    const rawBody = JSON.stringify({ eventType, data: payload });
+
+    const secret = resolveWebhookSignatureSecret();
+    if (!secret) {
+      this.logger.warn(
+        `${WEBHOOK_SIGNATURE_SECRET_ENV} is not set — delivering to ${url} unsigned. ` +
+          `Any consumer that verifies ${WEBHOOK_SIGNATURE_HEADER} will reject it.`,
+      );
+    }
+
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventType, data: payload }),
-        signal: AbortSignal.timeout(5000),
+        headers: {
+          ...buildWebhookHeaders({ secret, rawBody, deliveryId }),
+          ...getRequestIdHeaders(),
+        },
+        body: rawBody,
+        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
       });
       if (response.ok) {
         await this.recordDelivery(url, eventType, payload, "success", job.attemptsMade + 1, null);
@@ -89,17 +123,11 @@ export class WebhookProcessor extends WorkerHost {
     );
   }
 
+  /**
+   * Delegates to the shared delivery policy so the queue path and the direct
+   * path cannot classify the same failure differently.
+   */
   private classifyError(message: string): WebhookDlqReason {
-    const lower = message.toLowerCase();
-    if (lower.includes("timeout") || lower.includes("abort")) {
-      return WebhookDlqReason.TIMEOUT;
-    }
-    if (lower.includes("econnrefused") || lower.includes("enotfound") || lower.includes("unreachable")) {
-      return WebhookDlqReason.UNREACHABLE;
-    }
-    if (lower.includes("network") || lower.includes("econnreset") || lower.includes("econnaborted")) {
-      return WebhookDlqReason.NETWORK_ERROR;
-    }
-    return WebhookDlqReason.HTTP_ERROR;
+    return classifyDeliveryFailure({ error: new Error(message) }).reason;
   }
 }
