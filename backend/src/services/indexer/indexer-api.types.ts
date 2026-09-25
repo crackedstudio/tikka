@@ -46,9 +46,10 @@ export interface IndexerApiRaffleDetail extends IndexerApiRaffleListItem {
 /** Response shape from GET /raffles. */
 export interface IndexerApiRaffleListResponse {
   data: IndexerApiRaffleListItem[];
-  total: number;
+  total: number | null;
   limit: number;
-  offset: number;
+  offset: number | null;
+  nextCursor?: string | null;
 }
 
 /** Item shape from GET /users/:address/history. */

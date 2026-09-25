@@ -75,7 +75,8 @@ export function mapRaffleDetail(raw: IndexerApiRaffleDetail): IndexerRaffleData 
 export function mapRaffleList(raw: IndexerApiRaffleListResponse): IndexerListRafflesResponse {
   return {
     raffles: (raw.data ?? []).map(mapRaffleListItem),
-    total: raw.total,
+    total: raw.total ?? null,
+    nextCursor: raw.nextCursor,
   };
 }
 

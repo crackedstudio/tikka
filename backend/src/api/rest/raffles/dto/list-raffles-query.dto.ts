@@ -30,6 +30,11 @@ export const ListRafflesQuerySchema = PaginationQuerySchema.extend({
     .max(12, 'asset code must be at most 12 characters')
     .regex(ASSET_CODE_RE, 'asset code must contain only alphanumeric characters')
     .optional(),
+  cursor: z
+    .string()
+    .min(1, 'cursor must be a non-empty string')
+    .optional()
+    .describe('Opaque cursor token for stable pagination across concurrent inserts'),
 });
 
 export class ListRafflesQueryDto {
@@ -62,9 +67,15 @@ export class ListRafflesQueryDto {
   limit?: number;
 
   @ApiPropertyOptional({
-    description: 'Number of records to skip',
+    description: 'Number of records to skip (offset pagination)',
     minimum: 0,
     default: 0,
   })
   offset?: number;
+
+  @ApiPropertyOptional({
+    description: 'Opaque cursor token for stable pagination across concurrent inserts. If provided, offset is ignored.',
+    type: 'string',
+  })
+  cursor?: string;
 }
