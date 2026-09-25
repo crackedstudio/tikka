@@ -42,8 +42,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 /**
- * Minimal .env loader — runs synchronously before any other module code
- * so that DATABASE_URL etc. are available when TypeORM initialises.
+ * Minimal .env loader — called before loading the service module so that
+ * DATABASE_URL etc. are available when TypeORM initialises.
  * Does not override values already present in process.env.
  */
 function loadEnvFile(file: string): void {
@@ -55,56 +55,84 @@ function loadEnvFile(file: string): void {
     const eqIdx = trimmed.indexOf('=');
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
-    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+    const val = trimmed
+      .slice(eqIdx + 1)
+      .trim()
+      .replace(/^["']|["']$/g, '');
     if (!(key in process.env)) process.env[key] = val;
   }
 }
 
-// Load env before importing service modules so DATABASE_URL is set in time.
-loadEnvFile('.env.local');
-loadEnvFile('.env');
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { fetchStatus } = require('./status.service') as typeof import('./status.service');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { renderTable, renderJson } = require('./status-display') as typeof import('./status-display');
-
-const args = process.argv.slice(2);
-const jsonMode      = args.includes('--json');
-const watchIdx      = args.indexOf('--watch');
-const watchMode     = watchIdx !== -1;
-const watchInterval = watchMode
-  ? (parseInt(args[watchIdx + 1] ?? '', 10) || 3000)
-  : 0;
-
-async function run(): Promise<void> {
-  const result = await fetchStatus();
-  const output = jsonMode ? renderJson(result) : renderTable(result);
-
-  if (watchMode && !jsonMode) {
-    // Clear screen for a clean refresh in watch mode
-    process.stdout.write('\x1b[2J\x1b[H');
-  }
-
-  console.log(output);
+export interface StatusArgs {
+  jsonMode: boolean;
+  watchInterval: number | null;
 }
 
-async function main(): Promise<void> {
-  if (!watchMode) {
-    await run();
+export function parseArgs(args: string[]): StatusArgs {
+  let jsonMode = false;
+  let watchInterval: number | null = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--json') {
+      jsonMode = true;
+    } else if (args[i] === '--watch' && watchInterval === null) {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith('--')) {
+        watchInterval = 3000;
+      } else if (/^[1-9]\d*$/.test(next) && Number.isSafeInteger(Number(next))) {
+        watchInterval = Number(next);
+        i++;
+      } else {
+        throw new Error('--watch interval must be a positive integer in milliseconds.');
+      }
+    } else {
+      throw new Error(`Unknown status option: ${args[i]}`);
+    }
+  }
+
+  return { jsonMode, watchInterval };
+}
+
+async function run(options: StatusArgs): Promise<number> {
+  try {
+    // Load service modules only after the env files have been read.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { fetchStatus } = require('./status.service') as typeof import('./status.service');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { renderTable, renderJson } =
+      require('./status-display') as typeof import('./status-display');
+    const result = await fetchStatus();
+    const output = options.jsonMode ? renderJson(result) : renderTable(result);
+
+    if (options.watchInterval !== null && !options.jsonMode) {
+      process.stdout.write('\x1b[2J\x1b[H');
+    }
+    console.log(output);
+
+    return result.db.status === 'ok' && result.cache.status === 'ok' && result.warnings.length === 0
+      ? 0
+      : 1;
+  } catch (error) {
+    console.error('Status fetch failed:', error);
+    return 1;
+  }
+}
+
+export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
+  loadEnvFile('.env.local');
+  loadEnvFile('.env');
+  const options = parseArgs(args);
+
+  if (options.watchInterval === null) {
+    process.exitCode = await run(options);
     return;
   }
 
-  // Watch mode: run immediately, then repeat on interval
-  await run();
-  const timer = setInterval(async () => {
-    try {
-      await run();
-    } catch (err) {
-      console.error('Status fetch error:', err);
-    }
-  }, watchInterval);
-
+  // Watch mode reports each snapshot but stays alive for recovery.
+  await run(options);
+  const timer = setInterval(() => {
+    void run(options);
+  }, options.watchInterval);
   process.on('SIGINT', () => {
     clearInterval(timer);
     console.log('\nExiting watch mode.');
@@ -112,7 +140,9 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
