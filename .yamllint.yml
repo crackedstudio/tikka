@@ -1,0 +1,34 @@
+# yamllint configuration for .github/workflows/
+# Focused on the failure mode this repo actually hit: duplicate top-level keys
+# that YAML parsers accept but GitHub Actions silently ignores.
+extends: default
+
+rules:
+  # ── The rule that catches the "two workflows concatenated" bug ──────────────
+  key-duplicates:
+    forbid-duplicated-merge-keys: true
+
+  # ── Relax stylistic rules that conflict with GitHub Actions conventions ─────
+  line-length:
+    max: 160
+    level: warning
+
+  truthy:
+    # GitHub Actions uses 'on:' as the event trigger key; yamllint would
+    # otherwise flag the bare word 'on' as a non-boolean truthy value.
+    allowed-values: ['true', 'false', 'on']
+    check-keys: false
+
+  comments:
+    # Allow inline comments after code (e.g., SHA pin comments like "# v4")
+    min-spaces-from-content: 1
+
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  # indentation: 2 spaces (default) is correct for GitHub Actions YAML
