@@ -1,6 +1,7 @@
 import LandingLayout from "./layouts/LandingLayout";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { STELLAR_CONFIG } from "./config/stellar";
 import { checkConnection } from "./services/rpcService";
 import { logger } from "./utils/logger";
@@ -49,7 +50,7 @@ const LazyRoute = ({
     Component,
     fallback = DEFAULT_FALLBACK,
 }: {
-    Component: React.LazyExoticComponent<any>;
+    Component: ComponentType;
     fallback?: RouteFallback;
 }) => (
     <QueryErrorResetBoundary>

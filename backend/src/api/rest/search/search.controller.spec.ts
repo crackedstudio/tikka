@@ -1,5 +1,5 @@
 import { SearchController } from './search.controller';
-import { SearchService } from '../../../services/search.service';
+import { SearchService } from '../../../services/search/search.service';
 
 describe('SearchController', () => {
   it('forwards q, limit, and offset and returns the service result', async () => {

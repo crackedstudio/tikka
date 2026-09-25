@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * useAuth Hook
  *
@@ -134,7 +135,7 @@ export function useAuth(): UseAuthReturn {
       // Store token and update store
       store.login(walletAddress, accessToken);
     } catch (error) {
-      console.error("Authentication error:", error);
+      logger.error("Authentication error:", error);
       store.setAuthState({
         status: "failed",
         isAuthenticated: false,

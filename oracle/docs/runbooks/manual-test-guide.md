@@ -426,6 +426,26 @@ npm run build
 - ✅ Unit tests pass
 - ✅ TypeScript compiles successfully
 
+## Component Health Verification
+
+To verify the overall health and build status of the Oracle components, run the following commands:
+
+```bash
+# 1. Run linter
+npm run lint
+
+# 2. Run health-specific tests
+npm run test -- --testPathPattern="health"
+
+# 3. Build the oracle
+npm run build
+```
+
+Expected Results:
+- ✅ Linting passes without errors
+- ✅ Health tests pass
+- ✅ Build succeeds
+
 ---
 
 ## Integration Test Scenario

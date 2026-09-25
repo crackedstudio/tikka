@@ -1,112 +1,33 @@
----
-name: E2E Tests
-
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  schedule:
-    - cron: '0 2 * * *'
-
-concurrency:
-  group: '{{ github.workflow }}--{{ github.ref }}'
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-
-jobs:
-  e2e-tests:
-    name: e2e-tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38c85af677262 # v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933a5288cacae8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run lint
-        run: npm run lint
-
-      - name: Run tests
-        run: npm run test
-
-      - name: Build project
-        run: npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@033fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: build-artifacts
-          path: dist
-
-  integration-tests:
-    name: integration-tests
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38c85af677262 # v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933a5288cacae8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run integration tests
-        run: npm run test:integration
-
----
 name: Playwright Tests
 
 on:
-  push:
-    branches: [main, master]
   pull_request:
     branches: [main, master]
-
-concurrency:
-  group: '{{ github.workflow }}--{{ github.ref }}'
-  cancel-in-progress: true
+  push:
+    branches: [main, master]
 
 permissions:
   contents: read
 
 jobs:
   test:
-    timeout-minutes: 60
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./client
     steps:
-    - uses: actions/checkout@3d3c42e55ac5ba8058257da76410c181273ba90b1 # v7
-    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
-      with:
-        node-version-file: .nvmrc
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: playwright-report
-        path: client/playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: client/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: client/playwright-report/
+          retention-days: 30

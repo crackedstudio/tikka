@@ -14,6 +14,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "typesVersions": {
+    "*": {
+      "network": [
+        "dist/network/circuit-breaker.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": {
@@ -26,14 +33,14 @@
       }
     },
     "./light": {
-      "import": {
-        "types": "./dist/esm/light.d.ts",
-        "default": "./dist/esm/light.js"
-      },
-      "require": {
-        "types": "./dist/cjs/light.d.ts",
-        "default": "./dist/cjs/light.js"
-      }
+      "import": "./dist/light/index.light.js",
+      "require": "./dist/light/index.light.js",
+      "types": "./dist/light/index.light.d.ts"
+    },
+    "./network": {
+      "import": "./dist/network/circuit-breaker.js",
+      "require": "./dist/network/circuit-breaker.js",
+      "types": "./dist/network/circuit-breaker.d.ts"
     }
   },
   "bin": {
@@ -41,13 +48,14 @@
   },
   "scripts": {
     "cli": "node bin/tikka.cjs",
-    "build": "nest build && tsc -p tsconfig.light.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "nest build",
+    "build:read": "tsc -p tsconfig.read.json",
     "build:light": "tsc -p tsconfig.light.json",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "typecheck": "tsc --noEmit",
     "test": "jest --config jest.config.cjs",
     "test:testnet": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs",
     "test:integration": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs --testPathPattern=test/integration",
@@ -77,7 +85,14 @@
       "path": "dist/cjs/light.js",
       "limit": "25 Kb",
       "gzip": true,
-      "ignore": ["@nestjs/common", "@nestjs/core", "@stellar/stellar-sdk", "rxjs", "reflect-metadata", "bignumber.js"]
+      "ignore": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@stellar/stellar-sdk",
+        "rxjs",
+        "reflect-metadata",
+        "bignumber.js"
+      ]
     }
   ],
   "dependencies": {
@@ -93,7 +108,8 @@
     "inquirer": "^14.0.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@tikka/types": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
@@ -102,8 +118,8 @@
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.1.1",
-    "@typescript-eslint-plugin": "^8.56.1",
-    "@typescript-parser": "^8.56.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "esbuild": "^0.25.0",
     "eslint": "^10.0.2",
     "fast-check": "^4.7.0",

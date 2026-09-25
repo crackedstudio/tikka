@@ -15,6 +15,8 @@ class MockEventHandler implements IEventHandler {
     _value: xdr.ScVal,
     _rawEvent: RawSorobanEvent,
   ): DomainEvent | null {
+    // Deliberately omits `schemaVersion` so the registry's routing-version
+    // fallback stays exercised (see "Schema Version Routing" below).
     return {
       type: "RaffleCreated" as const,
       raffle_id: 1,
@@ -27,7 +29,7 @@ class MockEventHandler implements IEventHandler {
         metadata_cid: "",
         allow_multiple: true,
       },
-    };
+    } as DomainEvent;
   }
 }
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NestMiddleware, ForbiddenException } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { GeoService } from '../services/geo.service';
+import { GeoService } from '../services/geo/geo.service';
 import { env } from '../config/env.config';
 
 /**

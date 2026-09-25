@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import React, { useState } from "react";
 import Modal from "./modals/Modal";
 import ProcessingRaffleCreation from "./modals/ProcessingRaffleCreation";
@@ -190,7 +191,7 @@ const CreateRaffleButton = ({
       }, 1200);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create raffle";
-      console.error("Error creating raffle:", err);
+      logger.error("Error creating raffle:", err);
       setCurrentStep(message);
       setProgress(0);
       onError?.(message);

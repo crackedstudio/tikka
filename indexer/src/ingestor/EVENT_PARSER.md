@@ -78,14 +78,49 @@ indexer/src/ingestor/
 `ContractPaused`, `ContractUnpaused`, `AdminTransferProposed`,
 `AdminTransferAccepted`.
 
-Covered end-to-end (real XDR → parser → handler) in `event-parser.service.spec.ts`.
+All are covered end-to-end (real XDR → parser → handler) in
+`event-parser.service.spec.ts`, and structurally in
+`handlers/event-coverage.spec.ts`.
+
+## The typed event union
+
+`event.types.ts` defines `DomainEvent` as a **discriminated union keyed by the
+contract event topic** (the symbol in `topics[0]`): a `ContractEventPayloadMap`
+maps each topic to its decoded payload shape, and the union adds the `type`
+discriminant plus a required `schemaVersion` to every entry. The parser returns
+this union, so downstream code narrows once at compile time instead of
+re-narrowing payloads by hand in every handler.
+
+- `CONTRACT_EVENT_TOPICS` — exhaustive runtime list of topics.
+- `EventOfType<T>` / `RaffleCreatedEvent` etc. — single-variant extracts.
+- `EventPayload<E>` — a variant's payload without the tags; what
+  `BaseEventHandler<E>.decode()` returns so the base class can stamp
+  `type` + `schemaVersion` exactly once.
+- `assertNever` — exhaustiveness guard for switches over the union.
+
+The payload shapes mirror the contract ABI documented in
+`sdk/src/contract/bindings.ts`. When the SDK ships machine-generated contract
+bindings (`stellar contract bindings typescript … --output-dir
+./src/contract/generated`), re-point `ContractEventPayloadMap` at those
+generated types instead of re-declaring the shapes here a second time — the
+map is the single seam.
 
 ## Adding a new event
 
-1. Add the event shape to `event.types.ts` and the `DomainEvent` union.
-2. Add an `IEventHandler` in `handlers/` (extend `BaseEventHandler`).
-3. Register it in `event-handlers.module.ts`.
-4. Add a decode test to `event-parser.service.spec.ts`.
+1. Add the topic + payload shape to `ContractEventPayloadMap` in
+   `event.types.ts` (this extends the `DomainEvent` union).
+2. Add a handler in `handlers/` extending `BaseEventHandler<ThatEvent>` and
+   implementing the typed `decode()`.
+3. Register it in `event-handlers.module.ts` (`handlersByTopic` record).
+4. Route it in `CursorAdvance.applyEvent` and the
+   `DuplicateDetector.eventNeedsDatabase` / `getHandlerName` switches
+   (the dispatcher still mirrors those switches for leftover helpers).
+5. Add a decode test to `event-parser.service.spec.ts` and a fixture to
+   `handlers/event-coverage.spec.ts`.
+
+Steps 3–4 are enforced by the compiler: the `Record<ContractEventTopic, …>`
+handler map and the exhaustive `never`-checked switches fail the build until
+the new event is handled.
 
 No changes to `EventParserService` are required.
 

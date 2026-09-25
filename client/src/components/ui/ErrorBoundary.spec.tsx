@@ -29,6 +29,9 @@ const renderWithRouter = (
     );
 
 describe("ErrorBoundary", () => {
+    // The suite stubs console.error to keep expected error-boundary
+    // output out of the test report.
+    /* eslint-disable no-console */
     const originalError = console.error;
 
     beforeEach(() => {
@@ -39,6 +42,7 @@ describe("ErrorBoundary", () => {
     afterEach(() => {
         console.error = originalError;
     });
+    /* eslint-enable no-console */
 
     it("renders the default fallback with a working Try Again action when a child throws", async () => {
         let throwNow = true;

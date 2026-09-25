@@ -29,6 +29,7 @@ describe("DuplicateDetector", () => {
   it("prefers the raw transaction id when both id and paging token exist", () => {
     const event: DomainEvent = {
       type: "RaffleCancelled",
+      schemaVersion: 1,
       raffle_id: 1,
       reason: "expired",
     };

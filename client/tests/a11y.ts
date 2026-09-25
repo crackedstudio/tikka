@@ -2,6 +2,10 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import type { AxeResults, Result } from 'axe-core';
 
+// a11y helper: violation reporting is its purpose (runs under Playwright,
+// so the app's Vite logger is unavailable).
+/* eslint-disable no-console */
+
 /**
  * Violation severity levels that axe recognises.
  * We treat "serious" and "critical" as CI-failing by default.
@@ -150,3 +154,4 @@ export async function expectFocusTrap(
         );
     }
 }
+/* eslint-enable no-console */

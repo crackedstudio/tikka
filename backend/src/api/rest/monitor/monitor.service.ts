@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_CLIENT } from '../../../services/supabase.provider';
+import { SUPABASE_CLIENT } from '../../../services/storage/supabase.provider';
 import {
   ErrorRecord,
   LatencyPoint,

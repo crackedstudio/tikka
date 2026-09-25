@@ -1,3 +1,4 @@
+import { logger } from './logger';
 /**
  * Calendar Utilities for Raffle End Time Integration
  * 
@@ -235,7 +236,7 @@ export function downloadIcsFile(
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
     } catch (error) {
-        console.error("Failed to download ICS file:", error);
+        logger.error("Failed to download ICS file:", error);
     }
 }
 

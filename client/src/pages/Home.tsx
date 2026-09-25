@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRaffles } from "../hooks/useRaffles";
 import { fetchRaffles } from "../services/raffleService";
 import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
-import type { ApiRaffleListItem } from "../types/types";
+import type { ApiRaffleListItem } from "../types/raffle";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { useTranslation } from "react-i18next";
 import { mergeRafflesById } from "./mergeRafflesById";

@@ -4,13 +4,16 @@ import { DomainEvent } from "./event.types";
 import { EventHandlerRegistry } from "./event-handler-registry.service";
 import { IEventParser, RawSorobanEvent } from "./event-parser.interface";
 import { resolveSchemaVersion } from "./handlers/schema-version";
+import { asString } from "./handlers/decode-utils";
 
 /**
  * Extensible event parser service.
  * Uses a dynamic registry system to support multiple contracts and custom event handlers.
  *
  * This is the single, canonical parser for the ingestion pipeline; it
- * implements the {@link IEventParser} contract.
+ * implements the {@link IEventParser} contract and returns the typed
+ * {@link DomainEvent} discriminated union (keyed by the contract event
+ * topic in `topics[0]`), so downstream code narrows once, at compile time.
  */
 @Injectable()
 export class EventParserService implements IEventParser {
@@ -33,8 +36,8 @@ export class EventParserService implements IEventParser {
 
       if (topics.length === 0) return null;
 
-      // topic[0] usually contains the event name (symbol)
-      const eventName = scValToNative(topics[0]);
+      // topic[0] usually contains the event name (symbol) — the union discriminant
+      const eventName = asString(scValToNative(topics[0])) ?? "";
       const schemaVersion = resolveSchemaVersion(rawEvent);
       const contractAddress = this.getContractAddress(rawEvent);
 
@@ -75,11 +78,11 @@ export class EventParserService implements IEventParser {
    * This may vary depending on your event structure
    */
   private getContractAddress(event: RawSorobanEvent): string {
-    // Try to extract from event structure
-    // Adjust based on your actual event format
-    const contractId =
-      (event as any).contractId || (event as any).address || "default";
-    return contractId;
+    // Prefer the typed `contractId` field; tolerate alternative spellings
+    // some Horizon payloads use, without falling back to `any`.
+    if (event.contractId) return event.contractId;
+    const alt = (event as unknown as Record<string, unknown>).address;
+    return typeof alt === "string" && alt.length > 0 ? alt : "default";
   }
 
   /**

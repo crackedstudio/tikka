@@ -11,6 +11,7 @@ import {
 import { RandomnessResult } from '../queue/queue.types';
 import { AuditLogService } from '../audit/audit-log.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { AlertingService } from '../health/alerting.service';
 import * as crypto from 'crypto';
 import * as http from 'http';
 import * as https from 'https';
@@ -30,6 +31,7 @@ export class MultiOracleCoordinatorService {
     private readonly configService: ConfigService,
     private readonly auditLog: AuditLogService,
     private readonly metrics: MetricsService,
+    private readonly alerting: AlertingService,
   ) {
     this.multiTimeoutMs =
       this.configService.get<number>('ORACLE_MULTI_TIMEOUT_MS') ?? 10_000;
@@ -131,10 +133,40 @@ export class MultiOracleCoordinatorService {
 
       this.metrics.recordDivergence(Object.keys(consensusCheck.seedGroups).length);
 
-      // Fall back to local result if consensus fails
+      // Never fallback to a single oracle's value when consensus fails.
+      // Return the plurality-based aggregation for audit/reference but
+      // mark consensusReached: false so the caller refuses to submit.
+      const pluralityGroup = Object.entries(consensusCheck.seedGroups)
+        .reduce<[string, number] | null>((best, [hash, count]) =>
+          best === null || count > best[1] ? [hash, count] : best,
+          null,
+        );
+
+      let pluralityAggregated: RandomnessResult;
+      if (pluralityGroup && consensusCheck.largestGroupSize > 1) {
+        // Use the plurality group's aggregated result instead of a single node
+        const pluralityResults = allResults.filter(
+          r => this.hashSeed(r.result.seed) === pluralityGroup[0],
+        );
+        const seeds = pluralityResults.map(r => r.result.seed);
+        const proofs = pluralityResults.map(r => r.result.proof);
+        pluralityAggregated = {
+          seed: this.xorSeeds(seeds),
+          proof: this.combineProofs(proofs),
+        };
+      } else {
+        // All unique values — aggregate everything (no single oracle's value dominates)
+        const seeds = allResults.map(r => r.result.seed);
+        const proofs = allResults.map(r => r.result.proof);
+        pluralityAggregated = {
+          seed: this.xorSeeds(seeds),
+          proof: this.combineProofs(proofs),
+        };
+      }
+
       return {
-        aggregated: localResult,
-        usedOracles: [localOracleId],
+        aggregated: pluralityAggregated,
+        usedOracles: allResults.map(r => r.id),
         fellBack: true,
         consensusReached: false,
       };
@@ -205,6 +237,9 @@ export class MultiOracleCoordinatorService {
           headers: {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(body),
+            // Propagate the correlation id so the peer oracle can attach it to
+            // its own logs for the same logical draw operation.
+            'x-request-id': requestId,
           },
           timeout: this.multiTimeoutMs,
         },
@@ -284,12 +319,45 @@ export class MultiOracleCoordinatorService {
     return this.submissionTrackers.has(this.getKey(raffleId, requestId));
   }
 
+  /**
+   * Returns a snapshot of all active (incomplete) trackers.  Used by
+   * monitoring and tests to detect stuck or non-revealing nodes.
+   */
+  getPendingTrackers(): Array<{
+    raffleId: number;
+    requestId: string;
+    submissions: number;
+    threshold: number;
+    ageMs: number;
+  }> {
+    const now = Date.now();
+    const pending: Array<{
+      raffleId: number;
+      requestId: string;
+      submissions: number;
+      threshold: number;
+      ageMs: number;
+    }> = [];
+    for (const [key, tracker] of this.submissionTrackers) {
+      if (tracker.completed) continue;
+      pending.push({
+        raffleId: tracker.raffleId,
+        requestId: tracker.requestId,
+        submissions: tracker.submissions.size,
+        threshold: tracker.threshold,
+        ageMs: tracker.consensusStartTime ? now - tracker.consensusStartTime : 0,
+      });
+    }
+    return pending;
+  }
+
   recordSubmission(
     raffleId: number,
     requestId: string,
     oracleId: string,
     publicKey: string,
     randomness: RandomnessResult,
+    commitmentHash?: string,
   ): { ready: boolean; aggregated?: AggregatedRandomness } {
     const key = this.getKey(raffleId, requestId);
     let tracker = this.submissionTrackers.get(key);
@@ -303,12 +371,42 @@ export class MultiOracleCoordinatorService {
       return { ready: false };
     }
 
+    // ── Commit-reveal equivocation check ──────────────────────────────────
+    // If the caller provided a commitment hash, verify that the revealed seed
+    // actually matches it.  A mismatch means the oracle is equivocating
+    // (committed to one value but revealed another), so we exclude it and
+    // alert the operator.
+    if (commitmentHash) {
+      const actualHash = this.hashSeed(randomness.seed);
+      if (actualHash !== commitmentHash) {
+        this.logger.warn({
+          message: 'Oracle commit-reveal mismatch — excluding oracle',
+          raffleId,
+          requestId,
+          oracleId,
+          expectedCommitment: commitmentHash,
+          actualHash,
+        });
+
+        void this.alerting.fire({
+          severity: 'critical',
+          summary: `Oracle ${oracleId} commit-reveal mismatch for raffle ${raffleId}`,
+          details: `Committed ${commitmentHash} but revealed ${actualHash}`,
+          dedupKey: `commit-reveal-mismatch:${oracleId}:${requestId}`,
+          context: { raffleId, requestId, oracleId },
+        });
+
+        return { ready: false };
+      }
+    }
+
     tracker.submissions.set(oracleId, {
       oracleId,
       publicKey,
       seed: randomness.seed,
       proof: randomness.proof,
       timestamp: Date.now(),
+      commitmentHash,
     });
 
     if (tracker.submissions.size >= tracker.threshold) {
@@ -387,17 +485,6 @@ export class MultiOracleCoordinatorService {
     }
 
     return { ready: false };
-  }
-
-  getPendingTrackers() {
-    return Array.from(this.submissionTrackers.values())
-      .filter(t => !t.completed)
-      .map(t => ({
-        raffleId: t.raffleId,
-        requestId: t.requestId,
-        submissions: t.submissions.size,
-        threshold: t.threshold,
-      }));
   }
 
   // ===============================

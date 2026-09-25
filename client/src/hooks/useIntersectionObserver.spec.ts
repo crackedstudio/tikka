@@ -21,7 +21,7 @@ describe('useIntersectionObserver', () => {
         vi.spyOn(window, 'IntersectionObserver').mockImplementation(
             (callback: IntersectionObserverCallback) => {
                 mockObserverCallback = callback;
-                return mockObserverInstance as any;
+                return mockObserverInstance as unknown as IntersectionObserver;
             }
         );
     });
@@ -42,8 +42,8 @@ describe('useIntersectionObserver', () => {
 
         // Trigger the observer callback with intersecting entry
         mockObserverCallback([
-            { isIntersecting: true, target: element } as IntersectionObserverEntry
-        ] as any);
+            { isIntersecting: true, target: element } as IntersectionObserverEntry,
+        ] as IntersectionObserverEntry[]);
 
         expect(onIntersect).toHaveBeenCalledOnce();
     });
@@ -59,8 +59,8 @@ describe('useIntersectionObserver', () => {
 
         // Trigger the observer callback with non-intersecting entry
         mockObserverCallback([
-            { isIntersecting: false, target: element } as IntersectionObserverEntry
-        ] as any);
+            { isIntersecting: false, target: element } as IntersectionObserverEntry,
+        ] as IntersectionObserverEntry[]);
 
         expect(onIntersect).not.toHaveBeenCalled();
     });
@@ -166,8 +166,8 @@ describe('useIntersectionObserver', () => {
 
         // First callback should be called
         mockObserverCallback([
-            { isIntersecting: true, target: element } as IntersectionObserverEntry
-        ] as any);
+            { isIntersecting: true, target: element } as IntersectionObserverEntry,
+        ] as IntersectionObserverEntry[]);
         expect(onIntersect1).toHaveBeenCalledOnce();
 
         // Update callback
@@ -179,8 +179,8 @@ describe('useIntersectionObserver', () => {
 
         // Second callback should be called
         mockObserverCallback([
-            { isIntersecting: true, target: element } as IntersectionObserverEntry
-        ] as any);
+            { isIntersecting: true, target: element } as IntersectionObserverEntry,
+        ] as IntersectionObserverEntry[]);
         expect(onIntersect2).toHaveBeenCalledOnce();
         expect(onIntersect1).not.toHaveBeenCalled();
     });
@@ -200,7 +200,7 @@ describe('useIntersectionObserver', () => {
         mockObserverCallback([
             { isIntersecting: true, target: element1 } as IntersectionObserverEntry,
             { isIntersecting: false, target: element2 } as IntersectionObserverEntry,
-        ] as any);
+        ] as IntersectionObserverEntry[]);
 
         // Should only call once (for the intersecting entry)
         expect(onIntersect).toHaveBeenCalledOnce();

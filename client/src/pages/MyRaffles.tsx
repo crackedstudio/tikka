@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import React, { useState, useEffect } from "react";
 import Skeleton from "../components/ui/Skeleton";
 import EmptyState from "../components/ui/EmptyState";
@@ -11,7 +12,7 @@ const useAuth = () => {
 };
 
 const useNavigate = () => {
-  return (path: string) => console.log(`Navigating to ${path}`);
+  return (path: string) => logger.log(`Navigating to ${path}`);
 };
 
 interface ApiUserHistoryItem {
@@ -69,7 +70,7 @@ export const MyRaffles: React.FC = () => {
         setEnteredRaffles(historyRes);
         setCreatedRaffles(createdRes);
       } catch (error) {
-        console.error("Failed to load dashboard data", error);
+        logger.error("Failed to load dashboard data", error);
       } finally {
         setLoading(false);
       }

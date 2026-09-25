@@ -15,27 +15,27 @@ export class DlqReplayResponseDto {
   /**
    * Job ID for tracking the async replay operation.
    */
-  jobId: string;
+  jobId!: string;
 
   /**
    * Human-readable message.
    */
-  message: string;
+  message!: string;
 }
 
 export class DlqStatusResponseDto {
   /**
    * Current number of entries in the DLQ.
    */
-  depth: number;
+  depth!: number;
 
   /**
    * ISO8601 timestamp of the last replay operation (null if never replayed).
    */
-  lastReplayAt: string | null;
+  lastReplayAt!: string | null;
 
   /**
    * Number of entries processed in the last replay.
    */
-  lastReplayCount: number;
+  lastReplayCount!: number;
 }

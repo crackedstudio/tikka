@@ -36,6 +36,7 @@ import type { Transaction, FeeBumpTransaction } from "@stellar/stellar-sdk";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { CONTRACT_CONFIG } from "../config/contract";
 import { getAccountAddress, signTransaction } from "./walletService";
+import { logger } from "../utils/logger";
 import {
   runPipeline,
   sdkErrorToPipelineError,
@@ -45,9 +46,9 @@ import type {
   ContractRaffleData,
   ContractUserParticipation,
   CreateRaffleParams,
-  BuyTicketParams,
   ContractResponse,
-} from "../types/types";
+} from "../types/contract";
+import type { BuyTicketParams } from "../types/ticket";
 
 /** Pre-confirmation fee preview for raffle creation (simulation-based, no submit). */
 export interface CreateRaffleEstimate {
@@ -58,6 +59,8 @@ export interface CreateRaffleEstimate {
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+type ContractReadValue = Record<string, unknown>;
 
 // ─── Wallet adapter bridge ────────────────────────────────────────────────────
 // Bridges the SDK WalletAdapter contract onto the legacy wallet kit wrapper so
@@ -237,7 +240,7 @@ export async function createRaffle(
   options?: PipelineOptions,
 ): Promise<PipelineResult> {
   if (import.meta.env.VITE_TEST_MODE === "true") {
-    console.log(
+    logger.log(
       "✍️ sdkClient.createRaffle (test mode): Mocked success",
       params,
     );
@@ -371,7 +374,7 @@ export async function getRaffleData(
 ): Promise<ContractResponse<ContractRaffleData>> {
   try {
     assertConfigured();
-    const res = await sdkContractService.simulateReadOnly<any>(
+    const res = await sdkContractService.simulateReadOnly<ContractReadValue>(
       ContractFn.GET_RAFFLE_DATA,
       [raffleId],
     );
@@ -442,7 +445,7 @@ export async function getUserParticipation(
 ): Promise<ContractResponse<ContractUserParticipation | null>> {
   try {
     assertConfigured();
-    const res = await sdkContractService.simulateReadOnly<any>(
+    const res = await sdkContractService.simulateReadOnly<ContractReadValue>(
       CONTRACT_CONFIG.functions.getUserParticipation,
       [userAddress, raffleId],
     );

@@ -15,11 +15,11 @@ interface WalletProviderProps {
 
 export function WalletProvider({ children }: WalletProviderProps) {
   const wallet = useWallet();
-  const requiredNetwork = normalizeNetworkName(import.meta.env.VITE_STELLAN_NETWORK || "testnet");
+  const requiredNetwork = normalizeNetworkName(import.meta.env.VITE_STELLAR_NETWORK || "testnet");
   const networkMismatch = useMemo(() => {
     if (!wallet.isConnected || !wallet.network) return false;
     return wallet.network.toLowerCase() !== requiredNetwork.toLowerCase();
-  }, [wallet.isConnected, wallet.network, requiredNetwork.]);
+  }, [wallet.isConnected, wallet.network, requiredNetwork]);
   const value: WalletContextType = {
     ...wallet,
     networkMismatch,

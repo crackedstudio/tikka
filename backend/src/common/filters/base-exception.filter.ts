@@ -9,6 +9,7 @@ import {
 import * as Sentry from '@sentry/node';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { REQUEST_ID_HEADER } from '../../middleware/request-id.middleware';
+import { getRequestId } from '../../middleware/request-context';
 
 export const ErrorCode = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
@@ -66,7 +67,7 @@ export class BaseExceptionFilter implements ExceptionFilter {
       statusCode,
       error,
       message,
-      requestId: request.headers?.[REQUEST_ID_HEADER] as string | undefined,
+      requestId: getRequestId() ?? (request.headers?.[REQUEST_ID_HEADER] as string | undefined),
       timestamp: new Date().toISOString(),
       path: request.url,
     };

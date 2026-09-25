@@ -31,7 +31,7 @@ describe("useWallet", () => {
       disconnect: vi.fn(),
       signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
     };
-    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as any);
+    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as unknown as ReturnType<typeof walletSdk.getWalletAdapter>);
     
     const { result } = renderHook(() => useWallet());
     
@@ -53,7 +53,7 @@ describe("useWallet", () => {
       disconnect: vi.fn().mockResolvedValue(undefined),
       signTransaction: vi.fn(),
     };
-    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as any);
+    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as unknown as ReturnType<typeof walletSdk.getWalletAdapter>);
     
     const { result } = renderHook(() => useWallet());
     
@@ -77,7 +77,7 @@ describe("useWallet", () => {
       disconnect: vi.fn(),
       signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
     };
-    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as any);
+    vi.mocked(walletSdk.getWalletAdapter).mockReturnValue(adapter as unknown as ReturnType<typeof walletSdk.getWalletAdapter>);
     
     const { result } = renderHook(() => useWallet());
     

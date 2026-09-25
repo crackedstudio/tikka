@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * useUserSubscriptions Hook
  *
@@ -46,7 +47,7 @@ export function useUserSubscriptions(): UseUserSubscriptionsReturn {
       }
     } catch (err) {
       if (current === requestId.current) {
-        console.error('Error loading subscriptions:', err);
+        logger.error('Error loading subscriptions:', err);
         setError(err instanceof Error ? err.message : 'Failed to load subscriptions');
       }
     } finally {
@@ -68,7 +69,7 @@ export function useUserSubscriptions(): UseUserSubscriptionsReturn {
         }
       } catch (err) {
         if (current === requestId.current) {
-          console.error('Error unsubscribing:', err);
+          logger.error('Error unsubscribing:', err);
           setError(err instanceof Error ? err.message : 'Failed to unsubscribe');
         }
       } finally {

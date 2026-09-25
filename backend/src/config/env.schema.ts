@@ -133,6 +133,9 @@ const envSchemaInner = z
       .int()
       .positive()
       .default(600),
+
+    // Feature flags
+    FEATURE_RAFFLE_TICKET_PURCHASE: z.coerce.boolean().default(false),
   })
   .passthrough();
 

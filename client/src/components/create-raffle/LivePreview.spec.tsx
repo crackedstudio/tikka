@@ -5,15 +5,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import LivePreview from "./LivePreview";
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 
 describe("LivePreview", () => {
   beforeEach(() => {
     // Mock URL.createObjectURL
-    global.URL = {
-      createObjectURL: vi.fn(() => "mock-url"),
-      revokeObjectURL: vi.fn(),
-    } as any;
+    Object.defineProperty(globalThis, "URL", {
+      value: {
+        createObjectURL: vi.fn(() => "mock-url"),
+        revokeObjectURL: vi.fn(),
+      },
+      configurable: true,
+    });
   });
 
   it("renders with empty form data without console errors", () => {

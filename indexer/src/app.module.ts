@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { CacheModule } from "./cache/cache.module";
 import { ProcessorsModule } from "./processors/processors.module";
@@ -11,6 +11,7 @@ import { ApiModule } from "./api/api.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { TracingModule } from "./tracing/tracing.module";
+import { RequestIdMiddleware } from "./common/request-id.middleware";
 
 @Module({
   imports: [
@@ -42,4 +43,8 @@ import { TracingModule } from "./tracing/tracing.module";
   ],
   controllers: [],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes("*");
+  }
+}

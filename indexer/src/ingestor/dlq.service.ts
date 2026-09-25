@@ -11,6 +11,19 @@ import { MetricsService } from '../metrics/metrics.service';
 export { DlqReason };
 
 /**
+ * Reads the contract address off a raw DLQ event payload without `any`.
+ * Raw events are untyped at this boundary (they may be re-hydrated JSON).
+ */
+function readContractId(rawEvent: unknown): string | null {
+  const record =
+    rawEvent !== null && typeof rawEvent === "object"
+      ? (rawEvent as Record<string, unknown>)
+      : {};
+  const id = record.contractId ?? record.contract_id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+/**
  * The shape passed by IngestionDispatcherService when an event fails.
  * Includes rich context for triage: handler name, schema version, timing, and
  * the original raw payload for later replay.
@@ -141,8 +154,11 @@ export class DlqService {
    * visible to the HTTP API, CLI, and metrics — all reading the same table.
    */
   async enqueue(record: DeadLetterEvent): Promise<void> {
-    const raw = record.rawEvent as Record<string, unknown>;
-    const contractId = (raw['contractId'] as string | undefined) ?? null;
+    const raw =
+      record.rawEvent !== null && typeof record.rawEvent === "object"
+        ? (record.rawEvent as Record<string, unknown>)
+        : {};
+    const contractId = readContractId(record.rawEvent);
     const retryable = REASON_RETRYABLE[record.reason];
 
     await this.repo.save(

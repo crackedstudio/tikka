@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
 import { WebhookDeliveryWorker } from './webhook-delivery.worker';
-import { SUPABASE_CLIENT } from '../services/supabase.provider';
+import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
 import { Job } from 'bullmq';
 import { WebhookDeliveryJobData } from './webhook-delivery.constants';
 
@@ -183,6 +183,25 @@ describe('WebhookDeliveryWorker', () => {
         expect.stringContaining('Failed to record dead letter'),
         expect.anything(),
       );
+    });
+  });
+
+  describe('onApplicationShutdown', () => {
+    it('should call worker.close() to drain in-flight jobs', async () => {
+      const closeMock = jest.fn().mockResolvedValue(undefined);
+      // WorkerHost stores the BullMQ worker on a protected property
+      (worker as any).worker = { close: closeMock };
+
+      await worker.onApplicationShutdown();
+
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not throw if worker is not yet initialised', async () => {
+      // Simulate shutdown before the worker property is assigned
+      (worker as any).worker = undefined;
+
+      await expect(worker.onApplicationShutdown()).resolves.toBeUndefined();
     });
   });
 });

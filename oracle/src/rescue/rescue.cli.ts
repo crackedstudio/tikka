@@ -1,5 +1,5 @@
-import { RescuePresenter } from './rescue-presenter';
 #!/usr/bin/env node
+import { RescuePresenter } from './rescue-presenter';
 
 /**
  * Oracle Rescue CLI

@@ -10,6 +10,7 @@ import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { RandomnessMethod, RandomnessResult } from '../queue/queue.types';
 import { LagMonitorService } from '../health/lag-monitor.service';
 import { HealthService } from '../health/health.service';
+import { MetricsService } from '../metrics/metrics.service';
 import {
   DrawRequestStatus,
   StuckDrawLedgerRange,
@@ -38,18 +39,6 @@ interface DrawCandidate {
   attempts?: number;
 }
 
-export interface RescueLogEntry {
-  timestamp: Date;
-  action: 'RE_ENQUEUE' | 'FORCE_SUBMIT' | 'FORCE_FAIL';
-  raffleId: number;
-  requestId: string;
-  jobId?: string;
-  operator: string;
-  reason: string;
-  result: 'SUCCESS' | 'FAILURE';
-  details?: any;
-}
-
 export interface JobInfo {
   id: string;
   raffleId: number;
@@ -73,10 +62,13 @@ export class RescueDetectorService {
     private readonly lagMonitor: LagMonitorService,
     private readonly healthService: HealthService,
     private readonly contractService: ContractService,
+    private readonly metricsService: MetricsService,
+    private readonly logger: OracleLoggerService,
   ) {
     this.STUCK_LEDGER_LAG = this.lagMonitor.getLagThresholdLedgers();
   }
-async getFailedJobs(): Promise<JobInfo[]> {
+
+  async getFailedJobs(): Promise<JobInfo[]> {
     const failed = await this.randomnessQueue.getFailed();
     return Promise.all(failed.map((job) => this.mapJobToInfo(job)));
   }
@@ -106,20 +98,6 @@ async getFailedJobs(): Promise<JobInfo[]> {
       failed: await Promise.all(failed.map((j) => this.mapJobToInfo(j))),
       delayed: await Promise.all(delayed.map((j) => this.mapJobToInfo(j))),
     };
-  }
-
-  /**
-   * Get rescue audit logs
-   */
-  getRescueLogs(limit = 100): RescueLogEntry[] {
-    return this.rescueLogs.slice(-limit);
-  }
-
-  /**
-   * Get rescue logs for a specific raffle
-   */
-  getRescueLogsByRaffle(raffleId: number): RescueLogEntry[] {
-    return this.rescueLogs.filter((log) => log.raffleId === raffleId);
   }
 
   /**
@@ -189,6 +167,14 @@ async getFailedJobs(): Promise<JobInfo[]> {
       return b.ageMs - a.ageMs;
     });
 
+    const summary = this.summarizeEntries(entries);
+
+    // Record stuck draw metrics for Prometheus alerting
+    const maxAgeMs = entries
+      .filter((e) => e.status === 'stuck')
+      .reduce((max, e) => Math.max(max, e.ageMs), 0);
+    this.metricsService.recordStuckDrawState(summary.stuck, maxAgeMs);
+
     return {
       timestamp: new Date().toISOString(),
       currentLedger,
@@ -199,7 +185,7 @@ async getFailedJobs(): Promise<JobInfo[]> {
         pendingHealthyMaxAgeMs: this.PENDING_HEALTHY_MAX_AGE_MS,
       },
       entries,
-      summary: this.summarizeEntries(entries),
+      summary,
     };
   }
 
@@ -469,374 +455,4 @@ async getFailedJobs(): Promise<JobInfo[]> {
       timestamp: job.timestamp,
     };
   }
-
-  private logRescue(entry: RescueLogEntry): void {
-    this.rescueLogs.push(entry);
-    
-    // Keep only last 1000 entries in memory
-    if (this.rescueLogs.length > 1000) {
-      this.rescueLogs.shift();
-    }
-  }
-
-  private determineMethod(prizeAmount: number): RandomnessMethod {
-    return prizeAmount >= this.HIGH_STAKES_THRESHOLD_XLM
-      ? RandomnessMethod.VRF
-      : RandomnessMethod.PRNG;
-  }
-
-  private async computeRandomness(
-    method: RandomnessMethod,
-    requestId: string,
-  ): Promise<RandomnessResult> {
-    if (method === RandomnessMethod.VRF) {
-      return await this.vrfService.compute(requestId);
-    } else {
-      return await this.prngService.compute(requestId);
-    }
-  }
-}async getStuckDrawReport(): Promise<StuckDrawReport> {
-    const currentLedger = this.lagMonitor.getCurrentLedger();
-    const candidates = new Map<string, DrawCandidate>();
-    const errorByRequest = this.buildErrorIndex();
-
-    this.mergeLagPending(candidates);
-    await this.mergeQueueJobs(candidates);
-
-    const contractCache = new Map<number, string>();
-    const entries: StuckDrawReportEntry[] = [];
-
-    for (const candidate of candidates.values()) {
-      const contractStatus = await this.resolveContractStatus(
-        candidate.raffleId,
-        contractCache,
-      );
-      const ledgerRange = this.buildLedgerRange(candidate, currentLedger);
-      const ageMs = this.computeAgeMs(candidate);
-      const lastError = this.resolveLastError(candidate, errorByRequest);
-      const signals = this.collectSignals(
-        candidate,
-        contractStatus,
-        ledgerRange,
-        ageMs,
-        lastError,
-      );
-      const status = this.classifyDrawRequest(
-        candidate,
-        contractStatus,
-        ledgerRange,
-        ageMs,
-        signals,
-      );
-      const nextStep = this.buildNextStep(status, candidate);
-
-      entries.push({
-        raffleId: candidate.raffleId,
-        requestId: candidate.requestId,
-        jobId: candidate.jobId,
-        status,
-        ageMs,
-        since: this.resolveSinceIso(candidate),
-        contractStatus,
-        queueState: candidate.queueState,
-        ledgerRange,
-        lastError,
-        nextStep,
-        signals,
-      });
-    }
-
-    entries.sort((a, b) => {
-      const order: Record<DrawRequestStatus, number> = {
-        stuck: 0,
-        failed: 1,
-        pending: 2,
-        confirmed: 3,
-      };
-      const byStatus = order[a.status] - order[b.status];
-      if (byStatus !== 0) return byStatus;
-      return b.ageMs - a.ageMs;
-    });
-
-    return {
-      timestamp: new Date().toISOString(),
-      currentLedger,
-      thresholds: {
-        stuckLedgerLag: this.STUCK_LEDGER_LAG,
-        stuckQueueAgeMs: this.STUCK_QUEUE_AGE_MS,
-        pendingHealthyMaxLedgerLag: this.PENDING_HEALTHY_MAX_LEDGER_LAG,
-        pendingHealthyMaxAgeMs: this.PENDING_HEALTHY_MAX_AGE_MS,
-      },
-      entries,
-      summary: this.summarizeEntries(entries),
-    };
-  }
-
-  private buildErrorIndex(): Map<string, string> {
-    const index = new Map<string, string>();
-    for (const err of this.healthService.getMetrics().recentErrors) {
-      if (!index.has(err.requestId)) {
-        index.set(err.requestId, err.error);
-      }
-    }
-    return index;
-  }
-
-  private mergeLagPending(candidates: Map<string, DrawCandidate>): void {
-    for (const pending of this.lagMonitor.getPendingRequests()) {
-      const key = this.candidateKey(pending.raffleId, pending.requestId);
-      const existing = candidates.get(key);
-      candidates.set(key, {
-        raffleId: pending.raffleId,
-        requestId: pending.requestId,
-        jobId: existing?.jobId,
-        queueState: existing?.queueState,
-        failedReason: existing?.failedReason,
-        jobTimestamp: existing?.jobTimestamp,
-        requestedAtLedger: pending.requestedAtLedger,
-        trackedAt: pending.timestamp,
-        attempts: existing?.attempts,
-      });
-    }
-  }
-
-  private async mergeQueueJobs(candidates: Map<string, DrawCandidate>): Promise<void> {
-    const allJobs = await this.getAllJobs();
-    const buckets: { jobs: JobInfo[]; state: string }[] = [
-      { jobs: allJobs.waiting, state: 'waiting' },
-      { jobs: allJobs.active, state: 'active' },
-      { jobs: allJobs.delayed, state: 'delayed' },
-      { jobs: allJobs.failed, state: 'failed' },
-      { jobs: allJobs.completed, state: 'completed' },
-    ];
-
-    for (const { jobs, state } of buckets) {
-      for (const job of jobs) {
-        const key = this.candidateKey(job.raffleId, job.requestId);
-        const existing = candidates.get(key);
-        candidates.set(key, {
-          raffleId: job.raffleId,
-          requestId: job.requestId,
-          jobId: job.id,
-          queueState: state,
-          failedReason: job.failedReason,
-          jobTimestamp: job.timestamp,
-          requestedAtLedger: existing?.requestedAtLedger,
-          trackedAt: existing?.trackedAt ?? new Date(job.timestamp),
-          attempts: job.attempts,
-        });
-      }
-    }
-  }
-
-  private async resolveContractStatus(
-    raffleId: number,
-    cache: Map<number, string>,
-  ): Promise<string> {
-    if (cache.has(raffleId)) {
-      return cache.get(raffleId)!;
-    }
-    try {
-      const data = await this.contractService.getRaffleData(raffleId);
-      cache.set(raffleId, data.status);
-      return data.status;
-    } catch (error: any) {
-      this.logger.warn(
-        `Could not fetch contract status for raffle ${raffleId}: ${error.message}`,
-      );
-      cache.set(raffleId, 'UNKNOWN');
-      return 'UNKNOWN';
-    }
-  }
-
-  private buildLedgerRange(
-    candidate: DrawCandidate,
-    currentLedger: number,
-  ): StuckDrawLedgerRange {
-    const requestedAtLedger = candidate.requestedAtLedger ?? 0;
-    const lagLedgers =
-      requestedAtLedger > 0 && currentLedger > 0
-        ? Math.max(0, currentLedger - requestedAtLedger)
-        : 0;
-    return { requestedAtLedger, currentLedger, lagLedgers };
-  }
-
-  private computeAgeMs(candidate: DrawCandidate): number {
-    const since = candidate.trackedAt?.getTime() ?? candidate.jobTimestamp ?? Date.now();
-    return Math.max(0, Date.now() - since);
-  }
-
-  private resolveSinceIso(candidate: DrawCandidate): string {
-    const since = candidate.trackedAt ?? new Date(candidate.jobTimestamp ?? Date.now());
-    return since.toISOString();
-  }
-
-  private resolveLastError(
-    candidate: DrawCandidate,
-    errorByRequest: Map<string, string>,
-  ): string | null {
-    if (candidate.failedReason) {
-      return candidate.failedReason;
-    }
-    return errorByRequest.get(candidate.requestId) ?? null;
-  }
-
-  private collectSignals(
-    candidate: DrawCandidate,
-    contractStatus: string,
-    ledgerRange: StuckDrawLedgerRange,
-    ageMs: number,
-    lastError: string | null,
-  ): string[] {
-    const signals: string[] = [];
-
-    if (contractStatus === 'FINALIZED' || contractStatus === 'CANCELLED') {
-      signals.push(`contract:${contractStatus}`);
-    } else if (contractStatus === 'DRAWING') {
-      signals.push('contract:DRAWING');
-    }
-
-    if (candidate.queueState) {
-      signals.push(`queue:${candidate.queueState}`);
-    }
-
-    if (ledgerRange.lagLedgers >= this.STUCK_LEDGER_LAG) {
-      signals.push(`ledger_lag:${ledgerRange.lagLedgers}`);
-    } else if (
-      ledgerRange.lagLedgers > 0 &&
-      ledgerRange.lagLedgers <= this.PENDING_HEALTHY_MAX_LEDGER_LAG
-    ) {
-      signals.push(`ledger_lag_healthy:${ledgerRange.lagLedgers}`);
-    }
-
-    if (ageMs >= this.STUCK_QUEUE_AGE_MS) {
-      signals.push(`queue_age_exceeded:${ageMs}ms`);
-    } else if (ageMs <= this.PENDING_HEALTHY_MAX_AGE_MS) {
-      signals.push(`queue_age_healthy:${ageMs}ms`);
-    }
-
-    if (lastError) {
-      signals.push('has_last_error');
-    }
-
-    return signals;
-  }
-
-  private classifyDrawRequest(
-    candidate: DrawCandidate,
-    contractStatus: string,
-    ledgerRange: StuckDrawLedgerRange,
-    ageMs: number,
-    signals: string[],
-  ): DrawRequestStatus {
-    const finalized =
-      contractStatus === 'FINALIZED' ||
-      contractStatus === 'CANCELLED' ||
-      candidate.queueState === 'completed';
-
-    if (finalized) {
-      return 'confirmed';
-    }
-
-    if (candidate.queueState === 'failed') {
-      return 'failed';
-    }
-
-    const ledgerStuck =
-      ledgerRange.lagLedgers >= this.STUCK_LEDGER_LAG && ledgerRange.requestedAtLedger > 0;
-    const queueStuck =
-      ageMs >= this.STUCK_QUEUE_AGE_MS &&
-      ['waiting', 'active', 'delayed'].includes(candidate.queueState ?? '');
-    const drawingStuck =
-      contractStatus === 'DRAWING' && (ledgerStuck || queueStuck);
-
-    if (ledgerStuck || queueStuck || drawingStuck) {
-      return 'stuck';
-    }
-
-    const pendingHealthy =
-      (ledgerRange.lagLedgers === 0 ||
-        ledgerRange.lagLedgers <= this.PENDING_HEALTHY_MAX_LEDGER_LAG) &&
-      ageMs <= this.PENDING_HEALTHY_MAX_AGE_MS &&
-      ['waiting', 'active', 'delayed'].includes(candidate.queueState ?? '');
-
-    const lagPending = signals.some((s) => s.startsWith('ledger_lag_healthy'));
-
-    if (
-      pendingHealthy ||
-      lagPending ||
-      candidate.queueState === 'waiting' ||
-      candidate.queueState === 'active'
-    ) {
-      return 'pending';
-    }
-
-    if (contractStatus === 'DRAWING' || candidate.requestedAtLedger) {
-      return 'pending';
-    }
-
-    return 'pending';
-  }
-
-  private buildNextStep(status: DrawRequestStatus, candidate: DrawCandidate): string {
-    const { raffleId, requestId, jobId } = candidate;
-
-    switch (status) {
-      case 'confirmed':
-        return 'No action required — randomness is confirmed on-chain (contract finalized or queue job completed).';
-
-      case 'pending':
-        return 'No action required — draw request is within normal processing window. Monitor with GET /rescue/stuck-draws or npm run oracle:rescue list-stuck.';
-
-      case 'failed':
-        if (jobId) {
-          return `Re-enqueue failed job: npm run oracle:rescue re-enqueue ${jobId} --operator <name> --reason "<reason>". If retries are exhausted, use force-submit instead.`;
-        }
-        return `Force submit randomness: npm run oracle:rescue force-submit ${raffleId} ${requestId} --operator <name> --reason "<reason>"`;
-
-      case 'stuck':
-        if (jobId && candidate.queueState === 'failed') {
-          return `Re-enqueue stuck failed job: npm run oracle:rescue re-enqueue ${jobId} --operator <name> --reason "<reason>". If re-enqueue fails, force-submit: npm run oracle:rescue force-submit ${raffleId} ${requestId} --operator <name> --reason "<reason>"`;
-        }
-        if (jobId) {
-          return `Job appears stuck in queue state "${candidate.queueState}". Re-enqueue: npm run oracle:rescue re-enqueue ${jobId} --operator <name> --reason "<reason>", or force-submit: npm run oracle:rescue force-submit ${raffleId} ${requestId} --operator <name> --reason "<reason>"`;
-        }
-        return `Draw is stuck (ledger lag or contract DRAWING). Force submit: npm run oracle:rescue force-submit ${raffleId} ${requestId} --operator <name> --reason "<reason>"`;
-
-      default:
-        return 'Investigate draw state manually via GET /rescue/stuck-draws.';
-    }
-  }
-
-  private summarizeEntries(entries: StuckDrawReportEntry[]): StuckDrawReportSummary {
-    const summary: StuckDrawReportSummary = {
-      stuck: 0,
-      pending: 0,
-      confirmed: 0,
-      failed: 0,
-      total: entries.length,
-    };
-    for (const entry of entries) {
-      summary[entry.status]++;
-    }
-    return summary;
-  }
-
-  private candidateKey(raffleId: number, requestId: string): string {
-    return `${raffleId}:${requestId}`;
-  }
-
-  private async mapJobToInfo(job: Job): Promise<JobInfo> {
-    const data = job.data as RandomnessJobPayload;
-    return {
-      id: job.id?.toString() || '',
-      raffleId: data.raffleId,
-      requestId: data.requestId,
-      attempts: job.attemptsMade || 0,
-      failedReason: job.failedReason,
-      state: await job.getState(),
-      timestamp: job.timestamp,
-    };
-  }
-
-  }
+}

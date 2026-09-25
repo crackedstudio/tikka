@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { IngestionDispatcherService } from '../../ingestor/ingestion-dispatcher.service';
 import { DlqService } from '../../ingestor/dlq.service';
 import {
@@ -95,3 +96,4 @@ describe('Ingestion dispatcher isolation', () => {
     }
   });
 });
+

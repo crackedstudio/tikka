@@ -13,16 +13,22 @@ const mockObserve = vi.fn();
 const mockDisconnect = vi.fn();
 
 beforeEach(() => {
-    (global as any).IntersectionObserver = vi.fn(() => ({
+    const globalWithObserver = globalThis as typeof globalThis & {
+        IntersectionObserver?: typeof IntersectionObserver;
+    };
+    globalWithObserver.IntersectionObserver = vi.fn(() => ({
         observe: mockObserve,
         unobserve: vi.fn(),
         disconnect: mockDisconnect,
-    }));
+    })) as unknown as typeof IntersectionObserver;
 });
 
 afterEach(() => {
     vi.clearAllMocks();
-    delete (global as any).IntersectionObserver;
+    const globalWithObserver = globalThis as typeof globalThis & {
+        IntersectionObserver?: typeof IntersectionObserver;
+    };
+    delete globalWithObserver.IntersectionObserver;
 });
 
 describe('LazyImage', () => {
@@ -230,7 +236,10 @@ describe('LazyImage', () => {
     });
 
     it('loads image immediately when IntersectionObserver is not supported', () => {
-        delete (global as any).IntersectionObserver;
+        const globalWithObserver = globalThis as typeof globalThis & {
+            IntersectionObserver?: typeof IntersectionObserver;
+        };
+        delete globalWithObserver.IntersectionObserver;
 
         render(
             <LazyImage

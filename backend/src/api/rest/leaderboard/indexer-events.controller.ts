@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { FastifyRequest } from 'fastify';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { LeaderboardService } from './leaderboard.service';
+import { IndexerEventBodyDto } from './dto/indexer-event.dto';
 
 @Injectable()
 class IndexerTokenGuard implements CanActivate {
@@ -39,8 +40,8 @@ export class IndexerEventsController {
   constructor(private readonly leaderboardService: LeaderboardService) {}
 
   @Post()
-  async handleEvent(@Body() body: { eventType: string }) {
-    if (body?.eventType === 'RaffleFinalized') {
+  async handleEvent(@Body() body: IndexerEventBodyDto) {
+    if (body.eventType === 'RaffleFinalized') {
       this.logger.log('RaffleFinalized received — invalidating leaderboard cache');
       await this.leaderboardService.invalidateAll();
     }

@@ -1,5 +1,6 @@
+import { logger } from '../../utils/logger';
 import React, { useEffect, useState } from "react";
-import type { StepComponentProps } from "../../types/types";
+import type { StepComponentProps } from "../../types/forms";
 import CreateRaffleButton from "../CreateRaffleButton";
 import { useNavigate } from "react-router-dom";
 import { estimateCreate } from "../../services/sdkClient";
@@ -210,13 +211,13 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
           allowMultipleTickets={true}
           ticketPrice={ticketPriceStroops}
           onSuccess={(raffleId) => {
-            console.log("Raffle created successfully with ID:", raffleId);
+            logger.log("Raffle created successfully with ID:", raffleId);
             onSubmitSuccess?.();
             navigate(`/raffles/${raffleId}`);
             onNext();
           }}
           onError={(error) => {
-            console.error("Error creating raffle:", error);
+            logger.error("Error creating raffle:", error);
             alert(error);
           }}
         >

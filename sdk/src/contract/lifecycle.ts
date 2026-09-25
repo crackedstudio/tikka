@@ -25,18 +25,18 @@ import {
   xdr,
   scValToNative,
   Memo,
-} from "@stellar/stellar-sdk";
-import { RpcService } from "../network/rpc.service";
-import { HorizonService } from "../network/horizon.service";
-import { NetworkConfig } from "../network/network.config";
-import { WalletAdapter } from "../wallet/wallet.interface";
+} from '@stellar/stellar-sdk';
+import { RpcService } from '../network/rpc.service';
+import { HorizonService } from '../network/horizon.service';
+import { NetworkConfig } from '../network/network.config';
+import { WalletAdapter } from '../wallet/wallet.interface';
 import {
   TikkaSdkError,
   TikkaSdkErrorCode,
   TransactionRejectedError,
   NetworkError,
   toTypedContractError,
-} from "../utils/errors";
+} from '../utils/errors';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -45,9 +45,7 @@ import {
  * Mirrors the three Stellar memo types the protocol supports.
  */
 export type TxMemo =
-  | { type: "text"; value: string }
-  | { type: "id"; value: string }
-  | { type: "hash"; value: Buffer };
+  { type: 'text'; value: string } | { type: 'id'; value: string } | { type: 'hash'; value: Buffer };
 
 /** Successful simulation result — everything needed to decide whether to sign. */
 export interface SimulateResult<T = unknown> {
@@ -114,13 +112,8 @@ export interface InvokeLifecycleOptions {
 
 /** Detects Soroban contract errors in error messages / XDR. */
 function isExternalContractFailure(msg: string): boolean {
-  return (
-    msg.includes("HostError") ||
-    msg.includes("WASM") ||
-    msg.includes("cross-contract")
-  );
+  return msg.includes('HostError') || msg.includes('WASM') || msg.includes('cross-contract');
 }
-
 
 // ─── Lifecycle Validation ─────────────────────────────────────────────────────
 
@@ -129,39 +122,54 @@ function isExternalContractFailure(msg: string): boolean {
  * Maps each operation to the required raffle state.
  */
 export const LIFECYCLE_REQUIREMENTS: Record<string, number> = {
-  buy_ticket:    0, // RaffleStatus.Open
-  trigger_draw:  0, // RaffleStatus.Open
-  cancel_raffle: 0, // RaffleStatus.Open
+  buy_ticket: 0, // RaffleStatus.OPEN
+  trigger_draw: 0, // RaffleStatus.OPEN
+  cancel_raffle: 0, // RaffleStatus.OPEN
 };
 
 /**
  * Validates that a raffle is in the required state for a given operation.
  * Throws RaffleEndedError if the state does not permit the operation.
  *
- * Export this so external callers (and tests) can use it directly.
+ * `currentState` may be either a numeric contract state (0 = OPEN … 3 =
+ * CANCELLED) or the string `RaffleStatus` shared by the monorepo packages
+ * ('open' | 'drawing' | 'finalized' | 'cancelled'); both are accepted so
+ * callers can pass values straight from either source.
  *
  * @param operation - The contract function name (e.g. 'buy_ticket')
- * @param currentState - The current RaffleStatus value fetched from the contract
+ * @param currentState - The current raffle state fetched from the contract
  * @param raffleId - Used in the error message for clarity
  *
  * @throws {TikkaSdkError} with code RaffleEnded if state is not permitted
  */
 export function validateLifecycleTransition(
   operation: string,
-  currentState: number,
+  currentState: number | string,
   raffleId: number | string,
 ): void {
   const required = LIFECYCLE_REQUIREMENTS[operation];
   if (required === undefined) return; // operation has no state requirement
 
-  if (currentState !== required) {
-    const stateNames: Record<number, string> = {
-      0: 'OPEN',
-      1: 'DRAWING',
-      2: 'FINALIZED',
-      3: 'CANCELLED',
-    };
-    const currentName = stateNames[currentState] ?? String(currentState);
+  const stateNames: Record<number, string> = {
+    0: 'OPEN',
+    1: 'DRAWING',
+    2: 'FINALIZED',
+    3: 'CANCELLED',
+  };
+  const statusToCode: Record<string, number> = {
+    open: 0,
+    drawing: 1,
+    finalized: 2,
+    cancelled: 3,
+  };
+
+  const currentCode =
+    typeof currentState === 'number'
+      ? currentState
+      : (statusToCode[String(currentState).toLowerCase()] ?? -1);
+
+  if (currentCode !== required) {
+    const currentName = stateNames[currentCode] ?? String(currentState);
     const requiredName = stateNames[required] ?? String(required);
     throw new TikkaSdkError(
       TikkaSdkErrorCode.RaffleEnded,
@@ -220,25 +228,15 @@ export class TransactionLifecycle {
   async simulate<T = unknown>(
     method: string,
     params: any[],
-    options: Pick<
-      InvokeLifecycleOptions,
-      "sourcePublicKey" | "fee" | "memo"
-    > = {},
+    options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
-    const sourceKey =
-      options.sourcePublicKey ?? (await this.resolveSourceKey());
-    const tx = await this.buildTx(
-      method,
-      params,
-      sourceKey,
-      options.fee,
-      options.memo,
-    );
+    const sourceKey = options.sourcePublicKey ?? (await this.resolveSourceKey());
+    const tx = await this.buildTx(method, params, sourceKey, options.fee, options.memo);
 
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? "";
+      const errMsg = (simResponse as any).error ?? '';
       const message = `Simulation failed for "${method}": ${errMsg}`;
       throw (
         toTypedContractError(message, errMsg) ??
@@ -249,9 +247,7 @@ export class TransactionLifecycle {
     const success = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
     const assembled = rpc.assembleTransaction(tx, success).build();
 
-    const returnValue = success.result?.retval
-      ? (scValToNative(success.result.retval) as T)
-      : null;
+    const returnValue = success.result?.retval ? (scValToNative(success.result.retval) as T) : null;
 
     return {
       returnValue,
@@ -269,36 +265,30 @@ export class TransactionLifecycle {
    * @throws `TikkaSdkError(WalletNotInstalled)` if no wallet adapter is set.
    * @throws `TikkaSdkError(UserRejected)` if the wallet reports a rejection.
    */
-  async sign(
-    assembledXdr: string,
-    networkPassphrase?: string,
-  ): Promise<string> {
+  async sign(assembledXdr: string, networkPassphrase?: string): Promise<string> {
     if (!this.wallet) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
-        "No wallet adapter set — cannot sign the transaction",
+        'No wallet adapter set — cannot sign the transaction',
       );
     }
 
     let signedXdr: string;
     try {
       const result = await this.wallet.signTransaction(assembledXdr, {
-        networkPassphrase:
-          networkPassphrase ?? this.networkConfig.networkPassphrase,
+        networkPassphrase: networkPassphrase ?? this.networkConfig.networkPassphrase,
       });
       signedXdr = result.signedXdr;
     } catch (err: any) {
       const msg: string = err?.message ?? String(err);
       const isRejection =
-        msg.toLowerCase().includes("reject") ||
-        msg.toLowerCase().includes("denied") ||
-        msg.toLowerCase().includes("cancel") ||
-        msg.toLowerCase().includes("user declined");
+        msg.toLowerCase().includes('reject') ||
+        msg.toLowerCase().includes('denied') ||
+        msg.toLowerCase().includes('cancel') ||
+        msg.toLowerCase().includes('user declined');
 
       throw new TikkaSdkError(
-        isRejection
-          ? TikkaSdkErrorCode.UserRejected
-          : TikkaSdkErrorCode.Unknown,
+        isRejection ? TikkaSdkErrorCode.UserRejected : TikkaSdkErrorCode.Unknown,
         `Wallet sign failed: ${msg}`,
         err,
       );
@@ -316,18 +306,13 @@ export class TransactionLifecycle {
    * @throws `TikkaSdkError(NetworkError)` if the RPC is unreachable.
    */
   async submit(signedXdr: string): Promise<string> {
-    const signedTx = TransactionBuilder.fromXDR(
-      signedXdr,
-      this.networkConfig.networkPassphrase,
-    );
+    const signedTx = TransactionBuilder.fromXDR(signedXdr, this.networkConfig.networkPassphrase);
 
     const sendResp = await this.rpc.sendTransaction(signedTx);
 
-    if (sendResp.status === "ERROR") {
-      const detail = (sendResp as any).errorResultXdr ?? "";
-      throw new TransactionRejectedError(
-        `Transaction submission failed: ${detail}`,
-      );
+    if (sendResp.status === 'ERROR') {
+      const detail = (sendResp as any).errorResultXdr ?? '';
+      throw new TransactionRejectedError(`Transaction submission failed: ${detail}`);
     }
 
     return sendResp.hash;
@@ -345,10 +330,7 @@ export class TransactionLifecycle {
    * @throws `TikkaSdkError(ContractError)` if the transaction failed on-chain.
    * @throws `TikkaSdkError(ExternalContractError)` if a cross-contract call failed.
    */
-  async poll<T = unknown>(
-    txHash: string,
-    config: PollConfig = {},
-  ): Promise<SubmitResult<T>> {
+  async poll<T = unknown>(txHash: string, config: PollConfig = {}): Promise<SubmitResult<T>> {
     const timeoutMs = config.timeoutMs ?? 60_000;
     const intervalMs = config.intervalMs ?? 2_000;
     const backoff = config.backoffFactor ?? 1.5;
@@ -375,8 +357,7 @@ export class TransactionLifecycle {
         // Treat NetworkError and Timeout from RpcService as transient — apply backoff and retry
         if (
           err instanceof TikkaSdkError &&
-          (err.code === TikkaSdkErrorCode.NetworkError ||
-            err.code === TikkaSdkErrorCode.Timeout)
+          (err.code === TikkaSdkErrorCode.NetworkError || err.code === TikkaSdkErrorCode.Timeout)
         ) {
           if (Date.now() + currentInterval >= deadline) break;
           await this.sleep(currentInterval);
@@ -390,28 +371,22 @@ export class TransactionLifecycle {
       if (resp.status === rpc.Api.GetTransactionStatus.SUCCESS) {
         const ok = resp as rpc.Api.GetSuccessfulTransactionResponse;
         return {
-          returnValue: ok.returnValue
-            ? (scValToNative(ok.returnValue) as T)
-            : null,
+          returnValue: ok.returnValue ? (scValToNative(ok.returnValue) as T) : null,
           txHash,
           ledger: ok.ledger,
           resultXdr:
-            typeof ok.resultXdr?.toXDR === "function"
-              ? ok.resultXdr.toXDR("base64")
-              : String(ok.resultXdr ?? ""),
+            typeof ok.resultXdr?.toXDR === 'function'
+              ? ok.resultXdr.toXDR('base64')
+              : String(ok.resultXdr ?? ''),
         };
       }
 
       if (resp.status === rpc.Api.GetTransactionStatus.FAILED) {
-        const resultXdr = (resp as any).resultXdr ?? "";
+        const resultXdr = (resp as any).resultXdr ?? '';
         const message = `Transaction ${txHash} failed on-chain (attempt ${attempts})`;
 
         if (isExternalContractFailure(String(resultXdr))) {
-          throw new TikkaSdkError(
-            TikkaSdkErrorCode.ExternalContractError,
-            message,
-            resultXdr,
-          );
+          throw new TikkaSdkError(TikkaSdkErrorCode.ExternalContractError, message, resultXdr);
         }
 
         throw (
@@ -446,10 +421,7 @@ export class TransactionLifecycle {
     options: InvokeLifecycleOptions = {},
   ): Promise<SubmitResult<T>> {
     if (!this.wallet) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.WalletNotInstalled,
-        "Wallet required for invoke()",
-      );
+      throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required for invoke()');
     }
 
     const sim = await this.simulate<T>(method, params, options);
@@ -468,7 +440,7 @@ export class TransactionLifecycle {
         // fall through
       }
     }
-    return "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+    return 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
   }
 
   private async buildTx(
@@ -482,7 +454,7 @@ export class TransactionLifecycle {
       () =>
         ({
           accountId: () => sourceKey,
-          sequenceNumber: () => "0",
+          sequenceNumber: () => '0',
           incrementSequenceNumber: () => {},
         }) as any,
     );
@@ -497,9 +469,7 @@ export class TransactionLifecycle {
     const builder = new TransactionBuilder(account, {
       fee: finalFee,
       networkPassphrase: this.networkConfig.networkPassphrase,
-    }).addOperation(
-      contract.call(method, ...params.map((p) => this.toScVal(p))),
-    );
+    }).addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))));
 
     if (memo) {
       builder.addMemo(this.buildMemo(memo));
@@ -510,18 +480,18 @@ export class TransactionLifecycle {
 
   private buildMemo(memo: TxMemo): Memo {
     switch (memo.type) {
-      case "text":
+      case 'text':
         return Memo.text(memo.value);
-      case "id":
+      case 'id':
         return Memo.id(memo.value);
-      case "hash":
+      case 'hash':
         return Memo.hash(memo.value);
     }
   }
 
   private toScVal(val: any): xdr.ScVal {
     if (val instanceof xdr.ScVal) return val;
-    if (typeof val === "string" && val.length === 56) {
+    if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
     return nativeToScVal(val);

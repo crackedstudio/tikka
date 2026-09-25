@@ -7,11 +7,13 @@ import type { ReactNode } from "react";
 import type {
     ApiUserProfile,
     ApiUserHistoryResponse,
+} from "../types/user";
+import type {
     ApiRaffleListItem,
     ApiRaffleListResponse,
     ApiRaffleDetail,
     FormattedRaffle,
-} from "../types/types";
+} from "../types/raffle";
 import { useRaffles, useRaffle, useUserProfile, useUserHistory } from "./useRaffles";
 import * as raffleService from "../services/raffleService";
 import { server } from "../test/server";
@@ -25,7 +27,7 @@ function createQueryWrapper() {
     React.createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
-function renderRaffleHook(hook: () => any, options?: any) {
+function renderRaffleHook(hook: () => unknown, options?: Parameters<typeof renderHook>[1]) {
   return renderHook(hook, { wrapper: createQueryWrapper(), ...options });
 }
 

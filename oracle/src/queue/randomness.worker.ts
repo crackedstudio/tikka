@@ -51,7 +51,7 @@ export class RandomnessWorker implements OnApplicationShutdown {
     private readonly auditLogService: AuditLogService,
     private readonly alertingService: AlertingService,
     @Optional() private readonly metricsService?: MetricsService,
-    @Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue,
+@Optional() @InjectQueue(RANDOMNESS_QUEUE) private readonly randomnessQueue?: Queue,
   ) {
     this.vrfThresholdXlm = Number(
       this.configService.get<string>('VRF_THRESHOLD_XLM', '500'),
@@ -64,13 +64,33 @@ export class RandomnessWorker implements OnApplicationShutdown {
     );
   }
 
+  /**
+   * Called by NestJS on SIGTERM (requires app.enableShutdownHooks()).
+   * Closes the Bull queue which:
+   *  1. Stops the worker from picking up new jobs
+   *  2. Waits for in-flight jobs to finish (or fail)
+   *  3. Closes the Redis connection
+   */
+  async onApplicationShutdown(): Promise<void> {
+    this.logger.log('RandomnessWorker shutting down — draining in-flight jobs…',
+      JSON.stringify({ component: 'queue', event: 'shutdown' } as OracleLogFields),
+    );
+    await this.randomnessQueue?.close();
+    this.logger.log('RandomnessWorker shut down cleanly',
+      JSON.stringify({ component: 'queue', event: 'shutdown-complete' } as OracleLogFields),
+    );
+  }
+
   @Process()
   async handleRandomnessJob(job: Job<RandomnessJobPayload>): Promise<void> {
     if (this.shuttingDown) {
       throw new Error('Oracle shutting down — rejecting job for retry');
     }
 
-    const jobPromise = CorrelationContext.run(String(job.id), async () => {
+    // Use the draw's request id as the correlation id so oracle logs for this
+    // job line up with the backend/indexer `x-request-id` for the same
+    // logical operation. Fall back to the Bull job id if it is unavailable.
+    return CorrelationContext.run(job.data.requestId ?? String(job.id), async () => {
     // Main-loop heartbeat — updated on every job the queue worker picks up.
     this.metricsService?.recordComponentHeartbeat('queue');
 

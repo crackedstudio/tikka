@@ -1,6 +1,7 @@
 // Polyfill for 'global' - required by Node.js packages in browser
+const globalShim = globalThis as typeof globalThis & { global?: typeof globalThis };
 if (typeof global === "undefined") {
-  (window as any).global = globalThis;
+  globalShim.global = globalThis;
 }
 
 import { StrictMode } from 'react'

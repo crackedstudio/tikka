@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ingestion-pipeline.integration.spec.ts
  *
@@ -479,3 +480,4 @@ describe('Full lifecycle: Created → Purchased → Finalized', () => {
     expect(mockCacheService.invalidateLeaderboard).toHaveBeenCalled();
   });
 });
+

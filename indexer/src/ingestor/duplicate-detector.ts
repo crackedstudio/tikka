@@ -1,5 +1,5 @@
 import { CURRENT_SCHEMA_VERSION } from "./handlers/schema-version";
-import { DomainEvent } from "./event.types";
+import { assertNever, DomainEvent } from "./event.types";
 
 export interface DispatchIdentity {
   ledger: number;
@@ -30,8 +30,20 @@ export class DuplicateDetector {
       case "RandomnessRequested":
       case "RandomnessReceived":
         return false;
-      default:
+      case "RaffleCreated":
+      case "TicketPurchased":
+      case "RaffleFinalized":
+      case "RaffleCancelled":
+      case "TicketRefunded":
+      case "ContractPaused":
+      case "ContractUnpaused":
+      case "AdminTransferProposed":
+      case "AdminTransferAccepted":
         return true;
+      default:
+        // Compile-time exhaustiveness: a new topic added to the union without
+        // a case above fails the build here.
+        assertNever(event, "eventNeedsDatabase");
     }
   }
 
@@ -55,8 +67,13 @@ export class DuplicateDetector {
         return "AdminProcessor.handleAdminTransferProposed";
       case "AdminTransferAccepted":
         return "AdminProcessor.handleAdminTransferAccepted";
-      default:
+      case "DrawTriggered":
+      case "RandomnessRequested":
+      case "RandomnessReceived":
         return `${event.type}Handler`;
+      default:
+        // Compile-time exhaustiveness (see eventNeedsDatabase).
+        assertNever(event, "getHandlerName");
     }
   }
 }

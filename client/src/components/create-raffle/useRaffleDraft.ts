@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 import {
   RAFFLE_DRAFT_DEBOUNCE_MS,
   clearRaffleDraft,

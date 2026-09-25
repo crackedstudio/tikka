@@ -113,13 +113,13 @@ describe('SnapshotService', () => {
   });
 
   it('should perform a dry-run import and validate manifest without db writes', async () => {
-    const data = { raffles: [], tickets: [], users: [], cursor: null };
+    const data = { raffles: [], tickets: [], users: [], cursor: null } as any;
     const checksum = crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
     const manifest: SnapshotManifest = {
       schemaVersion: '1.0.0',
       exportedAt: new Date().toISOString(),
       ledgerRange: { min: 0, max: 0 },
-      entityCounts: { raffles: 0, tickets: 0, users: 0 },
+      entityCounts: { raffles: 0, tickets: 0, users: 0 } as any,
       checksum,
     };
     const wrapper: SnapshotWrapper = { manifest, data };
@@ -139,10 +139,10 @@ describe('SnapshotService', () => {
         schemaVersion: '0.9.0',
         exportedAt: new Date().toISOString(),
         ledgerRange: { min: 0, max: 0 },
-        entityCounts: { raffles: 0, tickets: 0, users: 0 },
+        entityCounts: { raffles: 0, tickets: 0, users: 0 } as any,
         checksum: 'fake',
       },
-      data: { raffles: [], tickets: [], users: [], cursor: null },
+      data: { raffles: [], tickets: [], users: [], cursor: null } as any,
     };
 
     const compressed = await gzip(JSON.stringify(wrapper));
@@ -152,12 +152,12 @@ describe('SnapshotService', () => {
   });
 
   it('should throw an error on checksum mismatch', async () => {
-    const data = { raffles: [], tickets: [], users: [], cursor: null };
+    const data = { raffles: [], tickets: [], users: [], cursor: null } as any;
     const manifest: SnapshotManifest = {
       schemaVersion: '1.0.0',
       exportedAt: new Date().toISOString(),
       ledgerRange: { min: 0, max: 0 },
-      entityCounts: { raffles: 0, tickets: 0, users: 0 },
+      entityCounts: { raffles: 0, tickets: 0, users: 0 } as any,
       checksum: 'bad-checksum',
     };
     const wrapper: SnapshotWrapper = { manifest, data };
@@ -169,13 +169,13 @@ describe('SnapshotService', () => {
   });
 
   it('should throw an error on entity counts mismatch', async () => {
-    const data = { raffles: [{ id: 1 } as any], tickets: [], users: [], cursor: null };
+    const data = { raffles: [{ id: 1 } as any], tickets: [], users: [], cursor: null } as any;
     const checksum = crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
     const manifest: SnapshotManifest = {
       schemaVersion: '1.0.0',
       exportedAt: new Date().toISOString(),
       ledgerRange: { min: 0, max: 0 },
-      entityCounts: { raffles: 0, tickets: 0, users: 0 }, // wrong count for raffles
+      entityCounts: { raffles: 0, tickets: 0, users: 0 } as any, // wrong count for raffles
       checksum,
     };
     const wrapper: SnapshotWrapper = { manifest, data };
@@ -187,13 +187,13 @@ describe('SnapshotService', () => {
   });
 
   it('should import snapshot successfully and call db transaction', async () => {
-    const data = { raffles: [], tickets: [], users: [], cursor: null };
+    const data = { raffles: [], tickets: [], users: [], cursor: null } as any;
     const checksum = crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
     const manifest: SnapshotManifest = {
       schemaVersion: '1.0.0',
       exportedAt: new Date().toISOString(),
       ledgerRange: { min: 0, max: 0 },
-      entityCounts: { raffles: 0, tickets: 0, users: 0 },
+      entityCounts: { raffles: 0, tickets: 0, users: 0 } as any,
       checksum,
     };
     const wrapper: SnapshotWrapper = { manifest, data };
@@ -249,7 +249,7 @@ describe('Snapshot CLI Integration', () => {
       ticketPrice: '100',
       maxTickets: 100,
       asset: 'XLM',
-      endTime: new Date(),
+      endTime: new Date().toISOString(),
       createdLedger: 1000,
     }));
     await ticketRepo.save(ticketRepo.create({

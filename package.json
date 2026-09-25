@@ -10,7 +10,7 @@
     "oracle"
   ],
   "scripts": {
-    "install:all": "npm install --prefix client && npm install --prefix sdk && npm install --prefix backend && npm install --prefix indexer && npm install --prefix oracle",
+    "install:all": "pnpm install",
     "build": "turbo run build",
     "build:client": "turbo run build --filter=tikka",
     "build:sdk": "turbo run build --filter=@tikka/sdk",
@@ -50,6 +50,11 @@
     "node": "22",
     "pnpm": "9.15.9"
   },
+  "pnpm": {
+    "overrides": {
+      "@stellar/stellar-sdk": "^16.1.0"
+    }
+  },
   "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee2a882954fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3dc7dcf2531",
   "dependency-cruiser": {
     "forbidden": [
@@ -88,4 +93,4 @@
       }
     ]
   }
-}
+  }

@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
+
 import { InjectQueue, Processor, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_CLIENT } from '../services/supabase.provider';
+import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
 import * as crypto from 'crypto';
 import {
   WEBHOOK_DELIVERY_QUEUE,
@@ -32,6 +33,12 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
     @InjectQueue(WEBHOOK_DELIVERY_QUEUE) private readonly queue: any,
   ) {
     super();
+  }
+
+  /**
+   * Called by NestJS on SIGTERM (requires app.enableShutdownHooks()).
+   * Delegates to BullMQ Worker.close() which:
+   *  1. Stops picking up new jobs
   }
 
   async process(job: Job<WebhookDeliveryJobData>): Promise<void> {
