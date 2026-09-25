@@ -2,7 +2,7 @@ import { Controller, Get, Header, Param, ParseIntPipe, Res } from "@nestjs/commo
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { RafflesService } from "./raffles.service";
-import { MetadataRedisService } from "../../../services/metadata-redis.service";
+import { MetadataRedisService } from "../../../services/metadata/metadata-redis.service";
 import { RaffleOgImageService } from "./raffle-og-image.service";
 
 @ApiTags("Raffles")

@@ -108,15 +108,6 @@ jobs:
         run: node scripts/check-contrast.js
         continue-on-error: false
 
-      - name: Check generated API types are up to date
-        run: |
-          pnpm run generate:types
-          if ! git diff --exit-code src/types/api.generated.ts; then
-            echo "❌ api.generated.ts is stale — run 'pnpm generate:types' and commit the result"
-            exit 1
-          fi
-        continue-on-error: false
-
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
@@ -139,11 +130,19 @@ jobs:
 
       - name: Generate OpenAPI and ensure committed spec is up-to-date
         run: |
-          pnpm run generate:openapi
-          git --no-pager diff --exit-code openapi.json
+          pnpm --dir backend run generate:openapi
+          git --no-pager diff --exit-code backend/openapi.json
+
+      - name: Check generated API types are up to date
+        run: |
+          pnpm --dir client run generate:types
+          if ! git diff --exit-code client/src/types/api.generated.ts; then
+            echo "api.generated.ts is stale - run 'pnpm --dir client run generate:types' and commit the result"
+            exit 1
+          fi
 
       - name: Validate OpenAPI spec
-        run: pnpm run validate:openapi
+        run: pnpm --dir backend run validate:openapi
 
       - name: Upload OpenAPI artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -6,11 +6,11 @@ export const CreateRaffleSchema = z.object({
     .string()
     .min(1, 'ticketPrice is required'),
   totalTickets: z.coerce
-    .number({ invalid_type_error: 'totalTickets must be a number' })
+    .number({ message: 'totalTickets must be a number' })
     .int('totalTickets must be an integer')
     .positive('totalTickets must be a positive integer'),
   durationInSeconds: z.coerce
-    .number({ invalid_type_error: 'durationInSeconds must be a number' })
+    .number({ message: 'durationInSeconds must be a number' })
     .int('durationInSeconds must be an integer')
     .positive('durationInSeconds must be a positive integer'),
 });

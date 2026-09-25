@@ -47,7 +47,7 @@ export interface ValidationErrorResponse {
  * @returns Array of human-readable error strings
  */
 export function extractZodErrorMessages(error: ZodError): string[] {
-  return error.errors.map((e) => {
+  return error.issues.map((e) => {
     const path = e.path.length > 0 ? `[${e.path.join('.')}] ` : '';
     return `${path}${e.message}`;
   });
@@ -63,9 +63,9 @@ export function extractZodErrorMessages(error: ZodError): string[] {
 export function buildValidationErrorResponse(
   error: ZodError,
 ): Omit<ValidationErrorResponse, 'statusCode'> {
-  const messages = error.errors.map((e) => e.message);
+  const messages = error.issues.map((e) => e.message);
   return {
     message: messages.join('; '),
-    errors: error.errors as any,
+    errors: error.issues as any,
   };
 }
