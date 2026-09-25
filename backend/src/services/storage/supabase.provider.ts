@@ -1,5 +1,5 @@
-import { createClient, SupabaseClient } from 'supabase-supabase-js';
-import { ConfigService } from 'nestjs/config';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { ConfigService } from '@nestjs/config';
 
 export const SUPABASE_CLIENT = 'SUPABASE_CLIENT';
 
