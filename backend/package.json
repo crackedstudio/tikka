@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "build": "nest build",
+    "dev": "nest start --watch",
     "start": "nest start",
     "start:dev": "nest start -watch",
     "start:debug": "nest start --debug --watch",
@@ -92,7 +93,9 @@
         "lines": 60
       }
     },
-    "setupFiles": ["../test/jest-setup.ts"]
+    "setupFiles": [
+      "../test/jest-setup.ts"
+    ]
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
