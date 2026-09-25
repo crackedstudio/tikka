@@ -25,7 +25,7 @@ export function assertSafeAmount(amount: any, name: string, maxDecimals = 18): v
   if (amount === undefined || amount === null) {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `${name} must not be null or undefined`
+      `${name} must not be null or undefined`,
     );
   }
 
@@ -35,7 +35,7 @@ export function assertSafeAmount(amount: any, name: string, maxDecimals = 18): v
     if (!Number.isSafeInteger(amount) || amount < 0) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ValidationError,
-        `Unsafe number input for ${name}: "${amount}". Use string representation for decimal amounts.`
+        `Unsafe number input for ${name}: "${amount}". Use string representation for decimal amounts.`,
       );
     }
     amountStr = amount.toString();
@@ -43,27 +43,27 @@ export function assertSafeAmount(amount: any, name: string, maxDecimals = 18): v
     if (amount.trim() === '') {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ValidationError,
-        `${name} must be a non-empty string`
+        `${name} must be a non-empty string`,
       );
     }
     if (!/^\d+(\.\d+)?$/.test(amount)) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ValidationError,
-        `${name} must be a valid positive decimal string, got "${amount}"`
+        `${name} must be a valid positive decimal string, got "${amount}"`,
       );
     }
     const parts = amount.split('.');
     if (parts.length === 2 && parts[1].length > maxDecimals) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ValidationError,
-        `${name} exceeds maximum precision of ${maxDecimals} decimal places: "${amount}"`
+        `${name} exceeds maximum precision of ${maxDecimals} decimal places: "${amount}"`,
       );
     }
     amountStr = amount;
   } else {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `${name} must be a string or a safe integer, got type ${typeof amount}`
+      `${name} must be a string or a safe integer, got type ${typeof amount}`,
     );
   }
 
@@ -71,7 +71,7 @@ export function assertSafeAmount(amount: any, name: string, maxDecimals = 18): v
   if (bn.isNaN() || !bn.isFinite() || bn.isLessThan(0)) {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `${name} represents an invalid or negative amount: "${amount}"`
+      `${name} represents an invalid or negative amount: "${amount}"`,
     );
   }
 }
@@ -98,21 +98,21 @@ export function multiplyAmountByQuantity(
   if (typeof quantity !== 'number') {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `Quantity must be a number, got type ${typeof quantity}`
+      `Quantity must be a number, got type ${typeof quantity}`,
     );
   }
 
   if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isSafeInteger(quantity)) {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `Quantity must be a safe positive integer, got ${quantity}`
+      `Quantity must be a safe positive integer, got ${quantity}`,
     );
   }
 
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `decimals must be an integer between 0 and 18, got ${decimals}`
+      `decimals must be an integer between 0 and 18, got ${decimals}`,
     );
   }
 
@@ -142,7 +142,7 @@ export function stroopsToXlm(stroops: string | number): string {
     if (!Number.isSafeInteger(stroops) || stroops < 0) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ValidationError,
-        `Unsafe stroops value: ${stroops}`
+        `Unsafe stroops value: ${stroops}`,
       );
     }
     stroopsStr = stroops.toString();
@@ -150,14 +150,14 @@ export function stroopsToXlm(stroops: string | number): string {
     if (!/^\d+$/.test(stroops)) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ValidationError,
-        `Stroops must be a positive integer string, got "${stroops}"`
+        `Stroops must be a positive integer string, got "${stroops}"`,
       );
     }
     stroopsStr = stroops;
   } else {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `Stroops must be a string or number, got type ${typeof stroops}`
+      `Stroops must be a string or number, got type ${typeof stroops}`,
     );
   }
 
@@ -185,7 +185,7 @@ export function formatContractResponse(value: string | number, decimals = 7): st
       throw new TikkaSdkError(
         TikkaSdkErrorCode.ValidationError,
         `Unsafe number input for contract response: ${value}. ` +
-        `Pass amounts as strings to preserve precision.`
+          `Pass amounts as strings to preserve precision.`,
       );
     }
     valStr = value.toString();
@@ -194,15 +194,22 @@ export function formatContractResponse(value: string | number, decimals = 7): st
   } else {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `Contract response must be a string or safe integer, got type ${typeof value}`
+      `Contract response must be a string or safe integer, got type ${typeof value}`,
     );
   }
 
-  const bn = new BigNumber(valStr);
+  // bignumber.js v11 throws on unparseable input rather than yielding NaN,
+  // so guard the construction to keep the typed-error contract below reachable.
+  let bn: BigNumber;
+  try {
+    bn = new BigNumber(valStr);
+  } catch {
+    bn = new BigNumber(NaN);
+  }
   if (bn.isNaN() || !bn.isFinite()) {
     throw new TikkaSdkError(
       TikkaSdkErrorCode.ValidationError,
-      `Invalid numeric value for contract response: "${value}"`
+      `Invalid numeric value for contract response: "${value}"`,
     );
   }
   return bn.toFixed(decimals);
