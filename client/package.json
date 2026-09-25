@@ -19,11 +19,15 @@
         "test:e2e": "playwright test",
         "generate:types": "openapi-typescript ../backend/openapi.json -o src/types/api.generated.ts",
         "preview": "vite preview",
+        "preview:lhci": "vite preview --mode lhci",
         "validate-env": "node scripts/validate-env.js",
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed",
-        "lighthouse": "lhci autorun",
-        "lighthouse:local": "pnpm run build && lhci autorun"
+        "lighthouse:seed": "node scripts/seed-preview-raffle.js",
+        "lighthouse:desktop": "lhci autorun --config=lighthouserc.desktop.json",
+        "lighthouse:mobile": "lhci autorun --config=lighthouserc.mobile.json",
+        "lighthouse": "pnpm run lighthouse:seed && pnpm run lighthouse:desktop && pnpm run lighthouse:mobile",
+        "lighthouse:local": "pnpm run build && pnpm run lighthouse"
     },
     "dependencies": {
         "@sentry/react": "^10.62.0",
