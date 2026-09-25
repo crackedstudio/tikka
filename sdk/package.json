@@ -47,6 +47,7 @@
     "tikka": "./bin/tikka.cjs"
   },
   "scripts": {
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "cli": "node bin/tikka.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "nest build",

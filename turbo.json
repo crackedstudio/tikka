@@ -7,13 +7,25 @@
       "inputs": ["src/**", "tsconfig*.json", "nest-cli.json", "vite.config.*", "package.json"],
       "outputs": ["dist/**"]
     },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {
       "inputs": ["src/**", "*.config.*", "eslint.config.*", "package.json"],
       "outputs": []
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "test/**", "tests/**", "jest.config.*", "vitest.config.*", "package.json"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tests/**",
+        "jest.config.*",
+        "vitest.config.*",
+        "package.json"
+      ],
       "outputs": ["coverage/**"],
       "env": ["NODE_ENV"]
     },

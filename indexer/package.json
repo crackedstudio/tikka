@@ -7,6 +7,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "nest build",
+    "dev": "nest start --watch",
     "openapi:generate": "ts-node --transpile-only scripts/generate-openapi.ts",
     "start": "nest start",
     "start:dev": "nest start --watch",
