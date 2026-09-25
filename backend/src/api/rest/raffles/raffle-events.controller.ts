@@ -1,11 +1,18 @@
-import { Controller, Param, ParseIntPipe, Sse } from "@nestjs/common";
-import { ApiExcludeEndpoint, ApiTags } from "@nestjs/swagger";
-import { Observable, map } from "rxjs";
-import { Public } from "../../../auth/decorators/public.decorator";
-import { SseService } from "../../../services/sse.service";
+import { Controller, Headers, Param, ParseIntPipe, Sse } from '@nestjs/common';
+import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
+import { Observable, map } from 'rxjs';
+import { TICKET_COUNT_UPDATED_EVENT, type TicketCountUpdatedPayload } from '@tikka/types';
+import { Public } from '../../../auth/decorators/public.decorator';
+import { SseService } from '../../../services/notifications/sse.service';
 
-@ApiTags("Raffles")
-@Controller("raffles")
+interface TicketCountSseFrame {
+  id: string;
+  type: typeof TICKET_COUNT_UPDATED_EVENT;
+  data: TicketCountUpdatedPayload;
+}
+
+@ApiTags('Raffles')
+@Controller('raffles')
 export class RaffleEventsController {
   constructor(private readonly sseService: SseService) {}
 
@@ -15,15 +22,17 @@ export class RaffleEventsController {
    */
   @Public()
   @ApiExcludeEndpoint()
-  @Sse(":id/events")
-  stream(@Param("id", ParseIntPipe) id: number): Observable<MessageEvent> {
-    return this.sseService.subscribe(id).pipe(
-      map(
-        (data) =>
-          ({
-            data,
-          }) as MessageEvent,
-      ),
+  @Sse(':id/events')
+  stream(
+    @Param('id', ParseIntPipe) id: number,
+    @Headers('last-event-id') lastEventId?: string,
+  ): Observable<TicketCountSseFrame> {
+    return this.sseService.subscribe(id, lastEventId).pipe(
+      map(({ id: eventId, data }) => ({
+        id: eventId,
+        type: TICKET_COUNT_UPDATED_EVENT,
+        data,
+      })),
     );
   }
 }
