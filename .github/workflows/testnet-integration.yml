@@ -1,0 +1,65 @@
+name: SDK Testnet Integration (Nightly)
+
+on:
+  schedule:
+    # Runs daily at 03:00 UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual testnet integration trigger'
+
+concurrency:
+  group: sdk-testnet-integration
+  cancel-in-progress: true
+
+jobs:
+  testnet-integration:
+    name: SDK Testnet Round-Trip Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: ./sdk
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: sdk/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Testnet Integration Suite
+        env:
+          TIKKA_TESTNET_TESTS: '1'
+          TIKKA_TESTNET_SECRET_KEY: ${{ secrets.TIKKA_TESTNET_SECRET_KEY }}
+          TIKKA_CONTRACT_TESTNET: ${{ secrets.TIKKA_CONTRACT_TESTNET }}
+        run: pnpm run test:integration
+
+      - name: Report job summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## 🧪 SDK Testnet Integration Suite Report
+
+          | Field | Value |
+          | --- | --- |
+          | **Status** | ${{ job.status }} |
+          | **Run at** | $(date -u) |
+          | **Trigger** | \`${{ github.event_name }}\` |
+          EOF

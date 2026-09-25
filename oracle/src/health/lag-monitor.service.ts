@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { AlertingService } from './alerting.service';
 
@@ -10,14 +11,14 @@ export interface PendingRequest {
 
 @Injectable()
 export class LagMonitorService {
-  private readonly logger = new Logger(LagMonitorService.name);
+  
   private readonly pendingRequests = new Map<string, PendingRequest>();
   private readonly LAG_THRESHOLD_LEDGERS = 100;
   private currentLedger = 0;
   /** Tracks which requestIds have already had a lag alert fired. */
   private readonly firedAlerts = new Set<string>();
 
-  constructor(private readonly alertingService: AlertingService) {}
+  constructor(private readonly logger: OracleLoggerService, private readonly alertingService: AlertingService) {}
 
   trackRequest(requestId: string, raffleId: number, ledger: number): void {
     this.pendingRequests.set(requestId, {

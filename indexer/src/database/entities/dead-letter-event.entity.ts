@@ -47,6 +47,7 @@ export enum DlqReason {
 @Index('idx_dle_reason', ['reason'])
 @Index('idx_dle_ledger', ['ledger'])
 @Index('idx_dle_replayed_at', ['replayedAt'])
+@Index('idx_dle_replay_eligible', ['replayedAt', 'ledger'])
 export class DeadLetterEventEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -100,6 +101,12 @@ export class DeadLetterEventEntity {
    */
   @Column({ type: 'integer', name: 'retry_count', default: 0 })
   retryCount!: number;
+  
+  /**
+   * Number of times the dispatcher tried to process this event before sending to DLQ.
+   */
+  @Column({ type: 'integer', name: 'attempt_count', default: 1 })
+  attemptCount!: number;
 
   /**
    * IDEMPOTENCY GUARD: Timestamp set when this entry was successfully replayed.

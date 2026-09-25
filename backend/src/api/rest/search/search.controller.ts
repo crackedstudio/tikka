@@ -1,6 +1,6 @@
 import { Controller, Get, Query, UsePipes } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { SearchService } from '../../../services/search.service';
+import { SearchService } from '../../../services/search/search.service';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { SearchQueryDto, SearchQuerySchema } from './dto/search-query.dto';
 import { createZodPipe } from '../raffles/pipes/zod-validation.pipe';
@@ -20,12 +20,13 @@ export class SearchController {
       return { raffles: [], total: 0 };
     }
 
-    return this.searchService.search({
+   return this.searchService.search({
       query: query.q,
       limit: query.limit,
       offset: query.offset,
       category: query.category,
       status: query.status,
+      sort: query.sort,
     });
   }
 }

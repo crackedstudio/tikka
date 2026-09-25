@@ -4,8 +4,8 @@ import { RaffleProcessor } from "../processors/raffle.processor";
 import { TicketProcessor } from "../processors/ticket.processor";
 import { AdminProcessor } from "../processors/admin.processor";
 import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
-import { DomainEvent } from "./event.types";
-import { DeadLetterQueueService } from "./dead-letter-queue.service";
+import { DomainEvent, assertNever } from "./event.types";
+import { DlqService } from "./dlq.service";
 import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
 import { DlqReason } from "../database/entities/dead-letter-event.entity";
 import {
@@ -13,35 +13,52 @@ import {
   isSupportedSchemaVersion,
   UnsupportedSchemaVersionError,
 } from "./handlers/schema-version";
+import { TracingService } from "../tracing/tracing.service";
+import { CursorAdvance } from "./cursor-advance";
+import { DuplicateDetector } from "./duplicate-detector";
+import {
+  DispatchOutcomeClassifier,
+  HandlerExecutionResult,
+  HandlerOutcome,
+} from "./dispatch-outcome";
 
-export type HandlerOutcome = "succeeded" | "failed" | "skipped";
+export { HandlerExecutionResult, HandlerOutcome } from "./dispatch-outcome";
 
 export interface DispatchItem {
   event: DomainEvent;
   raw: Record<string, unknown>;
 }
 
-export interface HandlerExecutionResult {
-  handlerName: string;
-  eventId: string;
-  eventType: string;
-  outcome: HandlerOutcome;
-  durationMs: number;
-  error?: Error;
-}
-
 @Injectable()
 export class IngestionDispatcherService {
   private readonly logger = new Logger(IngestionDispatcherService.name);
+  private readonly cursorAdvance: CursorAdvance;
+  private readonly duplicateDetector = new DuplicateDetector();
+  private readonly outcomes: DispatchOutcomeClassifier;
 
   constructor(
     private readonly dataSource: DataSource,
     private readonly raffleProcessor: RaffleProcessor,
     private readonly ticketProcessor: TicketProcessor,
     private readonly adminProcessor: AdminProcessor,
-    @Optional() private readonly deadLetterQueue?: DeadLetterQueueService,
+    @Optional() private readonly dlqService?: DlqService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
-  ) {}
+    // Keep last so unit tests that construct with positional DLQ args stay valid.
+    @Optional() private readonly tracing?: TracingService,
+  ) {
+    this.cursorAdvance = new CursorAdvance(
+      dataSource,
+      raffleProcessor,
+      ticketProcessor,
+      adminProcessor,
+      this.logger,
+    );
+    this.outcomes = new DispatchOutcomeClassifier(
+      this.logger,
+      this.dlqService,
+      pipeline,
+    );
+  }
 
   async dispatch(
     event: DomainEvent,
@@ -71,80 +88,73 @@ export class IngestionDispatcherService {
   private async executeIsolated(
     item: DispatchItem,
   ): Promise<HandlerExecutionResult> {
-    const { event, raw } = item;
+    const identity = this.duplicateDetector.inspect(item.event, item.raw);
     const startedAt = Date.now();
-    const ledger = Number(raw.ledger);
-    const txHash = String(raw.id || raw.paging_token || "");
-    const eventId = txHash || "unknown";
-    const handlerName = this.getHandlerName(event);
-    const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
 
-    // Reject events whose schema version this build cannot decode, instead of
-    // letting a handler silently mis-parse them.
-    if (!isSupportedSchemaVersion(schemaVersion)) {
-      const error = new UnsupportedSchemaVersionError(schemaVersion, event.type);
-      const result = this.logResult({
-        handlerName,
-        eventId,
-        eventType: event.type,
-        outcome: "failed",
-        durationMs: Date.now() - startedAt,
-        error,
-      });
-      await this.deadLetter({
-        handlerName,
-        eventId,
-        event,
-        raw,
-        ledger,
-        txHash,
-        schemaVersion,
-        reason: DlqReason.SCHEMA_UNSUPPORTED,
-        error,
-        durationMs: result.durationMs,
-      });
-      return result;
+    const run = () =>
+      this.outcomes.run(
+        {
+          ...identity,
+          event: item.event,
+          raw: item.raw,
+          startedAt,
+          successOutcome: identity.needsDatabase ? "succeeded" : "skipped",
+        },
+        () => this.applyEventTraced(item.event, item.raw, identity.eventId),
+      );
+
+    if (!this.tracing?.withSpan) {
+      return run();
     }
 
-    try {
-      const runner = await this.applyEvent(event, raw);
-      if (runner) {
-        await runner.commitTransaction();
-        await runner.release();
-      }
+    return this.tracing.withSpan(
+      "indexer.event.process",
+      {
+        "event.type": item.event.type,
+        "event.id": identity.eventId,
+        "event.schema_version": identity.schemaVersion,
+        "handler.name": identity.handlerName,
+        ...(Number.isFinite(identity.ledger)
+          ? { "stellar.ledger": identity.ledger }
+          : {}),
+      },
+      async (span) => {
+        const result = await run();
+        span.setAttribute("handler.outcome", result.outcome);
+        span.setAttribute("handler.duration_ms", result.durationMs);
+        return result;
+      },
+    );
+  }
 
-      return this.logResult({
-        handlerName,
-        eventId,
-        eventType: event.type,
-        outcome: this.eventNeedsDatabase(event) ? "succeeded" : "skipped",
-        durationMs: Date.now() - startedAt,
-      });
-    } catch (error) {
-      const result = this.logResult({
-        handlerName,
-        eventId,
-        eventType: event.type,
-        outcome: "failed",
-        durationMs: Date.now() - startedAt,
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
-
-      await this.deadLetter({
-        handlerName,
-        eventId,
-        event,
-        raw,
-        ledger,
-        txHash,
-        schemaVersion,
-        reason: DlqReason.HANDLER_ERROR,
-        error: error instanceof Error ? error : new Error(String(error)),
-        durationMs: result.durationMs,
-      });
-
-      return result;
+  private async applyEventTraced(
+    event: DomainEvent,
+    raw: Record<string, unknown>,
+    eventId: string,
+  ): Promise<void> {
+    const apply = () => this.cursorAdvance.apply(event, raw);
+    if (!this.tracing?.withSpan) {
+      return apply();
     }
+
+    return this.tracing.withSpan(
+      "indexer.event.handler",
+      {
+        "event.type": event.type,
+        "event.id": eventId,
+        "db.system": "postgresql",
+      },
+      async () =>
+        this.tracing!.withSpan(
+          "indexer.event.db",
+          {
+            "event.type": event.type,
+            "event.id": eventId,
+            "db.operation": "apply_event",
+          },
+          apply,
+        ),
+    );
   }
 
   /**
@@ -162,10 +172,11 @@ export class IngestionDispatcherService {
     reason: DlqReason;
     error: Error;
     durationMs: number;
+    attemptCount: number;
   }): Promise<void> {
     this.pipeline?.apply(PipelineTransition.HANDLER_FAILURE);
 
-    await this.deadLetterQueue?.enqueue({
+    await this.dlqService?.enqueue({
       handlerName: params.handlerName,
       eventId: params.eventId,
       eventType: params.event.type,
@@ -176,6 +187,7 @@ export class IngestionDispatcherService {
       errorMessage: params.error.message,
       errorStack: params.error.stack,
       durationMs: params.durationMs,
+      attemptCount: params.attemptCount,
       event: params.event,
       rawEvent: params.raw,
       failedAt: new Date().toISOString(),
@@ -190,8 +202,20 @@ export class IngestionDispatcherService {
       case "RandomnessRequested":
       case "RandomnessReceived":
         return false;
-      default:
+      case "RaffleCreated":
+      case "TicketPurchased":
+      case "RaffleFinalized":
+      case "RaffleCancelled":
+      case "TicketRefunded":
+      case "ContractPaused":
+      case "ContractUnpaused":
+      case "AdminTransferProposed":
+      case "AdminTransferAccepted":
         return true;
+      default:
+        // Compile-time exhaustiveness: a new topic added to the union without
+        // a case above fails the build here.
+        assertNever(event, "eventNeedsDatabase");
     }
   }
 
@@ -295,11 +319,16 @@ export class IngestionDispatcherService {
         this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
         return null;
 
-      default:
+      default: {
+        // Compile-time exhaustiveness: adding a contract event to the
+        // DomainEvent union without routing it above fails the build here —
+        // the event cannot silently fall through to a runtime warning.
+        const unhandled: never = event;
         this.logger.warn(
-          `No processor method found for event type: ${(event as DomainEvent).type}`,
+          `No processor method found for event type: ${(unhandled as DomainEvent).type}`,
         );
         return null;
+      }
     }
   }
 
@@ -449,8 +478,13 @@ export class IngestionDispatcherService {
         return "AdminProcessor.handleAdminTransferProposed";
       case "AdminTransferAccepted":
         return "AdminProcessor.handleAdminTransferAccepted";
-      default:
+      case "DrawTriggered":
+      case "RandomnessRequested":
+      case "RandomnessReceived":
         return `${event.type}Handler`;
+      default:
+        // Compile-time exhaustiveness (see eventNeedsDatabase).
+        assertNever(event, "getHandlerName");
     }
   }
 

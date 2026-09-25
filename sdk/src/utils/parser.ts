@@ -1,4 +1,5 @@
 import { xdr, scValToNative } from '@stellar/stellar-sdk';
+import { defaultLogger, type TikkaLogger } from './logger';
 
 /**
  * TikkaEvent represents a parsed contract event.
@@ -18,9 +19,10 @@ export class TransactionHistoryParser {
    * Parses events from a transaction's result metadata.
    * 
    * @param resultMetaXdr Base64 encoded TransactionMeta XDR string.
+   * @param logger Optional logger for error reporting.
    * @returns Array of parsed TikkaEvents.
    */
-  static parseResult(resultMetaXdr: string): TikkaEvent[] {
+  static parseResult(resultMetaXdr: string, logger: TikkaLogger = defaultLogger): TikkaEvent[] {
     if (!resultMetaXdr) return [];
 
     try {
@@ -45,7 +47,7 @@ export class TransactionHistoryParser {
 
       return events;
     } catch (error) {
-      console.error('Failed to parse transaction metadata XDR:', error);
+      logger.error('Failed to parse transaction metadata XDR:', error);
       return [];
     }
   }

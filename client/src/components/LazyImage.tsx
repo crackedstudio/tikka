@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import placeholderImage from '../assets/detailimage.png';
 import { generateBlurPlaceholder } from '../utils/imageOptimization';
 
 interface LazyImageProps {
@@ -92,7 +93,16 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
     };
 
     const handleError = () => {
+      if (imageSrc !== placeholderImage) {
+        setImageSrc(placeholderImage);
+        setHasError(true);
+        setIsLoaded(true);
+        onError?.(src);
+        return;
+      }
+
       setHasError(true);
+      setIsLoaded(true);
       onError?.(src);
     };
 

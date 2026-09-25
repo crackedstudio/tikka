@@ -1,0 +1,2231 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/auth/nonce": {
+      "get": {
+        "operationId": "AuthController_getNonce",
+        "summary": "Get signing nonce for SIWS",
+        "parameters": [
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "Stellar address of the user",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/verify": {
+      "post": {
+        "operationId": "AuthController_verify",
+        "summary": "Verify wallet signature and issue JWT",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "summary": "Exchange refresh token for new access + refresh tokens",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/sign-out": {
+      "post": {
+        "operationId": "AuthController_signOut",
+        "summary": "Revoke refresh token family and sign out",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignOutBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session revoked"
+          },
+          "400": {
+            "description": "Sign-out failed"
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/raffles": {
+      "get": {
+        "operationId": "RafflesController_list",
+        "summary": "List raffles with optional filters and pagination",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by raffle status",
+            "schema": {
+              "maxLength": 50,
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Filter by raffle category",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "creator",
+            "required": false,
+            "in": "query",
+            "description": "Filter by raffle creator — must be a valid Stellar public key",
+            "schema": {
+              "pattern": "^G[A-Z2-7]{55}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "asset",
+            "required": false,
+            "in": "query",
+            "description": "Filter by asset code (1–12 alphanumeric characters)",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 12,
+              "pattern": "^[A-Za-z0-9]+$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to skip",
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raffles list retrieved successfully"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ]
+      }
+    },
+    "/raffles/metadata": {
+      "get": {
+        "operationId": "RafflesController_getBatchMetadata",
+        "summary": "Batch fetch off-chain metadata for up to 100 raffle IDs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Batch metadata retrieved successfully"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ]
+      }
+    },
+    "/raffles/{id}": {
+      "get": {
+        "operationId": "RafflesController_getById",
+        "summary": "Get raffle detail by ID",
+        "description": "Returns merged contract and off-chain details for active, ended, or cancelled raffles (200 OK). Returns 404 Not Found for unknown IDs and 410 Gone for soft-deleted or permanently removed raffles.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raffle details retrieved successfully (active, ended, or cancelled)"
+          },
+          "404": {
+            "description": "Raffle not found (unknown ID)"
+          },
+          "410": {
+            "description": "Raffle has been soft-deleted or permanently removed"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ]
+      }
+    },
+    "/raffles/{id}/participants": {
+      "get": {
+        "operationId": "RafflesController_getParticipants",
+        "summary": "List participants (ticket holders) for a raffle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Max 100, default 20",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Offset for pagination, default 0",
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Participants list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Raffles"
+        ]
+      }
+    },
+    "/raffles/{id}/ipfs": {
+      "get": {
+        "operationId": "RafflesController_redirectToIpfs",
+        "summary": "Redirect to IPFS metadata",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirected to IPFS URL"
+          },
+          "404": {
+            "description": "IPFS metadata not found for raffle"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ]
+      }
+    },
+    "/raffles/{raffleId}/metadata": {
+      "post": {
+        "operationId": "RafflesController_upsertMetadata",
+        "summary": "Create or update raffle metadata",
+        "parameters": [
+          {
+            "name": "raffleId",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated UUID for safe retries. Prevents duplicate metadata writes if request is retried within 24 hours.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertMetadataDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Metadata created/updated successfully"
+          },
+          "409": {
+            "description": "Conflict — request with this Idempotency-Key is already in progress"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "RafflesController_deleteMetadata",
+        "summary": "Soft-delete raffle metadata (creator or admin)",
+        "parameters": [
+          {
+            "name": "raffleId",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata soft-deleted successfully"
+          },
+          "403": {
+            "description": "Forbidden — not the creator"
+          },
+          "404": {
+            "description": "Raffle or metadata not found"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/raffles/{raffleId}/purchase": {
+      "post": {
+        "operationId": "RafflesController_purchaseTickets",
+        "summary": "Purchase tickets for a raffle",
+        "parameters": [
+          {
+            "name": "raffleId",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client-generated unique key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseTicketDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ticket purchase submitted, returns transaction hash"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/raffles/upload-image": {
+      "post": {
+        "operationId": "RafflesController_uploadImage",
+        "summary": "Upload raffle image to storage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "raffleId": {
+                    "type": "string",
+                    "description": "Optional raffle ID (defaults to 'draft')"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploaded successfully"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "413": {
+            "description": "Payload Too Large"
+          }
+        },
+        "tags": [
+          "Raffles"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/raffles/{id}/og": {
+      "get": {
+        "operationId": "RafflesController_getRaffleOgImage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Raffles"
+        ]
+      }
+    },
+    "/og/default.png": {
+      "get": {
+        "operationId": "OgRenderController_getDefaultOgImage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OG Pre-Render"
+        ]
+      }
+    },
+    "/og/raffles/{id}": {
+      "get": {
+        "operationId": "OgRenderController_renderRaffleOg",
+        "summary": "Pre-render OG meta tags for a raffle (for social media crawlers)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OG Pre-Render"
+        ]
+      }
+    },
+    "/admin/raffles/archived": {
+      "get": {
+        "operationId": "AdminRafflesController_getArchived",
+        "summary": "List all archived (soft-deleted) raffle metadata",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Archived metadata retrieved successfully"
+          }
+        },
+        "tags": [
+          "Admin - Raffles"
+        ]
+      }
+    },
+    "/admin/raffles/{raffleId}/metadata": {
+      "delete": {
+        "operationId": "AdminRafflesController_deleteMetadata",
+        "summary": "Admin soft-delete of raffle metadata",
+        "parameters": [
+          {
+            "name": "raffleId",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata soft-deleted successfully"
+          },
+          "404": {
+            "description": "Active metadata not found for raffle"
+          }
+        },
+        "tags": [
+          "Admin - Raffles"
+        ]
+      }
+    },
+    "/admin/raffles/{raffleId}/restore": {
+      "post": {
+        "operationId": "AdminRafflesController_restoreMetadata",
+        "summary": "Restore archived raffle metadata",
+        "parameters": [
+          {
+            "name": "raffleId",
+            "required": true,
+            "in": "path",
+            "description": "Internal raffle ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Metadata restored successfully"
+          },
+          "404": {
+            "description": "Archived metadata not found for raffle"
+          }
+        },
+        "tags": [
+          "Admin - Raffles"
+        ]
+      }
+    },
+    "/users/{address}": {
+      "get": {
+        "operationId": "UsersController_getByAddress",
+        "summary": "Get user profile by Stellar address",
+        "parameters": [
+          {
+            "name": "address",
+            "required": true,
+            "in": "path",
+            "description": "Stellar address of the user",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved successfully"
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{address}/history": {
+      "get": {
+        "operationId": "UsersController_getHistory",
+        "summary": "Get user raffle participation history",
+        "parameters": [
+          {
+            "name": "address",
+            "required": true,
+            "in": "path",
+            "description": "Stellar address of the user",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to skip",
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User history retrieved successfully"
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{address}/history/export": {
+      "get": {
+        "operationId": "UsersController_exportHistory",
+        "summary": "Export full raffle participation history as CSV",
+        "parameters": [
+          {
+            "name": "address",
+            "required": true,
+            "in": "path",
+            "description": "Stellar address of the user",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "description": "Export format (csv)",
+            "schema": {
+              "enum": [
+                "csv"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV file download"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "429": {
+            "description": "Rate limit exceeded — 1 export per minute"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/leaderboard": {
+      "get": {
+        "operationId": "LeaderboardController_getLeaderboard",
+        "summary": "Get top participants leaderboard",
+        "parameters": [
+          {
+            "name": "by",
+            "required": false,
+            "in": "query",
+            "description": "Sort field",
+            "schema": {
+              "default": "wins",
+              "enum": [
+                "wins",
+                "volume",
+                "tickets"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of entries",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Cursor for cursor-based pagination",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Offset for offset-based pagination (deprecated)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leaderboard retrieved successfully"
+          }
+        },
+        "tags": [
+          "Leaderboard"
+        ]
+      }
+    },
+    "/stats/platform": {
+      "get": {
+        "operationId": "StatsController_getPlatformStats",
+        "summary": "Get platform-wide aggregates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Platform stats retrieved successfully"
+          }
+        },
+        "tags": [
+          "Stats"
+        ]
+      }
+    },
+    "/stats/transparency": {
+      "get": {
+        "operationId": "StatsController_getTransparencyStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stats"
+        ]
+      }
+    },
+    "/stats/verify": {
+      "post": {
+        "operationId": "StatsController_verifyDraw",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stats"
+        ]
+      },
+      "get": {
+        "operationId": "StatsController_verifyDrawByTxHash",
+        "parameters": [
+          {
+            "name": "txHash",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stats"
+        ]
+      }
+    },
+    "/notifications/subscribe": {
+      "post": {
+        "operationId": "NotificationsController_subscribe",
+        "summary": "Subscribe to raffle notifications",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Function"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription created or returned if already exists"
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/subscribe/{raffleId}": {
+      "delete": {
+        "operationId": "NotificationsController_unsubscribe",
+        "summary": "Unsubscribe from raffle notifications",
+        "parameters": [
+          {
+            "name": "raffleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unsubscribed successfully"
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/{id}": {
+      "put": {
+        "operationId": "NotificationsController_update",
+        "summary": "Update a notification subscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Function"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription updated"
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/subscriptions": {
+      "get": {
+        "operationId": "NotificationsController_getUserSubscriptions",
+        "summary": "Get all raffle subscriptions for the authenticated user",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of subscriptions"
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/device-token": {
+      "post": {
+        "operationId": "NotificationsController_registerDeviceToken",
+        "summary": "Register a FCM device token for push notifications",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Function"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token registered"
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "NotificationsController_unregisterDeviceToken",
+        "summary": "Unregister a FCM device token",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Function"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token removed"
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/preferences": {
+      "get": {
+        "operationId": "NotificationsController_getPreferences",
+        "summary": "Get notification preferences for the authenticated user",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "User notification preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "NotificationsController_updatePreferences",
+        "summary": "Update notification preferences for the authenticated user",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Function"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferences updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/search": {
+      "get": {
+        "operationId": "SearchController_search",
+        "summary": "Search for raffles",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "description": "Search query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Sort order for results",
+            "schema": {
+              "enum": [
+                "relevance",
+                "ending_soon",
+                "price_asc",
+                "most_tickets"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results retrieved successfully"
+          }
+        },
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/support": {
+      "post": {
+        "operationId": "SupportController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "MetricsController_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/monitor/jobs": {
+      "get": {
+        "operationId": "MonitorController_getJobs",
+        "summary": "Get background jobs status",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Job status",
+            "schema": {
+              "enum": [
+                "pending",
+                "completed",
+                "failed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of jobs to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Pagination cursor",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Jobs retrieved successfully"
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/monitor/stats": {
+      "get": {
+        "operationId": "MonitorController_getStats",
+        "summary": "Get system monitoring stats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "System stats retrieved successfully"
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/monitor/latency": {
+      "get": {
+        "operationId": "MonitorController_getLatency",
+        "summary": "Get system latency metrics",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Start datetime (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "End datetime (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latency metrics retrieved successfully"
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/monitor/errors": {
+      "get": {
+        "operationId": "MonitorController_getErrors",
+        "summary": "Get system error logs",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of errors to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Errors retrieved successfully"
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/monitor/audit": {
+      "get": {
+        "operationId": "MonitorController_getAuditLogs",
+        "summary": "Get system audit logs",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Start datetime (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "End datetime (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of logs to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 500,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit logs retrieved successfully"
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/monitor/backfill": {
+      "post": {
+        "operationId": "MonitorController_startBackfill",
+        "summary": "Trigger an async indexer backfill",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackfillRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Backfill job accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/monitor/backfill/{jobId}": {
+      "get": {
+        "operationId": "MonitorController_getBackfillStatus",
+        "summary": "Get async indexer backfill job status",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backfill job status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "running",
+                        "completed",
+                        "failed"
+                      ]
+                    },
+                    "processedLedgers": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/monitor/maintenance": {
+      "get": {
+        "operationId": "MonitorController_getMaintenanceMode",
+        "summary": "Get maintenance mode status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Maintenance mode status retrieved successfully"
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "MonitorController_setMaintenanceMode",
+        "summary": "Set maintenance mode status",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMaintenanceModeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Maintenance mode status updated successfully"
+          }
+        },
+        "tags": [
+          "Monitor"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/replay": {
+      "post": {
+        "operationId": "ReplayController_startReplay",
+        "summary": "Start a ledger replay job",
+        "description": "Triggers an async replay of ledgers in the specified range. Returns a job ID for polling progress.",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Replay job started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayJobStartResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid replay configuration"
+          },
+          "401": {
+            "description": "Invalid or missing admin token"
+          }
+        },
+        "tags": [
+          "Admin - Replay"
+        ],
+        "security": [
+          {
+            "admin-token": []
+          }
+        ]
+      }
+    },
+    "/admin/replay/{jobId}": {
+      "get": {
+        "operationId": "ReplayController_getJobStatus",
+        "summary": "Get replay job status",
+        "description": "Poll the status and progress of a replay job.",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayJobStatusDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing admin token"
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        },
+        "tags": [
+          "Admin - Replay"
+        ],
+        "security": [
+          {
+            "admin-token": []
+          }
+        ]
+      }
+    },
+    "/webhooks": {
+      "post": {
+        "operationId": "WebhooksController_createWebhook",
+        "summary": "Create a new webhook subscription",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "WebhooksController_getWebhooks",
+        "summary": "List webhooks for the current user",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/webhooks/{id}": {
+      "get": {
+        "operationId": "WebhooksController_getWebhook",
+        "summary": "Get a specific webhook by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Webhook UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "WebhooksController_updateWebhook",
+        "summary": "Update a webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Webhook UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "WebhooksController_deleteWebhook",
+        "summary": "Delete a webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Webhook UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/webhooks/{id}/deliveries": {
+      "get": {
+        "operationId": "WebhooksController_getDeliveries",
+        "summary": "Get recent delivery logs for a webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Webhook UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Tikka API",
+    "description": "The Tikka API description",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "tikka",
+      "description": ""
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "VerifyBodyDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Stellar address of the user"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Wallet signature of the SIWS message"
+          },
+          "nonce": {
+            "type": "string",
+            "description": "Nonce obtained from /auth/nonce"
+          },
+          "issuedAt": {
+            "type": "string",
+            "description": "Timestamp the signature was issued"
+          }
+        },
+        "required": [
+          "address",
+          "signature",
+          "nonce"
+        ]
+      },
+      "RefreshBodyDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Refresh token previously issued by the server"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "SignOutBodyDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Refresh token to revoke (signs out the session)"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "ParticipantDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Stellar address of the ticket holder",
+            "example": "GABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+          },
+          "tickets_count": {
+            "type": "number",
+            "description": "Number of tickets purchased by this address for this raffle",
+            "example": 5,
+            "minimum": 1
+          },
+          "purchased_at": {
+            "type": "number",
+            "description": "Unix timestamp (in seconds) when the first ticket was purchased",
+            "example": 1234567890
+          }
+        },
+        "required": [
+          "address",
+          "tickets_count",
+          "purchased_at"
+        ]
+      },
+      "ParticipantListResponseDto": {
+        "type": "object",
+        "properties": {
+          "participants": {
+            "description": "List of participants (ticket holders) for the raffle",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParticipantDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of unique participants",
+            "example": 42
+          },
+          "limit": {
+            "type": "number",
+            "description": "Number of records returned in this page",
+            "example": 10
+          },
+          "offset": {
+            "type": "number",
+            "description": "Number of records skipped",
+            "example": 0
+          }
+        },
+        "required": [
+          "participants",
+          "total",
+          "limit",
+          "offset"
+        ]
+      },
+      "UpsertMetadataDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title of the raffle",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "description": "Description text",
+            "maxLength": 2000
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Primary image URL (http or https only)",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "image_urls": {
+            "description": "Additional image URLs (http or https only, max 10)",
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string",
+            "description": "Category name",
+            "maxLength": 100
+          },
+          "metadata_cid": {
+            "type": "string",
+            "description": "IPFS CID for metadata",
+            "maxLength": 128
+          },
+          "asset": {
+            "type": "object",
+            "description": "Asset used for ticket pricing (code must be whitelisted)",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "USDC"
+              },
+              "issuer": {
+                "type": "string",
+                "example": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+              }
+            }
+          }
+        }
+      },
+      "PurchaseTicketDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "description": "Number of tickets to purchase",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "Function": {
+        "type": "object",
+        "properties": {}
+      },
+      "BackfillRequestDto": {
+        "type": "object",
+        "properties": {
+          "fromLedger": {
+            "type": "number",
+            "description": "Inclusive starting ledger",
+            "minimum": 1
+          },
+          "toLedger": {
+            "type": "number",
+            "description": "Inclusive ending ledger",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "fromLedger",
+          "toLedger"
+        ]
+      },
+      "SetMaintenanceModeDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable or disable maintenance mode"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "ReplayJobStartResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Generated job identifier"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable job status message"
+          }
+        },
+        "required": [
+          "jobId",
+          "message"
+        ]
+      },
+      "ReplayJobConfigDto": {
+        "type": "object",
+        "properties": {
+          "fromLedger": {
+            "type": "number",
+            "description": "First ledger included in the replay"
+          },
+          "toLedger": {
+            "type": "number",
+            "description": "Last ledger included in the replay"
+          },
+          "contractId": {
+            "type": "string",
+            "description": "Optional contract ID to limit the replay"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "Whether the replay is dry-run only"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "description": "Explicit confirmation for mutating replay runs"
+          }
+        },
+        "required": [
+          "fromLedger",
+          "toLedger"
+        ]
+      },
+      "ReplayJobProgressDto": {
+        "type": "object",
+        "properties": {
+          "processedCount": {
+            "type": "number",
+            "description": "Number of ledgers processed so far"
+          },
+          "skippedCount": {
+            "type": "number",
+            "description": "Number of ledgers skipped so far"
+          },
+          "totalLedgers": {
+            "type": "number",
+            "description": "Total ledgers in the replay range"
+          },
+          "currentLedger": {
+            "type": "number",
+            "description": "Currently processed ledger number"
+          }
+        },
+        "required": [
+          "processedCount",
+          "skippedCount",
+          "totalLedgers"
+        ]
+      },
+      "ReplayPlannedActionDto": {
+        "type": "object",
+        "properties": {
+          "ledger": {
+            "type": "number",
+            "description": "Ledger number for this action"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "submit",
+              "skip"
+            ],
+            "description": "Planned action outcome"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for the action"
+          }
+        },
+        "required": [
+          "ledger",
+          "action"
+        ]
+      },
+      "ReplayJobResultDto": {
+        "type": "object",
+        "properties": {
+          "elapsedMs": {
+            "type": "number",
+            "description": "Elapsed execution time in milliseconds"
+          },
+          "missingLedgers": {
+            "description": "Ledger numbers that were not replayed",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "plannedActions": {
+            "description": "Planned actions taken during the replay",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplayPlannedActionDto"
+            }
+          },
+          "totalLedgers": {
+            "type": "number",
+            "description": "Total ledgers in the replay range"
+          },
+          "fromLedger": {
+            "type": "number",
+            "description": "First ledger included in the replay"
+          },
+          "toLedger": {
+            "type": "number",
+            "description": "Last ledger included in the replay"
+          },
+          "processedCount": {
+            "type": "number",
+            "description": "Number of ledgers processed"
+          },
+          "skippedCount": {
+            "type": "number",
+            "description": "Number of ledgers skipped"
+          }
+        },
+        "required": [
+          "elapsedMs",
+          "missingLedgers"
+        ]
+      },
+      "ReplayJobStatusDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Generated job identifier"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "description": "Replay job state"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ReplayJobConfigDto"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ReplayJobProgressDto"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ReplayJobResultDto"
+          },
+          "error": {
+            "type": "string",
+            "description": "Failure reason if the replay failed"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO timestamp when the job was created"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "ISO timestamp when the job started"
+          },
+          "completedAt": {
+            "type": "string",
+            "description": "ISO timestamp when the job completed"
+          }
+        },
+        "required": [
+          "jobId",
+          "status",
+          "config",
+          "progress",
+          "createdAt"
+        ]
+      }
+    }
+  }
+}

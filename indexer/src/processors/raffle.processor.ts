@@ -1,3 +1,4 @@
+import { RaffleParams } from "../ingestor/event.types";
 import { Injectable, Logger } from "@nestjs/common";
 import { DataSource, QueryRunner } from "typeorm";
 import { CacheService } from "../cache/cache.service";
@@ -30,14 +31,7 @@ export class RaffleProcessor {
     creator: string,
     ledger: number,
     txHash: string,
-    params: {
-      ticket_price: string;
-      max_tickets: number;
-      end_time: number;
-      asset: string;
-      metadata_cid: string;
-      allow_multiple: boolean;
-    },
+    params: RaffleParams,
     schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
     this.logger.log(`Handling RaffleCreated for raffle ${raffleId} (tx ${txHash})`);
@@ -91,18 +85,19 @@ export class RaffleProcessor {
       await this.cacheService.invalidateActiveRaffles();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatchEvent({
-        eventType: "RaffleCreated",
-        raffleId,
-        timestamp: new Date(),
-        data: { creator, ledger },
-      });
+      await this.webhookService.dispatch(
+        "RaffleCreated",
+        { raffleId, creator, ledger, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {
       await runner.rollbackTransaction();
       await runner.release();
-      this.logger.error(`Error processing RaffleCreated for raffle ${raffleId} (tx ${txHash})`, e as any);
+      this.logger.error(
+        `Error processing RaffleCreated for raffle ${raffleId} (tx ${txHash})`,
+        e instanceof Error ? e.stack : String(e),
+      );
       throw e;
     }
   }
@@ -169,18 +164,19 @@ export class RaffleProcessor {
       await this.cacheService.invalidateLeaderboard();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatchEvent({
-        eventType: "RaffleFinalized",
-        raffleId,
-        timestamp: new Date(),
-        data: { winner, winningTicketId, prizeAmount },
-      });
+      await this.webhookService.dispatch(
+        "RaffleFinalized",
+        { raffleId, winner, winningTicketId, prizeAmount, timestamp: new Date() }
+      );
 
       return runner;
     } catch (e) {
       await runner.rollbackTransaction();
       await runner.release();
-      this.logger.error(`Error processing RaffleFinalized for raffle ${raffleId} (tx ${txHash})`, e as any);
+      this.logger.error(
+        `Error processing RaffleFinalized for raffle ${raffleId} (tx ${txHash})`,
+        e instanceof Error ? e.stack : String(e),
+      );
       throw e;
     }
   }
@@ -238,11 +234,19 @@ export class RaffleProcessor {
       await this.cacheService.invalidateRaffleDetail(raffleId.toString());
       await this.cacheService.invalidateActiveRaffles();
 
+      await this.webhookService.dispatch(
+        "RaffleCancelled",
+        { raffleId, reason, ledger, timestamp: new Date() }
+      );
+
       return runner;
     } catch (e) {
       await runner.rollbackTransaction();
       await runner.release();
-      this.logger.error(`Error processing RaffleCancelled for raffle ${raffleId} (tx ${txHash})`, e as any);
+      this.logger.error(
+        `Error processing RaffleCancelled for raffle ${raffleId} (tx ${txHash})`,
+        e instanceof Error ? e.stack : String(e),
+      );
       throw e;
     }
   }

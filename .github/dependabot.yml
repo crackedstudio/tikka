@@ -1,0 +1,55 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+    groups:
+      nestjs:
+        patterns:
+          - '@nestjs/*'
+      stellar:
+        patterns:
+          - '@stellar/*'
+      typescript-tooling:
+        patterns:
+          - 'typescript'
+          - 'eslint'
+          - '@eslint/*'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - 'prettier'
+          - 'eslint-config-prettier'
+          - 'eslint-plugin-prettier'
+      testing:
+        patterns:
+          - 'jest'
+          - '@types/jest'
+          - 'ts-jest'
+          - 'vitest'
+          - '@vitest/*'
+    ignore:
+      - dependency-name: 'typeorm'
+        update-types:
+          - 'version-update:semver-major'
+      - dependency-name: '@stellar/stellar-sdk'
+        update-types:
+          - 'version-update:semver-major'
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docker
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - github-actions

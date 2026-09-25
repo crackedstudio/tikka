@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { CacheModule } from "./cache/cache.module";
 import { ProcessorsModule } from "./processors/processors.module";
@@ -10,6 +10,8 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
 import { ApiModule } from "./api/api.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
+import { TracingModule } from "./tracing/tracing.module";
+import { RequestIdMiddleware } from "./common/request-id.middleware";
 
 @Module({
   imports: [
@@ -20,6 +22,7 @@ import { MaintenanceModule } from "./maintenance/maintenance.module";
       // Pick up .env.local in development; Railway / Fly inject real env vars
       envFilePath: [".env.local", ".env"],
     }),
+    TracingModule,
     // TypeORM connection + entity registration + auto-migrations
     DatabaseModule,
     // Redis cache layer
@@ -40,4 +43,8 @@ import { MaintenanceModule } from "./maintenance/maintenance.module";
   ],
   controllers: [],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes("*");
+  }
+}

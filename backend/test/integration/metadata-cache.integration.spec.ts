@@ -1,0 +1,1 @@
+import { GenericContainer } from 'testcontainers'; test('integration', async () => { const c = await new GenericContainer('redis:7').start(); await c.stop(); });

@@ -1,0 +1,73 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RaffleWinnerBanner > matches the winner snapshot 1`] = `
+<div
+  class="bg-gradient-to-r from-yellow-400 via-pink-500 to-fuchsia-600 p-1 rounded-[28px] mb-6 shadow-[0_24px_80px_rgba(236,72,153,0.28)]"
+>
+  <div
+    class="bg-[#0E1226] rounded-[24px] p-6 sm:p-8 text-center border border-white/10"
+  >
+    <div
+      class="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-white/10 text-4xl mb-4"
+    >
+      🏆
+    </div>
+    <h2
+      class="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight"
+    >
+      CONGRATULATIONS!
+    </h2>
+    <p
+      class="text-base sm:text-lg text-pink-100/90 font-medium mb-5"
+    >
+      You are the winner of this raffle.
+    </p>
+    <div
+      class="grid gap-3 sm:grid-cols-3 text-left"
+    >
+      <div
+        class="rounded-2xl bg-white/5 border border-white/10 p-4"
+      >
+        <div
+          class="text-xs uppercase tracking-[0.24em] text-pink-200/70 mb-1"
+        >
+          Prize
+        </div>
+        <div
+          class="text-sm sm:text-base text-white font-semibold leading-snug"
+        >
+          Lamborghini Aventador, Limited Edition 2023
+        </div>
+      </div>
+      <div
+        class="rounded-2xl bg-white/5 border border-white/10 p-4"
+      >
+        <div
+          class="text-xs uppercase tracking-[0.24em] text-pink-200/70 mb-1"
+        >
+          Value
+        </div>
+        <div
+          class="text-sm sm:text-base text-white font-semibold leading-snug"
+        >
+          $500,000
+        </div>
+      </div>
+      <div
+        class="rounded-2xl bg-white/5 border border-white/10 p-4"
+      >
+        <div
+          class="text-xs uppercase tracking-[0.24em] text-pink-200/70 mb-1"
+        >
+          Winner wallet
+        </div>
+        <div
+          class="text-sm sm:text-base text-white font-semibold leading-snug font-mono"
+        >
+          0x330cd8...2e8c7f
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

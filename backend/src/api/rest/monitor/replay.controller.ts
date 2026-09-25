@@ -11,8 +11,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
-import { ReplayService, type ReplayJobConfig, type ReplayJobStatus } from '../../../services/replay.service';
+import { ReplayService, type ReplayJobStatus } from '../../../services/indexer/replay.service';
 import { AdminGuard } from './admin.guard';
+import {
+  ReplayJobStartResponseDto,
+  ReplayJobStatusDto,
+} from './dto/replay-response.dto';
+import { ReplayJobConfigDto } from './dto/replay-request.dto';
 
 @ApiTags('Admin - Replay')
 @ApiSecurity('admin-token')
@@ -34,13 +39,7 @@ export class ReplayController {
   @ApiResponse({
     status: 202,
     description: 'Replay job started',
-    schema: {
-      type: 'object',
-      properties: {
-        jobId: { type: 'string', format: 'uuid' },
-        message: { type: 'string' },
-      },
-    },
+    type: ReplayJobStartResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -50,7 +49,7 @@ export class ReplayController {
     status: 401,
     description: 'Invalid or missing admin token',
   })
-  async startReplay(@Body() config: ReplayJobConfig) {
+  async startReplay(@Body() config: ReplayJobConfigDto) {
     try {
       const jobId = this.replayService.startReplay(config);
       return {
@@ -76,20 +75,7 @@ export class ReplayController {
   @ApiResponse({
     status: 200,
     description: 'Job status',
-    schema: {
-      type: 'object',
-      properties: {
-        jobId: { type: 'string', format: 'uuid' },
-        status: { type: 'string', enum: ['pending', 'running', 'completed', 'failed'] },
-        config: { type: 'object' },
-        progress: { type: 'object' },
-        result: { type: 'object' },
-        error: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-        startedAt: { type: 'string', format: 'date-time' },
-        completedAt: { type: 'string', format: 'date-time' },
-      },
-    },
+    type: ReplayJobStatusDto,
   })
   @ApiResponse({
     status: 404,

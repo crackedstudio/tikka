@@ -8,6 +8,7 @@ import {
   UserRaffleActivity,
   UserTicket,
   GetUserActivityParams,
+  WinningEntry,
 } from './user.types';
 import { assertValidPublicKey } from '../../utils/validation';
 import { ContractResponse } from '../../contract/response';
@@ -79,8 +80,11 @@ export class UserService {
       raffle_ids: number[];
     }>(ContractFn.GET_USER_PARTICIPATION, [address]);
 
-    if (response.status !== 'SUCCESS') {
-      return { status: 'ERROR', error: response.error };
+    // Tolerate both response conventions: callers/mocks may return either a
+    // TxResponse (`status`) or a bare ContractResponse (`success`).
+    const ok = response.status === 'SUCCESS' || response.success === true;
+    if (!ok) {
+      return { status: 'ERROR', error: response.error ?? 'Unknown simulation error' };
     }
 
     const d = response.value!;
@@ -109,7 +113,8 @@ export class UserService {
     assertValidPublicKey(address);
 
     const participation = await this.getParticipation({ address });
-    if (!participation.success) {
+    // getParticipation returns a TxResponse (`status`), not a ContractResponse.
+    if (participation.status !== 'SUCCESS') {
       return { success: false, error: participation.error };
     }
 
@@ -154,7 +159,8 @@ export class UserService {
     assertValidPublicKey(address);
 
     const participation = await this.getParticipation({ address });
-    if (!participation.success) {
+    // getParticipation returns a TxResponse (`status`), not a ContractResponse.
+    if (participation.status !== 'SUCCESS') {
       return { success: false, error: participation.error };
     }
 
@@ -179,9 +185,8 @@ export class UserService {
       );
 
       const raffleData = raffleRes.success ? raffleRes.value : null;
-      const ticketIds: number[] = ticketRes.success && Array.isArray(ticketRes.value)
-        ? ticketRes.value
-        : [];
+      const ticketIds: number[] =
+        ticketRes.success && Array.isArray(ticketRes.value) ? ticketRes.value : [];
 
       for (const ticketId of ticketIds) {
         allTickets.push({ ticketId, raffleId });
@@ -195,13 +200,14 @@ export class UserService {
 
       raffleActivities.push({
         raffleId,
-        status: raffleData?.status ?? RaffleStatus.Open,
+        status: raffleData?.status ?? RaffleStatus.OPEN,
         ticketIds,
         isCreator,
         isWinner,
-        prizeAmount: isWinner && raffleData?.prize_amount != null
-          ? String(raffleData.prize_amount)
-          : undefined,
+        prizeAmount:
+          isWinner && raffleData?.prize_amount != null
+            ? String(raffleData.prize_amount)
+            : undefined,
       });
     }
 
@@ -223,5 +229,50 @@ export class UserService {
     };
 
     return { success: true, value: summary };
+  }
+  /**
+   * Returns claimable prize entries for a given address.
+   *
+   * Filters the user's activity summary for won raffles, then checks
+   * on-chain raffle data to determine whether each prize has been claimed.
+   *
+   * A prize is considered unclaimed when the raffle is Finalized and the
+   * winner field still matches the address (the contract clears this on claim).
+   *
+   * @param address - The winner's Stellar public key
+   * @returns Array of WinningEntry objects, one per won raffle
+   */
+  async getWinnings(address: string): Promise<ContractResponse<WinningEntry[]>> {
+    assertValidPublicKey(address);
+
+    const activityResult = await this.getActivitySummary({ address });
+    if (!activityResult.success) {
+      return { success: false, error: activityResult.error };
+    }
+
+    const wonRaffles = activityResult.value!.raffles.filter((r) => r.isWinner);
+
+    const winnings: WinningEntry[] = [];
+
+    for (const raffle of wonRaffles) {
+      const raffleRes = await this.contractService.simulateReadOnly<any>(
+        ContractFn.GET_RAFFLE_DATA,
+        [raffle.raffleId],
+      );
+
+      const raffleData = raffleRes.success ? raffleRes.value : null;
+
+      // A prize is claimed when the on-chain winner field no longer matches.
+      const claimed = raffleData ? raffleData.winner !== address : false;
+
+      winnings.push({
+        raffleId: raffle.raffleId,
+        prizeAmount: raffle.prizeAmount ?? '0',
+        prizeAsset: raffleData?.asset ?? 'XLM',
+        claimed,
+      });
+    }
+
+    return { success: true, value: winnings };
   }
 }

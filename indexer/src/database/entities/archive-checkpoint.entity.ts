@@ -87,4 +87,30 @@ export class ArchiveCheckpointEntity {
 
   @Column({ type: "timestamptz", name: "completed_at", nullable: true })
   completedAt!: Date | null;
+
+  /**
+   * SHA-256 hash of a canonicalized JSON snapshot of the checkpoint state.
+   * Computed on every checkpoint save and verified on resume.
+   * Null on legacy checkpoints written before integrity verification was added.
+   */
+  @Column({ type: "varchar", length: 64, name: "integrity_hash", nullable: true })
+  integrityHash!: string | null;
+
+  /**
+   * When the last integrity verification (either at save time or on resume) completed.
+   */
+  @Column({ type: "timestamptz", name: "last_verified_at", nullable: true })
+  lastVerifiedAt!: Date | null;
+
+  /**
+   * Human-readable reason for an integrity verification failure.
+   * Set when status is set to FAILED; preserved until checkpoint is recreated.
+   */
+  @Column({
+    type: "varchar",
+    length: 500,
+    name: "verification_failure_reason",
+    nullable: true,
+  })
+  verificationFailureReason!: string | null;
 }

@@ -24,6 +24,11 @@ export { ContractFn, RaffleStatus } from './contract/bindings';
 export { TxResponse } from './contract/response';
 export type { TxMemo } from './contract/contract.service';
 export { TransactionLifecycle } from './contract/lifecycle';
+export {
+  buildUnsignedOfflineTransaction,
+  signTransactionOffline,
+  verifyOfflineSignature,
+} from './contract/offline-signing';
 export type {
   SimulateResult,
   SubmitResult,
@@ -57,3 +62,6 @@ export * from './utils';
 
 // ── Auth (SEP-10) ───────────────────────────────────────────────────────────
 export * from './auth/sep10';
+
+// ── Schemas ─────────────────────────────────────────────────────────────────
+export * from './schemas/raffle-metadata.schema';

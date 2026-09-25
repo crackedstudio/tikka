@@ -1,4 +1,10 @@
 import { MultiOracleCoordinatorService } from './multi-oracle-coordinator.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
+
+const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
+const mockAuditLog = { recordDivergence: jest.fn() };
+const mockMetrics = { recordDivergence: jest.fn() };
+const mockAlerting = { fire: jest.fn() };
 
 describe('MultiOracleCoordinatorService (Quorum)', () => {
   let service: MultiOracleCoordinatorService;
@@ -7,6 +13,7 @@ describe('MultiOracleCoordinatorService (Quorum)', () => {
     getPeerEndpoints: jest.fn(),
     getLocalOracleId: jest.fn(),
     getThreshold: jest.fn(),
+    getConsensusThreshold: jest.fn(),
   };
 
   const config = {
@@ -20,10 +27,17 @@ describe('MultiOracleCoordinatorService (Quorum)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    registry.getLocalOracleId.mockReturnValue('a');
+    // Default consensus threshold to 1 to maintain backwards compatibility with existing tests
+    registry.getConsensusThreshold.mockReturnValue(1);
 
     service = new MultiOracleCoordinatorService(
+      mockLogger,
       registry as any,
       config as any,
+      mockAuditLog as any,
+      mockMetrics as any,
+      mockAlerting as any,
     );
   });
 

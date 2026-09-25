@@ -19,10 +19,13 @@
     "src/network/horizon.service.ts",
     "src/network/network.config.ts",
     "src/contract/bindings.ts",
+    "src/contract/constants.ts",
     "src/contract/response.ts",
     "src/modules/raffle/raffle.types.ts",
+    "src/modules/raffle/raffle.read.service.ts",
     "src/modules/ticket/ticket.types.ts",
     "src/modules/user/user.types.ts",
+    "src/modules/user/user.read.service.ts",
     "src/utils/**/*.ts",
     "src/types.ts"
   ],

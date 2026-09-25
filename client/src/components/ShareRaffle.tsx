@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import Union from "../assets/Union.png";
-import { Download, Link2, Share2, Twitter } from "lucide-react";
+import { Download, Share2, Twitter } from "lucide-react";
 import { toast } from "sonner";
+import CopyButton from "./ui/CopyButton";
 
 type ShareSource = "twitter" | "telegram" | "native" | "copy";
 
@@ -40,23 +41,7 @@ function TelegramIcon({ className }: { className?: string }) {
 const iconButtonClass =
     "inline-flex items-center justify-center rounded-full bg-[#090E1F] p-2.5 text-[#00E6CC] ring-1 ring-[#00E6CC]/20 transition hover:bg-[#00E6CC]/10 hover:ring-[#00E6CC]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00E6CC]";
 
-/** Fallback copy for environments without Clipboard API (non-HTTPS, legacy browsers). */
-function copyViaExecCommand(text: string): boolean {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try {
-        return document.execCommand("copy");
-    } finally {
-        document.body.removeChild(ta);
-    }
-}
-
 const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
-    const [copied, setCopied] = useState(false);
     const qrRef = useRef<SVGSVGElement | null>(null);
 
     const shareBlurb = useMemo(
@@ -91,37 +76,24 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
         typeof navigator.share === "function";
 
     const handleNativeShare = useCallback(async () => {
-        if (!canWebShare) return;
-        try {
-            await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
-        } catch (err) {
-            const name = err instanceof DOMException ? err.name : "";
-            if (name === "AbortError") return;
-            toast.error("Sharing was cancelled or failed.");
-        }
-    }, [canWebShare, nativeShareUrl, shareBlurb, title]);
-
-    const handleCopyLink = useCallback(async () => {
-        let success = false;
-        if (navigator.clipboard && window.isSecureContext) {
+        if (canWebShare) {
             try {
-                await navigator.clipboard.writeText(copyHref);
-                success = true;
-            } catch {
-                // fall through to execCommand
+                await navigator.share({ title, text: shareBlurb, url: nativeShareUrl });
+                return;
+            } catch (err) {
+                const name = err instanceof DOMException ? err.name : "";
+                if (name === "AbortError") return;
+                toast.error("Sharing was cancelled or failed.");
+                return;
             }
         }
-        if (!success) {
-            success = copyViaExecCommand(copyHref);
-        }
-        if (success) {
-            setCopied(true);
-            toast.success("Link copied to clipboard");
-            window.setTimeout(() => setCopied(false), 2000);
-        } else {
+        try {
+            await navigator.clipboard.writeText(nativeShareUrl);
+            toast.success("Link copied!");
+        } catch {
             toast.error("Could not copy link");
         }
-    }, [copyHref]);
+    }, [canWebShare, nativeShareUrl, shareBlurb, title]);
 
     const handleDownloadQr = useCallback(() => {
         const svg = qrRef.current;
@@ -134,7 +106,6 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
 
         img.onload = () => {
             const canvas = document.createElement("canvas");
-            // Render at 2× for sharper prints
             canvas.width = img.naturalWidth * 2;
             canvas.height = img.naturalHeight * 2;
             const ctx = canvas.getContext("2d");
@@ -167,17 +138,15 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
                 </p>
 
                 <div className="mt-5 flex flex-wrap items-center gap-3">
-                    {canWebShare ? (
-                        <button
-                            type="button"
-                            className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
-                            onClick={handleNativeShare}
-                            aria-label="Share using your device"
-                        >
-                            <Share2 className="h-5 w-5 shrink-0" />
-                            <span className="text-gray-100">Share</span>
-                        </button>
-                    ) : null}
+                    <button
+                        type="button"
+                        className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
+                        onClick={handleNativeShare}
+                        aria-label="Share using your device"
+                    >
+                        <Share2 className="h-5 w-5 shrink-0" />
+                        <span className="text-gray-100">Share</span>
+                    </button>
 
                     <a
                         href={twitterHref}
@@ -198,16 +167,16 @@ const ShareRaffle = ({ raffleId, title }: ShareRaffleProps) => {
                         <TelegramIcon className="h-5 w-5" />
                     </a>
 
-                    {/* Copy Link button */}
-                    <button
-                        type="button"
-                        className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium`}
-                        onClick={handleCopyLink}
-                        aria-label={copied ? "Copied!" : "Copy raffle link"}
-                    >
-                        <Link2 className="h-5 w-5 shrink-0" />
-                        <span className="text-gray-100">{copied ? "Copied!" : "Copy Link"}</span>
-                    </button>
+                    <CopyButton
+                        value={copyHref}
+                        defaultLabel="Copy Link"
+                        copiedLabel="Copied!"
+                        ariaLabel="Copy raffle link"
+                        successMessage="Raffle link copied to clipboard"
+                        errorMessage="Could not copy raffle link"
+                        className={`${iconButtonClass} gap-2 px-4 py-2 rounded-full text-sm font-medium text-gray-100`}
+                        labelClassName="text-gray-100"
+                    />
                 </div>
 
                 {/* QR code section */}

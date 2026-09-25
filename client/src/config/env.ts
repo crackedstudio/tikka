@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * Environment Configuration Validator
  * 
@@ -97,7 +98,7 @@ function validateStellarConfig() {
     const network = getEnvVar('VITE_STELLAR_NETWORK', false, 'testnet');
 
     if (network !== 'testnet' && network !== 'mainnet') {
-        console.warn(
+        logger.warn(
             `Invalid VITE_STELLAR_NETWORK: ${network}. Defaulting to 'testnet'.\n` +
             `Valid values are: 'testnet' or 'mainnet'`
         );
@@ -126,7 +127,7 @@ function validateSorobanConfig() {
     const deploymentHash = getEnvVar('VITE_CONTRACT_DEPLOYMENT_HASH', false);
 
     if (!contractAddress) {
-        console.warn(
+        logger.warn(
             'VITE_RAFFLE_CONTRACT_ADDRESS is not set.\n' +
             'Contract interactions will not work until you deploy a contract and set this variable.'
         );
@@ -148,7 +149,7 @@ function validateSupabaseConfig() {
     const table = getEnvVar('VITE_SUPABASE_TABLE', false, 'raffle_metadata');
 
     if (!url || !anonKey) {
-        console.warn(
+        logger.warn(
             'Supabase configuration incomplete.\n' +
             'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required for metadata storage.\n' +
             'See DEVELOPMENT.md for setup instructions.'
@@ -196,7 +197,7 @@ export const env = loadEnvConfig();
 
 // Log configuration in development mode
 if (env.app.debugMode) {
-    console.log('🔧 Environment Configuration Loaded:', {
+    logger.log('🔧 Environment Configuration Loaded:', {
         network: env.stellar.network,
         sorobanRpc: env.soroban.rpcUrl,
         contractConfigured: !!env.soroban.contractAddress,

@@ -12,7 +12,9 @@ import { PrngService } from '../randomness/prng.service';
 import { CommitmentService } from '../randomness/commitment.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { FeeEstimatorService } from '../submitter/fee-estimator.service';
-import { CostEstimatorService } from '../submitter/cost-estimator.service';
+import { FeeStrategyService } from '../submitter/fee-strategy';
+import { TxBuilderService } from '../submitter/tx-builder';
+import { SubmissionService } from '../submitter/submission';
 import { HealthModule } from '../health/health.module';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
@@ -58,7 +60,9 @@ import { PriorityClassifierService } from './priority-classifier.service';
     CommitmentService,
     TxSubmitterService,
     FeeEstimatorService,
-    CostEstimatorService,
+    FeeStrategyService,
+    TxBuilderService,
+    SubmissionService,
     HealthService,
     LagMonitorService,
     PriorityClassifierService,

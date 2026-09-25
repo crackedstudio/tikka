@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
 
@@ -17,26 +18,24 @@ import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
  */
 @Injectable()
 export class GcpKmsKeyProvider implements KeyProvider {
-  private readonly logger = new Logger(GcpKmsKeyProvider.name);
+  
   private kmsClient: any;
   private keyVersionName: string;
   private publicKey: Buffer | null = null;
   private publicKeyString: string | null = null;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     projectId: string,
-    locationId: string,
-    keyRingId: string,
-    keyId: string,
-    keyVersion: string = '1',
+    keyPath: string,
   ) {
-    if (!projectId || !locationId || !keyRingId || !keyId) {
+    if (!projectId || !keyPath) {
       throw new Error(
-        'GCP project, location, keyRing, and key IDs are required for GcpKmsKeyProvider',
+        'GCP_KMS_PROJECT and GCP_KMS_KEY_PATH are required for GcpKmsKeyProvider',
       );
     }
 
-    this.keyVersionName = `projects/${projectId}/locations/${locationId}/keyRings/${keyRingId}/cryptoKeys/${keyId}/cryptoKeyVersions/${keyVersion}`;
+    this.keyVersionName = keyPath;
 
     try {
       // Lazy load Google Cloud SDK to avoid requiring it when not using GCP KMS

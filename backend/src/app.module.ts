@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule, seconds } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
+import { BullModule } from "@nestjs/bullmq";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { RafflesModule } from "./api/rest/raffles/raffles.module";
@@ -15,15 +16,15 @@ import { SearchModule } from "./api/rest/search/search.module";
 import { SupportModule } from "./api/rest/support/support.module";
 import { HealthModule } from "./health/health.module";
 import { MonitorModule } from "./api/rest/monitor/monitor.module";
-import { SupabaseModule } from "./services/supabase.module";
-import { GeoModule } from "./services/geo.module";
+import { SupabaseModule } from "./services/storage/supabase.module";
+import { GeoModule } from "./services/geo/geo.module";
 import { GeoMiddleware } from "./middleware/geo.middleware";
 import { RequestIdMiddleware } from "./middleware/request-id.middleware";
 import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
 import { ErrorResponseInterceptor } from "./middleware/error-response.interceptor";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
 import { validate } from "./config/env.schema";
-import { IndexerBackfillModule } from "./services/indexer-backfill.module";
+import { IndexerBackfillModule } from "./services/indexer/indexer-backfill.module";
 import { MaintenanceModeGuard } from "./maintenance/maintenance-mode.guard";
 import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
 import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
@@ -66,8 +67,8 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
      * Tier          Limit      Window    Applies to
      * ──────────────────────────────────────────────────────────────
      * default       100 req    60 s      All public endpoints
-     * auth            5 req    60 s      POST /auth/verify
-     * nonce           5 req    60 s      GET  /auth/nonce
+     * auth            5 req    15 min    POST /auth/verify
+     * nonce          10 req    60 s      GET  /auth/nonce
      *
      * The auth and nonce tiers are overridden at the controller level
      * via @Throttle() — the values here serve as the fallback defaults
@@ -91,11 +92,11 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
           {
             name: "auth",
             limit: config.get<number>("THROTTLE_AUTH_LIMIT", 5),
-            ttl: seconds(config.get<number>("THROTTLE_AUTH_TTL", 60)),
+            ttl: seconds(config.get<number>("THROTTLE_AUTH_TTL", 900)),
           },
           {
             name: "nonce",
-            limit: config.get<number>("THROTTLE_NONCE_LIMIT", 5),
+            limit: config.get<number>("THROTTLE_NONCE_LIMIT", 10),
             ttl: seconds(config.get<number>("THROTTLE_NONCE_TTL", 60)),
           },
         ],
@@ -117,6 +118,30 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
     IndexerBackfillModule,
     MaintenanceModeModule,
     WebhooksModule,
+
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL', '');
+        let host = 'localhost';
+        let port = 6379;
+        if (redisUrl) {
+          try {
+            const url = new URL(redisUrl);
+            host = url.hostname || host;
+            port = parseInt(url.port, 10) || port;
+          } catch {}
+        }
+        return {
+          connection: { host, port },
+          defaultJobOptions: {
+            removeOnComplete: 1000,
+            removeOnFail: 5000,
+          },
+        };
+      },
+    }),
   ],
   providers: [
     // 1. Maintenance guard first — blocks requests when MAINTENANCE_MODE is enabled

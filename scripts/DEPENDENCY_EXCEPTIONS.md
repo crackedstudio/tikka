@@ -114,6 +114,24 @@ The @stellar/stellar-sdk has minor version variations across packages:
 
 This is acceptable as they are patch/minor version differences within the same major version.
 
+## TypeORM Versions
+
+TypeORM is aligned across packages on the 1.x major:
+- **backend**: ^1.1.0
+- **indexer**: ^1.1.0
+
+Both packages read the same PostgreSQL schema and must stay on the same major; the indexer owns the shared migrations. Keep this alignment — verify with `node scripts/check-dependencies.js`.
+
+## Dependabot Grouping & Major Ignore Policy
+
+Dependabot (`.github/dependabot.yml`) uses a single root `directory: /` entry with package groups:
+- `nestjs`: `@nestjs/*`
+- `stellar`: `@stellar/*`
+- `typescript-tooling`: `typescript`, `eslint`, `prettier`, etc.
+- `testing`: `jest`, `ts-jest`, `vitest`, etc.
+
+Major version bumps requiring coordinated migrations (`typeorm`, `@stellar/stellar-sdk`) are ignored in automated Dependabot PRs until an intentional migration is executed.
+
 ## Dealing with Version Mismatches
 
 ### Scenario 1: Unintentional Mismatch

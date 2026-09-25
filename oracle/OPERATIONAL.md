@@ -12,6 +12,11 @@ Alerts:
 - Signature verification failures
 
 Runbook:
+- [On-Call Troubleshooting](./docs/runbooks/on-call-troubleshooting.md)
+- [Rescue Runbook](./docs/runbooks/rescue-runbook.md)
+- [Manual Test Guide](./docs/runbooks/manual-test-guide.md)
+- [Push Instructions](./docs/runbooks/push-instructions.md)
+- [E2E Test Guide](./docs/runbooks/e2e-test-guide.md)
 - Failover to backup oracle, key revocation/rotation steps.
 
 Rollback instructions:

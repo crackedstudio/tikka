@@ -1,5 +1,6 @@
 import React from "react";
-import type { StepComponentProps } from "../../types/types";
+import type { StepComponentProps } from "../../types/forms";
+import { CreateRaffleFormSchema } from "../../utils/raffleValidation";
 
 const DurationStep: React.FC<StepComponentProps> = ({
     formData,
@@ -74,8 +75,10 @@ const DurationStep: React.FC<StepComponentProps> = ({
         return `${formData.duration.days}d ${formData.duration.hours}h`;
     };
 
-    const canContinue =
-        formData.duration.days > 0 || formData.duration.hours > 0;
+    const durationInSeconds =
+        formData.duration.days * 24 * 60 * 60 + formData.duration.hours * 60 * 60;
+    const durationValidation = CreateRaffleFormSchema.shape.durationInSeconds.safeParse(durationInSeconds);
+    const canContinue = durationValidation.success;
 
     return (
         <div className="bg-white dark:bg-[#1E1932] rounded-xl p-6">
@@ -239,7 +242,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                     className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#0B1220] ${
                         canContinue
                             ? "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white focus:ring-[#FF389C]"
-                            : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            : "bg-gray-300 dark:bg-gray-600 text-gray-400 cursor-not-allowed"
                     }`}
                 >
                     Continue

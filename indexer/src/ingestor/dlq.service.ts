@@ -5,8 +5,47 @@ import { DeadLetterEventEntity, DlqReason } from '../database/entities/dead-lett
 import { DomainEvent } from './event.types';
 import { IngestionDispatcherService } from './ingestion-dispatcher.service';
 import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
+import { MetricsService } from '../metrics/metrics.service';
+
 
 export { DlqReason };
+
+/**
+ * Reads the contract address off a raw DLQ event payload without `any`.
+ * Raw events are untyped at this boundary (they may be re-hydrated JSON).
+ */
+function readContractId(rawEvent: unknown): string | null {
+  const record =
+    rawEvent !== null && typeof rawEvent === "object"
+      ? (rawEvent as Record<string, unknown>)
+      : {};
+  const id = record.contractId ?? record.contract_id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+/**
+ * The shape passed by IngestionDispatcherService when an event fails.
+ * Includes rich context for triage: handler name, schema version, timing, and
+ * the original raw payload for later replay.
+ */
+export interface DeadLetterEvent {
+  handlerName: string;
+  eventId: string;
+  eventType: string;
+  ledger: number | null;
+  txHash: string | null;
+  /** Schema version of the failed event, for forward-compatible triage. */
+  schemaVersion: number;
+  /** Why the event failed (parser/handler/db/schema) — drives replay policy. */
+  reason: DlqReason;
+  errorMessage: string;
+  errorStack?: string;
+  durationMs: number;
+  attemptCount: number;
+  event: DomainEvent;
+  rawEvent: unknown;
+  failedAt: string;
+}
 
 export const MAX_RETRIES = 5;
 
@@ -57,7 +96,9 @@ export class DlqService {
     private readonly repo: Repository<DeadLetterEventEntity>,
     private readonly dispatcher: IngestionDispatcherService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
-  ) {}
+    @Optional() private readonly metrics?: MetricsService,
+  ) { }
+
 
   /**
    * Enqueue a failed event in the DLQ with a classified reason and retryability flag.
@@ -94,8 +135,61 @@ export class DlqService {
 
     this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
 
+    // DLQ depth and total event metrics
+    const contractAddressLabel = contractId ?? 'unknown';
+    this.metrics?.incrementDlqEventsTotal(reason, event.type);
+    this.metrics?.setDlqDepth(contractAddressLabel, await this.repo.count({
+      where: { contractId: contractAddressLabel, replayedAt: IsNull() },
+    }) as unknown as number);
+
     this.logger.warn(
       `DLQ [${reason}] stored ${event.type} at ledger ${ledger} (retryable=${retryable}): ${errorMessage}`,
+    );
+
+  }
+
+  /**
+   * Adapter called by IngestionDispatcherService with the rich DeadLetterEvent
+   * shape. Persists to the database so every failed event is durable and
+   * visible to the HTTP API, CLI, and metrics — all reading the same table.
+   */
+  async enqueue(record: DeadLetterEvent): Promise<void> {
+    const raw =
+      record.rawEvent !== null && typeof record.rawEvent === "object"
+        ? (record.rawEvent as Record<string, unknown>)
+        : {};
+    const contractId = readContractId(record.rawEvent);
+    const retryable = REASON_RETRYABLE[record.reason];
+
+    await this.repo.save(
+      this.repo.create({
+        ledger: record.ledger ?? 0,
+        contractId,
+        eventType: record.eventType,
+        rawPayload: raw,
+        errorMessage: record.errorMessage,
+        reason: record.reason,
+        retryable,
+        retryCount: 0,
+        attemptCount: record.attemptCount,
+        replayedAt: null,
+      }),
+    );
+
+    this.pipeline?.apply(PipelineTransition.DLQ_ENQUEUED);
+
+    const contractAddressLabel = contractId ?? 'unknown';
+    this.metrics?.incrementDlqEventsTotal(record.reason, record.eventType);
+    this.metrics?.setDlqDepth(
+      contractAddressLabel,
+      await this.repo.count({
+        where: { contractId: contractAddressLabel, replayedAt: IsNull() },
+      }) as unknown as number,
+    );
+
+    this.logger.error(
+      `DLQ [${record.reason}] handler=${record.handlerName} eventId=${record.eventId} durationMs=${record.durationMs} error=${record.errorMessage}`,
+      record.errorStack,
     );
   }
 
@@ -127,14 +221,15 @@ export class DlqService {
       ...(fromLedger !== undefined && toLedger !== undefined
         ? { ledger: Between(fromLedger, toLedger) }
         : fromLedger !== undefined
-        ? { ledger: Between(fromLedger, Number.MAX_SAFE_INTEGER) }
-        : toLedger !== undefined
-        ? { ledger: Between(0, toLedger) }
-        : {}),
+          ? { ledger: Between(fromLedger, Number.MAX_SAFE_INTEGER) }
+          : toLedger !== undefined
+            ? { ledger: Between(0, toLedger) }
+            : {}),
     };
 
     const entries = await this.repo.find({ where, order: { ledger: 'ASC', createdAt: 'ASC' } });
-    const eligible = entries.filter((e) => e.retryCount < MAX_RETRIES);
+    const eligible = entries.filter((entry) => entry.retryCount < MAX_RETRIES);
+
 
     let replayed = 0;
     let skipped = 0;
@@ -160,13 +255,26 @@ export class DlqService {
         if (result.outcome === 'failed') {
           throw result.error ?? new Error(`Replay failed for ${entry.eventType}`);
         }
+
+        // Count replay attempts in total events counter.
+        this.metrics?.incrementDlqEventsTotal(entry.reason, entry.eventType);
+
         // Mark as successfully replayed (idempotency guard)
         entry.replayedAt = new Date();
         await this.repo.save(entry);
         replayed++;
         this.pipeline?.apply(PipelineTransition.RETRY_SUCCESS);
+
+        // Successful replay reduces depth for this contract.
+        const contractAddressLabel = entry.contractId ?? 'unknown';
+        const remaining = await this.repo.count({
+          where: { contractId: contractAddressLabel, replayedAt: IsNull() },
+        });
+        this.metrics?.setDlqDepth(contractAddressLabel, remaining);
+
         this.logger.log(`DLQ: replayed ${entry.eventType} ledger=${entry.ledger} id=${entry.id}`);
       } catch (err) {
+
         entry.retryCount += 1;
         entry.errorMessage = err instanceof Error ? err.message : String(err);
         await this.repo.save(entry);

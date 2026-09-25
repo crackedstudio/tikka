@@ -73,8 +73,8 @@ describe("UsersController", () => {
       cacheService.getLeaderboard.mockResolvedValue(null);
 
       const result = (await controller.leaderboard({
-        limit: "20",
-        offset: "0",
+        limit: 20,
+        offset: 0,
       })) as UserLeaderboardResponseDto;
 
       // Verify DTO shape
@@ -230,8 +230,8 @@ describe("UsersController", () => {
       raffleRepo.createQueryBuilder.mockReturnValue(raffleQb);
 
       const result = (await controller.history("GUSER1", {
-        limit: "20",
-        offset: "0",
+        limit: 20,
+        offset: 0,
       })) as UserRaffleHistoryResponseDto;
 
       // Verify DTO shape
@@ -264,8 +264,8 @@ describe("UsersController", () => {
       ticketRepo.createQueryBuilder.mockReturnValue(ticketQb);
 
       const result = (await controller.history("GNOHISTORY", {
-        limit: "20",
-        offset: "0",
+        limit: 20,
+        offset: 0,
       })) as UserRaffleHistoryResponseDto;
 
       expect(result).toHaveProperty("data");

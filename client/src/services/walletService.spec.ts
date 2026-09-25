@@ -1,204 +1,96 @@
-/**
- * walletService.spec.ts — Tests for wallet capability detection
- *
- * Tests cover:
- * - Freighter-like wallet scenarios
- * - LOBSTR-like wallet scenarios
- * - unavailable-wallet scenarios
- * - capability checking before operations
- */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { attemptAutoReconnect } from './walletService';
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-// Mock the entire walletService module to avoid CommonJS import issues
-vi.mock("./walletService", () => ({
-  getWalletCapabilities: vi.fn(),
-  signTransaction: vi.fn(),
+// Mock @stellar/freighter-api
+vi.mock('@stellar/freighter-api', () => ({
+  isConnected: vi.fn(),
+  getAddress: vi.fn(),
 }));
 
-import { getWalletCapabilities, signTransaction } from "./walletService";
+// Mock stellar-wallets-kit
+vi.mock('@creit.tech/stellar-wallets-kit', () => ({
+  StellarWalletsKit: vi.fn().mockImplementation(() => ({
+    getAddress: vi.fn(),
+    setWallet: vi.fn(),
+    disconnect: vi.fn(),
+  })),
+  allowAllModules: vi.fn(() => []),
+  FREIGHTER_ID: 'freighter',
+  WalletNetwork: {},
+}));
 
-describe("WalletCapabilities", () => {
+describe('walletService - Auto-reconnect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
+    localStorage.clear();
 
-  describe("getWalletCapabilities", () => {
-    it("should return Freighter capabilities when Freighter is detected", () => {
-      const mockCapabilities = {
-        walletName: "Freighter",
-        canSignTransaction: true,
-        canSwitchNetwork: false,
-        canGetAccount: true,
-        supportsMobileDeepLink: false,
-        unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension.",
-      };
-      vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
-
-      const capabilities = getWalletCapabilities();
-
-      expect(capabilities.walletName).toBe("Freighter");
-      expect(capabilities.canSignTransaction).toBe(true);
-      expect(capabilities.canSwitchNetwork).toBe(false);
-      expect(capabilities.canGetAccount).toBe(true);
-      expect(capabilities.supportsMobileDeepLink).toBe(false);
-      expect(capabilities.unsupportedActionCopy).toContain("Freighter");
-    });
-
-    it("should return LOBSTR capabilities when LOBSTR is detected", () => {
-      const mockCapabilities = {
-        walletName: "LOBSTR",
-        canSignTransaction: true,
-        canSwitchNetwork: false,
-        canGetAccount: true,
-        supportsMobileDeepLink: true,
-        unsupportedActionCopy: "This action is not supported by LOBSTR. Please use the mobile app or switch networks manually.",
-      };
-      vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
-
-      const capabilities = getWalletCapabilities();
-
-      expect(capabilities.walletName).toBe("LOBSTR");
-      expect(capabilities.canSignTransaction).toBe(true);
-      expect(capabilities.canSwitchNetwork).toBe(false);
-      expect(capabilities.canGetAccount).toBe(true);
-      expect(capabilities.supportsMobileDeepLink).toBe(true);
-      expect(capabilities.unsupportedActionCopy).toContain("LOBSTR");
-    });
-
-    it("should return default capabilities when no wallet is detected", () => {
-      const mockCapabilities = {
-        walletName: "Unknown Wallet",
-        canSignTransaction: false,
-        canSwitchNetwork: false,
-        canGetAccount: false,
-        supportsMobileDeepLink: false,
-        unsupportedActionCopy: "This wallet may not support the required action. Please try a different wallet like Freighter or LOBSTR.",
-      };
-      vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
-
-      const capabilities = getWalletCapabilities();
-
-      expect(capabilities.walletName).toBe("Unknown Wallet");
-      expect(capabilities.canSignTransaction).toBe(false);
-      expect(capabilities.canSwitchNetwork).toBe(false);
-      expect(capabilities.canGetAccount).toBe(false);
-      expect(capabilities.supportsMobileDeepLink).toBe(false);
-      expect(capabilities.unsupportedActionCopy).toContain("different wallet");
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        freighter: {},
+        localStorage: {
+          getItem: vi.fn((key: string) => localStorage.getItem(key)),
+          setItem: vi.fn((key: string, value: string) => localStorage.setItem(key, value)),
+          removeItem: vi.fn((key: string) => localStorage.removeItem(key)),
+        },
+      },
+      configurable: true,
     });
   });
 
-  describe("signTransaction capability check", () => {
-    it("should fail with error when wallet does not support signing", async () => {
-      const mockResult = {
-        success: false,
-        error: "Unknown Wallet does not support transaction signing. This wallet may not support the required action. Please try a different wallet like Freighter or LOBSTR.",
-      };
-      vi.mocked(signTransaction).mockResolvedValue(mockResult);
-
-      const result = await signTransaction({});
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("does not support transaction signing");
-    });
-
-    it("should succeed when wallet supports signing", async () => {
-      const mockResult = {
-        success: true,
-        signedTransaction: "test-signed-transaction",
-      };
-      vi.mocked(signTransaction).mockResolvedValue(mockResult);
-
-      const result = await signTransaction({});
-
-      expect(result.success).toBe(true);
-      expect(result.signedTransaction).toBe("test-signed-transaction");
-    });
+  it('should return false when no wallet was previously connected', async () => {
+    const result = await attemptAutoReconnect();
+    expect(result.success).toBe(false);
   });
 
-  describe("capability profiles", () => {
-    it("Freighter should not support network switching", () => {
-      const mockCapabilities = {
-        walletName: "Freighter",
-        canSignTransaction: true,
-        canSwitchNetwork: false,
-        canGetAccount: true,
-        supportsMobileDeepLink: false,
-        unsupportedActionCopy: "This action is not supported by Freighter. Please switch networks manually in the extension.",
-      };
-      vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
+  it('should attempt to reconnect Freighter if it was last connected', async () => {
+    localStorage.setItem('tikka_last_connected_wallet', 'freighter');
+    
+    const mockFreighterApi = await import('@stellar/freighter-api');
+    vi.mocked(mockFreighterApi.isConnected).mockResolvedValue(true);
+    vi.mocked(mockFreighterApi.getAddress).mockResolvedValue({ address: 'GAUTO123' });
 
-      const capabilities = getWalletCapabilities();
+    const result = await attemptAutoReconnect();
+    
+    expect(result.success).toBe(true);
+    expect(result.address).toBe('GAUTO123');
+  });
 
-      expect(capabilities.canSwitchNetwork).toBe(false);
-      expect(capabilities.unsupportedActionCopy).toContain("switch networks manually");
-    });
+  it('should return false if Freighter is not connected', async () => {
+    localStorage.setItem('tikka_last_connected_wallet', 'freighter');
+    
+    const mockFreighterApi = await import('@stellar/freighter-api');
+    vi.mocked(mockFreighterApi.isConnected).mockResolvedValue(false);
 
-    it("LOBSTR should support mobile deep links", () => {
-      const mockCapabilities = {
-        walletName: "LOBSTR",
-        canSignTransaction: true,
-        canSwitchNetwork: false,
-        canGetAccount: true,
-        supportsMobileDeepLink: true,
-        unsupportedActionCopy: "This action is not supported by LOBSTR. Please use the mobile app or switch networks manually.",
-      };
-      vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
+    const result = await attemptAutoReconnect();
+    
+    expect(result.success).toBe(false);
+  });
 
-      const capabilities = getWalletCapabilities();
+  it('should handle errors gracefully', async () => {
+    localStorage.setItem('tikka_last_connected_wallet', 'freighter');
+    
+    const mockFreighterApi = await import('@stellar/freighter-api');
+    vi.mocked(mockFreighterApi.isConnected).mockRejectedValue(new Error('Connection failed'));
 
-      expect(capabilities.supportsMobileDeepLink).toBe(true);
-      expect(capabilities.unsupportedActionCopy).toContain("mobile app");
-    });
+    const result = await attemptAutoReconnect();
+    
+    expect(result.success).toBe(false);
+  });
 
-    it("All known wallets should support account lookup", () => {
-      const knownWallets = [
-        { name: "Freighter", supportsMobileDeepLink: false },
-        { name: "LOBSTR", supportsMobileDeepLink: true },
-        { name: "xBull", supportsMobileDeepLink: false },
-        { name: "Rabet", supportsMobileDeepLink: false },
-      ];
+  it('should not attempt reconnect for non-Freighter wallets', async () => {
+    localStorage.setItem('tikka_last_connected_wallet', 'xbull');
 
-      knownWallets.forEach((wallet) => {
-        const mockCapabilities = {
-          walletName: wallet.name,
-          canSignTransaction: true,
-          canSwitchNetwork: false,
-          canGetAccount: true,
-          supportsMobileDeepLink: wallet.supportsMobileDeepLink,
-          unsupportedActionCopy: `This action is not supported by ${wallet.name}.`,
-        };
-        vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
+    const result = await attemptAutoReconnect();
+    
+    expect(result.success).toBe(false);
+  });
 
-        const capabilities = getWalletCapabilities();
+  it('should return false if Freighter extension is not available', async () => {
+    localStorage.setItem('tikka_last_connected_wallet', 'freighter');
+    delete (globalThis.window as { freighter?: unknown }).freighter;
 
-        expect(capabilities.canGetAccount).toBe(true);
-      });
-    });
-
-    it("All known wallets should support transaction signing", () => {
-      const knownWallets = [
-        { name: "Freighter", supportsMobileDeepLink: false },
-        { name: "LOBSTR", supportsMobileDeepLink: true },
-        { name: "xBull", supportsMobileDeepLink: false },
-        { name: "Rabet", supportsMobileDeepLink: false },
-      ];
-
-      knownWallets.forEach((wallet) => {
-        const mockCapabilities = {
-          walletName: wallet.name,
-          canSignTransaction: true,
-          canSwitchNetwork: false,
-          canGetAccount: true,
-          supportsMobileDeepLink: wallet.supportsMobileDeepLink,
-          unsupportedActionCopy: `This action is not supported by ${wallet.name}.`,
-        };
-        vi.mocked(getWalletCapabilities).mockReturnValue(mockCapabilities);
-
-        const capabilities = getWalletCapabilities();
-
-        expect(capabilities.canSignTransaction).toBe(true);
-      });
-    });
+    const result = await attemptAutoReconnect();
+    
+    expect(result.success).toBe(false);
   });
 });

@@ -1,3 +1,17 @@
+function mapContractStatus(status: number): RaffleStatus {
+  switch (status) {
+    case 0:
+      return RaffleStatus.OPEN;
+    case 1:
+      return RaffleStatus.DRAWING;
+    case 2:
+      return RaffleStatus.FINALIZED;
+    case 3:
+      return RaffleStatus.CANCELLED;
+    default:
+      return RaffleStatus.OPEN;
+  }
+}
 import { Injectable } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
@@ -10,12 +24,15 @@ import {
   TriggerDrawResult,
   WinnerResult,
   RaffleStateError,
+  CreateRaffleEstimate,
 } from './raffle.types';
 import { RaffleStatus } from '../../contract/bindings';
-import { ContractResponse } from '../../contract/response';
-import { assertPositiveInt } from '../../utils/validation';
-import { xlmToStroops, assertSafeAmount } from '../../utils/formatting';
+import { ContractResponse, RaffleTxResponse, TxResponse } from '../../contract/response';
+import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
+import { xlmToStroops } from '../../utils/formatting';
 import { nativeToScVal } from '@stellar/stellar-sdk';
+import { FeeEstimatorService } from '../../fee-estimator/fee-estimator.service';
+import { toTypedSdkError } from '../../utils/errors';
 
 /**
  * Normalises the `asset` field from `RaffleParams` into a plain `AssetDescriptor`.
@@ -34,11 +51,28 @@ function normaliseAsset(asset: string | AssetDescriptor): AssetDescriptor {
  */
 @Injectable()
 export class RaffleService {
-  constructor(private readonly contract: ContractService) {}
+  constructor(
+    private readonly contract: ContractService,
+    private readonly feeEstimator: FeeEstimatorService,
+  ) {}
 
   /* ------------------------------------------------------------------ */
   /*  create                                                             */
   /* ------------------------------------------------------------------ */
+
+  /**
+   * Pre-confirmation fee preview for raffle creation.
+   * Simulates the transaction via {@link FeeEstimatorService} without submitting.
+   */
+  async estimateCreate(params: RaffleParams): Promise<CreateRaffleEstimate> {
+    const contractParams = this.buildCreateContractParams(params);
+    const fee = await this.feeEstimator.estimateFee({
+      method: ContractFn.CREATE_RAFFLE,
+      params: contractParams,
+    });
+
+    return { xlm: fee.xlm, stroops: fee.stroops };
+  }
 
   /**
    * Creates a new raffle on-chain.
@@ -53,38 +87,29 @@ export class RaffleService {
     assertNonEmpty(params.ticketPrice, 'ticketPrice');
     assertPositiveInt(params.maxTickets, 'maxTickets');
 
-    const asset = normaliseAsset(params.asset);
+    const contractParams = this.buildCreateContractParams(params);
 
-    const contractParams = [
-      nativeToScVal(
-        {
-          ticket_price: BigInt(xlmToStroops(params.ticketPrice)),
-          max_tickets: params.maxTickets,
-          end_time: BigInt(Math.floor(params.endTime / 1000)), // contract expects seconds
-          allow_multiple: params.allowMultiple,
-          asset: asset.code,
-          asset_issuer: asset.issuer ?? '',
-          metadata_cid: params.metadataCid ?? '',
-        },
-        {
-          type: {
-            ticket_price: ['symbol', 'i128'],
-            max_tickets: ['symbol', 'u32'],
-            end_time: ['symbol', 'u64'],
-            allow_multiple: ['symbol', 'bool'],
-            asset: ['symbol', 'string'],
-            asset_issuer: ['symbol', 'string'],
-            metadata_cid: ['symbol', 'string'],
-          } as any,
-        },
-      ),
-    ];
+    try {
+      const sim = await this.contract.simulate<number>(ContractFn.CREATE_RAFFLE, contractParams, {
+        memo: params.memo,
+      });
 
-    return await this.contract.invoke<number>(
-      ContractFn.CREATE_RAFFLE,
-      contractParams,
-      { memo: params.memo },
-    );
+      const feeEstimate = this.feeEstimator.estimateFromResourceFee(sim.minResourceFee);
+
+      const signedXdr = await this.contract.sign(sim.assembledXdr, sim.networkPassphrase);
+      const txHash = await this.contract.submit(signedXdr);
+      const polled = await this.contract.poll<number>(txHash);
+
+      return {
+        status: 'SUCCESS',
+        value: polled.returnValue as number,
+        txHash: polled.txHash,
+        ledger: polled.ledger,
+        feeCharged: feeEstimate.stroops,
+      };
+    } catch (error: unknown) {
+      throw toTypedSdkError(error);
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -97,13 +122,10 @@ export class RaffleService {
   async get(raffleId: number): Promise<RaffleTxResponse<RaffleData>> {
     assertPositiveInt(raffleId, 'raffleId');
 
-    const res = await this.contract.simulateReadOnly<any>(
-      ContractFn.GET_RAFFLE_DATA,
-      [raffleId],
-    );
+    const res = await this.contract.simulateReadOnly<any>(ContractFn.GET_RAFFLE_DATA, [raffleId]);
 
     if (res.status !== 'SUCCESS') return res as any;
-    
+
     return {
       status: 'SUCCESS',
       value: this.mapRaffleData(raffleId, res.value),
@@ -118,10 +140,7 @@ export class RaffleService {
    * Returns IDs of all currently active (OPEN) raffles.
    */
   async listActive(): Promise<RaffleTxResponse<number[]>> {
-    return this.contract.simulateReadOnly<number[]>(
-      ContractFn.GET_ACTIVE_RAFFLE_IDS,
-      [],
-    );
+    return this.contract.simulateReadOnly<number[]>(ContractFn.GET_ACTIVE_RAFFLE_IDS, []);
   }
 
   /* ------------------------------------------------------------------ */
@@ -132,10 +151,7 @@ export class RaffleService {
    * Returns IDs of all raffles (any state).
    */
   async listAll(): Promise<RaffleTxResponse<number[]>> {
-    return this.contract.simulateReadOnly<number[]>(
-      ContractFn.GET_ALL_RAFFLE_IDS,
-      [],
-    );
+    return this.contract.simulateReadOnly<number[]>(ContractFn.GET_ALL_RAFFLE_IDS, []);
   }
 
   /* ------------------------------------------------------------------ */
@@ -150,15 +166,13 @@ export class RaffleService {
     assertPositiveInt(params.raffleId, 'raffleId');
 
     const current = await this.get(params.raffleId);
-    if (current.success && current.value!.status !== RaffleStatus.Open) {
+    if (current.success && current.value!.status !== RaffleStatus.OPEN) {
       throw new RaffleStateError(params.raffleId, current.value!.status, 'open→cancelled');
     }
 
-    return await this.contract.invoke<void>(
-      ContractFn.CANCEL_RAFFLE,
-      [params.raffleId],
-      { memo: params.memo },
-    );
+    return await this.contract.invoke<void>(ContractFn.CANCEL_RAFFLE, [params.raffleId], {
+      memo: params.memo,
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -176,7 +190,7 @@ export class RaffleService {
     assertPositiveInt(params.raffleId, 'raffleId');
 
     const current = await this.get(params.raffleId);
-    if (current.success && current.value!.status !== RaffleStatus.Open) {
+    if (current.success && current.value!.status !== RaffleStatus.OPEN) {
       throw new RaffleStateError(params.raffleId, current.value!.status, 'open→drawing');
     }
 
@@ -204,7 +218,7 @@ export class RaffleService {
     if (!res.success) return res as any;
 
     const data = res.value!;
-    if (data.status !== RaffleStatus.Finalized || !data.winner) {
+    if (data.status !== RaffleStatus.FINALIZED || !data.winner) {
       return { success: true, value: null };
     }
 
@@ -223,11 +237,50 @@ export class RaffleService {
   /*  Private helpers                                                    */
   /* ------------------------------------------------------------------ */
 
+  /**
+   * Builds the `create_raffle` contract parameters for the given raffle.
+   *
+   * Public so frontend progress-emission pipelines can reuse the exact scVal
+   * shape instead of hand-rolling a private copy. Accepts the same `RaffleParams`
+   * as {@link create} / {@link estimateCreate} (endTime in ms).
+   */
+  buildCreateContractParams(params: RaffleParams): any[] {
+    assertNonEmpty(params.ticketPrice, 'ticketPrice');
+    assertPositiveInt(params.maxTickets, 'maxTickets');
+
+    const asset = normaliseAsset(params.asset);
+
+    return [
+      nativeToScVal(
+        {
+          ticket_price: BigInt(xlmToStroops(params.ticketPrice)),
+          max_tickets: params.maxTickets,
+          end_time: BigInt(Math.floor(params.endTime / 1000)), // contract expects seconds
+          allow_multiple: params.allowMultiple,
+          asset: asset.code,
+          asset_issuer: asset.issuer ?? '',
+          metadata_cid: params.metadataCid ?? '',
+        },
+        {
+          type: {
+            ticket_price: ['symbol', 'i128'],
+            max_tickets: ['symbol', 'u32'],
+            end_time: ['symbol', 'u64'],
+            allow_multiple: ['symbol', 'bool'],
+            asset: ['symbol', 'string'],
+            asset_issuer: ['symbol', 'string'],
+            metadata_cid: ['symbol', 'string'],
+          } as any,
+        },
+      ),
+    ];
+  }
+
   private mapRaffleData(raffleId: number, raw: any): RaffleData {
     return {
       raffleId,
       creator: raw.creator ?? raw.Creator ?? '',
-      status: raw.status ?? raw.Status ?? 0,
+      status: mapContractStatus(raw.status ?? raw.Status ?? 0),
       ticketPrice: String(raw.ticket_price ?? raw.ticketPrice ?? '0'),
       maxTickets: Number(raw.max_tickets ?? raw.maxTickets ?? 0),
       ticketsSold: Number(raw.tickets_sold ?? raw.ticketsSold ?? 0),

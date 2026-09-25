@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * useWallet Hook
  *
@@ -20,12 +21,15 @@ import {
     isWalletConnected,
     isWalletInstalled,
     setNetwork,
+    promptNetworkSwitch,
     signTransaction,
     getWalletCapabilities,
+    normalizeNetworkName,
+    attemptAutoReconnect,
     type WalletCapabilities,
+    type WalletSignResult,
 } from "../services/walletService";
-
-const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === "true";
+import { useAuthStore } from "../store/useAuthStore";
 
 export interface WalletState {
     address: string | null;
@@ -43,7 +47,7 @@ export interface UseWalletReturn extends WalletState {
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
     refresh: () => Promise<void>;
-    signTx: (transaction: any) => Promise<any>;
+    signTx: (transaction: unknown) => Promise<WalletSignResult>;
     switchNetwork: () => Promise<void>;
 }
 
@@ -86,8 +90,7 @@ export function useWallet(): UseWalletReturn {
                 network !== null &&
                 network.toLowerCase() !== APP_REQUIRED_NETWORK.toLowerCase();
 
-            setState((prev) => ({
-                ...prev,
+            store.setWalletState({
                 isWalletAvailable: available,
                 isConnected: connected,
                 address,
@@ -95,11 +98,11 @@ export function useWallet(): UseWalletReturn {
                 isWrongNetwork,
                 capabilities,
                 error: null,
-            }));
+            });
         } catch (error) {
-            console.error("Wallet refresh failed:", error);
+            logger.error("Wallet refresh failed:", error);
         }
-    }, [APP_REQUIRED_NETWORK]);
+    }, [APP_REQUIRED_NETWORK, store.setWalletState]);
 
     // ── Wallet push-event subscriptions (Issue #1549) ──────────────────────────
     //
@@ -195,34 +198,31 @@ export function useWallet(): UseWalletReturn {
     // ── Standard wallet actions ────────────────────────────────────────────────
 
     const connect = useCallback(async () => {
-        setState((prev) => ({ ...prev, isConnecting: true, error: null }));
+        store.setWalletState({ isConnecting: true, error: null });
 
         try {
             const result = await connectWallet();
             if (result.success) {
                 await refresh();
             } else {
-                setState((prev) => ({
-                    ...prev,
+                store.setWalletState({
                     isConnecting: false,
                     error: result.error || "Connection failed",
-                }));
+                });
             }
         } catch (error) {
-            setState((prev) => ({
-                ...prev,
+            store.setWalletState({
                 isConnecting: false,
                 error: error instanceof Error ? error.message : "Connect error",
-            }));
+            });
         }
-    }, [refresh]);
+    }, [refresh, store.setWalletState]);
 
     const disconnect = useCallback(async () => {
-        setState((prev) => ({ ...prev, isDisconnecting: true }));
+        store.setWalletState({ isDisconnecting: true });
         try {
             await disconnectWallet();
-            setState((prev) => ({
-                ...prev,
+            store.setWalletState({
                 address: null,
                 isConnected: false,
                 isDisconnecting: false,
@@ -233,7 +233,7 @@ export function useWallet(): UseWalletReturn {
         } catch {
             setState((prev) => ({ ...prev, isDisconnecting: false }));
         }
-    }, []);
+    }, [store.setWalletState]);
 
     const switchNetwork = useCallback(async () => {
         try {
@@ -245,7 +245,7 @@ export function useWallet(): UseWalletReturn {
                 error: "Please switch network manually in your wallet extension.",
             }));
         }
-    }, [refresh, APP_REQUIRED_NETWORK]);
+    }, [refresh, APP_REQUIRED_NETWORK, store.setWalletState]);
 
     /**
      * Sign a transaction with a live-identity guard (Issue #1549).
@@ -289,7 +289,15 @@ export function useWallet(): UseWalletReturn {
     );
 
     return {
-        ...state,
+        address: store.address,
+        isConnected: store.isConnected,
+        isConnecting: store.isConnecting,
+        isDisconnecting: store.isDisconnecting,
+        error: store.error,
+        isWalletAvailable: store.isWalletAvailable,
+        network: store.network,
+        isWrongNetwork: store.isWrongNetwork,
+        capabilities: store.capabilities,
         connect,
         disconnect,
         refresh,

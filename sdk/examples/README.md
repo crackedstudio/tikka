@@ -192,6 +192,31 @@ npm run example:offline-signing
 
 ---
 
+### [custom-wallet.ts](./custom-wallet.ts)
+
+**Purpose:** Implement a custom `WalletAdapter` for third-party / in-house wallets
+
+**What it does:**
+- Extends `WalletAdapter` with a local Stellar Keypair signer (stand-in for any bridge)
+- Demonstrates availability checks, capabilities, `connect` / `disconnect`
+- Signs a demo payment XDR and an arbitrary message
+- Maps failures to `TikkaSdkError` codes (`WalletNotInstalled`, `UserRejected`, …)
+
+**Environment variables optional:**
+- `TIKKA_SECRET_KEY` (generates an ephemeral keypair if omitted)
+- `TIKKA_NETWORK` (default: `testnet`)
+
+**Run:**
+```bash
+npm run example:custom-wallet
+```
+
+**Notes:**
+- Runs in Node — no browser extension required
+- Full integrator contract: [`../WALLET_ADAPTER.md`](../WALLET_ADAPTER.md)
+
+---
+
 ### [estimate-fee.ts](./estimate-fee.ts)
 
 **Purpose:** Preview XLM costs before signing (fee estimation)

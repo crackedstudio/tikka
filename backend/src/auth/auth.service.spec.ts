@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { SiwsService } from './siws.service';
-import { SUPABASE_CLIENT } from '../services/supabase.provider';
+import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
 import { env } from '../config/env.config';
 
 // ---------------------------------------------------------------------------
@@ -139,8 +139,10 @@ describe('AuthService', () => {
     const expiresAt = new Date(Date.now() + 300_000).toISOString();
 
     function setupNonce(overrides: Record<string, unknown> = {}) {
+      const entry = { id: 1, address: ADDRESS, nonce, issued_at: issuedAt, expires_at: expiresAt, consumed: false, ...overrides };
+      (service as any).nonces.set(ADDRESS, entry);
       supabase.maybeSingle.mockResolvedValueOnce({
-        data: { id: 1, address: ADDRESS, nonce, issued_at: issuedAt, expires_at: expiresAt, consumed: false, ...overrides },
+        data: entry,
         error: null,
       });
       // nonce update

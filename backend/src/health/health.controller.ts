@@ -2,6 +2,7 @@ import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { HealthService, HealthResult } from './health.service';
 import { Public } from '../auth/decorators/public.decorator';
 import { SkipThrottle } from '../middleware/throttle.decorator';
+import { SkipMaintenance } from '../maintenance/skip-maintenance.decorator';
 
 @Controller()
 export class HealthController {
@@ -9,6 +10,7 @@ export class HealthController {
 
   @Public()
   @SkipThrottle()
+  @SkipMaintenance()
   @Get('health')
   async getHealth(): Promise<HealthResult> {
     const result = await this.healthService.getHealth();

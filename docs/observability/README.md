@@ -48,6 +48,7 @@ These metrics must be implemented identically across all services that expose th
 | `tikka_*_submission_outcome_total` | oracle | Counter | `outcome`, `network`, `method` |
 | `tikka_*_estimated_fee_stroops` | oracle | Gauge | `network`, `method` |
 | `tikka_*_actual_fee_total_stroops` | oracle | Counter | `network`, `method` |
+| `tikka_*_component_heartbeat_unixtime` | oracle | Gauge | `component` |
 | `tikka_*_poll_duration_seconds` | indexer | Histogram | (none) |
 | `tikka_*_query_duration_seconds` | indexer | Histogram | `query_hash` |
 | `tikka_*_slow_query_total` | indexer | Counter | `query_hash` |
@@ -116,6 +117,7 @@ These labels are safe to use on any metric:
 | `outcome` | < 10 | `success`, `failure`, `retry` |
 | `network` | < 5 | `testnet`, `mainnet` |
 | `method` | < 10 | `PRNG`, `VRF`, `average` |
+| `component` | < 10 | `listener`, `queue`, `submitter` |
 | `query_hash` | < 200 | SHA-256 of normalized SQL |
 | `status` | < 10 | `healthy`, `degraded`, `unhealthy` |
 
@@ -147,3 +149,8 @@ Avoid these as metric label dimensions:
 | Backend | `GET /metrics` | JSON (custom) | 3001 |
 | Indexer | `GET /metrics` | Prometheus text | 3002 |
 | Oracle | `GET /metrics` | Prometheus text | 3003 |
+
+## Distributed tracing (indexer)
+
+Event-processing traces (ingest → handler → DB → webhook): [INDEXER_TRACING.md](./INDEXER_TRACING.md).
+

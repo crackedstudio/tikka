@@ -3,7 +3,7 @@ module.exports = {
     testEnvironment: 'node',
     moduleFileExtensions: ['js', 'json', 'ts'],
     rootDir: '.',
-    testRegex: '.*\\.spec\\.ts$',
+    testRegex: '.*\\.spec\.ts$',
     transform: {
         '^.+\\.(t|j)s$': ['ts-jest', {
             useESM: true,
@@ -14,10 +14,20 @@ module.exports = {
         }],
     },
     transformIgnorePatterns: [
-        'node_modules/(?!(.pnpm/)?(@noble|@stellar|stellar-sdk))',
+        '/node_modules/(?!(@noble|@stellar|@scure|stellar-sdk)/)',
     ],
     moduleNameMapper: {
         '^src/(.*)$': '<rootDir>/src/$1',
-        '^@noble/curves/(.*)(?<!\\.js)$': '@noble/curves/$1.js',
+        '^@noble/curves/(.+)(?<!\\.js)$': '@noble/curves/$1.js',
+    },
+    coverageReporters: ['lcov', 'text'],
+    coverageDirectory: './coverage',
+    coverageThreshold: {
+        global: {
+            statements: 50,
+            branches: 30,
+            functions: 40,
+            lines: 50,
+        },
     },
 };

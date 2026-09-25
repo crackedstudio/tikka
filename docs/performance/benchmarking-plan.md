@@ -61,6 +61,8 @@ Sustained load target: **100 req/s** across all endpoints with the above latency
 | `INSERT` raffle event | < 30 ms |
 | Reorg rollback (DELETE cascade, 100 ledgers) | < 500 ms |
 
+Indexer hot-path indexes and `EXPLAIN ANALYZE` verification: [indexer-index-audit.md](./indexer-index-audit.md).
+
 ### 1.5 Client (`client/`)
 
 | Metric | Target |

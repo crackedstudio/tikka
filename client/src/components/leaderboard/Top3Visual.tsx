@@ -1,5 +1,5 @@
 import React from "react";
-import type { TopPlayer } from "../../types/types";
+import type { TopPlayer } from "../../types/leaderboard";
 
 interface Top3VisualProps {
     players: TopPlayer[];

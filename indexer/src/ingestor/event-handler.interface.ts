@@ -4,16 +4,22 @@ import { RawSorobanEvent } from "./event-parser.interface";
 
 /**
  * Interface for event handlers
- * Each handler is responsible for parsing a specific event type
+ * Each handler is responsible for parsing a specific event type.
+ *
+ * Generic in the event variant it produces: first-party handlers extend
+ * `BaseEventHandler<RaffleCreatedEvent>` etc. and return that exact type,
+ * while the registry routes handlers by their string `eventName` so
+ * third-party contracts can register events outside the Tikka union.
  */
-export interface IEventHandler {
+export interface IEventHandler<E extends DomainEvent = DomainEvent> {
   /**
-   * The event name this handler supports (e.g., "RaffleCreated")
+   * The event name this handler supports (e.g., "RaffleCreated").
+   * String-keyed: the registry routes arbitrary Soroban event symbols.
    */
   readonly eventName: string;
 
   /**
-   * Parse the raw event into a domain event
+   * Parse the raw event into a typed domain event variant
    * @param topics - Decoded XDR topics
    * @param value - Decoded XDR value
    * @param rawEvent - Original raw event for context
@@ -23,7 +29,7 @@ export interface IEventHandler {
     topics: xdr.ScVal[],
     value: xdr.ScVal,
     rawEvent: RawSorobanEvent,
-  ): DomainEvent | null;
+  ): E | null;
 }
 
 /**

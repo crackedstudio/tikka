@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { JobStateManager } from './job-state-manager';
 import { JobState } from './job-state.types';
@@ -24,10 +25,11 @@ export interface ProcessingResult {
  */
 @Injectable()
 export class RandomnessProcessorService {
-  private readonly logger = new Logger(RandomnessProcessorService.name);
+  
   private readonly vrfThresholdXlm: number;
 
   constructor(
+    private readonly logger: OracleLoggerService,
     private readonly stateManager: JobStateManager,
     private readonly contractService: ContractService,
     private readonly vrfService: VrfService,
@@ -46,7 +48,7 @@ export class RandomnessProcessorService {
    * Process a randomness request through the complete lifecycle.
    * Returns a result indicating success, retry eligibility, and error details.
    */
-  async function processRequest(request: RandomnessRequest): Promise<ProcessingResult> {
+  async processRequest(request: RandomnessRequest): Promise<ProcessingResult> {
     const { requestId, raffleId } = request;
 
     // Initialize job if not already tracked

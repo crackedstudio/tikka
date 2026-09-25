@@ -8,6 +8,19 @@ describe('SiwsService', () => {
   const keypair = Keypair.random();
   const address = keypair.publicKey();
   const originalNetwork = process.env.STELLAR_NETWORK;
+  const originalJwtSecret = process.env.JWT_SECRET;
+
+  beforeAll(() => {
+    process.env.JWT_SECRET = 'super-secret-jwt-key-at-least-32-chars-long';
+  });
+
+  afterAll(() => {
+    if (originalJwtSecret === undefined) {
+      delete process.env.JWT_SECRET;
+    } else {
+      process.env.JWT_SECRET = originalJwtSecret;
+    }
+  });
 
   afterEach(() => {
     if (originalNetwork === undefined) {

@@ -1,20 +1,9 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  Index,
-  OneToMany,
-  PrimaryColumn,
-} from "typeorm";
-import { TicketEntity } from "./ticket.entity";
-import { RaffleEventEntity } from "./raffle-event.entity";
+import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryColumn } from 'typeorm';
+import { TicketEntity } from './ticket.entity';
+import { RaffleEventEntity } from './raffle-event.entity';
 
-export enum RaffleStatus {
-  OPEN = "open",
-  DRAWING = "drawing",
-  FINALIZED = "finalized",
-  CANCELLED = "cancelled",
-}
+import { Raffle, RaffleStatus } from '@tikka/types';
+export { RaffleStatus };
 
 /**
  * Represents a single raffle as tracked by the indexer.
@@ -37,25 +26,30 @@ export enum RaffleStatus {
  *
  * See: `ENTITY_OWNERSHIP.md` for full documentation
  */
-@Entity("raffles")
-@Index("idx_raffles_status", ["status"])
-@Index("idx_raffles_creator", ["creator"])
-@Index("idx_raffles_created_at", ["createdAt"])
-export class RaffleEntity {
+@Entity('raffles')
+@Index('idx_raffles_status', ['status'])
+@Index('idx_raffles_creator', ['creator'])
+@Index('idx_raffles_created_at', ['createdAt'])
+@Index('idx_raffles_status_created_at', ['status', 'createdAt'])
+@Index('idx_raffles_created_ledger', ['createdLedger'])
+@Index('idx_raffles_winner_not_null', ['winner'], {
+  where: '"winner" IS NOT NULL',
+})
+export class RaffleEntity implements Omit<Raffle, 'endTime'> {
   /** Contract-assigned raffle ID — used as natural PK. */
-  @PrimaryColumn({ type: "integer", name: "id" })
+  @PrimaryColumn({ type: 'integer', name: 'id' })
   id!: number;
 
   /** Stellar account address of the raffle creator. */
-  @Column({ type: "varchar", length: 56, name: "creator" })
+  @Column({ type: 'varchar', length: 56, name: 'creator' })
   creator!: string;
 
   /** Current state of the raffle state machine. */
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: RaffleStatus,
     default: RaffleStatus.OPEN,
-    name: "status",
+    name: 'status',
   })
   status!: RaffleStatus;
 
@@ -63,65 +57,69 @@ export class RaffleEntity {
    * Ticket price as a string to preserve bigint precision.
    * Represents stroops (XLM) or the token's base unit.
    */
-  @Column({ type: "varchar", length: 40, name: "ticket_price" })
+  @Column({ type: 'varchar', length: 40, name: 'ticket_price' })
   ticketPrice!: string;
 
   /** 'XLM' or a SEP-41 token contract address. */
-  @Column({ type: "varchar", length: 56, name: "asset" })
+  @Column({ type: 'varchar', length: 56, name: 'asset' })
   asset!: string;
 
-  @Column({ type: "integer", name: "max_tickets" })
+  @Column({ type: 'integer', name: 'max_tickets' })
   maxTickets!: number;
 
   /**
    * DERIVED FIELD: Incremented by TicketProcessor.handleTicketPurchased().
    * Safe to recalculate: COUNT(tickets WHERE raffle_id = X)
    */
-  @Column({ type: "integer", default: 0, name: "tickets_sold" })
+  @Column({ type: 'integer', default: 0, name: 'tickets_sold' })
   ticketsSold!: number;
 
   /**
    * Unix timestamp (seconds) at which the raffle closes for new purchases.
    * Stored as bigint string to avoid JS integer overflow.
+   *
+   * Diverges from the shared `Raffle` interface (`endTime: number`), which is
+   * why this class implements `Omit<Raffle, "endTime">` — the DB boundary
+   * keeps the bigint-safe string and API layers convert with `Number(...)`.
    */
-  @Column({ type: "bigint", name: "end_time" })
+  @Column({ type: 'bigint', name: 'end_time' })
   endTime!: string;
 
   /** Winning Stellar address — null until raffle is FINALIZED. */
-  @Column({ type: "varchar", length: 56, nullable: true, name: "winner" })
+  @Column({ type: 'varchar', length: 56, nullable: true, name: 'winner' })
   winner!: string | null;
 
   /** Winning ticket ID — null until raffle is FINALIZED. */
-  @Column({ type: "integer", nullable: true, name: "winning_ticket_id" })
+  @Column({ type: 'integer', nullable: true, name: 'winning_ticket_id' })
   winningTicketId!: number | null;
 
   /** Prize amount as a string — null until finalized. */
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 40,
     nullable: true,
-    name: "prize_amount",
+    name: 'prize_amount',
   })
   prizeAmount!: string | null;
 
   /** Ledger sequence in which the raffle was created. */
-  @Column({ type: "integer", name: "created_ledger" })
+  @Column({ type: 'integer', name: 'created_ledger' })
   createdLedger!: number;
 
   /** Ledger sequence in which the raffle was finalized or cancelled. */
-  @Column({ type: "integer", nullable: true, name: "finalized_ledger" })
+  @Column({ type: 'integer', nullable: true, name: 'finalized_ledger' })
   finalizedLedger!: number | null;
 
   /** IPFS CID linking to off-chain raffle metadata (title, image, etc.). */
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 255,
     nullable: true,
-    name: "metadata_cid",
+    name: 'metadata_cid',
   })
   metadataCid!: string | null;
 
-  @CreateDateColumn({ type: "timestamptz", name: "created_at" })
+  @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt!: Date;
 
   @OneToMany(() => TicketEntity, (ticket) => ticket.raffle)

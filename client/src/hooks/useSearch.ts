@@ -1,26 +1,36 @@
 import { useState, useEffect, useRef } from "react";
 import { searchRaffles } from "../services/raffleService";
-import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
+import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/raffle";
 
-export const useSearch = (query: string) => {
+export type SortOption = 'relevance' | 'ending_soon' | 'price_asc' | 'most_tickets';
+
+export const useSearch = (
+  query: string,
+  categories: string[] = [],
+  sort: SortOption = 'relevance',
+) => {
     const [results, setResults] = useState<ApiRaffleListItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const requestId = useRef(0);
 
+    const categoriesKey = categories.slice().sort().join(",");
+    const trimmedQuery = query.trim();
+
     useEffect(() => {
         const currentRequest = ++requestId.current;
 
-        if (!query.trim()) {
+        if (!trimmedQuery) {
             setResults([]);
             setIsLoading(false);
+            setError(null);
             return;
         }
 
         setIsLoading(true);
         setError(null);
 
-        searchRaffles(query)
+        searchRaffles(query, categories, sort)
             .then((response: ApiRaffleListResponse) => {
                 if (currentRequest !== requestId.current) return;
                 setResults(response.raffles);
@@ -33,7 +43,7 @@ export const useSearch = (query: string) => {
                 if (currentRequest !== requestId.current) return;
                 setIsLoading(false);
             });
-    }, [query]);
+    }, [query, categoriesKey, sort]);
 
     return { results, isLoading, error };
 };

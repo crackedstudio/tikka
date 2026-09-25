@@ -5,22 +5,79 @@ import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import RaffleCard from "../components/cards/RaffleCard";
 import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import ErrorMessage from "../components/ui/ErrorMessage";
-import { Spinner } from "../components/ui/Spinner";
+import Skeleton from "../components/ui/Skeleton";
+import { ApiError, ApiErrorCode } from "../services/apiClient";
+
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+
+const CreatorProfileSkeleton: React.FC = () => (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0B0F1A]">
+        <div className="w-full max-w-7xl mx-auto px-6 py-8">
+            <Skeleton className="h-5 w-48 mb-6" />
+            {/* Header card */}
+            <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                        <Skeleton className="w-20 h-20 rounded-2xl shrink-0" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-7 w-48" />
+                            <Skeleton className="h-4 w-72" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-12 w-36 rounded-xl" />
+                </div>
+                {/* Stats grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10 pt-10 border-t border-gray-100 dark:border-[#1E2540]">
+                    {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="text-center space-y-2">
+                            <Skeleton className="h-9 w-16 mx-auto" />
+                            <Skeleton className="h-4 w-24 mx-auto" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {/* Raffle cards */}
+            <Skeleton className="h-7 w-56 mb-8" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {[1, 2, 3, 4].map((n) => (
+                    <Skeleton key={n} className="h-[450px] rounded-3xl" />
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
+// ─── 404 ─────────────────────────────────────────────────────────────────────
+
+const CreatorNotFound: React.FC<{ address?: string }> = ({ address }) => (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0B0F1A] flex items-center justify-center">
+        <div className="text-center px-6">
+            <p className="text-6xl mb-4" aria-hidden="true">🔍</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Creator not found</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-mono break-all max-w-sm mx-auto">
+                {address ?? "Unknown address"}
+            </p>
+        </div>
+    </div>
+);
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 const CreatorProfile: React.FC = () => {
     const { address } = useParams<{ address: string }>();
     const [isFollowed, setIsFollowed] = useState(false);
 
-    const { profile, isLoading: profileLoading, error: profileError } = useUserProfile(address || null);
-    
+    const { profile, isLoading: profileLoading, error: profileError, refetch: refetchProfile } = useUserProfile(address || null);
+
     // Paginated raffles by this creator
     const [page, setPage] = useState(0);
     const LIMIT = 12;
-    const { raffles, total, isLoading: rafflesLoading, error: rafflesError } = useRaffles({
+    const { raffles, total, status: rafflesStatus, error: rafflesError, retry: retryRaffles } = useRaffles({
         creator: address,
         limit: LIMIT,
         offset: page * LIMIT
     });
+    const rafflesLoading = rafflesStatus.isLoading;
 
     useEffect(() => {
         if (address) {
@@ -42,9 +99,27 @@ const CreatorProfile: React.FC = () => {
         setIsFollowed(!isFollowed);
     };
 
-    if (profileLoading && page === 0) return <div className="flex justify-center py-20"><Spinner /></div>;
-    if (profileError) return <ErrorMessage message="Failed to load creator profile" />;
-    if (!profile) return <ErrorMessage message="Creator not found" />;
+    if (profileLoading && page === 0) return <CreatorProfileSkeleton />;
+
+    if (profileError) {
+        const is404 = profileError instanceof ApiError && profileError.code === ApiErrorCode.NOT_FOUND;
+        if (is404) return <CreatorNotFound address={address} />;
+        return (
+            <div className="min-h-screen bg-gray-50 dark:bg-[#0B0F1A] flex items-center justify-center">
+                <div className="text-center space-y-4">
+                    <ErrorMessage message="Failed to load creator profile" />
+                    <button
+                        onClick={() => refetchProfile()}
+                        className="px-6 py-2 rounded-xl bg-[#FF389C] text-white text-sm font-medium hover:bg-[#FF389C]/90 transition"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!profile) return <CreatorNotFound address={address} />;
 
     const stats = profile.creator_stats || {
         raffles_created: 0,
@@ -123,11 +198,19 @@ const CreatorProfile: React.FC = () => {
                     {rafflesLoading && page === 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {[1, 2, 3, 4].map((n) => (
-                                <div key={n} className="h-[450px] bg-white dark:bg-[#11172E] rounded-3xl animate-pulse" />
+                                <Skeleton key={n} className="h-[450px] rounded-3xl" />
                             ))}
                         </div>
                     ) : rafflesError ? (
-                        <ErrorMessage message="Failed to load raffles" />
+                        <div className="text-center space-y-4 py-12">
+                            <ErrorMessage message="Failed to load raffles" />
+                            <button
+                                onClick={() => retryRaffles()}
+                                className="px-6 py-2 rounded-xl bg-[#FF389C] text-white text-sm font-medium hover:bg-[#FF389C]/90 transition"
+                            >
+                                Retry
+                            </button>
+                        </div>
                     ) : raffles.length === 0 ? (
                         <div className="text-center py-20 bg-white dark:bg-[#11172E] rounded-3xl">
                             <p className="text-gray-500 dark:text-gray-400">This creator hasn't published any raffles yet.</p>

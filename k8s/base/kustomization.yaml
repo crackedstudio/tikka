@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Shared manifest structure for backend, indexer, and oracle (#1476).
+# Do not apply this directory directly — build a service overlay instead:
+#
+#   kubectl apply -k backend/k8s
+#
+namespace: tikka
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - hpa.yaml
+  - pdb.yaml

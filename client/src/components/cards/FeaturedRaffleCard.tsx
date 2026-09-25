@@ -2,11 +2,11 @@ import React from "react";
 import { ProgressBar } from "../ui/ProgressBar";
 import Line from "../../assets/svg/Line";
 import AddToCalendar from "../ui/AddToCalendar";
-import type { RaffleCardViewModel, RaffleStatus } from "./raffleCardViewModel";
+import { CardStatus } from "./raffleCardViewModel";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
-const STATUS_PILL_CLASS: Record<RaffleStatus, string> = {
+const STATUS_PILL_CLASS: Record<CardStatus, string> = {
     live: "bg-green-500/20 text-green-400 border border-green-500/30",
     "ending-soon": "bg-orange-500/20 text-orange-400 border border-orange-500/30",
     finalized: "bg-blue-500/20 text-blue-400 border border-blue-500/30",

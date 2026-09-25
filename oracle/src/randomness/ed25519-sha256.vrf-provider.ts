@@ -1,9 +1,11 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import { KeyService } from '../keys/key.service';
 import { IVrfProvider, VrfAlgorithm } from './vrf.interface';
 import { ed25519 } from '@noble/curves/ed25519';
 import * as crypto from 'crypto';
+import { MetricsService } from '../metrics/metrics.service';
 
 /**
  * Ed25519-SHA-256 VRF provider.
@@ -25,16 +27,28 @@ export class Ed25519Sha256VrfProvider implements IVrfProvider {
   readonly algorithm = VrfAlgorithm.Ed25519Sha256;
   private readonly logger = new Logger(Ed25519Sha256VrfProvider.name);
 
-  constructor(private readonly keyService: KeyService) {}
+  constructor(
+    private readonly keyService: KeyService,
+    private readonly metricsService: MetricsService,
+  ) {}
 
   async compute(requestId: string, raffleId?: number): Promise<RandomnessResult> {
-    const msg = this.encodeInput(requestId, raffleId);
-    const proof = await this.keyService.sign(msg);
-    const seed = crypto.createHash('sha256').update(proof).digest();
-    return {
-      seed: Buffer.from(seed).toString('hex'),
-      proof: Buffer.from(proof).toString('hex'),
-    };
+    try {
+      const msg = this.encodeInput(requestId, raffleId);
+      const proof = await this.keyService.sign(msg);
+      const seed = crypto.createHash('sha256').update(proof).digest();
+      // Record successful proof
+      this.metricsService.recordVrfProofSuccess();
+      return {
+        seed: Buffer.from(seed).toString('hex'),
+        proof: Buffer.from(proof).toString('hex'),
+      };
+    } catch (error: any) {
+      // Record failure with reason
+      const reason = error?.message || String(error);
+      this.metricsService.recordVrfFailure(reason);
+      throw error;
+    }
   }
 
   verifyProof(

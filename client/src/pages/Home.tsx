@@ -1,6 +1,5 @@
 import BrowseRaffles from "../components/home/BrowseRaffles";
-import RaffleCardSkeleton from "../components/cards/RaffleCardSkeleton";
-import FeaturedRaffleCardSkeleton from "../components/cards/FeaturedRaffleCardSkeleton";
+import FollowedCreatorsRaffles from "../components/home/FollowedCreatorsRaffles";
 import FeaturedRaffle from "../components/landing/FeaturedRaffle";
 import TrendingRaffles from "../components/landing/TrendingRaffles";
 import VerifiedBadge from "../components/VerifiedBadge";
@@ -8,10 +7,11 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRaffles } from "../hooks/useRaffles";
 import { fetchRaffles } from "../services/raffleService";
 import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
-import type { ApiRaffleListItem } from "../types/types";
-import RaffleCardSkeleton from "../components/ui/RaffleCardSkeleton";
+import type { ApiRaffleListItem } from "../types/raffle";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import { useTranslation } from "react-i18next";
+import { mergeRafflesById } from "./mergeRafflesById";
+import RaffleCardSkeleton from "../components/cards/RaffleCardSkeleton";
 
 const PAGE_SIZE = 6;
 const SCROLL_CACHE_KEY = "home_scroll_state";
@@ -43,11 +43,10 @@ const Home = () => {
     const [extraRaffles, setExtraRaffles] = useState<ApiRaffleListItem[]>([]);
     const [loadingMore, setLoadingMore] = useState(false);
 
-    const allRaffles = useMemo(() => {
-        const map = new Map<number, ApiRaffleListItem>();
-        [...raffles, ...extraRaffles].forEach((r) => map.set(r.id, r));
-        return Array.from(map.values());
-    }, [raffles, extraRaffles]);
+    const allRaffles = useMemo(
+        () => mergeRafflesById(raffles, extraRaffles),
+        [raffles, extraRaffles],
+    );
 
     const hasMore = allRaffles.length < total;
 

@@ -66,7 +66,12 @@ async function main() {
     const quantity = quantities[i];
 
     try {
-      const raffle = await raffleService.get(raffleId);
+      const raffleRes = await raffleService.get(raffleId);
+      if (!raffleRes.success || !raffleRes.value) {
+        console.log(`  ❌ Error fetching raffle ${raffleId}: ${raffleRes.error}\n`);
+        continue;
+      }
+      const raffle = raffleRes.value;
       const available = raffle.maxTickets - raffle.ticketsSold;
 
       console.log(`Raffle ${raffleId}:`);
@@ -105,7 +110,7 @@ async function main() {
     process.exit(1);
   }
 
-  const batchResults = batchRes.value;
+  const batchResults = batchRes.value.results;
 
   // Display results
   console.log('Batch purchase completed:\n');

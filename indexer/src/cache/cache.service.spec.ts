@@ -5,13 +5,10 @@ import { CacheKeys } from './cache.keys';
 import { CacheInvalidations } from './cache.invalidations';
 import RedisMock from 'ioredis-mock';
 
-jest.mock('ioredis', () => {
-  return {
-    default: jest.fn().mockImplementation(() => {
-      return new RedisMock();
-    }),
-  };
-});
+jest.mock('ioredis', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => new RedisMock()),
+}));
 
 describe('CacheService', () => {
   let service: CacheService;
@@ -31,6 +28,12 @@ describe('CacheService', () => {
 
     service = module.get<CacheService>(CacheService);
     service.onModuleInit();
+  });
+
+  afterEach(() => {
+    // Tear down the memory-monitor interval and Redis connection started in
+    // onModuleInit(), otherwise Jest keeps an open handle and never exits.
+    service.onModuleDestroy();
   });
 
   it('should be defined', () => {
@@ -142,9 +145,7 @@ describe('CacheService', () => {
 
     it('does not throw on repeated calls', async () => {
       await CacheInvalidations.onPurchase(service, 'r1', 'GADDR');
-      await expect(
-        CacheInvalidations.onPurchase(service, 'r1', 'GADDR'),
-      ).resolves.not.toThrow();
+      await expect(CacheInvalidations.onPurchase(service, 'r1', 'GADDR')).resolves.not.toThrow();
     });
   });
 
@@ -176,9 +177,7 @@ describe('CacheService', () => {
 
     it('does not throw on repeated calls', async () => {
       await CacheInvalidations.onFinalize(service, 'r2', 'GADDR');
-      await expect(
-        CacheInvalidations.onFinalize(service, 'r2', 'GADDR'),
-      ).resolves.not.toThrow();
+      await expect(CacheInvalidations.onFinalize(service, 'r2', 'GADDR')).resolves.not.toThrow();
     });
   });
 });

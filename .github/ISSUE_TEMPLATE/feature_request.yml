@@ -1,0 +1,52 @@
+name: Feature request
+description: Suggest an improvement or new capability
+title: '[feature]: '
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for suggesting an improvement. Describe the problem you want to solve and the outcome you would like to see.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem or limitation are you trying to solve?
+      placeholder: Right now, it is difficult to ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the feature or improvement you would like.
+      placeholder: I would like the app to ...
+    validations:
+      required: true
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Expected benefits
+      description: Why would this be useful?
+      placeholder: This would help by ...
+  - type: dropdown
+    id: workspace
+    attributes:
+      label: Target workspace
+      description: Select the area this feature should affect.
+      options:
+        - Backend
+        - Client
+        - Indexer
+        - Oracle
+        - SDK
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add examples, references, or any extra details.
+      placeholder: Links, screenshots, or related issues can go here.

@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -15,12 +16,12 @@ import {
  */
 @Injectable()
 export class JobStateManager {
-  private readonly logger = new Logger(JobStateManager.name);
+  
   private readonly jobMetadata = new Map<string, JobMetadata>();
   private readonly config: QueueConfig;
   private activeProcessingCount = 0;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly logger: OracleLoggerService, private readonly configService: ConfigService) {
     this.config = {
       maxRetries: this.configService.get<number>('QUEUE_MAX_RETRIES', DEFAULT_QUEUE_CONFIG.maxRetries),
       initialBackoffMs: this.configService.get<number>('QUEUE_INITIAL_BACKOFF_MS', DEFAULT_QUEUE_CONFIG.initialBackoffMs),
@@ -38,7 +39,7 @@ export class JobStateManager {
   /**
    * Initialize a new job in the queued state.
    */
-  function initializeJob(requestId: string, raffleId: number): JobMetadata {
+  initializeJob(requestId: string, raffleId: number): JobMetadata {
     const now = Date.now();
     const metadata: JobMetadata = {
       requestId,
@@ -65,7 +66,7 @@ export class JobStateManager {
   /**
    * Transition a job to a new state with validation.
    */
-  function transitionState(
+  transitionState(
     requestId: string,
     toState: JobState,
     reason?: string,
@@ -124,7 +125,7 @@ export class JobStateManager {
   /**
    * Increment attempt count and check if job should be dead-lettered.
    */
-  function incrementAttempt(requestId: string): boolean {
+  incrementAttempt(requestId: string): boolean {
     const metadata = this.jobMetadata.get(requestId);
     if (!metadata) {
       return false;
@@ -147,14 +148,14 @@ export class JobStateManager {
   /**
    * Check if a job can acquire a processing slot based on concurrency limits.
    */
-  function canAcquireProcessingSlot(): boolean {
+  canAcquireProcessingSlot(): boolean {
     return this.activeProcessingCount < this.config.maxConcurrency;
   }
 
   /**
    * Calculate exponential backoff delay for retry.
    */
-  function calculateBackoff(attemptCount: number): number {
+  calculateBackoff(attemptCount: number): number {
     if (attemptCount <= 0) {
       return 0;
     }
@@ -168,7 +169,7 @@ export class JobStateManager {
   /**
    * Record transaction hash and ledger for a job.
    */
-  function recordTransactionResult(requestId: string, txHash: string, ledger: number): void {
+  recordTransactionResult(requestId: string, txHash: string, ledger: number): void {
     const metadata = this.jobMetadata.get(requestId);
     if (metadata) {
       metadata.txHash = txHash;
@@ -180,14 +181,14 @@ export class JobStateManager {
   /**
    * Get job metadata by request ID.
    */
-  function getJobMetadata(requestId: string): JobMetadata | undefined {
+  getJobMetadata(requestId: string): JobMetadata | undefined {
     return this.jobMetadata.get(requestId);
   }
 
   /**
    * Get all jobs in a specific state.
    */
-  function getJobsByState(state: JobState): JobMetadata[] {
+  getJobsByState(state: JobState): JobMetadata[] {
     return Array.from(this.jobMetadata.values()).filter(
       (metadata) => metadata.currentState === state,
     );
@@ -196,14 +197,14 @@ export class JobStateManager {
   /**
    * Get queue configuration.
    */
-  function getConfig(): QueueConfig {
+  getConfig(): QueueConfig {
     return { ...this.config };
   }
 
   /**
    * Get comprehensive queue metrics for operator visibility.
    */
-  function getMetrics(): QueueMetrics {
+  getMetrics(): QueueMetrics {
     const jobs = Array.from(this.jobMetadata.values());
 
     const queuedCount = jobs.filter((j) => j.currentState === JobState.QUEUED).length;
@@ -235,7 +236,7 @@ export class JobStateManager {
   /**
    * Clean up completed or terminal jobs older than retention period.
    */
-  function cleanupOldJobs(retentionMs: number = 3600000): number {
+  cleanupOldJobs(retentionMs: number = 3600000): number {
     const now = Date.now();
     let cleaned = 0;
 
@@ -297,14 +298,14 @@ export class JobStateManager {
   /**
    * Get active processing count for monitoring.
    */
-  function getActiveProcessingCount(): number {
+  getActiveProcessingCount(): number {
     return this.activeProcessingCount;
   }
 
   /**
    * Reset all state (for testing purposes).
    */
-  function reset(): void {
+  reset(): void {
     this.jobMetadata.clear();
     this.activeProcessingCount = 0;
     this.logger.log('JobStateManager reset');

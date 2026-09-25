@@ -1,8 +1,19 @@
 import { IngestionDispatcherService } from './ingestion-dispatcher.service';
-import { DeadLetterQueueService } from './dead-letter-queue.service';
+import { DlqService } from './dlq.service';
 import { DomainEvent } from './event.types';
+import { DlqReason } from '../database/entities/dead-letter-event.entity';
 
 describe('IngestionDispatcherService', () => {
+  const originalRetries = process.env.MAX_DISPATCH_RETRIES;
+
+  afterEach(() => {
+    if (originalRetries === undefined) {
+      delete process.env.MAX_DISPATCH_RETRIES;
+    } else {
+      process.env.MAX_DISPATCH_RETRIES = originalRetries;
+    }
+  });
+
   function makeService() {
     const raffleProcessor = {
       handleRaffleCreated: jest.fn().mockResolvedValue(undefined),
@@ -19,7 +30,15 @@ describe('IngestionDispatcherService', () => {
       handleAdminTransferProposed: jest.fn().mockResolvedValue(undefined),
       handleAdminTransferAccepted: jest.fn().mockResolvedValue(undefined),
     };
-    const dlq = new DeadLetterQueueService();
+
+    // Minimal DlqService mock — captures enqueue() calls for assertion.
+    const enqueuedRecords: any[] = [];
+    const dlq = {
+      enqueue: jest.fn().mockImplementation(async (record: any) => {
+        enqueuedRecords.push(record);
+      }),
+    } as unknown as DlqService;
+
     const runner = {
       connect: jest.fn().mockResolvedValue(undefined),
       startTransaction: jest.fn().mockResolvedValue(undefined),
@@ -31,8 +50,6 @@ describe('IngestionDispatcherService', () => {
     const dataSource = {
       createQueryRunner: jest.fn().mockReturnValue(runner),
     };
-
-    dlq.clear();
 
     return {
       service: new IngestionDispatcherService(
@@ -46,6 +63,7 @@ describe('IngestionDispatcherService', () => {
       ticketProcessor,
       adminProcessor,
       dlq,
+      enqueuedRecords,
     };
   }
 
@@ -57,14 +75,16 @@ describe('IngestionDispatcherService', () => {
   };
 
   it('isolates one failed handler while later events still run', async () => {
-    const { service, raffleProcessor, ticketProcessor, dlq } = makeService();
-    ticketProcessor.handleTicketPurchased.mockRejectedValueOnce(
+    const { service, raffleProcessor, ticketProcessor, dlq, enqueuedRecords } = makeService();
+    process.env.MAX_DISPATCH_RETRIES = '1';
+    ticketProcessor.handleTicketPurchased.mockRejectedValue(
       new Error('ticket write failed'),
     );
 
     const events: DomainEvent[] = [
       {
         type: 'TicketPurchased',
+        schemaVersion: 1,
         raffle_id: 1,
         buyer: 'GBUYER',
         ticket_ids: [1],
@@ -72,6 +92,7 @@ describe('IngestionDispatcherService', () => {
       },
       {
         type: 'RaffleCancelled',
+        schemaVersion: 1,
         raffle_id: 1,
         reason: 'expired',
       },
@@ -91,9 +112,11 @@ describe('IngestionDispatcherService', () => {
       'expired',
       124,
       'tx-2',
+      1,
     );
-    expect(dlq.getRecords()).toHaveLength(1);
-    expect(dlq.getRecords()[0]).toMatchObject({
+    expect(dlq.enqueue).toHaveBeenCalledTimes(1);
+    expect(enqueuedRecords).toHaveLength(1);
+    expect(enqueuedRecords[0]).toMatchObject({
       handlerName: 'TicketProcessor.handleTicketPurchased',
       eventId: 'tx-1',
       eventType: 'TicketPurchased',
@@ -113,6 +136,7 @@ describe('IngestionDispatcherService', () => {
     const result = await service.dispatch(
       {
         type: 'RaffleCreated',
+        schemaVersion: 1,
         raffle_id: 99,
         creator: 'GCREATOR',
         params: {
@@ -160,7 +184,7 @@ describe('IngestionDispatcherService', () => {
     });
 
     it('dead-letters an unsupported schema version without running a handler', async () => {
-      const { service, raffleProcessor, dlq } = makeService();
+      const { service, raffleProcessor, dlq, enqueuedRecords } = makeService();
 
       const result = await service.dispatch(
         {
@@ -176,19 +200,20 @@ describe('IngestionDispatcherService', () => {
       // The handler/processor must NOT run for an unsupported version.
       expect(raffleProcessor.handleRaffleCancelled).not.toHaveBeenCalled();
 
-      const records = dlq.getRecords();
-      expect(records).toHaveLength(1);
-      expect(records[0]).toMatchObject({
+      expect(dlq.enqueue).toHaveBeenCalledTimes(1);
+      expect(enqueuedRecords).toHaveLength(1);
+      expect(enqueuedRecords[0]).toMatchObject({
         eventType: 'RaffleCancelled',
         schemaVersion: 99,
-        reason: 'SCHEMA_UNSUPPORTED',
+        reason: DlqReason.SCHEMA_UNSUPPORTED,
       });
-      expect(records[0].errorMessage).toContain('Unsupported schema version');
+      expect(enqueuedRecords[0].errorMessage).toContain('Unsupported schema version');
     });
 
     it('records schema version and HANDLER_ERROR reason on handler failure', async () => {
-      const { service, ticketProcessor, dlq } = makeService();
-      ticketProcessor.handleTicketPurchased.mockRejectedValueOnce(
+      const { service, ticketProcessor, dlq, enqueuedRecords } = makeService();
+      process.env.MAX_DISPATCH_RETRIES = '1';
+      ticketProcessor.handleTicketPurchased.mockRejectedValue(
         new Error('write failed'),
       );
 
@@ -205,12 +230,12 @@ describe('IngestionDispatcherService', () => {
       );
 
       expect(result.outcome).toBe('failed');
-      const records = dlq.getRecords();
-      expect(records).toHaveLength(1);
-      expect(records[0]).toMatchObject({
+      expect(dlq.enqueue).toHaveBeenCalledTimes(1);
+      expect(enqueuedRecords).toHaveLength(1);
+      expect(enqueuedRecords[0]).toMatchObject({
         eventType: 'TicketPurchased',
         schemaVersion: 1,
-        reason: 'HANDLER_ERROR',
+        reason: DlqReason.HANDLER_ERROR,
       });
     });
   });

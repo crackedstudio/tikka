@@ -19,6 +19,10 @@ export interface OracleSubmission {
   proof: string;
   timestamp: number;
   txHash?: string;
+  /** The SHA-256 hash of the seed the oracle committed to in the commit phase.
+   *  When set, recordSubmission will verify that hash(seed) === commitmentHash
+   *  and exclude the oracle if they do not match (equivocation detection). */
+  commitmentHash?: string;
 }
 
 export interface MultiOracleConfig {
@@ -27,6 +31,7 @@ export interface MultiOracleConfig {
   totalOracles: number;
   oracleIds: string[];
   localOracleId: string;
+  consensusThreshold?: number;
 }
 
 export interface RandomnessRequestWithOracles {
@@ -41,6 +46,8 @@ export interface AggregatedRandomness {
   seed: string;
   proof: string;
   submittedBy: string[];
+  consensusReached?: boolean;
+  seedHash?: string;
 }
 
 export enum MultiOracleMode {
@@ -64,6 +71,8 @@ export interface SubmissionTracker {
   threshold: number;
   completed: boolean;
   aggregatedSeed?: string;
+  consensusTimeout?: NodeJS.Timeout;
+  consensusStartTime?: number;
 }
 
 /** Actions tracked in the oracle registry audit log. */

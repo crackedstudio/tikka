@@ -1,3 +1,4 @@
+import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import * as crypto from 'crypto';
@@ -23,7 +24,8 @@ import * as crypto from 'crypto';
  */
 @Injectable()
 export class PrngService {
-  private readonly logger = new Logger(PrngService.name);
+  constructor(private readonly logger: OracleLoggerService) {}
+
 
   /** Domain prefix bytes reused for proof halves — avoids allocating on every call */
   private static readonly PROOF_PREFIX_1 = Buffer.from('PRNG:v1:1:', 'ascii');

@@ -38,11 +38,19 @@ export { HorizonService } from './network/horizon.service';
 export {
   resolveNetworkConfig,
   DEFAULT_RPC_CONFIG,
+  DEFAULT_RETRY_CONFIG,
+  classifySorobanRpcError,
+  buildRetryConfig,
 } from './network/network.config';
 export type {
   NetworkConfig,
   RpcConfig,
   TikkaNetwork,
+  RetryConfig,
+  RetryDecision,
+  RetryFailureClass,
+  RetryJitter,
+  RetryAttemptInfo,
 } from './network/network.config';
 
 // ── Contract constants & response type ──────────────────────────────────────
@@ -54,6 +62,11 @@ export type { ContractResponse } from './contract/response';
 export type { RaffleData, AssetDescriptor } from './modules/raffle/raffle.types';
 export type { GetUserTicketsParams } from './modules/ticket/ticket.types';
 export type { UserParticipation, GetParticipationParams } from './modules/user/user.types';
+
+// ── Read-only service classes ────────────────────────────────────────────────
+export { ReadOnlyRaffleService } from './modules/raffle/raffle.read.service';
+export { ReadOnlyUserService } from './modules/user/user.read.service';
+export { TicketReadService } from './modules/ticket/ticket.read.service';
 
 // ── Utils ────────────────────────────────────────────────────────────────────
 export * from './utils';

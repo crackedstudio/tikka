@@ -1,5 +1,5 @@
 import { Controller, Get, ServiceUnavailableException, Optional } from '@nestjs/common';
-import { HealthService, HealthResult } from './health.service';
+import { HealthService, HealthResult, LivenessResult } from './health.service';
 import { DlqService } from '../ingestor/dlq.service';
 import { PipelineStateSnapshot } from '../ingestor/pipeline-state';
 
@@ -11,8 +11,32 @@ export class HealthController {
   ) {}
 
   /**
-   * Health endpoint for orchestration and monitoring.
-   * Returns 200 when status is 'ok', 503 when 'degraded' (e.g. lag over threshold or DB/Redis down).
+   * Liveness probe — process is alive.
+   * Always 200 while the Nest process can serve HTTP. Does not fail on
+   * lag, DLQ pressure, Redis, or stalled ingestion (those are readiness).
+   */
+  @Get('health/live')
+  getLiveness(): LivenessResult {
+    return this.healthService.getLiveness();
+  }
+
+  /**
+   * Readiness probe — safe to receive traffic.
+   * Returns 200 when dependencies and ingestion are healthy, 503 when
+   * degraded (DB/Redis down, cursor integrity failed, lag/heartbeat stall, etc.).
+   */
+  @Get('health/ready')
+  async getReadiness(): Promise<HealthResult> {
+    const result = await this.healthService.getReadiness();
+    if (result.status === 'degraded') {
+      throw new ServiceUnavailableException(result);
+    }
+    return result;
+  }
+
+  /**
+   * Full health diagnostics (same payload / 503 semantics as readiness).
+   * Kept for CLI, metrics scrape helpers, and backwards compatibility.
    */
   @Get('health')
   async getHealth(): Promise<HealthResult> {

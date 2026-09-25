@@ -7,11 +7,35 @@
  *   pnpm run status -- --json
  *   pnpm run status -- --watch
  *   pnpm run status -- --watch 5000
+ *   pnpm run status -- --json --watch 10000
  *
  * Options:
- *   --json          Output machine-readable JSON instead of the table.
+ *   --json          Emit machine-readable JSON (StatusResult) to stdout instead
+ *                   of the ANSI table.  Useful for runbooks and scripted checks:
+ *
+ *                     pnpm run status -- --json | jq '.db.status'
+ *                     pnpm run status -- --json | jq '.indexer.lag_ledgers'
+ *
+ *                   The JSON shape is stable — key fields:
+ *                     .timestamp                 ISO-8601 wall time of the snapshot
+ *                     .indexer.current_ledger    last ledger committed to the DB
+ *                     .indexer.horizon_ledger    latest ledger seen by Horizon
+ *                     .indexer.lag_ledgers       horizon − current  (null if unknown)
+ *                     .indexer.mode              RUNNING | DEGRADED | STOPPED | null
+ *                     .indexer.checkpoint        last persisted checkpoint (or null)
+ *                     .events.total_processed    cumulative count of indexed events
+ *                     .events.last_24h           events indexed in the last 24 hours
+ *                     .events.last_processed_at  ISO-8601 timestamp of last event
+ *                     .dlq.total                 dead-letter queue depth
+ *                     .cache.status              "ok" | "error"
+ *                     .cache.latency_ms          Redis round-trip time in ms
+ *                     .db.status                 "ok" | "error"
+ *                     .db.pool                   { total, idle, waiting } or null
+ *                     .warnings                  string[] of actionable alerts
+ *
  *   --watch [ms]    Refresh every <ms> milliseconds (default: 3000).
- *                   Press Ctrl-C to exit.
+ *                   Press Ctrl-C to exit.  Combine with --json for streaming
+ *                   snapshots to a log aggregator.
  */
 
 import * as path from 'path';

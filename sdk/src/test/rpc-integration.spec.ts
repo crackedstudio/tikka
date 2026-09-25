@@ -1,9 +1,11 @@
 import { RpcService } from '../network/rpc.service';
 import { RaffleService } from '../modules/raffle/raffle.service';
 import { ContractService } from '../contract/contract.service';
+import { FeeEstimatorService } from '../fee-estimator/fee-estimator.service';
 import { HorizonService } from '../network/horizon.service';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
 import { nativeToScVal, TransactionBuilder, Networks, Keypair } from '@stellar/stellar-sdk';
+import { TikkaSdkErrorCode } from '../utils/errors';
 
 // Mock Stellar SDK rpc.assembleTransaction
 jest.mock('@stellar/stellar-sdk', () => {
@@ -52,7 +54,8 @@ describe('Soroban RPC Integration (Mock)', () => {
     } as any);
 
     contractService = new ContractService(rpcService, horizonService, networkConfig);
-    raffleService = new RaffleService(contractService);
+    const feeEstimator = new FeeEstimatorService(rpcService, horizonService, networkConfig);
+    raffleService = new RaffleService(contractService, feeEstimator);
 
     // 3. Setup Mock Wallet
     mockWallet = {
@@ -106,8 +109,8 @@ describe('Soroban RPC Integration (Mock)', () => {
           };
           break;
         case 'getFeeStats':
-          result = { 
-            feeStats: { minFee: '100', suggestedFee: '150' }
+          result = {
+            feeStats: { minFee: '100', suggestedFee: '150' },
           };
           break;
       }
@@ -152,14 +155,18 @@ describe('Soroban RPC Integration (Mock)', () => {
           json: async () => ({
             jsonrpc: '2.0',
             id: body.id,
-            error: { code: -32000, message: 'Simulation failed: insufficient funds' }
+            error: { code: -32000, message: 'Simulation failed: insufficient funds' },
           }),
         };
       }
       if (body.method === 'getFeeStats') {
         return {
           ok: true,
-          json: async () => ({ jsonrpc: '2.0', id: body.id, result: { feeStats: { minFee: '100', suggestedFee: '150' } } }),
+          json: async () => ({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: { feeStats: { minFee: '100', suggestedFee: '150' } },
+          }),
         };
       }
       return { ok: true, json: async () => ({ jsonrpc: '2.0', id: body.id, result: {} }) };
@@ -174,9 +181,11 @@ describe('Soroban RPC Integration (Mock)', () => {
       metadataCid: 'ipfs://mock',
     };
 
-    const result = await raffleService.create(params);
-    expect(result.status).toBe('ERROR');
-    expect(result.error).toContain('Simulation failed: insufficient funds');
+    // Simulation errors propagate as typed ContractFailureError from RpcService,
+    // not a ContractResponse — assert on the thrown error shape.
+    await expect(raffleService.create(params)).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ContractFailure,
+    });
   });
 
   it('should verify polling behavior on delay', async () => {
@@ -192,16 +201,21 @@ describe('Soroban RPC Integration (Mock)', () => {
         if (pollCount < 2) {
           result = { status: 'NOT_FOUND' };
         } else {
-          result = { status: 'SUCCESS', txHash: 'abc', ledger: 105, resultXdr: nativeToScVal(1).toXDR('base64') };
+          result = {
+            status: 'SUCCESS',
+            txHash: 'abc',
+            ledger: 105,
+            resultXdr: nativeToScVal(1).toXDR('base64'),
+          };
         }
       } else if (body.method === 'sendTransaction') {
         result = { hash: 'abc', status: 'PENDING' };
       } else {
-        result = { 
+        result = {
           results: [{ retval: nativeToScVal(1) }],
           minResourceFee: '1000',
           transactionData: '...',
-          events: []
+          events: [],
         };
       }
 

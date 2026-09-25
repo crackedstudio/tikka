@@ -2,6 +2,9 @@
 
 Owner: @storage-team
 
+> Bucket layout, object naming, retention/lifecycle policy, and the orphan
+> cleanup script are documented in [`docs/storage/README.md`](../docs/storage/README.md).
+
 Required links:
 - Dashboards:
   - Object errors (4xx/5xx): <link>

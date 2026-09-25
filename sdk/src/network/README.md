@@ -2,6 +2,8 @@
 
 The Tikka SDK provides a highly customizable network layer for interacting with Soroban RPC and Horizon nodes.
 
+> **Runtime support:** `RpcService`, `HorizonService`, and `MockRpcService` work in both browser and Node. See the [Browser vs Node support matrix](../../README.md#browser-vs-node-support-matrix) in the SDK README for the full entry-point table.
+
 ## Configuration
 
 The `RpcService` can be configured at initialization or updated at runtime.

@@ -67,3 +67,29 @@ export function isValidAddress(address: string): boolean {
  * Placeholder for backward compatibility
  */
 export const validateAddress = isValidAddress;
+
+/**
+ * Canonical raffle-parameter input shared by the client form and the SDK.
+ */
+export interface CreateRaffleInput {
+  ticketPrice: string;
+  maxTickets: number;
+  durationInSeconds: number;
+}
+
+/**
+ * Validates raffle creation parameters.
+ * Throws TikkaSdkError(ValidationError) if any constraint is violated.
+ */
+export function validateCreateRaffleInput(input: CreateRaffleInput): void {
+  assertNonEmpty(input.ticketPrice, 'ticketPrice');
+  assertPositiveInt(input.maxTickets, 'maxTickets');
+
+  const duration = Number(input.durationInSeconds);
+  if (!Number.isInteger(duration) || duration <= 0) {
+    throw new TikkaSdkError(
+      TikkaSdkErrorCode.ValidationError,
+      'durationInSeconds must be a positive integer',
+    );
+  }
+}

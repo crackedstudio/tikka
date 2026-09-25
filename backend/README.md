@@ -4,6 +4,12 @@ API layer that merges indexer data with Supabase metadata; handles auth (Sign In
 
 **Stack:** NestJS, Fastify, Supabase, Redis.
 
+## Documentation
+
+- **[Request validation](../docs/backend/validation.md)** — global `ValidationPipe`, Zod schemas, DTO inventory, and endpoint checklist
+
+> **Note:** Package roots must contain only `README.md` and, if needed, `OPERATIONAL.md`; all other package-root docs have been moved to `docs/` or archived in `docs/archive/`.
+
 ## Raffles API
 
 ### GET /raffles
@@ -121,6 +127,38 @@ done
 
 ---
 
+## Database migrations
+
+Entity ownership is documented in [../docs/database/ENTITY_OWNERSHIP.md](../docs/database/ENTITY_OWNERSHIP.md).
+The backend reads indexer-owned tables through a read-only role; grants are defined in the repository-level `db/baseline-schema.sql`.
+Backend code must not write to those tables, and dependency-cruiser blocks imports of `indexer/src/database/entities/*`.
+These restrictions are enforced by database grants and the dependency-cruiser import rule, not by documentation alone.
+
+The backend includes a migration validator that helps catch schema drift before deployment. Run it after adding or changing SQL migrations and before opening a pull request:
+
+```bash
+npm run migrations:check
+```
+
+What `migrations:check` verifies:
+- every migration file uses the `NNN_name.sql` naming pattern
+- sequence numbers are zero-padded to three digits
+- the sequence list is contiguous with no gaps
+- the name portion is valid `snake_case`
+
+When to run it:
+- after creating a new migration
+- after renaming or reordering migration files
+- before merging backend changes that touch the database schema
+
+How to create a migration correctly:
+1. add a new SQL file under `database/migrations/`
+2. use the next sequential number and a descriptive `snake_case` name, for example `database/migrations/023_add_support_feedback.sql`
+3. keep the filename format exactly `NNN_name.sql`
+4. run `npm run migrations:check` to confirm the numbering and naming are valid
+
+This prevents common failure modes such as skipped numbering, duplicate sequence values, invalid filenames, and drift between local migrations and deploy-time expectations.
+
 ## Health Check
 
 ### GET /health
@@ -161,6 +199,58 @@ curl http://localhost:3001/health
 | `timestamp` | ISO 8601 string     | Time the check was performed                     |
 
 The endpoint returns **HTTP 503** when `status` is `degraded`, so orchestrators (Kubernetes, Railway, Fly.io) can detect unhealthy instances automatically.
+
+---
+
+## Maintenance Mode
+
+Maintenance Mode allows administrators to temporarily block API traffic (or specific scopes) while keeping system health and monitoring endpoints reachable.
+
+### Toggling Maintenance Mode
+
+Maintenance mode can be toggled in three ways:
+
+1. **REST API (Dynamic Toggle at Runtime)**
+   - **`PUT /monitor/maintenance`** — Body: `{"enabled": true}` or `{"enabled": false}` (Requires Admin auth or bypass token).
+   - **`GET /monitor/maintenance`** — Returns `{"maintenanceMode": boolean}`.
+
+2. **Environment Variables (Startup Configuration)**
+   ```dotenv
+   MAINTENANCE_MODE=true              # Set to true to activate on startup
+   MAINTENANCE_SCOPES=all,writes      # Comma-separated list of scopes ('all', 'writes', 'raffles', 'notifications', 'monitor')
+   MAINTENANCE_BYPASS_TOKEN=secret    # Secret token to bypass maintenance mode via Authorization header
+   ```
+
+3. **Programmatic / Service Injection**
+   ```typescript
+   // Inject MaintenanceModeService into your controller or service
+   maintenanceModeService.setEnabled(true);  // Turn ON
+   maintenanceModeService.setEnabled(false); // Turn OFF
+   ```
+
+### Error Response Contract
+
+When maintenance mode is active and a non-exempt route is called, the API immediately rejects the request with:
+- **HTTP Status:** `503 Service Unavailable`
+- **HTTP Response Header:** `Retry-After: 60` (or configured retry duration in seconds)
+- **JSON Response Body:**
+  ```json
+  {
+    "statusCode": 503,
+    "error": "SERVICE_UNAVAILABLE",
+    "message": "Service temporarily unavailable due to maintenance mode",
+    "requestId": "req-12345",
+    "timestamp": "2026-07-27T17:15:00.000Z",
+    "path": "/api/v1/raffles"
+  }
+  ```
+
+### Exempt Routes & Bypass Token
+
+- **Exempt Routes (`@SkipMaintenance()`):**
+  Health checks (`GET /health`), cache metrics (`GET /metrics`), and maintenance status/toggle (`GET /monitor/maintenance`, `PUT /monitor/maintenance`, and `/monitor/*`) remain accessible so load balancers, orchestrators, and admin consoles can operate during maintenance.
+- **Bypass Token:**
+  Requests containing `Authorization: Bearer <MAINTENANCE_BYPASS_TOKEN>` will bypass maintenance checks and execute normally.
 
 ---
 

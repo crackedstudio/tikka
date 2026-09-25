@@ -205,15 +205,7 @@ All entity files include inline comments marking derived fields and their update
 
 ## Redis Cache TTL Strategy
 
-The `CacheService` in `src/cache/` manages caching and invalidation using the following TTLs:
-
-| Data Type              | Cache Key        | TTL  | Invalidation                                         |
-| ---------------------- | ---------------- | ---- | ---------------------------------------------------- |
-| **Active Raffle List** | `raffle:active`  | 30s  | On `RaffleCreated`, `RaffleCancelled`                |
-| **Raffle Detail**      | `raffle:{id}`    | 10s  | On any raffle event (finalized, cancelled, purchase) |
-| **Leaderboard**        | `leaderboard`    | 60s  | On `RaffleFinalized`                                 |
-| **User Profile**       | `user:{address}` | 30s  | On `TicketPurchased`, `TicketRefunded` for that user |
-| **Platform Stats**     | `stats:platform` | 5min | On daily rollup cron                                 |
+See [`docs/CACHE.md`](./docs/CACHE.md) for every cache key family: TTL, event-driven invalidation triggers, and staleness tolerance.
 
 Caching logic is wired into the processors in `src/processors/` to ensure consistency after database writes.
 
@@ -341,7 +333,11 @@ constructor(private healthService: HealthService) {
 
 ### Kubernetes Liveness Probe
 
-For Kubernetes deployments, you can configure liveness probes that fail when `lagStatus === 'critical'`. See `kubernetes/liveness-probe-example.yaml` for complete examples.
+The indexer splits its probes so that lag never restarts a pod: liveness hits
+`/health/live`, which stays 200 while the process can serve HTTP, and readiness
+hits `/health/ready`, which returns 503 when `lagStatus === 'critical'` so traffic
+is withdrawn instead. The probe configuration lives in `k8s/kustomization.yaml`;
+see [`docs/k8s-deployment.md`](../docs/k8s-deployment.md) for the full table.
 
 ---
 
@@ -376,11 +372,20 @@ src/
 │   ├── raffle.processor.ts
 │   └── user.processor.ts
 ├── maintenance/
-│   ├── archive-raffle-events.ts        # Resumable archiving utility
-│   ├── archive-raffle-events.spec.ts   # Archiving tests
+│   ├── archive-raffle-events.ts        # Archiving CLI entry point
+│   ├── archive-raffle-events.spec.ts   # Entry-point contract test
+│   ├── archive/                        # Archiver modules (one per concern)
+│   │   ├── runner.ts                   # archiveOldRaffleEvents orchestration
+│   │   ├── checkpoint.service.ts       # archive_checkpoints lifecycle
+│   │   ├── integrity.ts                # Checkpoint hashing + verification
+│   │   ├── batch-selector.ts           # Cursor-based selection + deletion
+│   │   ├── writer.ts                   # CSV output
+│   │   ├── confirmation.ts             # CONFIRM_DELETE gate
+│   │   ├── cli.ts                      # Env parsing + process wiring
+│   │   ├── logging.ts                  # Structured JSON logs/alerts
+│   │   └── types.ts                    # Options, results, defaults
 │   ├── ARCHIVE_RAFFLE_EVENTS_GUIDE.md  # Comprehensive guide
-│   ├── ARCHIVE_QUICK_REF.md            # Quick reference
-│   └── ARCHIVE_IMPLEMENTATION_SUMMARY.md # Technical summary
+│   └── ARCHIVE_QUICK_REF.md            # Quick reference
 └── database/
     ├── database.module.ts       # TypeOrmModule wiring
     ├── entities/
@@ -413,17 +418,21 @@ The indexer includes a robust archiving utility for managing `raffle_events` tab
 # Test archiving (dry-run, no changes)
 npm run archive:raffle-events
 
-# Production archiving (actually deletes records)
+# Production archiving (interactive — type "yes" when prompted)
 DRY_RUN=false npm run archive:raffle-events
 
+# Production / cron (explicit confirmation required)
+CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
+
 # Archive events older than 90 days
-RAFFLE_EVENTS_RETENTION_DAYS=90 DRY_RUN=false npm run archive:raffle-events
+RAFFLE_EVENTS_RETENTION_DAYS=90 CONFIRM_DELETE=yes DRY_RUN=false npm run archive:raffle-events
 ```
 
 ### Key Features
 
 ✅ **Resumable Checkpointing** - Automatically resumes after interruptions  
 ✅ **Dry-Run Mode** - Test without modifying database  
+✅ **Delete Confirmation** - TTY prompt or `CONFIRM_DELETE=yes` before deletes  
 ✅ **Batch Limits** - Control processing with `MAX_BATCH` parameter  
 ✅ **Transactional Safety** - Atomic checkpoint updates with deletions  
 ✅ **Structured Logging** - JSON-formatted progress tracking  
@@ -436,6 +445,7 @@ RAFFLE_EVENTS_RETENTION_DAYS=90 DRY_RUN=false npm run archive:raffle-events
 | `BATCH_SIZE` | `500` | Records per batch |
 | `MAX_BATCH` | unlimited | Maximum batches per run |
 | `DRY_RUN` | `true` | Simulate without changes |
+| `CONFIRM_DELETE` | unset | Required `yes` for non-interactive deletes |
 | `RESUME` | `true` | Resume from checkpoint |
 
 ### Output
@@ -448,9 +458,11 @@ raffle_events_2026-05-30_batch0002.csv
 
 ### Documentation
 
+- 🚨 [Archiving runbook](../docs/runbooks/archive-raffle-events.md) - Running it in production, resuming, integrity failures
+- 📜 [Retention policy & restore](../docs/database/raffle-events-retention.md) - Criteria, cadence, destination, restore
 - 📖 [Comprehensive Guide](./src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md) - Full documentation
 - 📋 [Quick Reference](./src/maintenance/ARCHIVE_QUICK_REF.md) - Common commands
-- 🔧 [Implementation Summary](./src/maintenance/ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
+- 🔧 [Implementation Summary](../docs/archive/2026-08-28-indexer-ARCHIVE_IMPLEMENTATION_SUMMARY.md) - Technical details
 
 ---
 

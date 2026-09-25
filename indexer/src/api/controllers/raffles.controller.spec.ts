@@ -66,8 +66,8 @@ describe("RafflesController", () => {
       cacheService.getActiveRaffles.mockResolvedValue(null);
 
       const result = (await controller.list({
-        limit: "20",
-        offset: "0",
+        limit: 20,
+        offset: 0,
       })) as RaffleListResponseDto;
 
       // Verify DTO shape
@@ -111,8 +111,8 @@ describe("RafflesController", () => {
       cacheService.getActiveRaffles.mockResolvedValue(null);
 
       const result = (await controller.list({
-        limit: "20",
-        offset: "0",
+        limit: 20,
+        offset: 0,
       })) as RaffleListResponseDto;
 
       expect(result).toHaveProperty("data");

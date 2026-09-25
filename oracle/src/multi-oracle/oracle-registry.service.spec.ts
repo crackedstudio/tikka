@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { OracleRegistryService } from './oracle-registry.service';
 import { KeyService } from '../keys/key.service';
-import { MultiOracleMode, OracleConfig, PeerOracleEndpoint } from './multi-oracle.types';
+import { OracleLoggerService } from '../logger/oracle-logger';
+import {
+  OracleAuditEntry,
+  OracleConfig,
+  PeerOracleEndpoint,
+} from './multi-oracle.types';
 import { Keypair } from '@stellar/stellar-sdk';
 
 // ---------------------------------------------------------------------------
@@ -54,6 +59,7 @@ describe('OracleRegistryService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OracleRegistryService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         { provide: ConfigService, useValue: configService },
         { provide: KeyService, useValue: keyService },
       ],

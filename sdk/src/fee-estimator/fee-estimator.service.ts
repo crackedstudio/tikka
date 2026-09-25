@@ -8,6 +8,7 @@ import {
   rpc,
   xdr,
 } from '@stellar/stellar-sdk';
+import type { Transaction } from '@stellar/stellar-sdk';
 import BigNumber from 'bignumber.js';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -29,6 +30,26 @@ import {
 const DEFAULT_STALE_AFTER_MS = 30_000;
 
 /**
+ * Normalises a stroop amount into a safe non-negative integer string.
+ *
+ * BigNumber v11 throws (rather than returning NaN) when constructed from a
+ * non-numeric string, so garbage RPC values must be filtered out before the
+ * constructor is reached. Anything non-finite, negative, or unparseable
+ * clamps to "0".
+ */
+function sanitizeStroops(value: unknown): string {
+  if (value === null || value === undefined) return '0';
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= 0 ? String(Math.floor(value)) : '0';
+  }
+  const raw = String(value).trim();
+  if (!/^-?\d+(?:\.\d+)?$/.test(raw)) return '0';
+  const bn = new BigNumber(raw);
+  if (bn.isNaN() || bn.isNegative()) return '0';
+  return bn.toFixed(0, BigNumber.ROUND_DOWN);
+}
+
+/**
  * Fallback base estimate used when simulation is unavailable.
  * Covers a typical Soroban invocation with moderate resource usage.
  * 100 (base) + 50 000 (resource) = 50 100 stroops ≈ 0.0050100 XLM.
@@ -45,8 +66,7 @@ const BASE_FEE_STROOPS = Number(BASE_FEE);
  * Anonymous zero-balance Stellar account used when no wallet is connected.
  * Allows fee estimation for read-only / UI preview paths without a real account.
  */
-const ANONYMOUS_SOURCE_KEY =
-  'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+const ANONYMOUS_SOURCE_KEY = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
 /**
  * FeeEstimatorService
@@ -93,8 +113,9 @@ export class FeeEstimatorService {
     private readonly horizon: HorizonService,
     @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
     @Optional() @Inject('WALLET_ADAPTER') private readonly wallet?: WalletAdapter,
+    contractId?: string,
   ) {
-    this.contractId = getRaffleContractId(networkConfig.network);
+    this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
   }
 
   /**
@@ -123,19 +144,61 @@ export class FeeEstimatorService {
 
     const tx = await this.buildTransaction(params.method, params.params, sourceKey);
 
+    return this.estimate(tx, params.method);
+  }
+
+  /**
+   * Estimates the transaction fee by simulating a pre-built unsigned transaction.
+   *
+   * Call after assembling contract params when the caller owns transaction construction.
+   * Used by write flows that simulate first, then surface the fee before signing.
+   */
+  async estimate(tx: Transaction, method?: string): Promise<FeeEstimateResult> {
     const simResponse = await this.rpcService.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
       const errMsg = (simResponse as any).error ?? 'unknown error';
       throw new TikkaSdkError(
         TikkaSdkErrorCode.SimulationFailed,
-        `Fee estimation simulation failed for "${params.method}": ${errMsg}`,
+        `Fee estimation simulation failed${method ? ` for "${method}"` : ''}: ${errMsg}`,
       );
     }
 
     const successSim = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
 
     return this.parseFeeResult(successSim);
+  }
+
+  /**
+   * Derives a fee estimate from an already-completed simulation response.
+   * Avoids a second RPC round-trip when the caller has just simulated the tx.
+   */
+  estimateFromSimulation(sim: rpc.Api.SimulateTransactionSuccessResponse): FeeEstimateResult {
+    return this.parseFeeResult(sim);
+  }
+
+  /**
+   * Derives a fee estimate from a simulation's `minResourceFee` stroops value.
+   * Used after {@link ContractService.simulate} when the raw RPC response is unavailable.
+   */
+  estimateFromResourceFee(minResourceFee: string): FeeEstimateResult {
+    const totalStroops = new BigNumber(BASE_FEE_STROOPS)
+      .plus(sanitizeStroops(minResourceFee))
+      .toFixed(0);
+
+    return {
+      xlm: stroopsToXlm(totalStroops),
+      stroops: totalStroops,
+      resources: {
+        baseFeeStroops: String(BASE_FEE_STROOPS),
+        resourceFeeStroops: minResourceFee,
+        cpuInstructions: 0,
+        diskReadBytes: 0,
+        writeBytes: 0,
+        readOnlyEntries: 0,
+        readWriteEntries: 0,
+      },
+    };
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
@@ -152,32 +215,27 @@ export class FeeEstimatorService {
     return ANONYMOUS_SOURCE_KEY;
   }
 
-  private async buildTransaction(
-    method: string,
-    params: any[],
-    sourceKey: string,
-  ) {
-    const account = await this.horizon.loadAccount(sourceKey).catch(() => ({
-      accountId: () => sourceKey,
-      sequenceNumber: () => '0',
-    } as any));
+  private async buildTransaction(method: string, params: any[], sourceKey: string) {
+    const account = await this.horizon.loadAccount(sourceKey).catch(
+      () =>
+        ({
+          accountId: () => sourceKey,
+          sequenceNumber: () => '0',
+        }) as any,
+    );
 
     const contract = new Contract(this.contractId);
     return new TransactionBuilder(account, {
       fee: String(BASE_FEE_STROOPS),
       networkPassphrase: this.networkConfig.networkPassphrase,
     })
-      .addOperation(
-        contract.call(method, ...params.map((p) => this.toScVal(p))),
-      )
+      .addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))))
       .setTimeout(30)
       .build();
   }
 
-  private parseFeeResult(
-    sim: rpc.Api.SimulateTransactionSuccessResponse,
-  ): FeeEstimateResult {
-    const resourceFeeStroops = String(sim.minResourceFee ?? '0');
+  private parseFeeResult(sim: rpc.Api.SimulateTransactionSuccessResponse): FeeEstimateResult {
+    let resourceFeeStroops = sanitizeStroops(sim.minResourceFee);
 
     // Extract per-resource consumption from the Soroban resource footprint.
     // `transactionData.resources()` returns an xdr.SorobanResources instance.
@@ -200,9 +258,7 @@ export class FeeEstimatorService {
       // transactionData may be absent in mocked/test responses; degrade gracefully.
     }
 
-    const totalStroops = new BigNumber(BASE_FEE_STROOPS)
-      .plus(resourceFeeStroops)
-      .toFixed(0);
+    const totalStroops = new BigNumber(BASE_FEE_STROOPS).plus(resourceFeeStroops).toFixed(0);
 
     const breakdown: FeeResourceBreakdown = {
       baseFeeStroops: String(BASE_FEE_STROOPS),

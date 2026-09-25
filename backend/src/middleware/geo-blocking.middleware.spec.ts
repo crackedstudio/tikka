@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GeoBlockingMiddleware } from './geo-blocking.middleware';
-import { GeoService } from '../services/geo.service';
+import { GeoService } from '../services/geo/geo.service';
 import { ForbiddenException } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
 

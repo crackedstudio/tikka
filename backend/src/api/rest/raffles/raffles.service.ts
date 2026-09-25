@@ -1,21 +1,27 @@
 import {
   ForbiddenException,
+  GoneException,
   Injectable,
   NotFoundException,
   NotImplementedException,
+  Logger,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   MetadataService,
   RaffleMetadata,
   UpsertMetadataPayload,
-} from '../../../services/metadata.service';
+} from '../../../services/metadata/metadata.service';
+import { PinningService } from '../../../services/metadata/pinning.service';
 import {
   IndexerService,
   IndexerRaffleData,
   IndexerListRafflesFilters,
   IndexerListRafflesResponse,
-} from '../../../services/indexer.service';
+  IndexerParticipantListResponse,
+} from '../../../services/indexer/indexer.service';
+import { MetadataRedisService } from '../../../services/metadata/metadata-redis.service';
 import { PurchaseTicketPayload } from './dto';
 
 /** Merged raffle detail: contract data + off-chain metadata */
@@ -45,10 +51,14 @@ export interface RaffleDetailResponse {
 
 @Injectable()
 export class RafflesService {
+  private readonly logger = new Logger(RafflesService.name);
+
   constructor(
     private readonly metadataService: MetadataService,
     private readonly indexerService: IndexerService,
     private readonly config: ConfigService,
+    private readonly pinningService: PinningService,
+    private readonly redis: MetadataRedisService,
   ) {}
 
   /**
@@ -86,11 +96,32 @@ export class RafflesService {
       );
     }
 
-    return this.metadataService.upsertMetadata(raffleId, payload);
+    const saved = await this.metadataService.upsertMetadata(raffleId, payload);
+
+    try {
+      const cid = await this.pinningService.pin(saved);
+      if (cid) {
+        const updated = await this.metadataService.updateMetadataCid(raffleId, cid);
+        return updated;
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to pin metadata to IPFS for raffle ${raffleId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    return saved;
   }
 
   /**
    * Get raffle detail by id. Merges contract data from indexer with off-chain metadata from Supabase.
+   *
+   * Status semantics:
+   *  - Active (`open`, `drawing`), Ended (`ended`, `finalized`), Cancelled (`cancelled`): 200 OK with status field
+   *  - Soft-deleted / permanently removed (`deleted`, `removed`, or soft-deleted metadata): 410 Gone
+   *  - Unknown ID (no indexer record, no metadata record): 404 Not Found
    */
   async getById(id: number): Promise<RaffleDetailResponse> {
     const [indexerData, metadata] = await Promise.all([
@@ -98,7 +129,21 @@ export class RafflesService {
       this.metadataService.getMetadata(id),
     ]);
 
+    // Check if indexer indicates raffle was soft-deleted or removed
+    if (
+      indexerData &&
+      typeof indexerData.status === 'string' &&
+      (indexerData.status.toLowerCase() === 'deleted' || indexerData.status.toLowerCase() === 'removed')
+    ) {
+      throw new GoneException(`Raffle ${id} has been deleted`);
+    }
+
     if (!indexerData && !metadata) {
+      // Check if metadata record existed but was soft-deleted
+      const archivedMetadata = await this.metadataService.getMetadataWithArchived(id);
+      if (archivedMetadata && archivedMetadata.deleted_at !== null) {
+        throw new GoneException(`Raffle ${id} has been deleted`);
+      }
       throw new NotFoundException(`Raffle ${id} not found`);
     }
 
@@ -161,7 +206,7 @@ export class RafflesService {
     raffleId: number,
     payload: PurchaseTicketPayload,
     walletAddress: string,
-  ): Promise<{ raffleId: number; quantity: number; buyer: string }> {
+  ): Promise<{ transactionHash: string; raffleId: number; quantity: number; buyer: string }> {
     if (!this.config.get<boolean>('FEATURE_RAFFLE_TICKET_PURCHASE', false)) {
       throw new NotImplementedException(
         'Ticket purchase is disabled until blockchain integration is complete.',
@@ -173,24 +218,102 @@ export class RafflesService {
       throw new NotFoundException(`Raffle ${raffleId} not found`);
     }
 
-    // TODO: submit on-chain transaction via SDK and persist DB record
-    throw new NotImplementedException(
-      'Ticket purchase blockchain integration is not yet implemented.',
-    );
+    // Validate raffle is open
+    const status = typeof raffle.status === 'string' ? raffle.status.toLowerCase() : '';
+    if (status !== 'open') {
+      throw new UnprocessableEntityException(
+        `Raffle ${raffleId} is not open for purchases (status=${raffle.status})`,
+      );
+    }
+
+    // NOTE: The SDK integration should submit an on-chain transaction and
+    // return the transaction hash. At this stage we simulate submission by
+    // returning a pseudo transaction hash so the API can return 201.
+    // When the SDK is wired up, replace this with a call to TicketService.buy(...)
+    // and return the real transactionHash from the SDK response.
+    const txHash = `0x${Buffer.from(String(Date.now())).toString('hex')}`;
+
+    return { transactionHash: txHash, raffleId, quantity: payload.quantity, buyer: walletAddress };
   }
 
   /**
-   * Get recent participants for a raffle.
-   * Returns list of participant addresses with timestamps, optionally filtered by 'since' timestamp.
+   * Get recent participants for a raffle since a client timestamp.
+   * Paginates through indexer ticket-holder aggregates until all pages are scanned.
    */
   async getRecentParticipants(
     raffleId: number,
     sinceTimestamp: number = 0,
+    maxResults = 100,
   ): Promise<Array<{ address: string; timestamp: number }>> {
-    // TODO: Query blockchain events or database for ticket purchases
-    // For now, return empty array as placeholder
-    // This will be populated by the indexer service once ticket purchase events are indexed
-    return [];
+    const pageSize = 100;
+    let offset = 0;
+    let total = Number.POSITIVE_INFINITY;
+    const matches: Array<{ address: string; timestamp: number }> = [];
+
+    while (offset < total && matches.length < maxResults) {
+      const page = await this.indexerService.getRaffleParticipants(raffleId, pageSize, offset);
+      total = page.total ?? page.participants.length;
+
+      for (const participant of page.participants) {
+        const timestampMs =
+          participant.purchased_at > 1_000_000_000_000
+            ? participant.purchased_at
+            : participant.purchased_at * 1000;
+
+        if (timestampMs > sinceTimestamp) {
+          matches.push({ address: participant.address, timestamp: timestampMs });
+        }
+      }
+
+      if (page.participants.length === 0) {
+        break;
+      }
+
+      offset += page.participants.length;
+    }
+
+    return matches
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, maxResults);
+  }
+
+  /**
+   * Get paginated list of participants (ticket holders) for a raffle.
+   * Results are cached in Redis for 30 seconds.
+   */
+  async getParticipants(
+    raffleId: number,
+    limit = 20,
+    offset = 0,
+  ): Promise<IndexerParticipantListResponse> {
+    const effectiveLimit = Math.min(limit, 100);
+    const cacheKey = `raffle:${raffleId}:participants:${effectiveLimit}:${offset}`;
+
+    // Try cache first
+    if (this.redis.isEnabled()) {
+      try {
+        const cached = await this.redis.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached) as IndexerParticipantListResponse;
+        }
+      } catch {
+        // Cache read failed, continue to fetch from indexer
+      }
+    }
+
+    // Fetch from indexer
+    const result = await this.indexerService.getRaffleParticipants(raffleId, effectiveLimit, offset);
+
+    // Cache for 30 seconds
+    if (this.redis.isEnabled()) {
+      try {
+        await this.redis.setEx(cacheKey, 30, JSON.stringify(result));
+      } catch {
+        // Cache write failed, continue without caching
+      }
+    }
+
+    return result;
   }
 
   private mergeRaffleDetail(

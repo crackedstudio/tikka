@@ -1,0 +1,132 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Oracle overlay. The Deployment, Service, HPA, and PDB structure lives in
+# ../../k8s/base; this file supplies only what is genuinely oracle-specific.
+#
+#   kubectl apply -k oracle/k8s
+#
+# See examples/ for the AWS KMS (IRSA) and GCP KMS (Workload Identity)
+# variants, which replace the mounted age key with a cloud KMS identity.
+namespace: tikka
+
+labels:
+  - pairs:
+      app: tikka-oracle
+    includeSelectors: true
+
+resources:
+  - ../../k8s/base
+  - configmap.yaml
+
+images:
+  - name: ghcr.io/crackedstudio/tikka-service
+    newName: ghcr.io/crackedstudio/tikka-oracle
+    newTag: latest
+
+patches:
+  - target:
+      kind: Deployment
+      name: tikka
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-oracle
+      - op: replace
+        path: /spec/template/spec/containers/0/name
+        value: tikka-oracle
+      # Bull queue locks already guarantee one replica per job; the anti-affinity
+      # is what stops both replicas landing on the same node and losing the
+      # redundancy that makes those locks worth having.
+      - op: add
+        path: /spec/template/spec/affinity
+        value:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app: tikka-oracle
+                  topologyKey: kubernetes.io/hostname
+      # The age private key is mounted as a file rather than an env var so it
+      # never appears in `kubectl describe` or a crash dump of the environment.
+      - op: add
+        path: /spec/template/spec/volumes
+        value:
+          - name: age-key
+            secret:
+              secretName: tikka-oracle-age-key
+              defaultMode: 0400
+          - name: logs
+            emptyDir: {}
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts
+        value:
+          - name: age-key
+            mountPath: /run/secrets
+            readOnly: true
+          - name: logs
+            mountPath: /var/log/oracle
+      - op: add
+        path: /spec/template/spec/containers/0/ports
+        value:
+          - containerPort: 3003
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom
+        value:
+          - configMapRef:
+              name: tikka-oracle-config
+          - secretRef:
+              name: tikka-oracle-secrets
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: SOPS_AGE_KEY_FILE
+            value: /run/secrets/age.key
+          - name: ORACLE_SHUTDOWN_HARD_TIMEOUT_MS
+            value: "25000"
+          - name: LOG_DIR
+            value: /var/log/oracle
+      - op: replace
+        path: /spec/template/spec/containers/0/startupProbe/httpGet/port
+        value: 3003
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/httpGet/port
+        value: 3003
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/httpGet/port
+        value: 3003
+
+  - target:
+      kind: Service
+      name: tikka
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-oracle
+      - op: replace
+        path: /spec/ports/0/port
+        value: 3003
+      - op: replace
+        path: /spec/ports/0/targetPort
+        value: 3003
+
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: tikka-hpa
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-oracle-hpa
+      - op: replace
+        path: /spec/scaleTargetRef/name
+        value: tikka-oracle
+
+  - target:
+      kind: PodDisruptionBudget
+      name: tikka-pdb
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: tikka-oracle-pdb

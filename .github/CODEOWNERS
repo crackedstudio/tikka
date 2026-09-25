@@ -1,0 +1,18 @@
+# CODEOWNERS — routes review requests by workspace path.
+# See docs/contributing/MODULE_BOUNDARIES.md for package ownership.
+#
+# Default owner for anything not matched below.
+*       @Otaiki1
+
+# Repository automation / ops
+/.github/       @Otaiki1
+/docs/          @Otaiki1
+/scripts/       @Otaiki1
+/docker-compose.yml @Otaiki1
+
+# Workspaces
+/backend/       @Otaiki1
+/client/        @Otaiki1
+/sdk/           @Otaiki1
+/indexer/       @Otaiki1
+/oracle/        @Otaiki1

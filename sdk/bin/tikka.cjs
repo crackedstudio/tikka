@@ -20,6 +20,18 @@ const formatError = (err, json = false) => {
 };
 
 /**
+ * Helper: human-facing chatter (issue #1095).
+ *
+ * Always goes to stderr, never stdout. In --json mode stdout must carry the
+ * JSON document and nothing else, or `tikka list --json | jq` fails on the
+ * decorative header. Writing to stderr keeps the message visible in a terminal
+ * while leaving the pipe clean, so there is no reason to suppress it entirely.
+ */
+const logHuman = (message) => {
+  process.stderr.write(`${message}\n`);
+};
+
+/**
  * Helper: Initialize SDK based on CLI flags
  */
 const getSDK = (network) => {
@@ -33,7 +45,15 @@ const getSDK = (network) => {
  */
 const outputResult = (data, json = false) => {
   if (json) {
-    console.log(JSON.stringify(data, null, 2));
+    // Stable envelope: every JSON response has the same top-level shape, so a
+    // script can test `.ok` without knowing which command produced it. Raw
+    // payloads varied per command before — an array from `list`, an object
+    // from `info`, `{success:false,error}` on failure.
+    const envelope =
+      data && typeof data === 'object' && 'error' in data
+        ? { ok: false, error: data.error, data: null }
+        : { ok: true, error: null, data };
+    process.stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
   } else {
     console.log(data);
   }
@@ -221,7 +241,7 @@ program
     const { network, json } = program.opts();
     try {
       const sdk = getSDK(network);
-      console.log(`\n📋 Active Raffles on ${network}:`);
+      logHuman(`\n📋 Active Raffles on ${network}:`);
       try {
         const list = await sdk.raffle.listActive();
         outputResult(list, json);
@@ -248,9 +268,7 @@ program
     const { network, json } = program.opts();
     try {
       const sdk = getSDK(network);
-      if (!json) {
-        console.log(`\n🔍 Fetching Info for ${network.toUpperCase()}...`);
-      }
+      logHuman(`\n🔍 Fetching Info for ${network.toUpperCase()}...`);
       try {
         const status = await sdk.contract.getStatus();
         outputResult(status, json);
@@ -294,7 +312,7 @@ program
       ]);
 
       if (answers.confirm) {
-        if (!json) console.log('🚀 Deploying raffle...');
+        logHuman('🚀 Deploying raffle...');
         // Placeholder for actual deployment
         const result = { success: true, message: 'Raffle deployment started' };
         outputResult(result, json);
@@ -326,11 +344,9 @@ program
         { type: 'number', name: 'quantity', message: 'Number of tickets:' },
       ]);
 
-      if (!json) {
-        console.log(
-          `🎟️ Purchasing ${answers.quantity} tickets for #${answers.raffleId}`
-        );
-      }
+      logHuman(
+        `🎟️ Purchasing ${answers.quantity} tickets for #${answers.raffleId}`
+      );
       // Placeholder for actual purchase
       const result = {
         success: true,

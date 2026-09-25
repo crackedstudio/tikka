@@ -1,8 +1,8 @@
 /**
  * listen-events.ts — Poll Soroban contract events for a raffle
  *
- * Soroban RPC exposes getEvents() to stream contract events. This example
- * polls for RaffleCreated, TicketPurchased, and RaffleFinalized events.
+ * Uses the SDK event subscription helper with reconnect/backoff and resume
+ * cursor so consumers do not silently miss events when the RPC connection drops.
  *
  * Required env vars:
  *   TIKKA_NETWORK      testnet | mainnet | standalone  (default: testnet)
@@ -20,6 +20,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { RpcService } from '../src/network/rpc.service';
+import { subscribeToContractEvents } from '../src/network/event-subscription';
 import { getRaffleContractId } from '../src/contract/constants';
 import { TikkaNetwork } from '../src/network/network.config';
 import { rpc } from '@stellar/stellar-sdk';
@@ -45,60 +46,54 @@ async function main() {
   if (raffleIdFilter !== null) console.log(`  Filtering for raffle #${raffleIdFilter}`);
   console.log(`  Polling every ${pollMs}ms — press Ctrl+C to stop\n`);
 
-  // Track the latest ledger we've seen to avoid re-processing
-  let cursor: string | undefined;
-
-  async function poll() {
-    try {
-      const filters: rpc.Api.EventFilter[] = [
-        {
-          type: 'contract',
-          contractIds: [contractId],
-        },
-      ];
-
-      const response = await server.getEvents({
-        cursor: cursor ?? '',
-        filters,
-        limit: 100,
-      });
-
-      for (const event of response.events) {
-        // Update cursor from response
-        if (response.latestLedger) {
-          cursor = String(response.latestLedger);
-        }
-
-        const topic = event.topic.map((t: { toString(): string }) => t.toString()).join(':');
-        const value = event.value?.toString() ?? '';
-
-        // Skip if filtering by raffle and this event doesn't match
-        if (raffleIdFilter !== null && !value.includes(String(raffleIdFilter))) {
-          continue;
-        }
-
-        console.log(`[ledger ${event.ledger}] ${topic}`);
-        console.log(`  value  : ${value}`);
-        console.log(`  txHash : ${event.txHash}\n`);
-      }
-    } catch (err: any) {
-      console.warn(`Poll error: ${err.message}`);
-    }
-  }
-
-  // Initial poll to set the cursor to "now"
+  let startLedger: number | undefined;
   try {
     const latest = await server.getLatestLedger();
+    startLedger = latest.sequence;
     console.log(`Starting from ledger ${latest.sequence}\n`);
   } catch {
-    // If we can't get the latest ledger, start from beginning
+    // If we can't get the latest ledger, the subscription falls back to startLedger=1.
   }
 
-  // Poll loop
-  const interval = setInterval(poll, pollMs);
+  const filters: rpc.Api.EventFilter[] = [
+    {
+      type: 'contract',
+      contractIds: [contractId],
+    },
+  ];
+
+  const subscription = subscribeToContractEvents(server, {
+    filters,
+    ...(startLedger !== undefined ? { startLedger } : {}),
+    pollIntervalMs: pollMs,
+    onEvent: async (event) => {
+      const topic = event.topic.map((t) => t.toString()).join(':');
+      const value = event.value?.toString() ?? '';
+
+      if (raffleIdFilter !== null && !value.includes(String(raffleIdFilter))) {
+        return;
+      }
+
+      console.log(`[ledger ${event.ledger}] ${topic}`);
+      console.log(`  value  : ${value}`);
+      console.log(`  txHash : ${event.txHash}\n`);
+    },
+    onReconnect: (attempt, delayMs, error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Connection lost, reconnect attempt ${attempt} in ${Math.round(delayMs)}ms: ${message}`);
+    },
+    onGapWarning: (warning) => {
+      console.warn(`GAP WARNING: ${warning.message}`);
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Poll error: ${message}`);
+    },
+  });
 
   process.on('SIGINT', async () => {
-    clearInterval(interval);
+    subscription.stop();
+    await subscription.done;
     await app.close();
     console.log('\nStopped.');
     process.exit(0);

@@ -1,6 +1,6 @@
 import { fetchStatus } from './status.service';
 import { DataSource } from 'typeorm';
-import { LAG_THRESHOLD_DEFAULT } from '../health/health.service';
+import { LAG_THRESHOLD_DEFAULT } from '../health/health.constants';
 
 // ---------- ioredis mock ----------
 // ioredis exports a class as the default export.

@@ -1,11 +1,21 @@
 import { TicketService } from './ticket.service';
+import { TicketReadService } from './ticket.read.service';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
-import { BuyTicketParams, RefundTicketParams, BuyBatchParams, TICKET_CONSTRAINTS } from './ticket.types';
+import {
+  BuyTicketParams,
+  RefundTicketParams,
+  BuyBatchParams,
+  BuyTicketsParams,
+  TICKET_CONSTRAINTS,
+} from './ticket.types';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
+import { RaffleStatus } from '../../contract/bindings';
+import { InvalidTicketPurchaseError } from './purchase-validation';
 
 describe('TicketService', () => {
   let service: TicketService;
+  let readService: TicketReadService;
   let contractService: jest.Mocked<ContractService>;
   let mockWallet: { getPublicKey: jest.Mock };
 
@@ -16,11 +26,20 @@ describe('TicketService', () => {
 
     contractService = {
       invoke: jest.fn(),
-      simulateReadOnly: jest.fn(),
+      simulateReadOnly: jest.fn().mockResolvedValue({
+        success: true,
+        value: { status: RaffleStatus.OPEN },
+      }),
       wallet: mockWallet,
     } as any;
 
-    service = new TicketService(contractService);
+    readService = new TicketReadService(contractService);
+    service = new TicketService(contractService, readService);
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('buy', () => {
@@ -31,11 +50,11 @@ describe('TicketService', () => {
       };
 
       const mockResult = {
-        status: 'SUCCESS' as const,
+        success: true,
         value: [101, 102, 103, 104, 105],
-        txHash: 'tx-hash',
+        transactionHash: 'tx-hash',
         ledger: 1000,
-        feePaid: '10000',
+        feeCharged: '10000',
       };
 
       contractService.invoke.mockResolvedValue(mockResult);
@@ -58,27 +77,63 @@ describe('TicketService', () => {
 
     it('should throw if raffleId is invalid', async () => {
       const params: BuyTicketParams = { raffleId: 0, quantity: 1 };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
       await expect(service.buy(params)).rejects.toThrow('raffleId must be a positive integer');
+      expect(contractService.simulateReadOnly).not.toHaveBeenCalled();
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity is not an integer', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: 1.5 };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
       await expect(service.buy(params)).rejects.toThrow('quantity must be an integer');
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity is zero', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: 0 };
-      await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
+      await expect(service.buy(params)).rejects.toThrow(
+        `quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`,
+      );
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity is negative', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: -5 };
-      await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
+      await expect(service.buy(params)).rejects.toThrow(
+        `quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`,
+      );
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity exceeds maximum', async () => {
-      const params: BuyTicketParams = { raffleId: 1, quantity: TICKET_CONSTRAINTS.MAX_QUANTITY + 1 };
-      await expect(service.buy(params)).rejects.toThrow(`quantity must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`);
+      const params: BuyTicketParams = {
+        raffleId: 1,
+        quantity: TICKET_CONSTRAINTS.MAX_QUANTITY + 1,
+      };
+      await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
+      await expect(service.buy(params)).rejects.toThrow(
+        `quantity must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`,
+      );
+      expect(contractService.invoke).not.toHaveBeenCalled();
+    });
+
+    it('should accept quantity at max boundary without building until after validation', async () => {
+      const params: BuyTicketParams = {
+        raffleId: 1,
+        quantity: TICKET_CONSTRAINTS.MAX_QUANTITY,
+      };
+      contractService.invoke.mockResolvedValue({
+        success: true,
+        value: [1],
+        transactionHash: 'tx',
+        ledger: 1,
+        feeCharged: '1',
+      });
+      await service.buy(params);
+      expect(contractService.invoke).toHaveBeenCalled();
     });
 
     it('should detect duplicate submissions', async () => {
@@ -89,7 +144,7 @@ describe('TicketService', () => {
         value: [101, 102, 103, 104, 105],
         transactionHash: 'tx-hash-1',
         ledger: 1000,
-        feePaid: '10000',
+        feeCharged: '10000',
       });
 
       // First submission should succeed
@@ -107,7 +162,7 @@ describe('TicketService', () => {
         value: [101, 102, 103, 104, 105],
         transactionHash: 'tx-hash-1',
         ledger: 1000,
-        feePaid: '10000',
+        feeCharged: '10000',
       });
 
       // First submission
@@ -121,17 +176,105 @@ describe('TicketService', () => {
       jest.advanceTimersByTime(31000);
 
       // This should succeed after timeout
-      const newService = new TicketService(contractService);
+      const newService = new TicketService(contractService, readService);
       contractService.invoke.mockResolvedValue({
         success: true,
         value: [106, 107, 108, 109, 110],
         transactionHash: 'tx-hash-2',
         ledger: 1001,
-        feePaid: '10000',
+        feeCharged: '10000',
       });
 
       const result = await newService.buy(params);
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('buyTickets', () => {
+    it('should invoke BUY_TICKETS_BATCH for count = 1', async () => {
+      const params: BuyTicketsParams = {
+        raffleId: 1,
+        count: 1,
+        maxPricePerTicket: '1000000',
+      };
+
+      const mockResult = {
+        success: true,
+        value: [101],
+        transactionHash: 'tx-hash-batch-1',
+        ledger: 1000,
+        feeCharged: '10000',
+      };
+
+      contractService.invoke.mockResolvedValue(mockResult);
+
+      const result = await service.buyTickets(params);
+
+      expect(mockWallet.getPublicKey).toHaveBeenCalled();
+      expect(contractService.invoke).toHaveBeenCalledWith(
+        ContractFn.BUY_TICKETS_BATCH,
+        [params.raffleId, 'G...ADDRESS', params.count, params.maxPricePerTicket],
+        { memo: undefined },
+      );
+      expect(result.value).toEqual({
+        ticketIds: [101],
+        transactionHash: 'tx-hash-batch-1',
+        ledger: 1000,
+        feePaid: '10000',
+      });
+    });
+
+    it('should invoke BUY_TICKETS_BATCH for count = 10', async () => {
+      const params: BuyTicketsParams = {
+        raffleId: 1,
+        count: 10,
+        maxPricePerTicket: '1000000',
+      };
+
+      const mockResult = {
+        success: true,
+        value: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110],
+        transactionHash: 'tx-hash-batch-10',
+        ledger: 1000,
+        feeCharged: '10000',
+      };
+
+      contractService.invoke.mockResolvedValue(mockResult);
+
+      const result = await service.buyTickets(params);
+
+      expect(contractService.invoke).toHaveBeenCalledWith(
+        ContractFn.BUY_TICKETS_BATCH,
+        [params.raffleId, 'G...ADDRESS', params.count, params.maxPricePerTicket],
+        { memo: undefined },
+      );
+      expect(result.value?.ticketIds).toHaveLength(10);
+    });
+
+    it('should throw if count exceeds max', async () => {
+      const params: BuyTicketsParams = {
+        raffleId: 1,
+        count: TICKET_CONSTRAINTS.MAX_QUANTITY + 1,
+        maxPricePerTicket: '1000000',
+      };
+
+      await expect(service.buyTickets(params)).rejects.toThrow(
+        `count must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`,
+      );
+      expect(contractService.invoke).not.toHaveBeenCalled();
+    });
+
+    it('should throw typed error for wrong maxPricePerTicket asset precision', async () => {
+      const params: BuyTicketsParams = {
+        raffleId: 1,
+        count: 1,
+        maxPricePerTicket: '1.5',
+      };
+
+      await expect(service.buyTickets(params)).rejects.toThrow(InvalidTicketPurchaseError);
+      await expect(service.buyTickets(params)).rejects.toThrow(/wrong asset precision/);
+      expect(contractService.simulateReadOnly).not.toHaveBeenCalled();
+      expect(contractService.invoke).not.toHaveBeenCalled();
     });
   });
 
@@ -143,11 +286,11 @@ describe('TicketService', () => {
       };
 
       const mockInvokeResult = {
-        status: 'SUCCESS' as const,
+        success: true,
         value: undefined,
-        txHash: 'refund-hash',
+        transactionHash: 'refund-hash',
         ledger: 1001,
-        feePaid: '10000',
+        feeCharged: '10000',
       };
 
       contractService.invoke.mockResolvedValue(mockInvokeResult);
@@ -177,31 +320,6 @@ describe('TicketService', () => {
     });
   });
 
-  describe('getUserTickets', () => {
-    it('should call simulateReadOnly for GET_USER_TICKETS', async () => {
-      const params = {
-        raffleId: 1,
-        userAddress: 'G...USER',
-      };
-
-      const mockTicketIds = [101, 105, 110];
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: mockTicketIds });
-
-      const result = await service.getUserTickets(params);
-
-      expect(contractService.simulateReadOnly).toHaveBeenCalledWith(
-        ContractFn.GET_USER_TICKETS,
-        [params.raffleId, params.userAddress],
-      );
-      expect(result.value).toEqual(mockTicketIds);
-    });
-
-    it('should validate raffleId', async () => {
-      const params = { raffleId: -1, userAddress: 'G...' };
-      await expect(service.getUserTickets(params)).rejects.toThrow('raffleId must be a positive integer');
-    });
-  });
-
   describe('buyBatch', () => {
     it('should purchase tickets for multiple raffles', async () => {
       const params: BuyBatchParams = {
@@ -212,20 +330,20 @@ describe('TicketService', () => {
       };
 
       // Mock simulation success for both
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [101, 102, 103] });
+      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [101, 102, 103] });
 
       // Mock invoke results
       contractService.invoke
         .mockResolvedValueOnce({
-          status: 'SUCCESS' as const,
+          success: true,
           value: [101, 102, 103],
-          txHash: 'tx-hash-1',
+          transactionHash: 'tx-hash-1',
           ledger: 1000,
         })
         .mockResolvedValueOnce({
-          status: 'SUCCESS' as const,
+          success: true,
           value: [201, 202, 203, 204, 205],
-          txHash: 'tx-hash-2',
+          transactionHash: 'tx-hash-2',
           ledger: 1001,
         });
 
@@ -234,19 +352,19 @@ describe('TicketService', () => {
       expect(mockWallet.getPublicKey).toHaveBeenCalled();
       expect(contractService.simulateReadOnly).toHaveBeenCalledTimes(2);
       expect(contractService.invoke).toHaveBeenCalledTimes(2);
-      
-      expect(result.value).toHaveLength(2);
-      expect(result.value![0]).toEqual({
+
+      expect(result.value?.results).toHaveLength(2);
+      expect(result.value!.results[0]).toEqual({
         raffleId: 1,
         ticketIds: [101, 102, 103],
-        status: 'SUCCESS' as const,
+        success: true,
       });
-      expect(result.value![1]).toEqual({
+      expect(result.value!.results[1]).toEqual({
         raffleId: 2,
         ticketIds: [201, 202, 203, 204, 205],
-        status: 'SUCCESS' as const,
+        success: true,
       });
-      expect(result.txHash).toBe('tx-hash-2');
+      expect(result.transactionHash).toBe('tx-hash-2');
       expect(result.ledger).toBe(1001);
     });
 
@@ -260,31 +378,29 @@ describe('TicketService', () => {
 
       // First simulation succeeds, second fails
       contractService.simulateReadOnly
-        .mockResolvedValueOnce({ status: 'SUCCESS' as const, value: [101, 102, 103] })
+        .mockResolvedValueOnce({ success: true, value: [101, 102, 103] })
         .mockRejectedValueOnce(new Error('Raffle not found'));
 
       // Only first invoke should happen
       contractService.invoke.mockResolvedValueOnce({
-        status: 'SUCCESS' as const,
+        success: true,
         value: [101, 102, 103],
-        txHash: 'tx-hash-1',
+        transactionHash: 'tx-hash-1',
         ledger: 1000,
       });
 
       const result = await service.buyBatch(params);
 
-      expect(result.value).toHaveLength(2);
-      expect(result.value![0].status).toBe('SUCCESS');
-      expect(result.value![1].status).toBe('ERROR');
-      expect(result.value![1].error).toContain('Raffle not found');
+      expect(result.value?.results).toHaveLength(2);
+      expect(result.value!.results[0].success).toBe(true);
+      expect(result.value!.results[1].success).toBe(false);
+      expect(result.value!.results[1].error).toContain('Raffle not found');
     });
 
     it('should throw if purchases array is empty', async () => {
       const params: BuyBatchParams = { purchases: [] };
-      
-      await expect(service.buyBatch(params)).rejects.toThrow(
-        TikkaSdkError
-      );
+
+      await expect(service.buyBatch(params)).rejects.toThrow(TikkaSdkError);
     });
 
     it('should validate each purchase in the batch', async () => {
@@ -295,9 +411,7 @@ describe('TicketService', () => {
         ],
       };
 
-      await expect(service.buyBatch(params)).rejects.toThrow(
-        'Invalid purchase at index 1'
-      );
+      await expect(service.buyBatch(params)).rejects.toThrow('Invalid purchase at index 1');
     });
 
     it('should throw if all purchases fail simulation', async () => {
@@ -308,12 +422,10 @@ describe('TicketService', () => {
         ],
       };
 
-      contractService.simulateReadOnly.mockRejectedValue(
-        new Error('All raffles closed')
-      );
+      contractService.simulateReadOnly.mockRejectedValue(new Error('All raffles closed'));
 
       await expect(service.buyBatch(params)).rejects.toThrow(
-        'All batch purchases failed simulation'
+        'All batch purchases failed simulation',
       );
     });
 
@@ -323,11 +435,11 @@ describe('TicketService', () => {
         memo: { type: 'text', value: 'Batch purchase' },
       };
 
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [101, 102, 103] });
+      contractService.simulateReadOnly.mockResolvedValue({ success: true, value: [101, 102, 103] });
       contractService.invoke.mockResolvedValue({
-        status: 'SUCCESS' as const,
+        success: true,
         value: [101, 102, 103],
-        txHash: 'tx-hash',
+        transactionHash: 'tx-hash',
         ledger: 1000,
       });
 

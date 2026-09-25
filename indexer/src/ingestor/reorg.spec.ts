@@ -174,7 +174,9 @@ describe('ReorgRollbackService', () => {
       expect(audit.affectedEntities.raffleEvents).toBe(10);
       expect(audit.affectedEntities.users).toBe(2);
       expect(audit.completedAt).toBeDefined();
-      expect(audit.durationMs).toBeGreaterThan(0);
+      // The whole rollback can finish within a single millisecond on mocked
+      // data sources, so only assert that duration is a non-negative number.
+      expect(audit.durationMs).toBeGreaterThanOrEqual(0);
     });
 
     it('deletes raffle_events, dead_letter_events, tickets, and raffles from reorg ledger', async () => {

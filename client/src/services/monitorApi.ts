@@ -1,43 +1,23 @@
-// Inline type definitions mirroring backend/src/api/rest/monitor/monitor.types.ts
-export type JobStatus = 'pending' | 'completed' | 'failed';
+import type {
+  JobStatus,
+  OracleJob,
+  PaginatedJobsResponse,
+  QueueStatsResponse,
+  LatencyPoint,
+  ErrorRecord,
+  MonitorJobsParams,
+  MonitorLatencyParams,
+  MonitorErrorsParams,
+} from "../types/api-types";
 
-export interface OracleJob {
-  id: string;
-  status: JobStatus;
-  enqueuedAt: string;
-  updatedAt: string;
-  confirmedAt?: string;
-  latencyMs?: number;
-  xdr?: string;
-  errorMessage?: string;
-}
-
-export interface PaginatedJobsResponse {
-  data: OracleJob[];
-  total: number;
-  nextCursor: string | null;
-}
-
-export interface QueueStatsResponse {
-  pending: number;
-  completed: number;
-  failed: number;
-  timestamp: string;
-}
-
-export interface LatencyPoint {
-  jobId: string;
-  enqueuedAt: string;
-  confirmedAt: string;
-  latencyMs: number;
-}
-
-export interface ErrorRecord {
-  jobId: string;
-  failedAt: string;
-  errorMessage: string;
-  xdr: string;
-}
+export type {
+  JobStatus,
+  OracleJob,
+  PaginatedJobsResponse,
+  QueueStatsResponse,
+  LatencyPoint,
+  ErrorRecord,
+};
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN as string;
@@ -62,11 +42,7 @@ export async function fetchStats(): Promise<QueueStatsResponse> {
   return get<QueueStatsResponse>('/monitor/stats');
 }
 
-export async function fetchJobs(params?: {
-  status?: string;
-  limit?: number;
-  cursor?: string;
-}): Promise<PaginatedJobsResponse> {
+export async function fetchJobs(params?: MonitorJobsParams): Promise<PaginatedJobsResponse> {
   const query: Record<string, string> = {};
   if (params?.status !== undefined) query.status = params.status;
   if (params?.limit !== undefined) query.limit = String(params.limit);
@@ -74,19 +50,14 @@ export async function fetchJobs(params?: {
   return get<PaginatedJobsResponse>('/monitor/jobs', query);
 }
 
-export async function fetchLatency(params?: {
-  from?: string;
-  to?: string;
-}): Promise<LatencyPoint[]> {
+export async function fetchLatency(params?: MonitorLatencyParams): Promise<LatencyPoint[]> {
   const query: Record<string, string> = {};
   if (params?.from !== undefined) query.from = params.from;
   if (params?.to !== undefined) query.to = params.to;
   return get<LatencyPoint[]>('/monitor/latency', query);
 }
 
-export async function fetchErrors(params?: {
-  limit?: number;
-}): Promise<ErrorRecord[]> {
+export async function fetchErrors(params?: MonitorErrorsParams): Promise<ErrorRecord[]> {
   const query: Record<string, string> = {};
   if (params?.limit !== undefined) query.limit = String(params.limit);
   return get<ErrorRecord[]>('/monitor/errors', query);

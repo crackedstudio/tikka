@@ -1,9 +1,3 @@
-import { NestFactory } from '@nestjs/core';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from '../src/app.module';
-import * as fs from 'fs';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-
 function ensureOpenApiEnvDefaults(): void {
   const defaults: Record<string, string> = {
     SUPABASE_URL: 'https://openapi.example.supabase.co',
@@ -21,10 +15,16 @@ function ensureOpenApiEnvDefaults(): void {
     }
   }
 }
+ensureOpenApiEnvDefaults();
+
+import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { AppModule } from '../src/app.module';
+import * as fs from 'fs';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
 
 async function generate() {
   try {
-    ensureOpenApiEnvDefaults();
     const app = await NestFactory.create(AppModule, new FastifyAdapter() as any, { logger: false });
     const config = new DocumentBuilder()
       .setTitle("Tikka API")

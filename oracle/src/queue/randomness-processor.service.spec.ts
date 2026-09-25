@@ -10,6 +10,7 @@ import { PrngService } from '../randomness/prng.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { HealthService } from '../health/health.service';
 import { LagMonitorService } from '../health/lag-monitor.service';
+import { OracleLoggerService } from '../logger/oracle-logger';
 
 describe('RandomnessProcessorService', () => {
   let processor: RandomnessProcessorService;
@@ -25,6 +26,7 @@ describe('RandomnessProcessorService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RandomnessProcessorService,
+        { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
         {
           provide: JobStateManager,
           useValue: {
@@ -159,7 +161,7 @@ describe('RandomnessProcessorService', () => {
 
       contractService.isRandomnessSubmitted.mockResolvedValue(false);
       contractService.getRaffleData.mockResolvedValue({ prizeAmount: 300 } as any);
-      prngService.compute.mockRejectedValue(new Error('Rate limit exceeded'));
+      prngService.compute.mockImplementation(() => { throw new Error('Rate limit exceeded'); });
 
       const result = await processor.processRequest(request);
 
@@ -345,7 +347,7 @@ describe('RandomnessProcessorService', () => {
 
       contractService.isRandomnessSubmitted.mockResolvedValue(false);
       contractService.getRaffleData.mockResolvedValue({ prizeAmount: 400 } as any);
-      prngService.compute.mockResolvedValue({ seed: 'seed-abc', proof: 'proof-abc' });
+      prngService.compute.mockReturnValue({ seed: 'seed-abc', proof: 'proof-abc' });
       txSubmitter.submitRandomness.mockRejectedValue(new Error('Malformed transaction'));
 
       const result = await processor.processRequest(request);
@@ -436,7 +438,7 @@ describe('RandomnessProcessorService', () => {
 
       contractService.isRandomnessSubmitted.mockResolvedValue(false);
       contractService.getRaffleData.mockResolvedValue({ prizeAmount: 300 } as any);
-      prngService.compute.mockRejectedValue(new Error('Service timeout'));
+      prngService.compute.mockImplementation(() => { throw new Error('Service timeout'); });
 
       await processor.processRequest(request);
 

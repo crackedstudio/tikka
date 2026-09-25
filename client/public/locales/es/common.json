@@ -50,5 +50,20 @@
     "fairnessDetail": "La selección del ganador utiliza Soroban VRF para una máxima transparencia y justicia.",
     "stayUpdated": "Mantente actualizado",
     "getNotified": "Recibe notificaciones cuando termine este sorteo o si ganas"
+  },
+  "leaderboard": {
+    "title": "Clasificación",
+    "sortByWins": "Por Victorias",
+    "sortByVolume": "Por Volumen",
+    "sortByTickets": "Por Boletos",
+    "loading": "Cargando Clasificación...",
+    "errorTitle": "Error al Cargar la Clasificación",
+    "emptyTitle": "Aún No Hay Datos de Clasificación",
+    "emptyHint": "La clasificación se completará a medida que los usuarios participen en los sorteos.",
+    "rank": "Posición",
+    "address": "Dirección",
+    "wins": "Victorias",
+    "volume": "Volumen (XLM)",
+    "tickets": "Boletos"
   }
 }

@@ -46,21 +46,29 @@ export interface CreateRaffleResult {
   ledger: number;
 }
 
+/** Pre-confirmation fee preview for raffle creation (no submission). */
+export interface CreateRaffleEstimate {
+  /** Estimated network fee in human-readable XLM (7 decimal places). */
+  xlm: string;
+  /** Estimated network fee in stroops. */
+  stroops: string;
+}
+
 /** On-chain raffle data. */
 export interface RaffleData {
   raffleId: number;
   creator: string;
   status: RaffleStatus;
+  /** Ticket price as a string to preserve precision (stroops / token base unit). */
   ticketPrice: string;
+  asset: string;
   maxTickets: number;
   ticketsSold: number;
+  /** Unix timestamp in milliseconds. */
   endTime: number;
-  /** Resolved asset code, e.g. "XLM" or "USDC" */
-  asset: string;
-  /** Issuer account when asset is non-native */
-  assetIssuer?: string;
   allowMultiple: boolean;
   metadataCid: string;
+  assetIssuer?: string;
   winner?: string;
   winningTicketId?: number;
   prizeAmount?: string;
@@ -94,10 +102,7 @@ export interface CancelRaffleParams {
  * Any other transition is rejected by the contract and surfaced as
  * `RaffleStateError`.
  */
-export type RaffleTransition =
-  | 'open→drawing'
-  | 'drawing→finalized'
-  | 'open→cancelled';
+export type RaffleTransition = 'open→drawing' | 'drawing→finalized' | 'open→cancelled';
 
 /**
  * Thrown when an operation is attempted in an invalid state.
@@ -110,7 +115,7 @@ export class RaffleStateError extends Error {
     public readonly attempted: RaffleTransition,
   ) {
     super(
-      `Raffle ${raffleId} is in state ${RaffleStatus[currentStatus]} — ` +
+      `Raffle ${raffleId} is in state ${String(currentStatus)} — ` +
         `transition "${attempted}" is not allowed.`,
     );
     this.name = 'RaffleStateError';

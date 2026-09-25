@@ -62,7 +62,7 @@ async function main() {
     await app.close();
     process.exit(1);
   }
-  console.log(`Tickets purchased — ids=${(buyRes.value ?? []).join(',')}  tx=${buyRes.transactionHash}`);
+  console.log(`Tickets purchased — ids=${(buyRes.value?.ticketIds ?? []).join(',')}  tx=${buyRes.transactionHash}`);
 
   // 3. Read raffle state
   const raffleRes = await raffleService.get(raffleId);

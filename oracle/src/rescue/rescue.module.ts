@@ -1,3 +1,6 @@
+import { RescueDetectorService } from './rescue-detector.service';
+import { RescuePlannerService } from './rescue-planner.service';
+import { RescueExecutorService } from './rescue-executor.service';
 import { Module } from '@nestjs/common';
 import { RescueService } from './rescue.service';
 import { RescueController } from './rescue.controller';
@@ -7,12 +10,16 @@ import { VrfService } from '../randomness/vrf.service';
 import { PrngService } from '../randomness/prng.service';
 import { TxSubmitterService } from '../submitter/tx-submitter.service';
 import { HealthModule } from '../health/health.module';
+import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
-  imports: [QueueModule, HealthModule],
+  imports: [QueueModule, HealthModule, MetricsModule],
   controllers: [RescueController],
   providers: [
     RescueService,
+    RescueDetectorService,
+    RescuePlannerService,
+    RescueExecutorService,
     ContractService,
     VrfService,
     PrngService,

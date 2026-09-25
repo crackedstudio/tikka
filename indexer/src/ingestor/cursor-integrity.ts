@@ -71,62 +71,71 @@ export interface CursorCheckpoint {
  */
 export type IntegrityViolation =
   /** candidate.sequence is less than the previously saved sequence. */
-  | { code: 'SEQUENCE_REGRESSION'; current: number; previous: number }
+  | { code: "SEQUENCE_REGRESSION"; current: number; previous: number }
   /** candidate.sequence equals the previously saved sequence (no-op write is not allowed). */
-  | { code: 'SEQUENCE_DUPLICATE'; sequence: number }
+  | { code: "SEQUENCE_DUPLICATE"; sequence: number }
   /** The hash returned by the chain for this sequence differs from what was stored. */
-  | { code: 'HASH_MISMATCH'; sequence: number; stored: string; actual: string }
+  | { code: "HASH_MISMATCH"; sequence: number; stored: string; actual: string }
   /** candidate.processedEventCount is less than the previously saved count. */
-  | { code: 'EVENT_COUNT_REGRESSION'; current: number; previous: number }
+  | { code: "EVENT_COUNT_REGRESSION"; current: number; previous: number }
   /** savedAt is present but cannot be parsed as a valid ISO-8601 date. */
-  | { code: 'INVALID_SAVED_AT'; value: string }
+  | { code: "INVALID_SAVED_AT"; value: string }
   /** The stored checkpoint version does not match CURSOR_CHECKPOINT_VERSION. */
-  | { code: 'VERSION_MISMATCH'; stored: number; expected: number }
+  | { code: "VERSION_MISMATCH"; stored: number; expected: number }
   /** A required field is null or undefined in the stored checkpoint. */
-  | { code: 'MISSING_REQUIRED_FIELD'; field: keyof CursorCheckpoint }
+  | { code: "MISSING_REQUIRED_FIELD"; field: keyof CursorCheckpoint }
   /** The stored value is not an object, or a field has the wrong primitive type. */
-  | { code: 'CORRUPTED_CHECKPOINT'; detail: string };
+  | { code: "CORRUPTED_CHECKPOINT"; detail: string };
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 function checkStructure(candidate: unknown): IntegrityViolation | null {
-  if (candidate === null || typeof candidate !== 'object') {
-    return { code: 'CORRUPTED_CHECKPOINT', detail: 'not an object' };
+  if (candidate === null || typeof candidate !== "object") {
+    return { code: "CORRUPTED_CHECKPOINT", detail: "not an object" };
   }
   const c = candidate as Record<string, unknown>;
   const required: Array<keyof CursorCheckpoint> = [
-    'sequence',
-    'ledgerHash',
-    'processedEventCount',
-    'savedAt',
-    'version',
+    "sequence",
+    "ledgerHash",
+    "processedEventCount",
+    "savedAt",
+    "version",
   ];
   for (const field of required) {
     if (c[field] === undefined || c[field] === null) {
-      return { code: 'MISSING_REQUIRED_FIELD', field };
+      return { code: "MISSING_REQUIRED_FIELD", field };
     }
   }
-  if (typeof c.sequence !== 'number') {
-    return { code: 'CORRUPTED_CHECKPOINT', detail: 'sequence must be a number' };
+  if (typeof c.sequence !== "number") {
+    return {
+      code: "CORRUPTED_CHECKPOINT",
+      detail: "sequence must be a number",
+    };
   }
-  if (typeof c.ledgerHash !== 'string') {
-    return { code: 'CORRUPTED_CHECKPOINT', detail: 'ledgerHash must be a string' };
+  if (typeof c.ledgerHash !== "string") {
+    return {
+      code: "CORRUPTED_CHECKPOINT",
+      detail: "ledgerHash must be a string",
+    };
   }
-  if (typeof c.processedEventCount !== 'number') {
-    return { code: 'CORRUPTED_CHECKPOINT', detail: 'processedEventCount must be a number' };
+  if (typeof c.processedEventCount !== "number") {
+    return {
+      code: "CORRUPTED_CHECKPOINT",
+      detail: "processedEventCount must be a number",
+    };
   }
-  if (typeof c.savedAt !== 'string') {
-    return { code: 'CORRUPTED_CHECKPOINT', detail: 'savedAt must be a string' };
+  if (typeof c.savedAt !== "string") {
+    return { code: "CORRUPTED_CHECKPOINT", detail: "savedAt must be a string" };
   }
-  if (typeof c.version !== 'number') {
-    return { code: 'CORRUPTED_CHECKPOINT', detail: 'version must be a number' };
+  if (typeof c.version !== "number") {
+    return { code: "CORRUPTED_CHECKPOINT", detail: "version must be a number" };
   }
   return null;
 }
 
 function checkSavedAt(value: string): IntegrityViolation | null {
   const d = new Date(value);
-  if (isNaN(d.getTime())) return { code: 'INVALID_SAVED_AT', value };
+  if (isNaN(d.getTime())) return { code: "INVALID_SAVED_AT", value };
   return null;
 }
 
@@ -164,19 +173,27 @@ export function validateBeforeSave(
   if (savedAtViolation) return savedAtViolation;
 
   if (candidate.version !== CURSOR_CHECKPOINT_VERSION) {
-    return { code: 'VERSION_MISMATCH', stored: candidate.version, expected: CURSOR_CHECKPOINT_VERSION };
+    return {
+      code: "VERSION_MISMATCH",
+      stored: candidate.version,
+      expected: CURSOR_CHECKPOINT_VERSION,
+    };
   }
 
   if (previous !== null) {
     if (candidate.sequence === previous.sequence) {
-      return { code: 'SEQUENCE_DUPLICATE', sequence: candidate.sequence };
+      return { code: "SEQUENCE_DUPLICATE", sequence: candidate.sequence };
     }
     if (candidate.sequence < previous.sequence) {
-      return { code: 'SEQUENCE_REGRESSION', current: candidate.sequence, previous: previous.sequence };
+      return {
+        code: "SEQUENCE_REGRESSION",
+        current: candidate.sequence,
+        previous: previous.sequence,
+      };
     }
     if (candidate.processedEventCount < previous.processedEventCount) {
       return {
-        code: 'EVENT_COUNT_REGRESSION',
+        code: "EVENT_COUNT_REGRESSION",
         current: candidate.processedEventCount,
         previous: previous.processedEventCount,
       };
@@ -214,14 +231,27 @@ export function validateOnLoad(stored: unknown): IntegrityViolation | null {
   if (savedAtViolation) return savedAtViolation;
 
   if (c.version !== CURSOR_CHECKPOINT_VERSION) {
-    return { code: 'VERSION_MISMATCH', stored: c.version, expected: CURSOR_CHECKPOINT_VERSION };
+    return {
+      code: "VERSION_MISMATCH",
+      stored: c.version,
+      expected: CURSOR_CHECKPOINT_VERSION,
+    };
   }
 
   if (c.processedEventCount < 0) {
-    return { code: 'CORRUPTED_CHECKPOINT', detail: 'processedEventCount must be >= 0' };
+    return {
+      code: "CORRUPTED_CHECKPOINT",
+      detail: "processedEventCount must be >= 0",
+    };
   }
 
   return null;
+}
+
+export class CursorIntegrity {
+  static validate(stored: unknown): IntegrityViolation | null {
+    return validateOnLoad(stored);
+  }
 }
 
 /**
@@ -241,7 +271,7 @@ export function validateLedgerHash(
 ): IntegrityViolation | null {
   if (checkpoint.ledgerHash !== actualHash) {
     return {
-      code: 'HASH_MISMATCH',
+      code: "HASH_MISMATCH",
       sequence: checkpoint.sequence,
       stored: checkpoint.ledgerHash,
       actual: actualHash,

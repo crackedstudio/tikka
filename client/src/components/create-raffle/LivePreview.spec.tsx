@@ -2,18 +2,21 @@
  * Tests for LivePreview component
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import LivePreview from "./LivePreview";
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 
 describe("LivePreview", () => {
   beforeEach(() => {
     // Mock URL.createObjectURL
-    global.URL = {
-      createObjectURL: vi.fn(() => "mock-url"),
-      revokeObjectURL: vi.fn(),
-    } as any;
+    Object.defineProperty(globalThis, "URL", {
+      value: {
+        createObjectURL: vi.fn(() => "mock-url"),
+        revokeObjectURL: vi.fn(),
+      },
+      configurable: true,
+    });
   });
 
   it("renders with empty form data without console errors", () => {
@@ -217,7 +220,7 @@ describe("LivePreview", () => {
   });
 
   it("renders with more than 4 images", () => {
-    const mockFiles = Array.from({ length: 5 }, (_, i) => 
+    const mockFiles = Array.from({ length: 5 }, (_, i) =>
       new File([""], `image${i}.jpg`, { type: "image/jpeg" })
     );
     const data: RaffleFormData = {
@@ -232,11 +235,86 @@ describe("LivePreview", () => {
 
     const consoleSpy = vi.spyOn(console, "error");
     render(<LivePreview formData={data} />);
-    
+
     const errorCalls = consoleSpy.mock.calls.filter(
       (call) => !call[0].includes("ReactDOMTestUtils.act")
     );
     expect(errorCalls).toHaveLength(0);
     consoleSpy.mockRestore();
+  });
+
+  describe("dark mode", () => {
+    beforeEach(() => {
+      document.documentElement.classList.add("dark");
+    });
+
+    afterEach(() => {
+      document.documentElement.classList.remove("dark");
+    });
+
+    it("snapshot — empty form in dark mode", () => {
+      const emptyData: RaffleFormData = {
+        title: "",
+        description: "",
+        image: null,
+        images: [],
+        pricePerTicket: 0,
+        totalTickets: 0,
+        duration: { days: 0, hours: 0 },
+      };
+      const { asFragment } = render(<LivePreview formData={emptyData} />);
+      expect(asFragment()).toMatchSnapshot();
+    });
+
+    it("snapshot — complete form in dark mode", () => {
+      const mockFile = new File([""], "image.jpg", { type: "image/jpeg" });
+      const completeData: RaffleFormData = {
+        title: "My Raffle",
+        description: "A fantastic prize",
+        image: mockFile,
+        images: [mockFile],
+        pricePerTicket: 10,
+        totalTickets: 100,
+        duration: { days: 7, hours: 0 },
+      };
+      const { asFragment } = render(<LivePreview formData={completeData} />);
+      expect(asFragment()).toMatchSnapshot();
+    });
+
+    it("contains dark mode class variants for backgrounds and text", () => {
+      const emptyData: RaffleFormData = {
+        title: "",
+        description: "",
+        image: null,
+        images: [],
+        pricePerTicket: 0,
+        totalTickets: 0,
+        duration: { days: 0, hours: 0 },
+      };
+      const { container } = render(<LivePreview formData={emptyData} />);
+      const html = container.innerHTML;
+      expect(html).toContain("dark:bg-[#1E1932]");
+      expect(html).toContain("dark:text-white");
+      expect(html).toContain("dark:bg-gray-700");
+    });
+
+    it("overflow counter has both light and dark bg classes", () => {
+      const mockFiles = Array.from({ length: 5 }, (_, i) =>
+        new File([""], `image${i}.jpg`, { type: "image/jpeg" })
+      );
+      const data: RaffleFormData = {
+        title: "",
+        description: "",
+        image: null,
+        images: mockFiles,
+        pricePerTicket: 0,
+        totalTickets: 0,
+        duration: { days: 0, hours: 0 },
+      };
+      const { container } = render(<LivePreview formData={data} />);
+      const html = container.innerHTML;
+      expect(html).toContain("bg-gray-200");
+      expect(html).toContain("dark:bg-gray-700");
+    });
   });
 });

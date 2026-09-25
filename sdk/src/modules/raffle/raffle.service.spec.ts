@@ -1,24 +1,74 @@
 import { RaffleService } from "./raffle.service";
 import { ContractService } from "../../contract/contract.service";
+import { FeeEstimatorService } from "../../fee-estimator/fee-estimator.service";
 import { ContractFn } from "../../contract/bindings";
 import { RaffleParams } from "./raffle.types";
+import { TransactionBuilder } from "@stellar/stellar-sdk";
 
 describe("RaffleService", () => {
   let service: RaffleService;
   let contractService: jest.Mocked<ContractService>;
+  let feeEstimator: jest.Mocked<FeeEstimatorService>;
 
   beforeEach(() => {
-    // Create a mock ContractService
+    jest.spyOn(TransactionBuilder, "fromXDR").mockReturnValue({} as any);
     contractService = {
       invoke: jest.fn(),
+      simulate: jest.fn(),
+      sign: jest.fn(),
+      submit: jest.fn(),
+      poll: jest.fn(),
       simulateReadOnly: jest.fn(),
     } as any;
 
-    service = new RaffleService(contractService);
+    feeEstimator = {
+      estimate: jest.fn(),
+      estimateFee: jest.fn(),
+      estimateFromResourceFee: jest.fn().mockReturnValue({
+        xlm: "0.0005100",
+        stroops: "5100",
+        resources: {} as any,
+      }),
+    } as any;
+
+    service = new RaffleService(contractService, feeEstimator);
+  });
+
+  describe("estimateCreate", () => {
+    it("should return simulated fee estimate without submitting", async () => {
+      const params: RaffleParams = {
+        ticketPrice: "10",
+        maxTickets: 100,
+        endTime: Date.now() + 86400000,
+        allowMultiple: true,
+        asset: "XLM",
+        metadataCid: "QmTest",
+      };
+
+      contractService.simulate.mockResolvedValue({
+        returnValue: 1,
+        minResourceFee: "5000",
+        assembledXdr: "unsigned-xdr",
+        networkPassphrase: "passphrase",
+      });
+      feeEstimator.estimateFee.mockResolvedValue({
+        xlm: "0.0005123",
+        stroops: "5123",
+        resources: {} as any,
+      });
+
+      const result = await service.estimateCreate(params);
+
+      expect(feeEstimator.estimateFee).toHaveBeenCalledWith({
+        method: ContractFn.CREATE_RAFFLE,
+        params: expect.any(Array),
+      });
+      expect(result).toEqual({ xlm: "0.0005123", stroops: "5123" });
+    });
   });
 
   describe("create", () => {
-    it("should correctly format and invoke CREATE_RAFFLE", async () => {
+    it("should simulate, estimate fee, sign, submit, and poll CREATE_RAFFLE", async () => {
       const params: RaffleParams = {
         ticketPrice: "10",
         maxTickets: 100,
@@ -28,28 +78,46 @@ describe("RaffleService", () => {
         metadataCid: "QmTest",
       };
 
-      const mockInvokeResult = {
-        status: 'SUCCESS' as const,
-        value: 1,
+      contractService.simulate.mockResolvedValue({
+        returnValue: 1,
+        minResourceFee: "5000",
+        assembledXdr: "unsigned-xdr",
+        networkPassphrase: "passphrase",
+      });
+      feeEstimator.estimateFromResourceFee.mockReturnValue({
+        xlm: "0.0005100",
+        stroops: "5100",
+        resources: {} as any,
+      });
+      contractService.sign.mockResolvedValue("signed-xdr");
+      contractService.submit.mockResolvedValue("abc");
+      contractService.poll.mockResolvedValue({
+        returnValue: 1,
         txHash: "abc",
         ledger: 100,
-      };
-
-      contractService.invoke.mockResolvedValue(mockInvokeResult);
+      });
 
       const result = await service.create(params);
 
-      expect(contractService.invoke).toHaveBeenCalledWith(
+      expect(contractService.simulate).toHaveBeenCalledWith(
         ContractFn.CREATE_RAFFLE,
         expect.any(Array),
-        expect.anything(), // Add this to handle the metadata object
+        expect.anything(),
       );
+      expect(feeEstimator.estimateFromResourceFee).toHaveBeenCalledWith("5000");
+      expect(contractService.sign).toHaveBeenCalledWith(
+        "unsigned-xdr",
+        "passphrase",
+      );
+      expect(contractService.submit).toHaveBeenCalledWith("signed-xdr");
+      expect(contractService.poll).toHaveBeenCalledWith("abc");
 
       expect(result).toEqual({
-        status: 'SUCCESS' as const,
+        status: "SUCCESS" as const,
         value: 1,
         txHash: "abc",
         ledger: 100,
+        feeCharged: "5100",
       });
     });
 
@@ -97,7 +165,7 @@ describe("RaffleService", () => {
       };
 
       contractService.simulateReadOnly.mockResolvedValue({
-        status: 'SUCCESS' as const,
+        status: "SUCCESS" as const,
         value: mockRawData,
       });
 
@@ -125,7 +193,7 @@ describe("RaffleService", () => {
     it("should return active raffle IDs", async () => {
       const mockIds = [1, 2, 3];
       contractService.simulateReadOnly.mockResolvedValue({
-        status: 'SUCCESS' as const,
+        status: "SUCCESS" as const,
         value: mockIds,
       });
 
@@ -143,7 +211,7 @@ describe("RaffleService", () => {
     it("should return all raffle IDs", async () => {
       const mockIds = [1, 2, 3, 4];
       contractService.simulateReadOnly.mockResolvedValue({
-        status: 'SUCCESS' as const,
+        status: "SUCCESS" as const,
         value: mockIds,
       });
 
@@ -158,9 +226,26 @@ describe("RaffleService", () => {
   });
 
   describe("cancel", () => {
+    beforeEach(() => {
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: "SUCCESS" as const,
+        value: {
+          ticket_price: "10",
+          max_tickets: 100,
+          end_time: BigInt(Math.floor(Date.now() / 1000) + 86400),
+          allow_multiple: true,
+          asset: "XLM",
+          asset_issuer: "",
+          status: 0, // Open
+          tickets_sold: 0,
+          creator: "GCREATOR",
+        },
+      });
+    });
+
     it("should invoke CANCEL_RAFFLE", async () => {
       const mockInvokeResult = {
-        status: 'SUCCESS' as const,
+        status: "SUCCESS" as const,
         value: undefined,
         txHash: "hash",
         ledger: 200,
@@ -179,9 +264,17 @@ describe("RaffleService", () => {
     });
 
     it("should pass memo to invoke", async () => {
-      contractService.invoke.mockResolvedValue({ status: 'SUCCESS' as const, value: undefined, txHash: "h", ledger: 1 });
+      contractService.invoke.mockResolvedValue({
+        status: "SUCCESS" as const,
+        value: undefined,
+        txHash: "h",
+        ledger: 1,
+      });
 
-      await service.cancel({ raffleId: 2, memo: { type: "text", value: "cancel-ref" } });
+      await service.cancel({
+        raffleId: 2,
+        memo: { type: "text", value: "cancel-ref" },
+      });
 
       expect(contractService.invoke).toHaveBeenCalledWith(
         ContractFn.CANCEL_RAFFLE,
@@ -212,12 +305,32 @@ describe("RaffleService", () => {
       asset: "XLM",
     };
 
-    it("should pass memo to invoke", async () => {
-      contractService.invoke.mockResolvedValue({ status: 'SUCCESS' as const, value: 7, txHash: "tx7", ledger: 42 });
+    it("should pass memo to simulate/sign flow", async () => {
+      contractService.simulate.mockResolvedValue({
+        returnValue: 7,
+        minResourceFee: "5000",
+        assembledXdr: "unsigned-xdr",
+        networkPassphrase: "passphrase",
+      });
+      feeEstimator.estimateFromResourceFee.mockReturnValue({
+        xlm: "0.0005100",
+        stroops: "5100",
+        resources: {} as any,
+      });
+      contractService.sign.mockResolvedValue("signed-xdr");
+      contractService.submit.mockResolvedValue("tx7");
+      contractService.poll.mockResolvedValue({
+        returnValue: 7,
+        txHash: "tx7",
+        ledger: 42,
+      });
 
-      await service.create({ ...baseParams, memo: { type: "id", value: "99" } });
+      await service.create({
+        ...baseParams,
+        memo: { type: "id", value: "99" },
+      });
 
-      expect(contractService.invoke).toHaveBeenCalledWith(
+      expect(contractService.simulate).toHaveBeenCalledWith(
         ContractFn.CREATE_RAFFLE,
         expect.any(Array),
         { memo: { type: "id", value: "99" } },
@@ -225,7 +338,25 @@ describe("RaffleService", () => {
     });
 
     it("should default metadataCid to empty string when omitted", async () => {
-      contractService.invoke.mockResolvedValue({ status: 'SUCCESS' as const, value: 3, txHash: "tx3", ledger: 10 });
+      contractService.simulate.mockResolvedValue({
+        returnValue: 3,
+        minResourceFee: "5000",
+        assembledXdr: "unsigned-xdr",
+        networkPassphrase: "passphrase",
+      });
+      feeEstimator.estimateFromResourceFee.mockReturnValue({
+        xlm: "0.0005100",
+        stroops: "5100",
+        resources: {} as any,
+      });
+      contractService.sign.mockResolvedValue("signed-xdr");
+      contractService.submit.mockResolvedValue("tx3");
+      contractService.poll.mockResolvedValue({
+        returnValue: 3,
+        txHash: "tx3",
+        ledger: 10,
+      });
+
       const result = await service.create(baseParams);
       expect(result.value).toBe(3);
     });
@@ -240,7 +371,7 @@ describe("RaffleService", () => {
   describe("get — additional edge cases", () => {
     it("should map optional winner fields when present", async () => {
       contractService.simulateReadOnly.mockResolvedValue({
-        status: 'SUCCESS' as const,
+        status: "SUCCESS" as const,
         value: {
           creator: "GABC",
           status: 2,
@@ -265,7 +396,7 @@ describe("RaffleService", () => {
 
     it("should leave winner fields undefined when absent", async () => {
       contractService.simulateReadOnly.mockResolvedValue({
-        status: 'SUCCESS' as const,
+        status: "SUCCESS" as const,
         value: {
           creator: "GABC",
           status: 0,
@@ -286,13 +417,18 @@ describe("RaffleService", () => {
     });
 
     it("should throw if raffleId is zero", async () => {
-      await expect(service.get(0)).rejects.toThrow("raffleId must be a positive integer");
+      await expect(service.get(0)).rejects.toThrow(
+        "raffleId must be a positive integer",
+      );
     });
   });
 
   describe("listActive — edge cases", () => {
     it("should return empty array when no active raffles", async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [] });
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: "SUCCESS" as const,
+        value: [],
+      });
       const result = await service.listActive();
       expect(result.value!).toEqual([]);
     });
@@ -300,7 +436,10 @@ describe("RaffleService", () => {
 
   describe("listAll — edge cases", () => {
     it("should return empty array when no raffles exist", async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: [] });
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: "SUCCESS" as const,
+        value: [],
+      });
       const result = await service.listAll();
       expect(result.value!).toEqual([]);
     });

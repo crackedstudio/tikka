@@ -1,5 +1,5 @@
 import { MetricsController } from './metrics.controller';
-import { MetadataCacheMetricsService } from '../services/metadata-cache-metrics.service';
+import { MetadataCacheMetricsService } from '../services/metadata/metadata-cache-metrics.service';
 
 describe('MetricsController', () => {
   it('exposes metadata cache hit counter', () => {

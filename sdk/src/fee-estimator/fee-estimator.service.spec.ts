@@ -537,3 +537,55 @@ describe('Property 5: SimulationFailed thrown for any error simulation response'
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unit tests: RPC Fee Responses and Clamping
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FeeEstimatorService — RPC Fee Responses and Clamping', () => {
+  it('calculates fee correctly for a normal network response', async () => {
+    const { service } = buildService({
+      simulateResponse: makeSuccessResponse('10000'), // Normal fee
+    });
+    const result = await service.estimateFee({ method: 'buy_ticket', params: [] });
+    expect(result.stroops).toBe('10100');
+    expect(result.xlm).toBe(stroopsToXlm('10100'));
+  });
+
+  it('calculates fee correctly for a congested network response', async () => {
+    const { service } = buildService({
+      simulateResponse: makeSuccessResponse('5000000'), // High fee
+    });
+    const result = await service.estimateFee({ method: 'buy_ticket', params: [] });
+    expect(result.stroops).toBe('5000100');
+  });
+
+  it('handles missing minResourceFee data gracefully', async () => {
+    const simRes = makeSuccessResponse('0');
+    delete (simRes as any).minResourceFee;
+    const { service } = buildService({ simulateResponse: simRes });
+    const result = await service.estimateFee({ method: 'buy_ticket', params: [] });
+    // Should fallback/clamp to 0 resource fee + 100 base fee = 100 stroops
+    expect(result.stroops).toBe('100');
+  });
+
+  it('clamps garbage (NaN) minResourceFee input to 0 and never produces NaN fees', async () => {
+    const { service } = buildService({
+      simulateResponse: makeSuccessResponse('garbage_data'),
+    });
+    const result = await service.estimateFee({ method: 'buy_ticket', params: [] });
+    expect(result.stroops).toBe('100');
+    expect(result.xlm).toBe('0.0000100');
+    expect(result.stroops).not.toBe('NaN');
+  });
+
+  it('clamps negative minResourceFee input to 0 and never produces negative fees', async () => {
+    const { service } = buildService({
+      simulateResponse: makeSuccessResponse('-50'),
+    });
+    const result = await service.estimateFee({ method: 'buy_ticket', params: [] });
+    // -50 clamped to 0 + 100 base fee = 100
+    expect(result.stroops).toBe('100');
+    expect(Number(result.stroops)).toBeGreaterThanOrEqual(100);
+  });
+});
