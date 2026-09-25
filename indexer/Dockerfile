@@ -10,6 +10,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 # Copy package.json files needed for workspace resolution
 COPY indexer/package.json ./indexer/
 COPY sdk/package.json ./sdk/
+COPY packages/types/package.json ./packages/types/
 
 # Install all workspace dependencies
 RUN pnpm install --frozen-lockfile
@@ -17,6 +18,10 @@ RUN pnpm install --frozen-lockfile
 # Copy full source
 COPY indexer/ ./indexer/
 COPY sdk/ ./sdk/
+COPY packages/types/ ./packages/types/
+
+# The indexer runtime and demo seed CLI import the shared workspace types.
+RUN pnpm --filter @tikka/types build
 
 # Deploy indexer as a standalone directory
 RUN pnpm --filter tikka-indexer deploy /app/indexer-deploy

@@ -135,6 +135,8 @@ jobs:
 
       - name: Build
         run: pnpm run build
+        env:
+          VITE_DEMO_MODE: 'true'
         continue-on-error: false
 
       - name: Generate OpenAPI and ensure committed spec is up-to-date

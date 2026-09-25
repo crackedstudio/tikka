@@ -8,14 +8,14 @@ This project uses [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci)
 
 The following Core Web Vitals thresholds are enforced:
 
-| Metric | Target | Severity | Description |
-|--------|--------|----------|-------------|
-| **LCP** (Largest Contentful Paint) | < 2.5s | Error | Measures loading performance |
-| **CLS** (Cumulative Layout Shift) | < 0.1 | Error | Measures visual stability |
-| **FCP** (First Contentful Paint) | < 2.0s | Warning | Measures perceived loading speed |
-| **INP** (Interaction to Next Paint) | < 200ms | Implicit | Measures responsiveness |
-| **Speed Index** | < 3.0s | Warning | Measures how quickly content is visually displayed |
-| **TBT** (Total Blocking Time) | < 300ms | Warning | Measures interactivity |
+| Metric                              | Target  | Severity | Description                                        |
+| ----------------------------------- | ------- | -------- | -------------------------------------------------- |
+| **LCP** (Largest Contentful Paint)  | < 2.5s  | Error    | Measures loading performance                       |
+| **CLS** (Cumulative Layout Shift)   | < 0.1   | Error    | Measures visual stability                          |
+| **FCP** (First Contentful Paint)    | < 2.0s  | Warning  | Measures perceived loading speed                   |
+| **INP** (Interaction to Next Paint) | < 200ms | Implicit | Measures responsiveness                            |
+| **Speed Index**                     | < 3.0s  | Warning  | Measures how quickly content is visually displayed |
+| **TBT** (Total Blocking Time)       | < 300ms | Warning  | Measures interactivity                             |
 
 ## CI Integration
 
@@ -67,6 +67,10 @@ pnpm run lighthouse
 
 The results will be saved to `.lighthouseci/` directory.
 
+The Lighthouse build sets `VITE_DEMO_MODE=true` and audits `/raffles/9001` as
+well as the home page. Its raffle list, detail, and participant responses come
+from the shared demo scenarios used by the indexer seed and Playwright fixtures.
+
 ### View Results
 
 After running, Lighthouse will output:
@@ -90,7 +94,7 @@ The Lighthouse CI configuration is in `lighthouserc.json`:
     "assert": {
       "preset": "lighthouse:recommended",
       "assertions": {
-        "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }]
         // ... more assertions
       }
     },

@@ -7,11 +7,12 @@ version: '3.8'
 #   oracle   — deps + oracle
 #   full     — everything except client (backend + indexer + oracle + deps)
 #   client   — adds the Vite dev server (optional; most devs run this locally)
+#   seed     — PostgreSQL + one-shot demo fixture seeder
 
 services:
   postgres:
     image: postgres:16-alpine
-    profiles: [deps, backend, indexer, oracle, full, client]
+    profiles: [deps, backend, indexer, oracle, full, client, seed]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-tikka}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tikka-pass}
@@ -102,6 +103,19 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+  demo-seed:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    profiles: [seed]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-tikka}:${POSTGRES_PASSWORD:-tikka-pass}@postgres:5432/${POSTGRES_DB:-tikka}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ['node', 'dist/cli/seed-demo.command.js']
 
   oracle:
     build:
