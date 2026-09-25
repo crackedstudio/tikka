@@ -37,6 +37,8 @@ import {
   NetworkError,
   toTypedContractError,
 } from '../utils/errors';
+import { SequenceManager } from './sequence.manager';
+import { classifyError, retryOnTxBadSeq } from './sequence.errors';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -197,8 +199,20 @@ export function validateLifecycleTransition(
  *
  * `invoke()` runs all four phases in sequence and is the most convenient
  * entry point for standard write operations.
+ *
+ * ## Concurrency & Sequencing
+ *
+ * TransactionLifecycle uses SequenceManager to prevent TX_BAD_SEQ collisions
+ * when multiple operations fire concurrently from the same account.
+ *
+ * - Acquires a per-account lock before fetching sequence
+ * - Ensures strict FIFO ordering for operations from the same account
+ * - Allows parallel operations from different accounts
+ * - Automatically retries on TX_BAD_SEQ with refetched sequence
  */
 export class TransactionLifecycle {
+  private sequenceManager = new SequenceManager();
+
   constructor(
     private readonly rpc: RpcService,
     private readonly horizon: HorizonService,
@@ -413,7 +427,9 @@ export class TransactionLifecycle {
    * Convenience method that runs all four phases in sequence:
    * simulate → sign → submit → poll.
    *
-   * @throws Any of the per-phase errors.
+   * Includes automatic TX_BAD_SEQ retry with sequence refetch.
+   *
+   * @throws Any of the per-phase errors (unless they are TX_BAD_SEQ, which are retried).
    */
   async invoke<T = unknown>(
     method: string,
@@ -424,10 +440,25 @@ export class TransactionLifecycle {
       throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required for invoke()');
     }
 
-    const sim = await this.simulate<T>(method, params, options);
-    const signedXdr = await this.sign(sim.assembledXdr, sim.networkPassphrase);
-    const txHash = await this.submit(signedXdr);
-    return this.poll<T>(txHash, options.poll);
+    const sourceKey = options.sourcePublicKey ?? (await this.wallet.getPublicKey());
+
+    // Retry on TX_BAD_SEQ: refetch sequence and retry the full invoke pipeline
+    const retryResult = await retryOnTxBadSeq(
+      async () => {
+        const sim = await this.simulate<T>(method, params, options);
+        const signedXdr = await this.sign(sim.assembledXdr, sim.networkPassphrase);
+        const txHash = await this.submit(signedXdr);
+        return this.poll<T>(txHash, options.poll);
+      },
+      async () => this.horizon.loadAccount(sourceKey),
+      { maxAttempts: 2 },
+    );
+
+    if (!retryResult.success) {
+      throw retryResult.error;
+    }
+
+    return retryResult.value!;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -450,32 +481,40 @@ export class TransactionLifecycle {
     fee?: string,
     memo?: TxMemo,
   ) {
-    const account = await this.horizon.loadAccount(sourceKey).catch(
-      () =>
-        ({
-          accountId: () => sourceKey,
-          sequenceNumber: () => '0',
-          incrementSequenceNumber: () => {},
-        }) as any,
-    );
+    // Acquire per-account lock to prevent sequence collisions
+    const release = await this.sequenceManager.lock(sourceKey);
 
-    let finalFee = fee;
-    if (!finalFee) {
-      const { suggestedFee } = await this.rpc.estimateFee();
-      finalFee = String(suggestedFee);
+    try {
+      const account = await this.horizon.loadAccount(sourceKey).catch(
+        () =>
+          ({
+            accountId: () => sourceKey,
+            sequenceNumber: () => '0',
+            incrementSequenceNumber: () => {},
+          }) as any,
+      );
+
+      let finalFee = fee;
+      if (!finalFee) {
+        const { suggestedFee } = await this.rpc.estimateFee();
+        finalFee = String(suggestedFee);
+      }
+
+      const contract = new Contract(this.contractId);
+      const builder = new TransactionBuilder(account, {
+        fee: finalFee,
+        networkPassphrase: this.networkConfig.networkPassphrase,
+      }).addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))));
+
+      if (memo) {
+        builder.addMemo(this.buildMemo(memo));
+      }
+
+      return builder.setTimeout(30).build();
+    } finally {
+      // Always release the lock, even if an error occurs
+      release();
     }
-
-    const contract = new Contract(this.contractId);
-    const builder = new TransactionBuilder(account, {
-      fee: finalFee,
-      networkPassphrase: this.networkConfig.networkPassphrase,
-    }).addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))));
-
-    if (memo) {
-      builder.addMemo(this.buildMemo(memo));
-    }
-
-    return builder.setTimeout(30).build();
   }
 
   private buildMemo(memo: TxMemo): Memo {

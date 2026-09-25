@@ -67,7 +67,7 @@ function buildService(withWallet = false) {
   const service = new ContractService(rpcService, horizonService, mockConfig, wallet);
   const lifecycle = (service as any).lifecycle as TransactionLifecycle;
 
-  return { service, lifecycle, wallet };
+  return { service, lifecycle, wallet, rpcService, horizonService };
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
