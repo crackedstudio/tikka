@@ -1,28 +1,28 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
-import { DataSource, QueryRunner } from "typeorm";
-import { RaffleProcessor } from "../processors/raffle.processor";
-import { TicketProcessor } from "../processors/ticket.processor";
-import { AdminProcessor } from "../processors/admin.processor";
-import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
-import { DomainEvent, assertNever } from "./event.types";
-import { DlqService } from "./dlq.service";
-import { PipelineStateMachine, PipelineTransition } from "./pipeline-state";
-import { DlqReason } from "../database/entities/dead-letter-event.entity";
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { DataSource, QueryRunner } from 'typeorm';
+import { RaffleProcessor } from '../processors/raffle.processor';
+import { TicketProcessor } from '../processors/ticket.processor';
+import { AdminProcessor } from '../processors/admin.processor';
+import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
+import { DomainEvent, assertNever } from './event.types';
+import { DlqService } from './dlq.service';
+import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
+import { DlqReason } from '../database/entities/dead-letter-event.entity';
 import {
   CURRENT_SCHEMA_VERSION,
   isSupportedSchemaVersion,
   UnsupportedSchemaVersionError,
-} from "./handlers/schema-version";
-import { TracingService } from "../tracing/tracing.service";
-import { CursorAdvance } from "./cursor-advance";
-import { DuplicateDetector } from "./duplicate-detector";
+} from './handlers/schema-version';
+import { TracingService } from '../tracing/tracing.service';
+import { CursorAdvance } from './cursor-advance';
+import { DuplicateDetector } from './duplicate-detector';
 import {
   DispatchOutcomeClassifier,
   HandlerExecutionResult,
   HandlerOutcome,
-} from "./dispatch-outcome";
+} from './dispatch-outcome';
 
-export { HandlerExecutionResult, HandlerOutcome } from "./dispatch-outcome";
+export { HandlerExecutionResult, HandlerOutcome } from './dispatch-outcome';
 
 export interface DispatchItem {
   event: DomainEvent;
@@ -53,11 +53,7 @@ export class IngestionDispatcherService {
       adminProcessor,
       this.logger,
     );
-    this.outcomes = new DispatchOutcomeClassifier(
-      this.logger,
-      this.dlqService,
-      pipeline,
-    );
+    this.outcomes = new DispatchOutcomeClassifier(this.logger, this.dlqService, pipeline);
   }
 
   async dispatch(
@@ -70,9 +66,7 @@ export class IngestionDispatcherService {
   async dispatchMany(
     items: Array<{ event: DomainEvent; rawEvent: Record<string, unknown> }>,
   ): Promise<HandlerExecutionResult[]> {
-    return this.dispatchBatch(
-      items.map((item) => ({ event: item.event, raw: item.rawEvent })),
-    );
+    return this.dispatchBatch(items.map((item) => ({ event: item.event, raw: item.rawEvent })));
   }
 
   async dispatchBatch(items: DispatchItem[]): Promise<HandlerExecutionResult[]> {
@@ -85,9 +79,7 @@ export class IngestionDispatcherService {
     return results;
   }
 
-  private async executeIsolated(
-    item: DispatchItem,
-  ): Promise<HandlerExecutionResult> {
+  private async executeIsolated(item: DispatchItem): Promise<HandlerExecutionResult> {
     const identity = this.duplicateDetector.inspect(item.event, item.raw);
     const startedAt = Date.now();
 
@@ -98,7 +90,7 @@ export class IngestionDispatcherService {
           event: item.event,
           raw: item.raw,
           startedAt,
-          successOutcome: identity.needsDatabase ? "succeeded" : "skipped",
+          successOutcome: identity.needsDatabase ? 'succeeded' : 'skipped',
         },
         () => this.applyEventTraced(item.event, item.raw, identity.eventId),
       );
@@ -108,20 +100,18 @@ export class IngestionDispatcherService {
     }
 
     return this.tracing.withSpan(
-      "indexer.event.process",
+      'indexer.event.process',
       {
-        "event.type": item.event.type,
-        "event.id": identity.eventId,
-        "event.schema_version": identity.schemaVersion,
-        "handler.name": identity.handlerName,
-        ...(Number.isFinite(identity.ledger)
-          ? { "stellar.ledger": identity.ledger }
-          : {}),
+        'event.type': item.event.type,
+        'event.id': identity.eventId,
+        'event.schema_version': identity.schemaVersion,
+        'handler.name': identity.handlerName,
+        ...(Number.isFinite(identity.ledger) ? { 'stellar.ledger': identity.ledger } : {}),
       },
       async (span) => {
         const result = await run();
-        span.setAttribute("handler.outcome", result.outcome);
-        span.setAttribute("handler.duration_ms", result.durationMs);
+        span.setAttribute('handler.outcome', result.outcome);
+        span.setAttribute('handler.duration_ms', result.durationMs);
         return result;
       },
     );
@@ -138,19 +128,19 @@ export class IngestionDispatcherService {
     }
 
     return this.tracing.withSpan(
-      "indexer.event.handler",
+      'indexer.event.handler',
       {
-        "event.type": event.type,
-        "event.id": eventId,
-        "db.system": "postgresql",
+        'event.type': event.type,
+        'event.id': eventId,
+        'db.system': 'postgresql',
       },
       async () =>
         this.tracing!.withSpan(
-          "indexer.event.db",
+          'indexer.event.db',
           {
-            "event.type": event.type,
-            "event.id": eventId,
-            "db.operation": "apply_event",
+            'event.type': event.type,
+            'event.id': eventId,
+            'db.operation': 'apply_event',
           },
           apply,
         ),
@@ -198,24 +188,24 @@ export class IngestionDispatcherService {
 
   private eventNeedsDatabase(event: DomainEvent): boolean {
     switch (event.type) {
-      case "DrawTriggered":
-      case "RandomnessRequested":
-      case "RandomnessReceived":
+      case 'RandomnessRequested':
+      case 'RandomnessReceived':
         return false;
-      case "RaffleCreated":
-      case "TicketPurchased":
-      case "RaffleFinalized":
-      case "RaffleCancelled":
-      case "TicketRefunded":
-      case "ContractPaused":
-      case "ContractUnpaused":
-      case "AdminTransferProposed":
-      case "AdminTransferAccepted":
+      case 'RaffleCreated':
+      case 'TicketPurchased':
+      case 'DrawTriggered':
+      case 'RaffleFinalized':
+      case 'RaffleCancelled':
+      case 'TicketRefunded':
+      case 'ContractPaused':
+      case 'ContractUnpaused':
+      case 'AdminTransferProposed':
+      case 'AdminTransferAccepted':
         return true;
       default:
         // Compile-time exhaustiveness: a new topic added to the union without
         // a case above fails the build here.
-        assertNever(event, "eventNeedsDatabase");
+        assertNever(event, 'eventNeedsDatabase');
     }
   }
 
@@ -224,11 +214,11 @@ export class IngestionDispatcherService {
     raw: Record<string, unknown>,
   ): Promise<QueryRunner | null> {
     const ledger = Number(raw.ledger);
-    const txHash = String(raw.id || raw.paging_token || "");
+    const txHash = String(raw.id || raw.paging_token || '');
     const schemaVersion = event.schemaVersion ?? CURRENT_SCHEMA_VERSION;
 
     switch (event.type) {
-      case "RaffleCreated":
+      case 'RaffleCreated':
         return this.raffleProcessor.handleRaffleCreated(
           event.raffle_id,
           event.creator,
@@ -238,7 +228,7 @@ export class IngestionDispatcherService {
           schemaVersion,
         );
 
-      case "RaffleFinalized":
+      case 'RaffleFinalized':
         return this.raffleProcessor.handleRaffleFinalized(
           event.raffle_id,
           event.winner,
@@ -249,7 +239,7 @@ export class IngestionDispatcherService {
           schemaVersion,
         );
 
-      case "RaffleCancelled":
+      case 'RaffleCancelled':
         return this.raffleProcessor.handleRaffleCancelled(
           event.raffle_id,
           event.reason,
@@ -258,7 +248,7 @@ export class IngestionDispatcherService {
           schemaVersion,
         );
 
-      case "TicketPurchased": {
+      case 'TicketPurchased': {
         const runner = await this.startRunner();
         try {
           await this.ticketProcessor.handleTicketPurchased(
@@ -278,7 +268,7 @@ export class IngestionDispatcherService {
         }
       }
 
-      case "TicketRefunded": {
+      case 'TicketRefunded': {
         const runner = await this.startRunner();
         try {
           await this.ticketProcessor.handleTicketRefunded(
@@ -297,25 +287,27 @@ export class IngestionDispatcherService {
         }
       }
 
-      case "ContractPaused":
-      case "ContractUnpaused":
-      case "AdminTransferProposed":
-      case "AdminTransferAccepted":
+      case 'ContractPaused':
+      case 'ContractUnpaused':
+      case 'AdminTransferProposed':
+      case 'AdminTransferAccepted':
         return this.applyAdminEvent(event, raw);
 
-      case "DrawTriggered":
-        this.logger.log(
-          `DrawTriggered for raffle ${event.raffle_id} at ledger ${event.ledger}`,
+      case 'DrawTriggered':
+        return this.raffleProcessor.handleDrawTriggered(
+          event.raffle_id,
+          ledger,
+          txHash,
+          schemaVersion,
         );
-        return null;
 
-      case "RandomnessRequested":
+      case 'RandomnessRequested':
         this.logger.log(
           `RandomnessRequested for raffle ${event.raffle_id}, request ID ${event.request_id}`,
         );
         return null;
 
-      case "RandomnessReceived":
+      case 'RandomnessReceived':
         this.logger.log(`RandomnessReceived for raffle ${event.raffle_id}`);
         return null;
 
@@ -337,10 +329,7 @@ export class IngestionDispatcherService {
       DomainEvent,
       {
         type:
-          | "ContractPaused"
-          | "ContractUnpaused"
-          | "AdminTransferProposed"
-          | "AdminTransferAccepted";
+          'ContractPaused' | 'ContractUnpaused' | 'AdminTransferProposed' | 'AdminTransferAccepted';
       }
     >,
     raw: Record<string, unknown>,
@@ -361,13 +350,13 @@ export class IngestionDispatcherService {
       }
 
       switch (event.type) {
-        case "ContractPaused":
+        case 'ContractPaused':
           await this.adminProcessor.handleContractPaused(event.admin, ledger, runner);
           break;
-        case "ContractUnpaused":
+        case 'ContractUnpaused':
           await this.adminProcessor.handleContractUnpaused(event.admin, ledger, runner);
           break;
-        case "AdminTransferProposed":
+        case 'AdminTransferProposed':
           await this.adminProcessor.handleAdminTransferProposed(
             event.current_admin,
             event.proposed_admin,
@@ -375,7 +364,7 @@ export class IngestionDispatcherService {
             runner,
           );
           break;
-        case "AdminTransferAccepted":
+        case 'AdminTransferAccepted':
           await this.adminProcessor.handleAdminTransferAccepted(
             event.old_admin,
             event.new_admin,
@@ -405,34 +394,34 @@ export class IngestionDispatcherService {
     raw: Record<string, unknown>,
   ): Partial<RaffleEventEntity> | null {
     const ledger = Number(raw.ledger);
-    const txHash = String(raw.id || raw.paging_token || "");
+    const txHash = String(raw.id || raw.paging_token || '');
     if (!txHash || Number.isNaN(ledger)) {
       return null;
     }
 
     switch (event.type) {
-      case "ContractPaused":
+      case 'ContractPaused':
         return {
           raffleId: 0,
-          eventType: "ContractPaused",
+          eventType: 'ContractPaused',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
         };
-      case "ContractUnpaused":
+      case 'ContractUnpaused':
         return {
           raffleId: 0,
-          eventType: "ContractUnpaused",
+          eventType: 'ContractUnpaused',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
           payloadJson: { admin: event.admin },
         };
-      case "AdminTransferProposed":
+      case 'AdminTransferProposed':
         return {
           raffleId: 0,
-          eventType: "AdminTransferProposed",
+          eventType: 'AdminTransferProposed',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
@@ -441,10 +430,10 @@ export class IngestionDispatcherService {
             proposed_admin: event.proposed_admin,
           },
         };
-      case "AdminTransferAccepted":
+      case 'AdminTransferAccepted':
         return {
           raffleId: 0,
-          eventType: "AdminTransferAccepted",
+          eventType: 'AdminTransferAccepted',
           schemaVersion: event.schemaVersion ?? CURRENT_SCHEMA_VERSION,
           ledger,
           txHash,
@@ -460,38 +449,40 @@ export class IngestionDispatcherService {
 
   private getHandlerName(event: DomainEvent): string {
     switch (event.type) {
-      case "RaffleCreated":
-        return "RaffleProcessor.handleRaffleCreated";
-      case "TicketPurchased":
-        return "TicketProcessor.handleTicketPurchased";
-      case "RaffleFinalized":
-        return "RaffleProcessor.handleRaffleFinalized";
-      case "RaffleCancelled":
-        return "RaffleProcessor.handleRaffleCancelled";
-      case "TicketRefunded":
-        return "TicketProcessor.handleTicketRefunded";
-      case "ContractPaused":
-        return "AdminProcessor.handleContractPaused";
-      case "ContractUnpaused":
-        return "AdminProcessor.handleContractUnpaused";
-      case "AdminTransferProposed":
-        return "AdminProcessor.handleAdminTransferProposed";
-      case "AdminTransferAccepted":
-        return "AdminProcessor.handleAdminTransferAccepted";
-      case "DrawTriggered":
-      case "RandomnessRequested":
-      case "RandomnessReceived":
+      case 'RaffleCreated':
+        return 'RaffleProcessor.handleRaffleCreated';
+      case 'TicketPurchased':
+        return 'TicketProcessor.handleTicketPurchased';
+      case 'RaffleFinalized':
+        return 'RaffleProcessor.handleRaffleFinalized';
+      case 'DrawTriggered':
+        return 'RaffleProcessor.handleDrawTriggered';
+      case 'RaffleCancelled':
+        return 'RaffleProcessor.handleRaffleCancelled';
+      case 'TicketRefunded':
+        return 'TicketProcessor.handleTicketRefunded';
+      case 'ContractPaused':
+        return 'AdminProcessor.handleContractPaused';
+      case 'ContractUnpaused':
+        return 'AdminProcessor.handleContractUnpaused';
+      case 'AdminTransferProposed':
+        return 'AdminProcessor.handleAdminTransferProposed';
+      case 'AdminTransferAccepted':
+        return 'AdminProcessor.handleAdminTransferAccepted';
+      case 'DrawTriggered':
+      case 'RandomnessRequested':
+      case 'RandomnessReceived':
         return `${event.type}Handler`;
       default:
         // Compile-time exhaustiveness (see eventNeedsDatabase).
-        assertNever(event, "getHandlerName");
+        assertNever(event, 'getHandlerName');
     }
   }
 
   private logResult(result: HandlerExecutionResult): HandlerExecutionResult {
     const line = `handler=${result.handlerName} eventId=${result.eventId} outcome=${result.outcome} durationMs=${result.durationMs}`;
 
-    if (result.outcome === "failed") {
+    if (result.outcome === 'failed') {
       this.logger.error(line, result.error?.stack);
     } else {
       this.logger.log(line);

@@ -1,12 +1,12 @@
-import { RaffleParams } from "../ingestor/event.types";
-import { Injectable, Logger } from "@nestjs/common";
-import { DataSource, QueryRunner } from "typeorm";
-import { CacheService } from "../cache/cache.service";
-import { UserProcessor } from "./user.processor";
-import { RaffleEntity, RaffleStatus } from "../database/entities/raffle.entity";
-import { RaffleEventEntity } from "../database/entities/raffle-event.entity";
-import { WebhookService } from "../webhooks/webhook.service";
-import { CURRENT_SCHEMA_VERSION } from "../ingestor/handlers/schema-version";
+import { RaffleParams } from '../ingestor/event.types';
+import { Injectable, Logger } from '@nestjs/common';
+import { DataSource, QueryRunner } from 'typeorm';
+import { CacheService } from '../cache/cache.service';
+import { UserProcessor } from './user.processor';
+import { RaffleEntity, RaffleStatus } from '../database/entities/raffle.entity';
+import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
+import { WebhookService } from '../webhooks/webhook.service';
+import { CURRENT_SCHEMA_VERSION } from '../ingestor/handlers/schema-version';
 
 @Injectable()
 export class RaffleProcessor {
@@ -70,7 +70,7 @@ export class RaffleProcessor {
         .into(RaffleEventEntity)
         .values({
           raffleId,
-          eventType: "RaffleCreated",
+          eventType: 'RaffleCreated',
           schemaVersion,
           ledger,
           txHash,
@@ -85,10 +85,12 @@ export class RaffleProcessor {
       await this.cacheService.invalidateActiveRaffles();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatch(
-        "RaffleCreated",
-        { raffleId, creator, ledger, timestamp: new Date() }
-      );
+      await this.webhookService.dispatch('RaffleCreated', {
+        raffleId,
+        creator,
+        ledger,
+        timestamp: new Date(),
+      });
 
       return runner;
     } catch (e) {
@@ -96,6 +98,70 @@ export class RaffleProcessor {
       await runner.release();
       this.logger.error(
         `Error processing RaffleCreated for raffle ${raffleId} (tx ${txHash})`,
+        e instanceof Error ? e.stack : String(e),
+      );
+      throw e;
+    }
+  }
+
+  /**
+   * Called when a DrawTriggered event is indexed.
+   *
+   * Updates the raffle status OPEN → DRAWING.
+   * Idempotent: the raffle_events audit row is keyed on txHash; the raffle UPDATE
+   * is conditional on the row still being OPEN, so a replay is a no-op and a late
+   * DrawTriggered can never drag a FINALIZED/CANCELLED raffle backwards.
+   */
+  async handleDrawTriggered(
+    raffleId: number,
+    ledger: number,
+    txHash: string,
+    schemaVersion: number = CURRENT_SCHEMA_VERSION,
+  ): Promise<QueryRunner> {
+    this.logger.log(`Handling DrawTriggered for raffle ${raffleId} (tx ${txHash})`);
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+
+    try {
+      // 1. Update raffle row — conditional so replays and late events are no-ops
+      await runner.manager
+        .createQueryBuilder()
+        .update(RaffleEntity)
+        .set({
+          status: RaffleStatus.DRAWING,
+        })
+        .where('id = :raffleId AND status = :open', {
+          raffleId,
+          open: RaffleStatus.OPEN,
+        })
+        .execute();
+
+      // 2. Audit event — idempotent via unique constraint on txHash
+      await runner.manager
+        .createQueryBuilder()
+        .insert()
+        .into(RaffleEventEntity)
+        .values({
+          raffleId,
+          eventType: 'DrawTriggered',
+          schemaVersion,
+          ledger,
+          txHash,
+          payloadJson: { raffle_id: raffleId, ledger },
+        })
+        .orIgnore()
+        .execute();
+
+      await this.cacheService.invalidateRaffleDetail(raffleId.toString());
+      await this.cacheService.invalidateActiveRaffles();
+
+      return runner;
+    } catch (e) {
+      await runner.rollbackTransaction();
+      await runner.release();
+      this.logger.error(
+        `Error processing DrawTriggered for raffle ${raffleId} (tx ${txHash})`,
         e instanceof Error ? e.stack : String(e),
       );
       throw e;
@@ -118,7 +184,9 @@ export class RaffleProcessor {
     txHash: string,
     schemaVersion: number = CURRENT_SCHEMA_VERSION,
   ): Promise<QueryRunner> {
-    this.logger.log(`Handling RaffleFinalized for raffle ${raffleId}, winner ${winner} (tx ${txHash})`);
+    this.logger.log(
+      `Handling RaffleFinalized for raffle ${raffleId}, winner ${winner} (tx ${txHash})`,
+    );
     const runner = this.dataSource.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();
@@ -135,7 +203,7 @@ export class RaffleProcessor {
           prizeAmount,
           finalizedLedger: ledger,
         })
-        .where("id = :raffleId AND status != :finalized", {
+        .where('id = :raffleId AND status != :finalized', {
           raffleId,
           finalized: RaffleStatus.FINALIZED,
         })
@@ -148,11 +216,16 @@ export class RaffleProcessor {
         .into(RaffleEventEntity)
         .values({
           raffleId,
-          eventType: "RaffleFinalized",
+          eventType: 'RaffleFinalized',
           schemaVersion,
           ledger,
           txHash,
-          payloadJson: { raffle_id: raffleId, winner, winning_ticket_id: winningTicketId, prize_amount: prizeAmount },
+          payloadJson: {
+            raffle_id: raffleId,
+            winner,
+            winning_ticket_id: winningTicketId,
+            prize_amount: prizeAmount,
+          },
         })
         .orIgnore()
         .execute();
@@ -164,10 +237,13 @@ export class RaffleProcessor {
       await this.cacheService.invalidateLeaderboard();
       await this.cacheService.invalidatePlatformStats();
 
-      await this.webhookService.dispatch(
-        "RaffleFinalized",
-        { raffleId, winner, winningTicketId, prizeAmount, timestamp: new Date() }
-      );
+      await this.webhookService.dispatch('RaffleFinalized', {
+        raffleId,
+        winner,
+        winningTicketId,
+        prizeAmount,
+        timestamp: new Date(),
+      });
 
       return runner;
     } catch (e) {
@@ -209,7 +285,7 @@ export class RaffleProcessor {
           status: RaffleStatus.CANCELLED,
           finalizedLedger: ledger,
         })
-        .where("id = :raffleId AND status != :cancelled", {
+        .where('id = :raffleId AND status != :cancelled', {
           raffleId,
           cancelled: RaffleStatus.CANCELLED,
         })
@@ -222,7 +298,7 @@ export class RaffleProcessor {
         .into(RaffleEventEntity)
         .values({
           raffleId,
-          eventType: "RaffleCancelled",
+          eventType: 'RaffleCancelled',
           schemaVersion,
           ledger,
           txHash,
@@ -234,10 +310,12 @@ export class RaffleProcessor {
       await this.cacheService.invalidateRaffleDetail(raffleId.toString());
       await this.cacheService.invalidateActiveRaffles();
 
-      await this.webhookService.dispatch(
-        "RaffleCancelled",
-        { raffleId, reason, ledger, timestamp: new Date() }
-      );
+      await this.webhookService.dispatch('RaffleCancelled', {
+        raffleId,
+        reason,
+        ledger,
+        timestamp: new Date(),
+      });
 
       return runner;
     } catch (e) {

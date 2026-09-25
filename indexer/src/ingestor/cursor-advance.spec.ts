@@ -1,4 +1,4 @@
-import { CursorAdvance } from "./cursor-advance";
+import { CursorAdvance } from './cursor-advance';
 
 function makeRunner() {
   return {
@@ -24,6 +24,7 @@ function makeAdvance() {
   const dataSource = { createQueryRunner: jest.fn(() => runner) };
   const raffleProcessor = {
     handleRaffleCreated: jest.fn().mockResolvedValue(runner),
+    handleDrawTriggered: jest.fn().mockResolvedValue(runner),
     handleRaffleFinalized: jest.fn().mockResolvedValue(runner),
     handleRaffleCancelled: jest.fn().mockResolvedValue(runner),
   };
@@ -56,44 +57,44 @@ function makeAdvance() {
   };
 }
 
-describe("CursorAdvance", () => {
-  it("commits and releases a runner returned by a raffle processor", async () => {
+describe('CursorAdvance', () => {
+  it('commits and releases a runner returned by a raffle processor', async () => {
     const { advance, runner, raffleProcessor } = makeAdvance();
 
     await advance.apply(
       {
-        type: "RaffleCancelled",
+        type: 'RaffleCancelled',
         schemaVersion: 1,
         raffle_id: 7,
-        reason: "expired",
+        reason: 'expired',
       },
-      { ledger: 22, id: "tx-22" },
+      { ledger: 22, id: 'tx-22' },
     );
 
     expect(raffleProcessor.handleRaffleCancelled).toHaveBeenCalledWith(
       7,
-      "expired",
+      'expired',
       22,
-      "tx-22",
+      'tx-22',
       1,
     );
     expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
     expect(runner.release).toHaveBeenCalledTimes(1);
   });
 
-  it("wraps ticket events in a transaction", async () => {
+  it('wraps ticket events in a transaction', async () => {
     const { advance, dataSource, runner, ticketProcessor } = makeAdvance();
 
     await advance.apply(
       {
-        type: "TicketPurchased",
+        type: 'TicketPurchased',
         schemaVersion: 1,
         raffle_id: 3,
-        buyer: "GBUYER",
+        buyer: 'GBUYER',
         ticket_ids: [10, 11],
-        total_paid: "200",
+        total_paid: '200',
       },
-      { ledger: 30, id: "tx-30" },
+      { ledger: 30, id: 'tx-30' },
     );
 
     expect(dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
@@ -101,58 +102,75 @@ describe("CursorAdvance", () => {
     expect(runner.startTransaction).toHaveBeenCalledTimes(1);
     expect(ticketProcessor.handleTicketPurchased).toHaveBeenCalledWith(
       3,
-      "GBUYER",
+      'GBUYER',
       [10, 11],
-      "200",
+      '200',
       30,
-      "tx-30",
+      'tx-30',
       runner,
     );
     expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
     expect(runner.release).toHaveBeenCalledTimes(1);
   });
 
-  it("rolls back and releases ticket transactions on failure", async () => {
+  it('rolls back and releases ticket transactions on failure', async () => {
     const { advance, runner, ticketProcessor } = makeAdvance();
-    ticketProcessor.handleTicketPurchased.mockRejectedValueOnce(
-      new Error("ticket failed"),
-    );
+    ticketProcessor.handleTicketPurchased.mockRejectedValueOnce(new Error('ticket failed'));
 
     await expect(
       advance.apply(
         {
-          type: "TicketPurchased",
+          type: 'TicketPurchased',
           schemaVersion: 1,
           raffle_id: 3,
-          buyer: "GBUYER",
+          buyer: 'GBUYER',
           ticket_ids: [10],
-          total_paid: "100",
+          total_paid: '100',
         },
-        { ledger: 30, id: "tx-30" },
+        { ledger: 30, id: 'tx-30' },
       ),
-    ).rejects.toThrow("ticket failed");
+    ).rejects.toThrow('ticket failed');
 
     expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(runner.release).toHaveBeenCalledTimes(1);
     expect(runner.commitTransaction).not.toHaveBeenCalled();
   });
 
-  it("logs non-mutating randomness events without opening a runner", async () => {
+  it('routes DrawTriggered to the raffle processor and commits the runner', async () => {
+    const { advance, runner, raffleProcessor, logger } = makeAdvance();
+
+    await advance.apply(
+      {
+        type: 'DrawTriggered',
+        schemaVersion: 1,
+        raffle_id: 4,
+        ledger: 900,
+      },
+      { ledger: 25, id: 'tx-25' },
+    );
+
+    expect(raffleProcessor.handleDrawTriggered).toHaveBeenCalledWith(4, 25, 'tx-25', 1);
+    expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(runner.release).toHaveBeenCalledTimes(1);
+    expect(logger.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('DrawTriggered for raffle'),
+    );
+  });
+
+  it('logs non-mutating randomness events without opening a runner', async () => {
     const { advance, dataSource, logger } = makeAdvance();
 
     await advance.apply(
       {
-        type: "RandomnessRequested",
+        type: 'RandomnessRequested',
         schemaVersion: 1,
         raffle_id: 2,
         request_id: 9,
       },
-      { ledger: 40, id: "tx-40" },
+      { ledger: 40, id: 'tx-40' },
     );
 
     expect(dataSource.createQueryRunner).not.toHaveBeenCalled();
-    expect(logger.log).toHaveBeenCalledWith(
-      "RandomnessRequested for raffle 2, request ID 9",
-    );
+    expect(logger.log).toHaveBeenCalledWith('RandomnessRequested for raffle 2, request ID 9');
   });
 });
