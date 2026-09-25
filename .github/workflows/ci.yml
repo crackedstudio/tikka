@@ -63,10 +63,10 @@ jobs:
               - 'turbo.json'
               - '.github/workflows/ci.yml'
             oracle:
-            - 'oracle/**'
-            - 'package.json'
-            - 'pnpm-workspace.yaml'
-            - '.github/workflows/ci.yml'
+              - 'oracle/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
             compose:
               - 'docker-compose.yml'
               - 'backend/Dockerfile'
@@ -74,10 +74,10 @@ jobs:
               - 'indexer/Dockerfile'
               - 'oracle/Dockerfile'
               - '.github/workflows/ci.yml'
-          database:
-            - 'indexer/src/database/**'
-            - 'backend/**'
-            - '.github/workflows/ci.yml'
+            database:
+              - 'indexer/src/database/**'
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
 
   # Single Turborepo job: lint → test → build (typecheck) across all packages.
   # Turbo's task graph ensures sdk builds before anything that depends on it,
@@ -228,70 +228,6 @@ jobs:
           pnpm exec api-extractor run --config api-extractor.read.json
           pnpm exec api-extractor run --config api-extractor.write.json
           pnpm exec api-extractor run --config api-extractor.light.json
-        continue-on-error: false
-
-      - name: Check bundle size budgets
-        run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
-          node -e '
-            const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
-            summary += "| Bundle | Size | Limit | Status |\n";
-            summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
-            }
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
-          '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
-        continue-on-error: false
-
-      - name: Check bundle size budgets
-        run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
-          node -e '
-            const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
-            summary += "| Bundle | Size | Limit | Status |\n";
-            summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
-            }
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
-          '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
         continue-on-error: false
 
       - name: Check bundle size budgets
@@ -527,12 +463,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 8
+          version: 9.15.9
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Client - install, lint, test, build
         working-directory: ./client
@@ -891,6 +827,7 @@ jobs:
         backend,
         indexer,
         oracle,
+        compose-smoke,
         observability,
         security-scan,
         lighthouse,

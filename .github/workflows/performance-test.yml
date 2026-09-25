@@ -11,15 +11,15 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
         with:
           node-version: '22'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v3
         with:
           version: 9.15.9
 
@@ -27,7 +27,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Start Docker Compose Services
-        run: docker-compose up -d --build
+        run: docker compose up -d --build
 
       - name: Wait for Services Health
         run: |
@@ -46,7 +46,7 @@ jobs:
           cat docs/performance/results/sse-soak-latest.txt >> docs/performance/results/latest-summary.md
 
       - name: Commit & Push Benchmark Results
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb # v5
         with:
           commit_message: "docs(performance): publish automated benchmark results [skip ci]"
           file_pattern: "docs/performance/results/*"

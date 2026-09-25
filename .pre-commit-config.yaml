@@ -1,0 +1,23 @@
+# Pre-commit hooks for Tikka repository.
+# Install: pip install pre-commit && pre-commit install
+# Run manually against all files: pre-commit run --all-files
+
+repos:
+  # ── yamllint: catches duplicate keys and structural YAML errors ─────────────
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.0
+    hooks:
+      - id: yamllint
+        args: [--config-file, .yamllint.yml]
+        files: ^\.github/workflows/
+
+  # ── actionlint: GitHub Actions workflow syntax validation ───────────────────
+  # shellcheck integration is enabled automatically when shellcheck is on PATH.
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint
+        # Pass -shellcheck so the hook is explicit even if PATH differs between
+        # machines.  Requires shellcheck to be installed locally:
+        #   sudo apt install shellcheck  /  brew install shellcheck
+        args: [-shellcheck, shellcheck]
