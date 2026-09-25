@@ -1,12 +1,29 @@
-import { isConnected, getPublicKey, signTransaction } from '@lobstrco/signer-extension-api';
 import {
   WalletAdapter,
   WalletAdapterOptions,
+  WalletAvailability,
+  WalletAvailabilityCode,
   WalletName,
   SignTransactionResult,
   WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { hasGlobalProperty } from '../utils/environment';
+
+/**
+ * The subset of `@lobstrco/signer-extension-api` this adapter uses.
+ *
+ * Declared locally because the package is imported lazily — see
+ * {@link LobstrAdapter.loadLobstrApi}. A static import dragged a browser-only
+ * package (it talks to the extension over `window.postMessage`) into the
+ * module graph of every barrel that re-exports the wallet layer, so merely
+ * importing `@tikka/sdk` in Node or during SSR loaded browser code.
+ */
+interface LobstrSignerApi {
+  isConnected(): Promise<boolean>;
+  getPublicKey(): Promise<string>;
+  signTransaction(xdr: string): Promise<string>;
+}
 
 /**
  * LOBSTR Wallet Adapter
@@ -17,6 +34,9 @@ export class LobstrAdapter extends WalletAdapter {
   /** Internal connection state, toggled by connect()/disconnect(). */
   private connected = false;
 
+  /** Cached lazy import of the browser-only signer package. */
+  private signerApi: Promise<LobstrSignerApi> | null = null;
+
   constructor(options: WalletAdapterOptions = {}) {
     super(options);
   }
@@ -25,14 +45,32 @@ export class LobstrAdapter extends WalletAdapter {
    * isAvailable returning true makes it discoverable when executing in a browser environment.
    */
   isAvailable(): boolean {
-    return (
-      typeof globalThis !== 'undefined' &&
-      typeof (globalThis as any).window !== 'undefined'
-    );
+    return hasGlobalProperty('window');
   }
 
-  /*Establishes a connection to the LOBSTR extension and flips the internal*/
- async connect(): Promise<void> {
+  /**
+   * LOBSTR is extension-based: it needs the `window.postMessage` channel the
+   * extension injects. Reported as a value so an SSR pass or a Node script can
+   * pick a fallback adapter instead of catching a throw.
+   */
+  checkAvailability(): WalletAvailability {
+    if (this.isAvailable()) {
+      return {
+        available: true,
+        code: WalletAvailabilityCode.Available,
+        message: 'LOBSTR is available in this browser environment',
+      };
+    }
+
+    return {
+      available: false,
+      code: WalletAvailabilityCode.UnsupportedEnvironment,
+      message: 'LOBSTR is only available in a browser environment (window is not defined)',
+    };
+  }
+
+  /**Establishes a connection to the LOBSTR extension and flips the internal*/
+  async connect(): Promise<void> {
     if (!this.isAvailable()) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotConnected,
@@ -42,8 +80,14 @@ export class LobstrAdapter extends WalletAdapter {
 
     let extensionConnected = false;
     try {
-      extensionConnected = await isConnected();
+      const api = await this.loadLobstrApi();
+      extensionConnected = await api.isConnected();
     } catch (error: any) {
+      // A package that cannot be loaded is already a typed error and is
+      // surfaced as-is; anything else is a failed extension probe.
+      if (error instanceof TikkaSdkError) {
+        throw error;
+      }
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotConnected,
         `LOBSTR connect failed: ${error?.message ?? error}`,
@@ -78,7 +122,8 @@ export class LobstrAdapter extends WalletAdapter {
     await this.assertConnected();
 
     try {
-      const pubKey = await getPublicKey();
+      const api = await this.loadLobstrApi();
+      const pubKey = await api.getPublicKey();
       if (!pubKey) {
         throw new Error('Empty public key returned from LOBSTR');
       }
@@ -95,7 +140,8 @@ export class LobstrAdapter extends WalletAdapter {
     await this.assertConnected();
 
     try {
-      const signedXdr = await signTransaction(xdr);
+      const api = await this.loadLobstrApi();
+      const signedXdr = await api.signTransaction(xdr);
       if (!signedXdr) {
         throw new Error('Failed to sign transaction or signature was empty');
       }
@@ -105,7 +151,6 @@ export class LobstrAdapter extends WalletAdapter {
     }
   }
 
-  
   getCapabilities(): WalletCapabilities {
     return {
       supportsGetPublicKey: true,
@@ -115,7 +160,37 @@ export class LobstrAdapter extends WalletAdapter {
     };
   }
 
-  
+  /**
+   * Loads `@lobstrco/signer-extension-api` on first use and caches the promise.
+   *
+   * Keeping the import inside a method is what makes this module (and every
+   * barrel above it) safe to evaluate in Node: the browser-only package is
+   * never resolved until a wallet call actually needs it.
+   */
+  private loadLobstrApi(): Promise<LobstrSignerApi> {
+    const cached = this.signerApi;
+    if (cached) {
+      return cached;
+    }
+
+    const pending = import('@lobstrco/signer-extension-api').then(
+      (module) => module as unknown as LobstrSignerApi,
+      (error: unknown) => {
+        // Do not cache a failed load: the next call may run after the
+        // bundler/host has changed, and a retry is cheap.
+        this.signerApi = null;
+        throw new TikkaSdkError(
+          TikkaSdkErrorCode.WalletNotInstalled,
+          '@lobstrco/signer-extension-api is not installed. Install it or use another wallet.',
+          error,
+        );
+      },
+    );
+
+    this.signerApi = pending;
+    return pending;
+  }
+
   /**Guard run at the top of every wallet-dependent method. Throws a typed*/
   private async assertConnected(): Promise<void> {
     if (!this.connected) {
@@ -126,9 +201,10 @@ export class LobstrAdapter extends WalletAdapter {
     }
 
     // Re-verify against live extension state to avoid acting on a stale flag
+    const api = await this.loadLobstrApi();
     let stillConnected = false;
     try {
-      stillConnected = await isConnected();
+      stillConnected = await api.isConnected();
     } catch {
       stillConnected = false;
     }

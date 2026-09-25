@@ -45,18 +45,32 @@ Every public entry point and its runtime compatibility. Use this table when choo
 | `FeeEstimatorService` | ✅ | ✅ | RPC simulation only; no wallet or Node APIs. |
 | `FeeEstimatorModule` (NestJS) | ⚠️ | ✅ | NestJS DI wrapper around `FeeEstimatorService`. |
 | `buildChallenge` / `verifyResponse` (SEP-10) | ⚠️ | ✅ | Uses Node `crypto.randomBytes`; provide a `crypto` polyfill in browser or run server-side only. |
-| `FreighterAdapter` | ✅ | ❌ | Requires Freighter extension or `@stellar/freighter-api`. |
-| `XBullAdapter` | ✅ | ❌ | Requires xBull extension. |
-| `AlbedoAdapter` | ✅ | ❌ | Popup-based; requires `@albedo-link/intent`. |
-| `LobstrAdapter` | ✅ | ❌ | Requires LOBSTR extension. |
-| `RabetAdapter` | ✅ | ❌ | Requires Rabet extension (`window.rabet`). |
+| `FreighterAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the Freighter extension or `@stellar/freighter-api`. |
+| `XBullAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the xBull extension. |
+| `AlbedoAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Popup-based; requires `@albedo-link/intent`. |
+| `LobstrAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the LOBSTR extension. |
+| `RabetAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the Rabet extension (`window.rabet`). |
 | `MockWalletAdapter` | ✅ | ✅ | For tests, Storybook, and examples without a real wallet. |
 | Utils (`errors`, `validation`, `formatting`, `retry`, `BigNumber`) | ✅ | ✅ | Pure utilities; no environment-specific APIs. |
 | CLI (`tikka` / `bin/tikka.cjs`) | ❌ | ✅ | Node-only; uses `commander`, `inquirer`, and filesystem. |
 
 **Legend:** ✅ supported · ⚠️ works with bundler/polyfill or is not the primary target · ❌ not supported
 
+**Import-time safety:** importing any entry point — including the ones that ship wallet adapters — never reads `window`/`document` and never evaluates a browser-only wallet package. Those guards run *inside* the wallet methods, so the same module graph can be loaded by an SSR render, a Node service, and the browser bundle. To ask whether a wallet is usable at runtime, use the non-throwing `checkAvailability()` described in [Availability checks (Node / SSR)](#availability-checks-node--ssr).
+
 **Common polyfills for browser bundlers (Vite, Webpack, esbuild):** `buffer`, `crypto` (for SEP-10 and Stellar SDK), and `stream` when your toolchain requires them. React Native consumers should pass an explicit `fetchClient` to `RpcService` (see [React Native Notes](#react-native-notes) below).
+
+### Choosing an entry point by runtime
+
+| Runtime | Import path | Why |
+| --- | --- | --- |
+| Browser app that signs transactions | `@tikka/sdk` or `@tikka/sdk/write` | Needs the wallet adapters; every browser wallet requires a DOM (`window` / `document`). |
+| Browser app that only queries | `@tikka/sdk/read` or `@tikka/sdk/dist/light/index.light` | No wallet or signing code in the bundle. |
+| Node service, CLI, SSR render, edge function | `@tikka/sdk/read` | Evaluates with no DOM. Importing `@tikka/sdk` is *also* safe at load time now, but every wallet call still throws `WalletNotInstalled` there — call `checkAvailability()` and pick a fallback instead of probing globals yourself. |
+
+Server-rendered apps usually import both: `@tikka/sdk/read` in the server render, and
+`@tikka/sdk/write` in the browser bundle (or a dynamic `import()` behind a
+`useEffect`) so wallet code never reaches the server pass.
 
 ## Core Features
 
@@ -851,6 +865,40 @@ const availableAdapters = Object.entries(adapters)
 // Auto-select first available
 const selectedAdapter = availableAdapters[0] ? adapters[availableAdapters[0]] : null;
 ```
+
+### Availability checks (Node / SSR)
+
+`isAvailable()` answers a yes/no question for browser UI. When the same code also runs
+during an SSR pass, in a Node service, or in React Native, use `checkAvailability()`
+instead: it never throws and returns the reason as data.
+
+```typescript
+import { FreighterAdapter, WalletAvailabilityCode } from '@tikka/sdk';
+
+const adapter = new FreighterAdapter();
+const availability = adapter.checkAvailability();
+
+if (availability.available) {
+  // Render the wallet button.
+} else if (availability.code === WalletAvailabilityCode.ExtensionNotInstalled) {
+  // Real browser, but the user has not installed the extension yet.
+  showInstallLink('https://freighter.app');
+} else {
+  // 'unsupported-environment': Node, an SSR pass, or React Native.
+  logger.warn(availability.message);
+}
+```
+
+| `code` | Meaning |
+| --- | --- |
+| `available` | The adapter can be used in this runtime. |
+| `unsupported-environment` | Browser-only wallet running in Node, SSR, or React Native. |
+| `extension-not-installed` | Browser runtime, but the extension / injected API is missing. |
+
+`checkAvailability()` is the non-throwing counterpart of `isAvailable()` — the two always
+agree on `available`. Calling a wallet method on an unavailable adapter still throws a
+typed `TikkaSdkError` (`WALLET_NOT_INSTALLED` or `WALLET_NOT_CONNECTED`), so an
+availability check is a way to skip the error path, not a replacement for handling it.
 
 ## React Native Notes
 
