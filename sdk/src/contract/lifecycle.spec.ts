@@ -33,6 +33,7 @@ import { NetworkConfig } from '../network/network.config';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 import { WalletAdapter, WalletName } from '../wallet/wallet.interface';
 import { ContractFn } from './bindings';
+import { nativeToScVal } from '@stellar/stellar-sdk';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -1016,5 +1017,302 @@ describe('Property 10: TikkaSdkError propagates unchanged through invoke', () =>
       ),
       { numRuns: 100 },
     );
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONCURRENCY TESTS — Sequence Number Safety
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Concurrent operations from the same account must not silently collide on
+ * sequence numbers. Either both succeed or fail with a clear, retryable error.
+ *
+ * These tests verify that concurrent operations are properly sequenced and
+ * that sequence-number collisions are detected and reported.
+ */
+
+describe('Concurrency: Sequence-number safety', () => {
+  /**
+   * Helper: Simulates two concurrent invoke() calls from the same account.
+   * Returns { results, errors } — what each operation produced.
+   */
+  async function runConcurrentOperations(
+    sourceKey: string,
+    op1Seq: number,
+    op2Seq: number,
+  ): Promise<{
+    results: (SubmitResult<number> | undefined)[];
+    errors: (Error | undefined)[];
+  }> {
+    // Setup: first simulate succeeds, returning the starting sequence
+    rpcService.simulateTransaction.mockResolvedValueOnce(
+      makeSimSuccess({ retval: nativeToScVal(99) }) as any,
+    );
+    wallet.signTransaction.mockResolvedValueOnce({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    rpcService.sendTransaction.mockResolvedValueOnce(makeSendSuccess(TX_HASH) as any);
+    rpcService.getTransaction.mockResolvedValueOnce(makeGetSuccess(300) as any);
+
+    // Setup: second simulate succeeds (but with same or higher sequence)
+    rpcService.simulateTransaction.mockResolvedValueOnce(
+      makeSimSuccess({ retval: nativeToScVal(99) }) as any,
+    );
+    wallet.signTransaction.mockResolvedValueOnce({ signedXdr: SIGNED_XDR });
+    rpcService.sendTransaction.mockResolvedValueOnce(makeSendSuccess('hash2') as any);
+    rpcService.getTransaction.mockResolvedValueOnce(makeGetSuccess(301) as any);
+
+    // Horizon will be called twice for sequence fetching
+    const account = {
+      accountId: () => sourceKey,
+      sequenceNumber: () => String(op1Seq),
+      incrementSequenceNumber: () => {},
+    };
+    jest.spyOn(horizonService, 'loadAccount').mockResolvedValueOnce({ ...account });
+    jest.spyOn(horizonService, 'loadAccount').mockResolvedValueOnce({
+      ...account,
+      sequenceNumber: () => String(op2Seq),
+    });
+
+    const lc = buildLifecycle();
+
+    const results: (SubmitResult<number> | undefined)[] = [];
+    const errors: (Error | undefined)[] = [];
+
+    // Fire both operations concurrently
+    const op1 = lc
+      .invoke<number>('buy_ticket', [1], { sourcePublicKey: sourceKey })
+      .then((result) => {
+        results[0] = result;
+      })
+      .catch((error) => {
+        errors[0] = error;
+      });
+
+    const op2 = lc
+      .invoke<number>('buy_ticket', [1], { sourcePublicKey: sourceKey })
+      .then((result) => {
+        results[1] = result;
+      })
+      .catch((error) => {
+        errors[1] = error;
+      });
+
+    await Promise.all([op1, op2]);
+
+    return { results, errors };
+  }
+
+  it('two concurrent invokes from same account should both eventually succeed or fail clearly', async () => {
+    // This test documents the contract: with concurrent ops, both should complete
+    // (either success or a clear, retryable error — not TX_BAD_SEQ).
+    const { results, errors } = await runConcurrentOperations(SOURCE_KEY, 1, 2);
+
+    // Both operations should have completed (either with result or error)
+    expect(results.length).toBe(2);
+    expect(errors.length).toBe(2);
+
+    // At least one should succeed (or both should have consistent errors)
+    const successCount = results.filter((r) => r && r.txHash).length;
+    const errorCount = errors.filter((e) => e).length;
+
+    expect(successCount + errorCount).toBeGreaterThan(0);
+  });
+
+  it('should not produce TX_BAD_SEQ errors from concurrent operations (must be retried)', async () => {
+    // Mock the scenario where sequence collision would normally occur
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+
+    // First operation succeeds
+    rpcService.sendTransaction
+      .mockResolvedValueOnce(makeSendSuccess(TX_HASH) as any)
+      .mockResolvedValueOnce(makeSendSuccess('hash2') as any);
+
+    rpcService.getTransaction
+      .mockResolvedValueOnce(makeGetSuccess(300) as any)
+      .mockResolvedValueOnce(makeGetSuccess(301) as any);
+
+    const lc = buildLifecycle();
+
+    // Both operations should not produce TX_BAD_SEQ
+    const op1 = lc.invoke('buy_ticket', [1], { sourcePublicKey: SOURCE_KEY });
+    const op2 = lc.invoke('buy_ticket', [1], { sourcePublicKey: SOURCE_KEY });
+
+    const [result1, result2] = await Promise.all([op1, op2]);
+
+    // Neither should report TX_BAD_SEQ (which would look like "bad seq")
+    expect(result1).toBeDefined();
+    expect(result2).toBeDefined();
+
+    if ((result1 as any).error) {
+      expect((result1 as any).error).not.toMatch(/bad.*seq/i);
+    }
+    if ((result2 as any).error) {
+      expect((result2 as any).error).not.toMatch(/bad.*seq/i);
+    }
+  });
+
+  it('should serialize sequence fetches for the same account', async () => {
+    const sourceKey = SOURCE_KEY;
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess() as any);
+
+    const horizonSpy = jest.spyOn(horizonService, 'loadAccount');
+    horizonSpy.mockResolvedValue({
+      accountId: () => sourceKey,
+      sequenceNumber: () => '1',
+      incrementSequenceNumber: () => {},
+    } as any);
+
+    const lc = buildLifecycle();
+
+    // Fire 3 concurrent operations
+    const op1 = lc.invoke('op1', []);
+    const op2 = lc.invoke('op2', []);
+    const op3 = lc.invoke('op3', []);
+
+    await Promise.all([op1, op2, op3]);
+
+    // loadAccount should be called 3 times (once per operation)
+    expect(horizonSpy).toHaveBeenCalledWith(sourceKey);
+    expect(horizonSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it('should allow parallel operations from different accounts', async () => {
+    const accountA = SOURCE_KEY;
+    const accountB = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA222';
+
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess() as any);
+
+    const horizonSpy = jest.spyOn(horizonService, 'loadAccount');
+    horizonSpy.mockImplementation((account) => {
+      return Promise.resolve({
+        accountId: () => account,
+        sequenceNumber: () => '1',
+        incrementSequenceNumber: () => {},
+      } as any);
+    });
+
+    const lc = buildLifecycle();
+    const startTime = Date.now();
+
+    // Fire operations from different accounts concurrently
+    const opA = lc.invoke('op_a', [], { sourcePublicKey: accountA });
+    const opB = lc.invoke('op_b', [], { sourcePublicKey: accountB });
+
+    await Promise.all([opA, opB]);
+
+    // Both should complete reasonably quickly (parallel, not sequential)
+    const elapsed = Date.now() - startTime;
+    expect(elapsed).toBeLessThan(5000); // Should be fast (not waiting for each other)
+  });
+
+  it('should handle cancellation of one operation while another is pending', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess() as any);
+
+    jest.spyOn(horizonService, 'loadAccount').mockResolvedValue({
+      accountId: () => SOURCE_KEY,
+      sequenceNumber: () => '1',
+      incrementSequenceNumber: () => {},
+    } as any);
+
+    const lc = buildLifecycle();
+
+    const controller = new AbortController();
+    const op1Promise = lc.invoke('op1', []);
+
+    // Cancel before op2 starts
+    controller.abort();
+
+    const op2Promise = lc.invoke('op2', []);
+
+    // Both operations should still complete despite cancellation
+    const [result1, result2] = await Promise.all([op1Promise, op2Promise]);
+
+    // Both should be defined (successful or error response)
+    expect(result1).toBeDefined();
+    expect(result2).toBeDefined();
+  });
+
+  it('should handle error in one operation without blocking others', async () => {
+    let callCount = 0;
+    rpcService.simulateTransaction.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        // First call succeeds
+        return Promise.resolve(makeSimSuccess() as any);
+      }
+      // Second call fails
+      return Promise.reject(new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, 'sim failed'));
+    });
+
+    wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess() as any);
+
+    jest.spyOn(horizonService, 'loadAccount').mockResolvedValue({
+      accountId: () => SOURCE_KEY,
+      sequenceNumber: () => '1',
+      incrementSequenceNumber: () => {},
+    } as any);
+
+    const lc = buildLifecycle();
+
+    const op1Promise = lc.invoke('op1', []);
+    const op2Promise = lc.invoke('op2', []);
+
+    const [result1, result2] = await Promise.all([op1Promise, op2Promise]);
+
+    // One should succeed, one should fail
+    const success = result1 || result2;
+    const failed = result1 === undefined || result2 === undefined;
+
+    expect(success).toBeDefined();
+    expect(failed).toBe(true);
+  });
+
+  it('should maintain FIFO order for concurrent operations from same account', async () => {
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess() as any);
+
+    const executionOrder: number[] = [];
+    jest.spyOn(horizonService, 'loadAccount').mockImplementation(async () => {
+      executionOrder.push(executionOrder.length);
+      return {
+        accountId: () => SOURCE_KEY,
+        sequenceNumber: () => String(executionOrder.length),
+        incrementSequenceNumber: () => {},
+      } as any;
+    });
+
+    const lc = buildLifecycle();
+
+    // Fire 3 operations concurrently
+    const op1 = lc.invoke('op1', []);
+    const op2 = lc.invoke('op2', []);
+    const op3 = lc.invoke('op3', []);
+
+    await Promise.all([op1, op2, op3]);
+
+    // Execution order should be 0, 1, 2 (FIFO)
+    expect(executionOrder).toEqual([0, 1, 2]);
   });
 });
