@@ -1,4 +1,3 @@
-import type {} from "../../../types/file-type";
 import {
   BadRequestException,
   Controller,
@@ -18,9 +17,9 @@ import {
   MAX_UPLOAD_IMAGE_WIDTH,
   MAX_UPLOAD_BYTES,
 } from "../../../config/upload.config";
-import { StorageService } from "../../../services/storage.service";
-import { ImageOptimizerService } from "../../../services/image-optimizer.service";
-import * as fileType from "file-type";
+import { StorageService } from "../../../services/storage/storage.service";
+import { ImageOptimizerService } from "../../../services/metadata/image-optimizer.service";
+import { detectFileTypeFromBuffer } from "../../../utils/detect-file-type";
 import sharp, { type Metadata } from "sharp";
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
@@ -92,7 +91,7 @@ export class RaffleImagesController {
       throw error;
     }
 
-    const detectedFileType = await fileType.fromBuffer(buffer);
+    const detectedFileType = await detectFileTypeFromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {

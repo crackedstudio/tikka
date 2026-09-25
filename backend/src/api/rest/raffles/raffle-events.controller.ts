@@ -2,7 +2,7 @@ import { Controller, Param, ParseIntPipe, Sse } from "@nestjs/common";
 import { ApiExcludeEndpoint, ApiTags } from "@nestjs/swagger";
 import { Observable, map } from "rxjs";
 import { Public } from "../../../auth/decorators/public.decorator";
-import { SseService } from "../../../services/sse.service";
+import { SseService } from "../../../services/notifications/sse.service";
 
 @ApiTags("Raffles")
 @Controller("raffles")

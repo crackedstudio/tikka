@@ -8,7 +8,7 @@ export { MAX_PARTICIPANTS_LIMIT };
 
 export const ParticipantListQuerySchema = PaginationQuerySchema.extend({
   since: z.coerce
-    .number({ invalid_type_error: 'since must be a number' })
+    .number({ message: 'since must be a number' })
     .int('since must be an integer')
     .min(0, 'since must be at least 0')
     .optional(),

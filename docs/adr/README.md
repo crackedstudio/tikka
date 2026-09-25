@@ -12,6 +12,7 @@ of re-litigating the same question in a PR thread.
 | ADR | Title | Status |
 |---|---|---|
 | [0001](0001-api-versioning-policy.md) | API versioning policy | Proposed |
+| [0002](0002-commit-generated-client-api-types.md) | Commit generated client API types | Accepted |
 
 ## Status values
 
