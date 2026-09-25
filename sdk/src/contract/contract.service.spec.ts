@@ -9,9 +9,9 @@ jest.mock('@stellar/stellar-sdk', () => {
   };
 });
 
-import { Networks, rpc } from '@stellar/stellar-sdk';
+import { Networks, Horizon, rpc } from '@stellar/stellar-sdk';
 import { ContractService } from './contract.service';
-import { TransactionLifecycle } from './lifecycle';
+import { SimulateResult, SubmitResult, TransactionLifecycle } from './lifecycle';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
 import { NetworkConfig, TikkaNetwork } from '../network/network.config';
@@ -33,14 +33,14 @@ const TX_HASH = 'deadbeef'.repeat(8);
 const SIGNED_XDR = 'AAAAAA==';
 const ASSEMBLED_XDR = 'BBBBBB==';
 
-const mockSimulateResult = {
+const mockSimulateResult: SimulateResult<number> = {
   returnValue: 42,
   minResourceFee: '5000',
   assembledXdr: ASSEMBLED_XDR,
   networkPassphrase: Networks.TESTNET,
 };
 
-const mockSubmitResult = {
+const mockSubmitResult: SubmitResult<number> = {
   returnValue: 99,
   txHash: TX_HASH,
   ledger: 300,
@@ -65,7 +65,7 @@ function buildService(withWallet = false) {
   }
 
   const service = new ContractService(rpcService, horizonService, mockConfig, wallet);
-  const lifecycle = (service as any).lifecycle as TransactionLifecycle;
+  const lifecycle = (service as unknown as { lifecycle: TransactionLifecycle }).lifecycle;
 
   return { service, lifecycle, wallet };
 }
@@ -78,29 +78,33 @@ describe('ContractService.simulateReadOnly()', () => {
     const { nativeToScVal } = jest.requireActual('@stellar/stellar-sdk');
 
     const mockRetVal = 'mock-value';
-    const simSpy = jest.spyOn((service as any).rpc, 'simulateTransaction').mockResolvedValue({
-      minResourceFee: '0',
-      result: { retval: nativeToScVal(mockRetVal) },
-      transactionData: {
-        build: () => ({
-          resources: () => ({
-            instructions: () => 0,
-            diskReadBytes: () => 0,
-            writeBytes: () => 0,
-            footprint: () => ({ readOnly: () => [], readWrite: () => [] }),
+    const simSpy = jest
+      .spyOn((service as unknown as { rpc: RpcService }).rpc, 'simulateTransaction')
+      .mockResolvedValue({
+        minResourceFee: '0',
+        result: { retval: nativeToScVal(mockRetVal) },
+        transactionData: {
+          build: () => ({
+            resources: () => ({
+              instructions: () => 0,
+              diskReadBytes: () => 0,
+              writeBytes: () => 0,
+              footprint: () => ({ readOnly: () => [], readWrite: () => [] }),
+            }),
           }),
-        }),
-      },
-      stateChanges: [],
-      latestLedger: 1,
-      _parsed: true,
-    } as any);
+        },
+        stateChanges: [],
+        latestLedger: 1,
+        _parsed: true,
+      } as unknown as rpc.Api.SimulateTransactionSuccessResponse);
 
-    jest.spyOn((service as any).horizon, 'loadAccount').mockResolvedValue({
-      accountId: () => SOURCE_KEY,
-      sequenceNumber: () => '0',
-      incrementSequenceNumber: () => {},
-    } as any);
+    jest
+      .spyOn((service as unknown as { horizon: HorizonService }).horizon, 'loadAccount')
+      .mockResolvedValue({
+        accountId: () => SOURCE_KEY,
+        sequenceNumber: () => '0',
+        incrementSequenceNumber: () => {},
+      } as unknown as Horizon.AccountResponse);
 
     (rpc.assembleTransaction as jest.Mock).mockReturnValue({
       build: () => ({ toXDR: () => ASSEMBLED_XDR }),
@@ -123,10 +127,10 @@ describe('ContractService.invoke()', () => {
   it('runs simulate → sign → submit → poll and returns InvokeResult', async () => {
     const { service, lifecycle } = buildService(true);
 
-    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult);
     jest.spyOn(lifecycle, 'sign').mockResolvedValue(SIGNED_XDR);
     jest.spyOn(lifecycle, 'submit').mockResolvedValue(TX_HASH);
-    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult as any);
+    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult);
 
     const result = await service.invoke<number>(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1], {
       sourcePublicKey: SOURCE_KEY,
@@ -157,7 +161,7 @@ describe('ContractService.invoke()', () => {
   it('returns simulated result early when simulateOnly is true', async () => {
     const { service, lifecycle } = buildService(false);
 
-    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult);
     const signSpy = jest.spyOn(lifecycle, 'sign');
 
     const result = await service.invoke<number>(ContractFn.BUY_TICKET, [1], {
@@ -172,10 +176,10 @@ describe('ContractService.invoke()', () => {
   it('passes memo through to lifecycle.simulate()', async () => {
     const { service, lifecycle } = buildService(true);
 
-    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult);
     jest.spyOn(lifecycle, 'sign').mockResolvedValue(SIGNED_XDR);
     jest.spyOn(lifecycle, 'submit').mockResolvedValue(TX_HASH);
-    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult as any);
+    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult);
 
     await service.invoke(ContractFn.BUY_TICKET, [1], {
       sourcePublicKey: SOURCE_KEY,
@@ -192,10 +196,10 @@ describe('ContractService.invoke()', () => {
   it('passes poll config through to lifecycle.poll()', async () => {
     const { service, lifecycle } = buildService(true);
 
-    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult);
     jest.spyOn(lifecycle, 'sign').mockResolvedValue(SIGNED_XDR);
     jest.spyOn(lifecycle, 'submit').mockResolvedValue(TX_HASH);
-    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult as any);
+    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult);
 
     await service.invoke(ContractFn.BUY_TICKET, [1], {
       sourcePublicKey: SOURCE_KEY,
@@ -210,7 +214,7 @@ describe('ContractService.buildUnsigned()', () => {
   it('returns UnsignedTxResult mapped from lifecycle.simulate()', async () => {
     const { service, lifecycle } = buildService();
 
-    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult);
 
     const result = await service.buildUnsigned(
       ContractFn.BUY_TICKET,
@@ -243,7 +247,7 @@ describe('ContractService.submitSigned()', () => {
     const { service, lifecycle } = buildService();
 
     jest.spyOn(lifecycle, 'submit').mockResolvedValue(TX_HASH);
-    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult as any);
+    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult);
 
     const result = await service.submitSigned(SIGNED_XDR);
 
@@ -291,7 +295,7 @@ describe('ContractService.setWallet() / setContractId()', () => {
 describe('ContractService.simulate()', () => {
   it('delegates to lifecycle.simulate() and returns SimulateResult', async () => {
     const { service, lifecycle } = buildService();
-    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult);
 
     const result = await service.simulate(ContractFn.BUY_TICKET, [1], {
       sourcePublicKey: SOURCE_KEY,
@@ -305,7 +309,7 @@ describe('ContractService.simulate()', () => {
 
   it('forwards memo option to lifecycle.simulate()', async () => {
     const { service, lifecycle } = buildService();
-    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult as any);
+    jest.spyOn(lifecycle, 'simulate').mockResolvedValue(mockSimulateResult);
 
     await service.simulate(ContractFn.CREATE_RAFFLE, [], { memo: { type: 'text', value: 'ref' } });
 
@@ -377,7 +381,7 @@ describe('ContractService.submit()', () => {
 describe('ContractService.poll()', () => {
   it('delegates to lifecycle.poll() and returns SubmitResult', async () => {
     const { service, lifecycle } = buildService();
-    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult as any);
+    jest.spyOn(lifecycle, 'poll').mockResolvedValue(mockSubmitResult);
 
     const result = await service.poll<number>(TX_HASH, { timeoutMs: 30_000 });
 

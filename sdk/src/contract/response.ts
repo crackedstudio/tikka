@@ -21,11 +21,11 @@
  * }
  * ```
  */
-export interface ContractResponse<T = any> {
+export interface ContractResponse<T = unknown> {
   /** Legacy boolean success flag used by parts of the SDK. */
   success?: boolean;
   /** Legacy string status used by parts of the SDK. */
-  status?: "SUCCESS" | "ERROR";
+  status?: 'SUCCESS' | 'ERROR';
   /** The result value on success (undefined if failed) */
   value?: T;
   /** Error message describing what went wrong (undefined if succeeded) */
@@ -43,9 +43,9 @@ export interface ContractResponse<T = any> {
   warnings?: string[];
 }
 
-export type TxResponse<T = any> = ContractResponse<T>;
+export type TxResponse<T = unknown> = ContractResponse<T>;
 
 export type TicketTxResponse<T = number[]> = ContractResponse<T>;
 export type RaffleTxResponse<T = number> = ContractResponse<T>;
 export type AdminTxResponse<T = void> = ContractResponse<T>;
-export type UserTxResponse<T = any> = ContractResponse<T>;
+export type UserTxResponse<T = unknown> = ContractResponse<T>;
