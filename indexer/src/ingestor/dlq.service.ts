@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, FindOptionsWhere, IsNull, Repository } from 'typeorm';
 import { DeadLetterEventEntity, DlqReason } from '../database/entities/dead-letter-event.entity';
@@ -6,7 +6,6 @@ import { DomainEvent } from './event.types';
 import { IngestionDispatcherService } from './ingestion-dispatcher.service';
 import { PipelineStateMachine, PipelineTransition } from './pipeline-state';
 import { MetricsService } from '../metrics/metrics.service';
-
 
 export { DlqReason };
 
@@ -16,11 +15,9 @@ export { DlqReason };
  */
 function readContractId(rawEvent: unknown): string | null {
   const record =
-    rawEvent !== null && typeof rawEvent === "object"
-      ? (rawEvent as Record<string, unknown>)
-      : {};
+    rawEvent !== null && typeof rawEvent === 'object' ? (rawEvent as Record<string, unknown>) : {};
   const id = record.contractId ?? record.contract_id;
-  return typeof id === "string" && id.length > 0 ? id : null;
+  return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
 /**
@@ -88,7 +85,7 @@ export interface ReplayResult {
 }
 
 @Injectable()
-export class DlqService {
+export class DlqService implements OnModuleInit {
   private readonly logger = new Logger(DlqService.name);
 
   constructor(
@@ -97,8 +94,36 @@ export class DlqService {
     private readonly dispatcher: IngestionDispatcherService,
     @Optional() private readonly pipeline?: PipelineStateMachine,
     @Optional() private readonly metrics?: MetricsService,
-  ) { }
+  ) {}
 
+  async onModuleInit(): Promise<void> {
+    await this.refreshDlqSnapshotMetrics();
+  }
+
+  private async refreshDlqSnapshotMetrics(): Promise<void> {
+    if (!this.metrics) return;
+
+    try {
+      const where = { replayedAt: IsNull() };
+      const [depth, oldestEvent] = await Promise.all([
+        this.repo.count({ where }),
+        this.repo.findOne({
+          where,
+          select: { createdAt: true },
+          order: { createdAt: 'ASC' },
+        }),
+      ]);
+
+      this.metrics.setDlqUnreplayedEvents(depth);
+      this.metrics.setDlqOldestUnreplayedEventTimestampSeconds(
+        oldestEvent ? oldestEvent.createdAt.getTime() / 1_000 : 0,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to refresh DLQ snapshot metrics: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   /**
    * Enqueue a failed event in the DLQ with a classified reason and retryability flag.
@@ -138,14 +163,17 @@ export class DlqService {
     // DLQ depth and total event metrics
     const contractAddressLabel = contractId ?? 'unknown';
     this.metrics?.incrementDlqEventsTotal(reason, event.type);
-    this.metrics?.setDlqDepth(contractAddressLabel, await this.repo.count({
-      where: { contractId: contractAddressLabel, replayedAt: IsNull() },
-    }) as unknown as number);
+    this.metrics?.setDlqDepth(
+      contractAddressLabel,
+      (await this.repo.count({
+        where: { contractId: contractAddressLabel, replayedAt: IsNull() },
+      })) as unknown as number,
+    );
+    await this.refreshDlqSnapshotMetrics();
 
     this.logger.warn(
       `DLQ [${reason}] stored ${event.type} at ledger ${ledger} (retryable=${retryable}): ${errorMessage}`,
     );
-
   }
 
   /**
@@ -155,7 +183,7 @@ export class DlqService {
    */
   async enqueue(record: DeadLetterEvent): Promise<void> {
     const raw =
-      record.rawEvent !== null && typeof record.rawEvent === "object"
+      record.rawEvent !== null && typeof record.rawEvent === 'object'
         ? (record.rawEvent as Record<string, unknown>)
         : {};
     const contractId = readContractId(record.rawEvent);
@@ -182,10 +210,11 @@ export class DlqService {
     this.metrics?.incrementDlqEventsTotal(record.reason, record.eventType);
     this.metrics?.setDlqDepth(
       contractAddressLabel,
-      await this.repo.count({
+      (await this.repo.count({
         where: { contractId: contractAddressLabel, replayedAt: IsNull() },
-      }) as unknown as number,
+      })) as unknown as number,
     );
+    await this.refreshDlqSnapshotMetrics();
 
     this.logger.error(
       `DLQ [${record.reason}] handler=${record.handlerName} eventId=${record.eventId} durationMs=${record.durationMs} error=${record.errorMessage}`,
@@ -194,7 +223,7 @@ export class DlqService {
   }
 
   async count(): Promise<number> {
-    return this.repo.count();
+    return this.repo.count({ where: { replayedAt: IsNull() } });
   }
 
   /**
@@ -229,7 +258,6 @@ export class DlqService {
 
     const entries = await this.repo.find({ where, order: { ledger: 'ASC', createdAt: 'ASC' } });
     const eligible = entries.filter((entry) => entry.retryCount < MAX_RETRIES);
-
 
     let replayed = 0;
     let skipped = 0;
@@ -274,7 +302,6 @@ export class DlqService {
 
         this.logger.log(`DLQ: replayed ${entry.eventType} ledger=${entry.ledger} id=${entry.id}`);
       } catch (err) {
-
         entry.retryCount += 1;
         entry.errorMessage = err instanceof Error ? err.message : String(err);
         await this.repo.save(entry);
@@ -289,6 +316,8 @@ export class DlqService {
         );
       }
     }
+
+    if (!dryRun) await this.refreshDlqSnapshotMetrics();
 
     this.logger.log(
       `DLQ replay complete${dryRun ? ' (dry-run)' : ''}: replayed=${replayed} skipped=${skipped} failed=${failed}`,
