@@ -40,6 +40,7 @@ loadEnvFile('.env');
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
 import { MAX_RETRIES } from '../ingestor/dlq.service';
+import { databaseSslOptions } from '../config/database-ssl';
 
 import {
   parseArgs,
@@ -70,8 +71,7 @@ if (parsedArgs.unknown.length > 0) {
 const { dryRun, filters } = parsedArgs;
 
 async function main(): Promise<void> {
-  const ssl =
-    process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
+  const ssl = databaseSslOptions();
 
   const options: DataSourceOptions = {
     type: 'postgres',

@@ -30,8 +30,10 @@ DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_DATABASE=tikka_indexer
 
-# Set to "true" on Supabase / Railway (requires SSL)
+# Production requires verified TLS and a trusted CA certificate.
 DB_SSL=false
+# DB_SSL_CA_FILE=/run/secrets/postgres-ca.pem
+# DB_MAX_POOL=5
 
 # Slow query logging threshold in milliseconds (default: 200)
 SLOW_QUERY_THRESHOLD_MS=200

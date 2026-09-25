@@ -1,5 +1,6 @@
 import { registerAs } from '@nestjs/config';
 import { DataSourceOptions } from 'typeorm';
+import { databaseSslOptions } from './database-ssl';
 
 // ----- Environment validation (temporary measure: normally in env.schema.ts) -----
 function assert(condition: boolean, message: string): asserts condition {
@@ -57,7 +58,7 @@ if (!env.DATABASE_URL) {
 
 if (env.DB_SSL !== undefined) {
   assert(
-    [null, 'true', 'false', 'true', 'false'].includes(env.DB_SSL.toLowerCase()),
+    ['true', 'false'].includes(env.DB_SSL.toLowerCase()),
     'DB_SSL must be "true" or "false".',
   );
 }
@@ -112,12 +113,18 @@ if (env.REDIS_HOST) {
  *   DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE
  *
  * Optional:
- *   DB_SSL             - set to "true" to enable SSL (required on Supabase / Railway)
+ *   DB_SSL             - set to "true" to enable verified SSL (required in production)
+ *   DB_SSL_CA          - trusted CA PEM (or use DB_SSL_CA_FILE) in production
+ *   DB_MAX_POOL        - max connections per primary/replica pool (default: 5)
  *   DATABASE_REPLICA_URL - one or more comma-separated read-replica URLs.
  *                          When set, TypeORM uses master/slave replication.
  */
 export default registerAs('database', (): DataSourceOptions => {
-  const ssl = process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
+  const ssl = databaseSslOptions();
+  const rawPoolSize = process.env.DB_MAX_POOL ?? '5';
+  assert(/^[1-9]\d*$/.test(rawPoolSize) && Number.isSafeInteger(Number(rawPoolSize)),
+    'DB_MAX_POOL must be a positive integer.');
+  const poolSize = Number(rawPoolSize);
 
   const replicaUrls = process.env.DATABASE_REPLICA_URL
     ? process.env.DATABASE_REPLICA_URL.split(',')
@@ -137,6 +144,7 @@ export default registerAs('database', (): DataSourceOptions => {
     synchronize: false,
     logging: ['warn', 'error'] as any,
     maxQueryExecutionTime: slowQueryThresholdMs,
+    poolSize,
   };
 
   if (replicaUrls.length > 0) {
@@ -145,7 +153,16 @@ export default registerAs('database', (): DataSourceOptions => {
       ...base,
       type: 'postgres',
       replication: {
-        master: { url: process.env.DATABASE_URL, ssl },
+        master: process.env.DATABASE_URL
+          ? { url: process.env.DATABASE_URL, ssl }
+          : {
+              host: process.env.DB_HOST,
+              port: Number(process.env.DB_PORT),
+              username: process.env.DB_USERNAME,
+              password: process.env.DB_PASSWORD,
+              database: process.env.DB_DATABASE,
+              ssl,
+            },
         slaves: replicaUrls.map((url) => ({ url, ssl })),
       },
     } as DataSourceOptions;
