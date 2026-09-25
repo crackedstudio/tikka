@@ -1,17 +1,3 @@
-function mapContractStatus(status: number): RaffleStatus {
-  switch (status) {
-    case 0:
-      return RaffleStatus.OPEN;
-    case 1:
-      return RaffleStatus.DRAWING;
-    case 2:
-      return RaffleStatus.FINALIZED;
-    case 3:
-      return RaffleStatus.CANCELLED;
-    default:
-      return RaffleStatus.OPEN;
-  }
-}
 import { Injectable } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
@@ -26,7 +12,7 @@ import {
   RaffleStateError,
   CreateRaffleEstimate,
 } from './raffle.types';
-import { RaffleStatus } from '../../contract/bindings';
+import { RaffleStatus, mapContractStatus } from '../../contract/bindings';
 import { ContractResponse, RaffleTxResponse, TxResponse } from '../../contract/response';
 import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
 import { xlmToStroops } from '../../utils/formatting';

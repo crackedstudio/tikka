@@ -51,3 +51,26 @@ export type ContractFnName = (typeof ContractFn)[keyof typeof ContractFn];
  */
 import { RaffleStatus } from "@tikka/types";
 export { RaffleStatus };
+
+/**
+ * Maps the numeric `status` returned by `get_raffle_data` onto the
+ * `RaffleStatus` enum exposed by the SDK.
+ *
+ * The contract stores the state as a `u32` (0 = Open, 1 = Drawing,
+ * 2 = Finalized, 3 = Cancelled), while consumers work with the string enum.
+ * Unknown values fall back to `OPEN`, matching the write path.
+ */
+export function mapContractStatus(status: number): RaffleStatus {
+  switch (status) {
+    case 0:
+      return RaffleStatus.OPEN;
+    case 1:
+      return RaffleStatus.DRAWING;
+    case 2:
+      return RaffleStatus.FINALIZED;
+    case 3:
+      return RaffleStatus.CANCELLED;
+    default:
+      return RaffleStatus.OPEN;
+  }
+}
