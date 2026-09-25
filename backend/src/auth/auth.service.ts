@@ -135,6 +135,16 @@ export class AuthService {
       throw new Error('Invalid signature');
     }
 
+    // Spend the nonce before issuing anything.
+    //
+    // A nonce is single-use: replaying the same (address, nonce, signature) is
+    // the main attack on a sign-in-with-wallet flow, and the in-memory store is
+    // what `verify` matches against. Dropping the entry here — ahead of the
+    // token exchange, not after it — also makes a failure to persist
+    // `consumed` fail closed: the caller must request a fresh nonce rather than
+    // retry against a nonce that was already accepted.
+    this.nonces.delete(address);
+
     const { error: updateError } = await this.client
       .from('siws_nonces')
       .update({ consumed: true })
