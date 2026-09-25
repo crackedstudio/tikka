@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Settings as SettingsIcon, Bell, User, Globe } from "lucide-react";
 import NotificationPreferencesSection from "../components/settings/NotificationPreferencesSection";
 import ProfileSection from "../components/settings/ProfileSection";
@@ -16,6 +17,7 @@ import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 type SettingsTab = "notifications" | "profile" | "language";
 
 export default function Settings() {
+  const { t } = useTranslation("settings");
   const { isAuthenticated } = useAuthContext();
   const [activeTab, setActiveTab] = useState<SettingsTab>("notifications");
 
@@ -24,9 +26,9 @@ export default function Settings() {
       <div className="w-full mx-auto max-w-7xl px-6 md:px-12 lg:px-16 py-12">
         <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8 text-center">
           <SettingsIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Settings</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t("unauthenticated.heading")}</h2>
           <p className="text-gray-400 mb-6">
-            Please sign in to access your settings and preferences.
+            {t("unauthenticated.message")}
           </p>
         </div>
       </div>
@@ -40,8 +42,8 @@ export default function Settings() {
       </div>
 
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
-        <p className="text-gray-400">Manage your account and preferences</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">{t("page.title")}</h1>
+        <p className="text-gray-400">{t("page.subtitle")}</p>
       </div>
 
       <div className="flex gap-2 mb-6 border-b border-gray-700">
@@ -57,7 +59,7 @@ export default function Settings() {
           `}
         >
           <Bell className="w-5 h-5" />
-          Notifications
+          {t("tabs.notifications")}
         </button>
         <button
           onClick={() => setActiveTab("profile")}
@@ -71,7 +73,7 @@ export default function Settings() {
           `}
         >
           <User className="w-5 h-5" />
-          Profile
+          {t("tabs.profile")}
         </button>
         <button
           onClick={() => setActiveTab("language")}
@@ -85,7 +87,7 @@ export default function Settings() {
           `}
         >
           <Globe className="w-5 h-5" />
-          Language
+          {t("tabs.language")}
         </button>
       </div>
 
@@ -97,4 +99,3 @@ export default function Settings() {
     </div>
   );
 }
-

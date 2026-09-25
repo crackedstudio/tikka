@@ -1,0 +1,113 @@
+{
+  "page": {
+    "title": "Create New Raffle",
+    "subtitle": "Setup your raffle in a few simple steps"
+  },
+  "steps": {
+    "details": "Details",
+    "image": "Image",
+    "pricing": "Pricing",
+    "duration": "Duration",
+    "review": "Review"
+  },
+  "nav": {
+    "back": "Back",
+    "continue": "Continue",
+    "confirmSubmit": "Confirm & Submit"
+  },
+  "aria": {
+    "stepLabel": "Step {{number}}: {{title}}",
+    "stepCompleted": "(completed)",
+    "stepCurrent": "(current)",
+    "creationSteps": "Raffle creation steps",
+    "stepRegion": "Step {{number}}: {{title}}"
+  },
+  "details": {
+    "heading": "Raffle Details",
+    "subtitle": "Tell participants what they could win",
+    "titleLabel": "Raffle Title",
+    "titlePlaceholder": "Enter raffle title",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe your raffle prize in detail"
+  },
+  "image": {
+    "heading": "Prize Images",
+    "subtitle": "Upload multiple images to showcase your prize from different angles",
+    "uploadAreaLabel": "Upload prize images",
+    "dragDrop": "Drag & Drop your prize images here",
+    "or": "or",
+    "uploadButton": "Upload images",
+    "imagesUploaded_one": "{{count}} image uploaded — Click to add more",
+    "imagesUploaded_other": "{{count}} images uploaded — Click to add more",
+    "footerHint": "Upload clear pictures of your prize. Multiple angles help build trust",
+    "primary": "Primary",
+    "setPrimary": "Set Primary",
+    "removeImage": "Remove image {{number}}",
+    "setPrimaryImage": "Set image {{number}} as primary",
+    "prizeAlt": "Prize {{number}}",
+    "tips": {
+      "lighting": {
+        "title": "Good Lighting",
+        "description": "Natural light works best"
+      },
+      "angles": {
+        "title": "Multiple Angles",
+        "description": "Show different perspectives"
+      },
+      "background": {
+        "title": "Clear Background",
+        "description": "Avoid cluttered backdrops"
+      }
+    }
+  },
+  "pricing": {
+    "heading": "$ Ticket Pricing",
+    "subtitle": "Set your ticket price and quantity",
+    "priceLabel": "Price Per Ticket ($)",
+    "pricePlaceholder": "0.0",
+    "ticketsLabel": "Total Tickets Available",
+    "ticketsPlaceholder": "0",
+    "revenueLabel": "Potential Revenue",
+    "increaseTickets": "Increase total tickets",
+    "decreaseTickets": "Decrease total tickets"
+  },
+  "duration": {
+    "heading": "Raffle Duration",
+    "subtitle": "How long will the raffle run?",
+    "daysLabel": "Days",
+    "hoursLabel": "Hours",
+    "endsInLabel": "Raffle will end in",
+    "notSet": "Not set",
+    "increaseDays": "Increase days",
+    "decreaseDays": "Decrease days",
+    "increaseHours": "Increase hours",
+    "decreaseHours": "Decrease hours"
+  },
+  "review": {
+    "heading": "Review & Publish",
+    "subtitle": "Double-check everything before going live",
+    "raffleDetailsSection": "Raffle Details",
+    "pricingSection": "Pricing",
+    "networkFeeSection": "Network Fee",
+    "prizeImageSection": "Prize Image",
+    "prizeImageAlt": "Raffle prize",
+    "titleLabel": "Title:",
+    "descriptionLabel": "Description:",
+    "ticketPriceLabel": "Ticket Price:",
+    "totalTicketsLabel": "Total Tickets:",
+    "durationLabel": "Duration:",
+    "revenueLabel": "Revenue:",
+    "estimatedFeeLabel": "Estimated:",
+    "feeCalculating": "Calculating...",
+    "feeHint": "Fee is estimated by simulating the transaction. You will be asked to sign after confirming.",
+    "notSet": "Not set"
+  },
+  "draft": {
+    "restoreTitle": "Restore saved draft?",
+    "restoreBody": "We found an unsaved raffle draft from {{savedAt}}. Would you like to restore it? Uploaded images are not saved and will need to be added again.",
+    "draftTitle": "Draft title:",
+    "startFresh": "Start fresh",
+    "restore": "Restore draft",
+    "savedRecently": "recently"
+  }
+}

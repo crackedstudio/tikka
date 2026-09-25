@@ -1,0 +1,28 @@
+{
+  "notFound": {
+    "heading": "Creator not found",
+    "unknownAddress": "Unknown address"
+  },
+  "stats": {
+    "rafflesCreated": "Raffles Created",
+    "ticketsSold": "Tickets Sold",
+    "xlmRaised": "XLM Raised",
+    "participantWinRate": "Participant Win Rate"
+  },
+  "follow": "Follow Creator",
+  "following": "Following",
+  "rafflesSection": {
+    "heading": "Raffles by this Creator",
+    "empty": "This creator hasn't published any raffles yet."
+  },
+  "error": {
+    "profileFailed": "Failed to load creator profile",
+    "rafflesFailed": "Failed to load raffles",
+    "retry": "Retry"
+  },
+  "pagination": {
+    "previous": "← Previous",
+    "next": "Next →",
+    "page": "Page {{current}} of {{total}}"
+  }
+}

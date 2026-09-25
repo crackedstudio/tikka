@@ -10,7 +10,7 @@ i18n
   .init({
     fallbackLng: 'en',
     supportedLngs: ['en', 'es', 'ar'],
-    ns: ['common'],
+    ns: ['common', 'create', 'transparency', 'oracle', 'creator', 'settings', 'errors'],
     defaultNS: 'common',
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default

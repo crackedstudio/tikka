@@ -1,0 +1,8 @@
+{
+  "unableToEstimateFee": "No se puede estimar la tarifa de red",
+  "rescueOperationFailed": "La operación de rescate falló",
+  "adminSessionRequired": "Se requiere sesión de administrador para ejecutar acciones privilegiadas",
+  "enterOperatorName": "Por favor, introduce el nombre del operador",
+  "enterReason": "Por favor, introduce un motivo",
+  "operationFailed": "La operación falló"
+}

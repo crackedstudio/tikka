@@ -1,0 +1,8 @@
+{
+  "unableToEstimateFee": "Unable to estimate network fee",
+  "rescueOperationFailed": "Rescue operation failed",
+  "adminSessionRequired": "Admin session required to execute privileged actions",
+  "enterOperatorName": "Please enter operator name",
+  "enterReason": "Please enter a reason",
+  "operationFailed": "Operation failed"
+}

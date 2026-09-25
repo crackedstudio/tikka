@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../services/apiClient";
 import { API_CONFIG } from "../config/api";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
@@ -38,6 +39,11 @@ interface VerifyResult {
     reason?: string;
 }
 
+// ── Types for verify form state ───────────────────────────────────────────────
+interface VerifyForm {
+    oracle_public_key: string;
+}
+
 const PAGE_SIZE = 20;
 const REFRESH_INTERVAL_MS = 30_000;
 
@@ -67,6 +73,8 @@ const Detail = ({ label, value }: { label: string; value: string }) => (
 // ── Main component ────────────────────────────────────────────────────────────
 
 const Transparency = () => {
+    const { t } = useTranslation("transparency");
+
     // Stats
     const [stats, setStats] = useState<TransparencyStats | null>(null);
     const [statsLoading, setStatsLoading] = useState(true);
@@ -85,6 +93,7 @@ const Transparency = () => {
     const [verifyRaffleId, setVerifyRaffleId] = useState("");
     const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
     const [verifying, setVerifying] = useState(false);
+    const [_verifyForm, setVerifyForm] = useState<VerifyForm>({ oracle_public_key: "" });
 
     // ── Fetch stats ───────────────────────────────────────────────────────────
 
@@ -128,11 +137,11 @@ const Transparency = () => {
             setEntries(data.entries ?? []);
             setTotal(data.total ?? 0);
         } catch (e: unknown) {
-            setLogError(e instanceof Error ? e.message : "Failed to load audit log");
+            setLogError(e instanceof Error ? e.message : t("error.loadFailed"));
         } finally {
             setLogLoading(false);
         }
-    }, [page, raffleFilter]);
+    }, [page, raffleFilter, t]);
 
     useEffect(() => {
         fetchEntries();
@@ -143,7 +152,7 @@ const Transparency = () => {
     const handleVerify = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!verifyRaffleId.trim()) return;
-        
+
         setVerifying(true);
         setVerifyResult(null);
         try {
@@ -154,9 +163,9 @@ const Transparency = () => {
             if (!listRes.entries || listRes.entries.length === 0) {
                 throw new Error("No audit log found for this Raffle ID.");
             }
-            
+
             const txHash = listRes.entries[0].tx_hash;
-            
+
             // Verify by tx_hash
             const result = await api.get<VerifyResult>(
                 `${API_CONFIG.endpoints.verify}?txHash=${txHash}`
@@ -166,7 +175,7 @@ const Transparency = () => {
             setVerifyResult({
                 verified: false,
                 proof: "",
-                reason: e instanceof Error ? e.message : "Verification request failed",
+                reason: e instanceof Error ? e.message : t("verify.invalidDefault"),
             });
         } finally {
             setVerifying(false);
@@ -195,11 +204,10 @@ const Transparency = () => {
             {/* Header */}
             <div className="bg-white dark:bg-[#11172E] rounded-3xl p-8">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Transparency
+                    {t("page.title")}
                 </h1>
                 <p className="text-gray-400 text-sm max-w-2xl">
-                    Every oracle reveal is logged on-chain. Stats refresh every 30 seconds.
-                    Use the verify form to independently confirm any draw result.
+                    {t("page.subtitle")}
                 </p>
             </div>
 
@@ -209,21 +217,21 @@ const Transparency = () => {
                     Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
                 ) : (
                     <>
-                        <StatCard label="Total Raffles" value={stats?.total_raffles ?? "—"} />
+                        <StatCard label={t("stats.totalRaffles")} value={stats?.total_raffles ?? "—"} />
                         <StatCard
-                            label="XLM Distributed"
+                            label={t("stats.xlmDistributed")}
                             value={stats ? `${Number(stats.prizes_distributed_xlm).toLocaleString()} XLM` : "—"}
                         />
-                        <StatCard label="Platform Uptime" value="99.99%" />
+                        <StatCard label={t("stats.platformUptime")} value="99.99%" />
                         <div className="bg-white dark:bg-[#161d38] rounded-2xl p-5 flex flex-col gap-1 overflow-hidden">
-                            <span className="text-gray-400 text-xs uppercase tracking-wide">Most Recent Proof</span>
+                            <span className="text-gray-400 text-xs uppercase tracking-wide">{t("stats.mostRecentProof")}</span>
                             {stats?.recent_audit_log?.[0] ? (
-                                <a 
-                                    href={`https://stellar.expert/explorer/public/tx/${stats.recent_audit_log[0].tx_hash}`} 
-                                    target="_blank" 
+                                <a
+                                    href={`https://stellar.expert/explorer/public/tx/${stats.recent_audit_log[0].tx_hash}`}
+                                    target="_blank"
                                     rel="noreferrer"
                                     className="text-pink-600 dark:text-[#FF389C] text-lg font-bold hover:underline truncate"
-                                    title="View on Stellar Expert"
+                                    title={t("stats.viewOnExplorer")}
                                 >
                                     {truncate(stats.recent_audit_log[0].proof, 12)}
                                 </a>
@@ -238,21 +246,21 @@ const Transparency = () => {
             {/* Oracle Public Key */}
             <div className="bg-white dark:bg-[#11172E] rounded-3xl p-6 flex flex-col gap-2">
                 <span className="text-gray-400 text-xs uppercase tracking-wide">
-                    Oracle Public Key
+                    {t("oracleKey.label")}
                 </span>
                 {statsLoading ? (
                     <div className="h-5 w-96 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                 ) : (
                     <div className="flex items-center gap-3">
                         <span className="text-gray-900 dark:text-white font-mono text-sm break-all">
-                            {stats?.oracle_public_key || "Not configured"}
+                            {stats?.oracle_public_key || t("oracleKey.notConfigured")}
                         </span>
                         {stats?.oracle_public_key && (
                             <button
                                 onClick={copyOracleKey}
                                 className="shrink-0 text-xs px-3 py-1 rounded-lg bg-gray-100 dark:bg-[#161d38] text-gray-600 dark:text-gray-300 hover:text-pink-600 dark:hover:text-[#FF389C] transition-colors"
                             >
-                                {copied ? "Copied!" : "Copy"}
+                                {copied ? t("oracleKey.copied") : t("oracleKey.copy")}
                             </button>
                         )}
                     </div>
@@ -263,16 +271,16 @@ const Transparency = () => {
             <div className="bg-white dark:bg-[#11172E] rounded-3xl p-6 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Verify a Draw
+                        {t("verify.heading")}
                     </h2>
                     <a href="#audit-log" className="text-pink-600 dark:text-[#FF389C] text-sm hover:underline">
-                        View Oracle Audit Log →
+                        {t("verify.viewAuditLog")}
                     </a>
                 </div>
                 <form onSubmit={handleVerify} className="flex flex-col md:flex-row items-center gap-4">
                     <input
                         type="text"
-                        placeholder="Paste Raffle ID to verify..."
+                        placeholder={t("verify.placeholder")}
                         value={verifyRaffleId}
                         onChange={(e) => setVerifyRaffleId(e.target.value)}
                         className="w-full md:w-96 bg-gray-50 dark:bg-[#161d38] text-gray-900 dark:text-white placeholder-gray-500 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-pink-500 dark:focus:border-[#FF389C]"
@@ -282,7 +290,7 @@ const Transparency = () => {
                         disabled={verifying || !verifyRaffleId.trim()}
                         className="px-6 py-2 rounded-xl bg-pink-600 dark:bg-[#FF389C] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity w-full md:w-auto shrink-0"
                     >
-                        {verifying ? "Verifying…" : "Verify"}
+                        {verifying ? t("verify.verifying") : t("verify.button")}
                     </button>
                     {verifyResult && (
                         <div
@@ -294,12 +302,12 @@ const Transparency = () => {
                         >
                             <span>
                                 {verifyResult.verified
-                                    ? "✓ Valid — draw result is authentic"
-                                    : `✗ Invalid — ${verifyResult.reason ?? "verification failed"}`}
+                                    ? t("verify.valid")
+                                    : t("verify.invalid", { reason: verifyResult.reason ?? t("verify.invalidDefault") })}
                             </span>
                             {verifyResult.proof && (
                                 <span className="text-gray-500 text-xs font-mono break-all max-w-lg">
-                                    Proof: {verifyResult.proof}
+                                    {t("verify.proofLabel")} {verifyResult.proof}
                                 </span>
                             )}
                         </div>
@@ -311,7 +319,7 @@ const Transparency = () => {
             <div className="flex gap-3 items-center">
                 <input
                     type="number"
-                    placeholder="Filter by Raffle ID"
+                    placeholder={t("filter.placeholder")}
                     value={raffleFilter}
                     onChange={(e) => {
                         setRaffleFilter(e.target.value);
@@ -327,17 +335,17 @@ const Transparency = () => {
                         }}
                         className="text-gray-400 hover:text-gray-900 dark:text-white text-sm"
                     >
-                        Clear
+                        {t("filter.clear")}
                     </button>
                 )}
-                <span className="text-gray-500 text-sm ml-auto">{total} total entries</span>
+                <span className="text-gray-500 text-sm ml-auto">{t("filter.totalEntries", { count: total })}</span>
             </div>
 
             {/* Audit Log Table */}
             <div id="audit-log" className="bg-white dark:bg-[#11172E] rounded-3xl overflow-hidden scroll-mt-24">
                 {logLoading && (
                     <div className="p-8 text-center text-gray-400 text-sm animate-pulse">
-                        Loading…
+                        {t("table.loading")}
                     </div>
                 )}
                 {logError && (
@@ -345,18 +353,18 @@ const Transparency = () => {
                 )}
                 {!logLoading && !logError && entries.length === 0 && (
                     <div className="p-8 text-center text-gray-500 text-sm">
-                        No audit entries found.
+                        {t("table.empty")}
                     </div>
                 )}
                 {!logLoading && !logError && entries.length > 0 && (
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="text-gray-400 border-b border-gray-800 text-left">
-                                <th className="px-6 py-4 font-medium">Timestamp</th>
-                                <th className="px-4 py-4 font-medium">Raffle</th>
-                                <th className="px-4 py-4 font-medium">Method</th>
-                                <th className="px-4 py-4 font-medium">Request ID</th>
-                                <th className="px-4 py-4 font-medium">Tx Hash</th>
+                                <th className="px-6 py-4 font-medium">{t("table.timestamp")}</th>
+                                <th className="px-4 py-4 font-medium">{t("table.raffle")}</th>
+                                <th className="px-4 py-4 font-medium">{t("table.method")}</th>
+                                <th className="px-4 py-4 font-medium">{t("table.requestId")}</th>
+                                <th className="px-4 py-4 font-medium">{t("table.txHash")}</th>
                                 <th className="px-4 py-4 font-medium"></th>
                             </tr>
                         </thead>
@@ -396,7 +404,7 @@ const Transparency = () => {
                                                 }
                                                 className="text-pink-600 dark:text-[#FF389C] hover:underline text-xs"
                                             >
-                                                {expanded === entry.id ? "Hide" : "Details"}
+                                                {expanded === entry.id ? t("table.hide") : t("table.details")}
                                             </button>
                                         </td>
                                     </tr>
@@ -404,11 +412,11 @@ const Transparency = () => {
                                         <tr className="bg-[#0d1225] border-b border-gray-800">
                                             <td colSpan={6} className="px-6 py-4">
                                                 <div className="grid grid-cols-1 gap-2 text-xs font-mono">
-                                                    <Detail label="Oracle ID" value={entry.oracle_id} />
-                                                    <Detail label="Request ID" value={entry.request_id} />
-                                                    <Detail label="Seed (hex)" value={entry.seed} />
-                                                    <Detail label="Proof (hex)" value={entry.proof} />
-                                                    <Detail label="Tx Hash" value={entry.tx_hash} />
+                                                    <Detail label={t("table.oracleId")} value={entry.oracle_id} />
+                                                    <Detail label={t("table.requestIdFull")} value={entry.request_id} />
+                                                    <Detail label={t("table.seedHex")} value={entry.seed} />
+                                                    <Detail label={t("table.proofHex")} value={entry.proof} />
+                                                    <Detail label={t("table.txHashFull")} value={entry.tx_hash} />
                                                 </div>
                                                 <button
                                                     onClick={() => {
@@ -417,7 +425,7 @@ const Transparency = () => {
                                                     }}
                                                     className="mt-3 text-xs text-pink-600 dark:text-[#FF389C] hover:underline"
                                                 >
-                                                    ↑ Verify this draw
+                                                    {t("table.verifyThisDraw")}
                                                 </button>
                                             </td>
                                         </tr>
@@ -437,17 +445,17 @@ const Transparency = () => {
                         onClick={() => setPage((p) => p - 1)}
                         className="px-4 py-2 rounded-xl bg-white dark:bg-[#11172E] text-gray-700 dark:text-gray-300 text-sm disabled:opacity-40 hover:bg-gray-100 dark:bg-[#161d38]"
                     >
-                        Previous
+                        {t("pagination.previous")}
                     </button>
                     <span className="px-4 py-2 text-gray-400 text-sm">
-                        {page + 1} / {totalPages}
+                        {t("pagination.page", { current: page + 1, total: totalPages })}
                     </span>
                     <button
                         disabled={page >= totalPages - 1}
                         onClick={() => setPage((p) => p + 1)}
                         className="px-4 py-2 rounded-xl bg-white dark:bg-[#11172E] text-gray-700 dark:text-gray-300 text-sm disabled:opacity-40 hover:bg-gray-100 dark:bg-[#161d38]"
                     >
-                        Next
+                        {t("pagination.next")}
                     </button>
                 </div>
             )}

@@ -1,0 +1,15 @@
+{
+  "page": {
+    "title": "Ajustes",
+    "subtitle": "Gestiona tu cuenta y preferencias"
+  },
+  "unauthenticated": {
+    "heading": "Ajustes",
+    "message": "Por favor, inicia sesión para acceder a tus ajustes y preferencias."
+  },
+  "tabs": {
+    "notifications": "Notificaciones",
+    "profile": "Perfil",
+    "language": "Idioma"
+  }
+}

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import AdminLogin from '../components/AdminLogin';
 import ErrorMessage from '../components/ui/ErrorMessage';
@@ -15,6 +16,8 @@ function Dashboard({
 }: {
   onSignOut: () => void;
 }) {
+  const { t } = useTranslation('oracle');
+  const { t: tErrors } = useTranslation('errors');
   const {
     jobs,
     oracleStatus,
@@ -56,17 +59,17 @@ function Dashboard({
 
   const handleRescueSubmit = useCallback(async () => {
     if (!isAdmin) {
-      toast.error('Admin session required to execute privileged actions');
+      toast.error(tErrors('adminSessionRequired'));
       return;
     }
 
     if (!operatorName.trim()) {
-      toast.error('Please enter operator name');
+      toast.error(tErrors('enterOperatorName'));
       return;
     }
 
     if (!rescueModal.reason?.trim()) {
-      toast.error('Please enter a reason');
+      toast.error(tErrors('enterReason'));
       return;
     }
 
@@ -110,15 +113,15 @@ function Dashboard({
         setRescueModal({ isOpen: false });
         setOperatorName('');
       } else {
-        toast.error(result?.message || 'Operation failed');
+        toast.error(result?.message || tErrors('operationFailed'));
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Rescue operation failed';
+      const message = err instanceof Error ? err.message : tErrors('rescueOperationFailed');
       toast.error(message);
     } finally {
       setRescueModal((prev) => ({ ...prev, isSubmitting: false }));
     }
-  }, [isAdmin, operatorName, rescueModal, reEnqueue, forceSubmit, forceFail]);
+  }, [isAdmin, operatorName, rescueModal, reEnqueue, forceSubmit, forceFail, tErrors]);
 
   const allJobs = jobs
     ? [
@@ -141,14 +144,14 @@ function Dashboard({
 
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Oracle Admin Dashboard
+            {t('dashboard.title')}
           </h1>
           <button
             onClick={onSignOut}
             data-testid="sign-out-btn"
             className="rounded-lg border border-gray-300 dark:border-[#2A264A] bg-white dark:bg-[#15102A] px-4 py-2 text-sm text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-100 dark:hover:bg-[#1E1840]"
           >
-            Sign Out
+            {t('dashboard.signOut')}
           </button>
         </div>
 
@@ -176,7 +179,7 @@ function Dashboard({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            <span className="text-sm">Loading...</span>
+            <span className="text-sm">{t('dashboard.loading')}</span>
           </div>
         )}
 
