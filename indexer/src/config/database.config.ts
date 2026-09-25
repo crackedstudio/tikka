@@ -86,6 +86,17 @@ if (env.DATABASE_REPLICA_URL) {
   });
 }
 
+if (env.DATABASE_STATEMENT_TIMEOUT_MS !== undefined) {
+  assert(
+    !isNaN(parseInt(env.DATABASE_STATEMENT_TIMEOUT_MS, 10)),
+    'DATABASE_STATEMENT_TIMEOUT_MS must be a number (milliseconds).',
+  );
+  assert(
+    parseInt(env.DATABASE_STATEMENT_TIMEOUT_MS, 10) > 0,
+    'DATABASE_STATEMENT_TIMEOUT_MS must be greater than 0.',
+  );
+}
+
 // Redis (optional but if set, validate)
 if (env.REDIS_URL) {
   try {
@@ -112,9 +123,12 @@ if (env.REDIS_HOST) {
  *   DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE
  *
  * Optional:
- *   DB_SSL             - set to "true" to enable SSL (required on Supabase / Railway)
- *   DATABASE_REPLICA_URL - one or more comma-separated read-replica URLs.
- *                          When set, TypeORM uses master/slave replication.
+ *   DB_SSL                       - set to "true" to enable SSL (required on Supabase / Railway)
+ *   DATABASE_REPLICA_URL         - one or more comma-separated read-replica URLs.
+ *                                  When set, TypeORM uses master/slave replication.
+ *   SLOW_QUERY_THRESHOLD_MS      - milliseconds; queries slower than this are logged (default: 200)
+ *   DATABASE_STATEMENT_TIMEOUT_MS - PostgreSQL-level query timeout in milliseconds;
+ *                                   prevents runaway queries from consuming resources (default: 30000)
  */
 export default registerAs('database', (): DataSourceOptions => {
   const ssl = process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
@@ -130,13 +144,24 @@ export default registerAs('database', (): DataSourceOptions => {
     Number.parseInt(process.env.SLOW_QUERY_THRESHOLD_MS ?? '200', 10),
   );
 
-  const base = {
+  // PostgreSQL statement timeout in milliseconds (default: 30 seconds)
+  // This is enforced at the database level and prevents runaway queries
+  const statementTimeoutMs = Number.parseInt(
+    process.env.DATABASE_STATEMENT_TIMEOUT_MS ?? '30000',
+    10,
+  );
+
+  const base: any = {
     entities: [__dirname + '/../database/entities/*.entity.{.ts,.js}'],
     migrations: [__dirname + '/../database/migrations/*.t{.ts.js}'],
     migrationsRun: true,
     synchronize: false,
     logging: ['warn', 'error'] as any,
     maxQueryExecutionTime: slowQueryThresholdMs,
+    // Pass statement_timeout to PostgreSQL driver
+    extra: {
+      statement_timeout: statementTimeoutMs,
+    },
   };
 
   if (replicaUrls.length > 0) {
