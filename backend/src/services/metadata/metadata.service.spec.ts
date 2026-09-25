@@ -177,6 +177,22 @@ describe('MetadataService', () => {
     expect(metrics.getMetadataCacheHits()).toBe(0);
   });
 
+  it('reads from Supabase when the Redis connection fails', async () => {
+    const unavailableCache = new MetadataRedisService(config as any);
+    (unavailableCache as any).client = {
+      status: 'ready',
+      get: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
+      setex: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
+    };
+    service = new MetadataService(client as any, config as any, unavailableCache, metrics);
+    const row = { raffle_id: 8, title: 'Source of truth' } as RaffleMetadata;
+    queryBuilder.maybeSingle.mockResolvedValue({ data: row, error: null });
+
+    await expect(service.getMetadata(8)).resolves.toEqual(row);
+    expect(queryBuilder.eq).toHaveBeenCalledWith('raffle_id', 8);
+    expect(metrics.getMetadataCacheHits()).toBe(0);
+  });
+
   it('invalidates cache key after upsertMetadata', async () => {
     redis.isEnabled.mockReturnValue(true);
     const selectBuilder = {
@@ -215,5 +231,24 @@ describe('MetadataService', () => {
 
     expect(result.metadata_cid).toBe('QmNewCid');
     expect(redis.del).toHaveBeenCalledWith('tikka:raffle_metadata:9');
+  });
+
+  it('invalidates a soft-deleted entry and does not return it on the next read', async () => {
+    redis.isEnabled.mockReturnValue(true);
+    const deleted = { raffle_id: 9, deleted_at: new Date().toISOString() };
+    const updateBuilder = {
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: deleted, error: null }),
+    };
+    jest.spyOn(client, 'from').mockReturnValueOnce({ update: jest.fn().mockReturnValue(updateBuilder) } as any);
+
+    await expect(service.softDeleteMetadata(9)).resolves.toEqual(deleted);
+    expect(redis.del).toHaveBeenCalledWith('tikka:raffle_metadata:9');
+
+    queryBuilder.maybeSingle.mockResolvedValue({ data: null, error: null });
+    await expect(service.getMetadata(9)).resolves.toBeNull();
+    expect(metrics.getMetadataCacheHits()).toBe(0);
   });
 });

@@ -1,6 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
-import { AllowedUploadMimeType } from '../../config/upload.config';
+import {
+  ALLOWED_UPLOAD_MIME_TYPES,
+  AllowedUploadMimeType,
+  MAX_UPLOAD_BYTES,
+} from '../../config/upload.config';
 import * as crypto from 'crypto';
 import { MetricsService } from '../metrics/metrics.service';
 
@@ -40,6 +44,14 @@ export class ImageOptimizerService {
 
   public async processImage(input: ProcessImageInput): Promise<ProcessImageResult> {
     const { fileBuffer, mimeType } = input;
+
+    // Keep the optimizer's direct callers within the same limits as the upload API.
+    if (fileBuffer.length > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException('Image exceeds the 5 MB upload limit');
+    }
+    if (!ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType as AllowedUploadMimeType)) {
+      throw new BadRequestException('Unsupported image format');
+    }
 
     // Check cache first
     const cacheKey = this.generateCacheKey(fileBuffer, mimeType);
