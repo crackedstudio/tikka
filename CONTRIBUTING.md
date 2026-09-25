@@ -54,6 +54,14 @@ pnpm install
 
 No package-level dev server exists at the root; use the package-specific commands below.
 
+## Turbo cache inputs
+
+If a Turbo task reads a file outside its package directory, add that file to
+`globalDependencies` in the root `turbo.json` so changes invalidate cached
+results. Add output-affecting environment variables to the task's `env` list,
+or to `globalEnv` when they affect tasks repo-wide. Client build settings
+prefixed with `VITE_` and `ANALYZE` are hashed for the build task.
+
 ### Backend
 
 ```bash
