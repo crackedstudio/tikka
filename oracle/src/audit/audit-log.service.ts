@@ -2,8 +2,23 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { VrfAuditRecord, CreateCommitParams, UpdateRevealParams, RecordSubmissionParams, OracleDivergenceRecord, AuditStatus, AuditChainAnchor, ChainVerificationResult } from './audit.types';
+import {
+  VrfAuditRecord,
+  CreateCommitParams,
+  UpdateRevealParams,
+  RecordSubmissionParams,
+  OracleDivergenceRecord,
+  AuditStatus,
+  AuditChainAnchor,
+  ChainVerificationResult,
+} from './audit.types';
 import { SUPABASE_CLIENT } from './supabase.provider';
+
+/** Persist only a positive observed fee. Zero was the old hardcoded placeholder. */
+export function recordedFeeStroops(feeStroops: number | null | undefined): number | null {
+  if (feeStroops == null || !Number.isFinite(feeStroops) || feeStroops <= 0) return null;
+  return feeStroops;
+}
 
 @Injectable()
 export class AuditLogService {
@@ -25,12 +40,7 @@ export class AuditLogService {
   /**
    * Computes SHA-256 hex digest of secret || nonce || seed || proof.
    */
-  public computeRevealHash(
-    secret: string,
-    nonce: string,
-    seed: string,
-    proof: string,
-  ): string {
+  public computeRevealHash(secret: string, nonce: string, seed: string, proof: string): string {
     return crypto
       .createHash('sha256')
       .update(secret + nonce + seed + proof)
@@ -42,10 +52,7 @@ export class AuditLogService {
    * raffle_id, commitment_hash, reveal_hash, proof, seed,
    * oracle_public_key, status, committed_at, previousChainHash
    */
-  public computeChainHash(
-    record: Partial<VrfAuditRecord>,
-    previousChainHash: string,
-  ): string {
+  public computeChainHash(record: Partial<VrfAuditRecord>, previousChainHash: string): string {
     const parts = [
       String(record.raffle_id ?? ''),
       record.commitment_hash ?? '',
@@ -58,10 +65,7 @@ export class AuditLogService {
       previousChainHash,
     ];
 
-    return crypto
-      .createHash('sha256')
-      .update(parts.join(''))
-      .digest('hex');
+    return crypto.createHash('sha256').update(parts.join('')).digest('hex');
   }
 
   /**
@@ -97,7 +101,7 @@ export class AuditLogService {
    * Records a successful randomness submission to the contract.
    * This creates or updates an audit log entry with the full VRF proof, raffle ID,
    * transaction hash, ledger, oracle address, and timestamp.
-   * 
+   *
    * This method ensures audit records are written even if subsequent steps fail.
    */
   public async record(params: RecordSubmissionParams): Promise<void> {
@@ -112,7 +116,7 @@ export class AuditLogService {
       if (existing) {
         // Update existing record with submission details
         const previousChainHash = await this.getPreviousChainHash(existing.id);
-        
+
         const record: Partial<VrfAuditRecord> = {
           raffle_id: params.raffleId,
           commitment_hash: existing.commitment_hash,
@@ -123,7 +127,7 @@ export class AuditLogService {
           proof: params.vrfProof,
           seed: '',
         };
-        
+
         const chainHash = this.computeChainHash(record, previousChainHash);
 
         const { error } = await this.supabase
@@ -137,6 +141,7 @@ export class AuditLogService {
             revealed_at: params.timestamp.toISOString(),
             status: 'revealed',
             chain_hash: chainHash,
+            fee_stroops: recordedFeeStroops(params.feeStroops),
           })
           .eq('raffle_id', params.raffleId);
 
@@ -146,7 +151,7 @@ export class AuditLogService {
       } else {
         // Create new record if none exists
         const previousChainHash = await this.getPreviousChainHash();
-        
+
         const record: Partial<VrfAuditRecord> = {
           raffle_id: params.raffleId,
           commitment_hash: '',
@@ -157,26 +162,25 @@ export class AuditLogService {
           proof: params.vrfProof,
           seed: '',
         };
-        
+
         const chainHash = this.computeChainHash(record, previousChainHash);
 
-        const { error } = await this.supabase
-          .from('vrf_audit_log')
-          .insert({
-            raffle_id: params.raffleId,
-            request_id: params.requestId || null,
-            commitment_hash: '',
-            proof: params.vrfProof,
-            tx_hash: params.txHash,
-            ledger_sequence: params.ledger,
-            oracle_public_key: params.oracleAddress,
-            status: 'revealed',
-            committed_at: params.timestamp.toISOString(),
-            revealed_at: params.timestamp.toISOString(),
-            reveal_hash: '',
-            seed: '',
-            chain_hash: chainHash,
-          });
+        const { error } = await this.supabase.from('vrf_audit_log').insert({
+          raffle_id: params.raffleId,
+          request_id: params.requestId || null,
+          commitment_hash: '',
+          proof: params.vrfProof,
+          tx_hash: params.txHash,
+          ledger_sequence: params.ledger,
+          oracle_public_key: params.oracleAddress,
+          status: 'revealed',
+          committed_at: params.timestamp.toISOString(),
+          revealed_at: params.timestamp.toISOString(),
+          reveal_hash: '',
+          seed: '',
+          chain_hash: chainHash,
+          fee_stroops: recordedFeeStroops(params.feeStroops),
+        });
 
         if (error) {
           throw new Error(`Failed to insert audit record: ${error.message}`);
@@ -189,7 +193,7 @@ export class AuditLogService {
     } catch (error) {
       // Log error but don't throw - audit logging should not break the main flow
       this.logger.error(
-        `Failed to record audit log for raffle ${params.raffleId}: ${error.message}`,
+        `Failed to record audit log for raffle ${params.raffleId}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -266,22 +270,20 @@ export class AuditLogService {
       };
       const chainHash = this.computeChainHash(record, previousChainHash);
 
-      const { error: insertError } = await this.supabase
-        .from('vrf_audit_log')
-        .insert({
-          raffle_id: params.raffleId,
-          request_id: params.requestId,
-          commitment_hash: '',
-          oracle_public_key: '',
-          status: 'revealed',
-          committed_at: params.revealedAt.toISOString(),
-          reveal_hash: revealHash,
-          proof: params.proof,
-          seed: params.seed,
-          revealed_at: params.revealedAt.toISOString(),
-          ledger_sequence: params.ledgerSequence,
-          chain_hash: chainHash,
-        });
+      const { error: insertError } = await this.supabase.from('vrf_audit_log').insert({
+        raffle_id: params.raffleId,
+        request_id: params.requestId,
+        commitment_hash: '',
+        oracle_public_key: '',
+        status: 'revealed',
+        committed_at: params.revealedAt.toISOString(),
+        reveal_hash: revealHash,
+        proof: params.proof,
+        seed: params.seed,
+        revealed_at: params.revealedAt.toISOString(),
+        ledger_sequence: params.ledgerSequence,
+        chain_hash: chainHash,
+      });
 
       if (insertError) {
         throw new Error(`Failed to insert reveal record: ${insertError.message}`);
@@ -289,7 +291,10 @@ export class AuditLogService {
       return;
     }
 
-    const existingRecord = data as Pick<VrfAuditRecord, 'id' | 'committed_at' | 'commitment_hash' | 'oracle_public_key'>;
+    const existingRecord = data as Pick<
+      VrfAuditRecord,
+      'id' | 'committed_at' | 'commitment_hash' | 'oracle_public_key'
+    >;
     const previousChainHash = await this.getPreviousChainHash(existingRecord.id);
 
     const record: Partial<VrfAuditRecord> = {
@@ -350,10 +355,7 @@ export class AuditLogService {
    * Returns detailed results including the location of the first broken link.
    */
   public async verifyChain(fromId?: number): Promise<ChainVerificationResult> {
-    let query = this.supabase
-      .from('vrf_audit_log')
-      .select('*')
-      .order('id', { ascending: true });
+    let query = this.supabase.from('vrf_audit_log').select('*').order('id', { ascending: true });
 
     if (fromId !== undefined) {
       query = query.gte('id', fromId);
@@ -645,15 +647,26 @@ export class AuditLogService {
   }> {
     const [total, committed, revealed, abandoned] = await Promise.all([
       this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }),
-      this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }).eq('status', 'committed'),
-      this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }).eq('status', 'revealed'),
-      this.supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }).eq('status', 'abandoned'),
+      this.supabase
+        .from('vrf_audit_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'committed'),
+      this.supabase
+        .from('vrf_audit_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'revealed'),
+      this.supabase
+        .from('vrf_audit_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'abandoned'),
     ]);
 
     if (total.error) throw new Error(`Failed to get total count: ${total.error.message}`);
-    if (committed.error) throw new Error(`Failed to get committed count: ${committed.error.message}`);
+    if (committed.error)
+      throw new Error(`Failed to get committed count: ${committed.error.message}`);
     if (revealed.error) throw new Error(`Failed to get revealed count: ${revealed.error.message}`);
-    if (abandoned.error) throw new Error(`Failed to get abandoned count: ${abandoned.error.message}`);
+    if (abandoned.error)
+      throw new Error(`Failed to get abandoned count: ${abandoned.error.message}`);
 
     return {
       total: total.count || 0,
