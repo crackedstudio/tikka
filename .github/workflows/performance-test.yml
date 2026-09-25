@@ -1,0 +1,52 @@
+name: Performance & Load Testing
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  performance-benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start Docker Compose Services
+        run: docker-compose up -d --build
+
+      - name: Wait for Services Health
+        run: |
+          echo "Waiting for API to become ready..."
+          sleep 15
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:3001/health
+
+      - name: Run SSE Connection Soak Test
+        run: |
+          node docs/performance/scripts/sse-soak-test.js 300 30 http://localhost:3001 > docs/performance/results/sse-soak-latest.txt
+
+      - name: Publish Performance Benchmarks
+        run: |
+          mkdir -p docs/performance/results
+          echo "Benchmark Run at $(date -u)" > docs/performance/results/latest-summary.md
+          cat docs/performance/results/sse-soak-latest.txt >> docs/performance/results/latest-summary.md
+
+      - name: Commit & Push Benchmark Results
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs(performance): publish automated benchmark results [skip ci]"
+          file_pattern: "docs/performance/results/*"

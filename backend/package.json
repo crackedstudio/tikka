@@ -71,9 +71,9 @@
       "tsx"
     ],
     "rootDir": "src",
-    "testRegex": ".*\\.Spec\\.ts$",
+    "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^\\.+\\.(t|j)sx?$": "ts-jest"
+      "^.+\\.(t|j)sx?$": "ts-jest"
     },
     "testEnvironment": "node",
     "collectCoverageFrom": [
