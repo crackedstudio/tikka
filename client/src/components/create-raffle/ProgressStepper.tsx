@@ -1,13 +1,16 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { ProgressStepperProps } from "../../types/forms";
 
 const ProgressStepper: React.FC<ProgressStepperProps> = ({
     steps,
     currentStep,
 }) => {
+    const { t } = useTranslation("create");
+
     return (
         <div className="w-full max-w-4xl mx-auto px-6">
-            <nav aria-label="Raffle creation steps">
+            <nav aria-label={t("aria.creationSteps")}>
                 <div className="flex items-center justify-between relative">
                 {/* Progress line */}
                 <div className="absolute top-6 left-12 right-12 h-0.5 bg-gray-300 dark:bg-gray-600 z-0">
@@ -41,7 +44,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                             role="button"
                             tabIndex={0}
                             aria-current={step.active ? "step" : undefined}
-                            aria-label={`Step ${index + 1}: ${step.title}${step.completed ? " (completed)" : step.active ? " (current)" : ""}`}
+                            aria-label={`${t("aria.stepLabel", { number: index + 1, title: step.title })}${step.completed ? ` ${t("aria.stepCompleted")}` : step.active ? ` ${t("aria.stepCurrent")}` : ""}`}
                         >
                             {step.completed || step.active ? (
                                 <svg
@@ -132,7 +135,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
                             )}
                         </div>
 
-                        {/* Step label */}
+                        {/* Step label — comes from the steps prop which is already translated in CreateRaffle */}
                         <span
                             className={`
                             mt-2 text-sm font-medium transition-colors duration-300

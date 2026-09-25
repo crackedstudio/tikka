@@ -1,5 +1,6 @@
 import { logger } from '../../utils/logger';
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { StepComponentProps } from "../../types/forms";
 import CreateRaffleButton from "../CreateRaffleButton";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,8 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
   onBack,
   onSubmitSuccess,
 }: ReviewStepProps) => {
+  const { t } = useTranslation("create");
+  const { t: tErrors } = useTranslation("errors");
   const navigate = useNavigate();
   const [feeXlm, setFeeXlm] = useState<string | null>(null);
   const [feeLoading, setFeeLoading] = useState(true);
@@ -50,13 +53,13 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
         if (result.success && result.data) {
           setFeeXlm(result.data.xlm);
         } else {
-          setFeeError(result.error ?? "Unable to estimate network fee");
+          setFeeError(result.error ?? tErrors("unableToEstimateFee"));
           setFeeXlm(null);
         }
       } catch (err) {
         if (cancelled) return;
         setFeeError(
-          err instanceof Error ? err.message : "Unable to estimate network fee",
+          err instanceof Error ? err.message : tErrors("unableToEstimateFee"),
         );
         setFeeXlm(null);
       } finally {
@@ -75,6 +78,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
     ticketPriceStroops,
     formData.totalTickets,
     durationInSeconds,
+    tErrors,
   ]);
 
   const formatDuration = (days: number, hours: number) => {
@@ -97,25 +101,25 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             clipRule="evenodd"
           />
         </svg>
-        <h3 className="text-gray-900 dark:text-white text-xl font-bold">Review & Publish</h3>
+        <h3 className="text-gray-900 dark:text-white text-xl font-bold">{t("review.heading")}</h3>
       </div>
       <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
-        Double-check everything before going live
+        {t("review.subtitle")}
       </p>
 
       <div className="space-y-6">
         {/* Raffle Details */}
         <div>
-          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">Raffle Details</h4>
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">{t("review.raffleDetailsSection")}</h4>
           <div className="space-y-2">
             <div className="flex">
-              <span className="text-gray-400 w-24">Title:</span>
-              <span className="text-gray-900 dark:text-white">{formData.title || "Not set"}</span>
+              <span className="text-gray-400 w-24">{t("review.titleLabel")}</span>
+              <span className="text-gray-900 dark:text-white">{formData.title || t("review.notSet")}</span>
             </div>
             <div className="flex">
-              <span className="text-gray-400 w-24">Description:</span>
+              <span className="text-gray-400 w-24">{t("review.descriptionLabel")}</span>
               <span className="text-gray-900 dark:text-white">
-                {formData.description || "Not set"}
+                {formData.description || t("review.notSet")}
               </span>
             </div>
           </div>
@@ -123,20 +127,20 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
 
         {/* Pricing */}
         <div>
-          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">Pricing</h4>
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">{t("review.pricingSection")}</h4>
           <div className="space-y-2">
             <div className="flex">
-              <span className="text-gray-400 w-24">Ticket Price:</span>
+              <span className="text-gray-400 w-24">{t("review.ticketPriceLabel")}</span>
               <span className="text-gray-900 dark:text-white">
                 ${formData.pricePerTicket.toFixed(2)}
               </span>
             </div>
             <div className="flex">
-              <span className="text-gray-400 w-24">Total Tickets:</span>
+              <span className="text-gray-400 w-24">{t("review.totalTicketsLabel")}</span>
               <span className="text-gray-900 dark:text-white">{formData.totalTickets}</span>
             </div>
             <div className="flex">
-              <span className="text-gray-400 w-24">Duration:</span>
+              <span className="text-gray-400 w-24">{t("review.durationLabel")}</span>
               <span className="text-gray-900 dark:text-white">
                 {formatDuration(
                   formData.duration.days,
@@ -145,7 +149,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               </span>
             </div>
             <div className="flex">
-              <span className="text-gray-400 w-24">Revenue:</span>
+              <span className="text-gray-400 w-24">{t("review.revenueLabel")}</span>
               <span className="text-gray-900 dark:text-white font-semibold">
                 ${potentialRevenue.toFixed(2)}
               </span>
@@ -155,11 +159,11 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
 
         {/* Network Fee */}
         <div>
-          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">Network Fee</h4>
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-3">{t("review.networkFeeSection")}</h4>
           <div className="flex">
-            <span className="text-gray-400 w-24">Estimated:</span>
+            <span className="text-gray-400 w-24">{t("review.estimatedFeeLabel")}</span>
             <span className="text-gray-900 dark:text-white">
-              {feeLoading && "Calculating..."}
+              {feeLoading && t("review.feeCalculating")}
               {!feeLoading && feeError && (
                 <span className="text-red-400">{feeError}</span>
               )}
@@ -167,17 +171,17 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             </span>
           </div>
           <p className="text-gray-500 text-xs mt-2">
-            Fee is estimated by simulating the transaction. You will be asked to sign after confirming.
+            {t("review.feeHint")}
           </p>
         </div>
 
         {/* Image Preview */}
         {formData.image && (
           <div>
-            <h4 className="text-gray-900 dark:text-white font-semibold mb-3">Prize Image</h4>
+            <h4 className="text-gray-900 dark:text-white font-semibold mb-3">{t("review.prizeImageSection")}</h4>
             <img
               src={URL.createObjectURL(formData.image)}
-              alt="Raffle prize"
+              alt={t("review.prizeImageAlt")}
               className="w-full h-48 object-cover rounded-lg border-2 border-yellow-400"
             />
           </div>
@@ -190,7 +194,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
           onClick={onBack}
           className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-[#3A365A] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
         >
-          Back
+          {t("nav.back")}
         </button>
         <CreateRaffleButton
           title={formData.title}
@@ -221,7 +225,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             alert(error);
           }}
         >
-          Confirm & Submit
+          {t("nav.confirmSubmit")}
         </CreateRaffleButton>
       </div>
     </div>

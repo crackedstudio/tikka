@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { useUserProfile, useRaffles } from "../hooks/useRaffles";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
@@ -49,21 +50,25 @@ const CreatorProfileSkeleton: React.FC = () => (
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 
-const CreatorNotFound: React.FC<{ address?: string }> = ({ address }) => (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0B0F1A] flex items-center justify-center">
-        <div className="text-center px-6">
-            <p className="text-6xl mb-4" aria-hidden="true">🔍</p>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Creator not found</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm font-mono break-all max-w-sm mx-auto">
-                {address ?? "Unknown address"}
-            </p>
+const CreatorNotFound: React.FC<{ address?: string }> = ({ address }) => {
+    const { t } = useTranslation("creator");
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0B0F1A] flex items-center justify-center">
+            <div className="text-center px-6">
+                <p className="text-6xl mb-4" aria-hidden="true">🔍</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t("notFound.heading")}</h1>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-mono break-all max-w-sm mx-auto">
+                    {address ?? t("notFound.unknownAddress")}
+                </p>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const CreatorProfile: React.FC = () => {
+    const { t } = useTranslation("creator");
     const { address } = useParams<{ address: string }>();
     const [isFollowed, setIsFollowed] = useState(false);
 
@@ -107,12 +112,12 @@ const CreatorProfile: React.FC = () => {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-[#0B0F1A] flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <ErrorMessage message="Failed to load creator profile" />
+                    <ErrorMessage message={t("error.profileFailed")} />
                     <button
                         onClick={() => refetchProfile()}
                         className="px-6 py-2 rounded-xl bg-[#FF389C] text-white text-sm font-medium hover:bg-[#FF389C]/90 transition"
                     >
-                        Retry
+                        {t("error.retry")}
                     </button>
                 </div>
             </div>
@@ -161,7 +166,7 @@ const CreatorProfile: React.FC = () => {
                                     : "bg-[#FF389C] hover:bg-[#FF389C]/90 text-white shadow-lg shadow-[#FF389C]/20"
                             }`}
                         >
-                            {isFollowed ? "Following" : "Follow Creator"}
+                            {isFollowed ? t("following") : t("follow")}
                         </button>
                     </div>
 
@@ -169,19 +174,19 @@ const CreatorProfile: React.FC = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10 pt-10 border-t border-gray-100 dark:border-[#1E2540]">
                         <div className="text-center">
                             <p className="text-3xl font-bold text-[#FF389C]">{stats.raffles_created}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Raffles Created</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("stats.rafflesCreated")}</p>
                         </div>
                         <div className="text-center">
                             <p className="text-3xl font-bold text-blue-500">{stats.total_tickets_sold}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Tickets Sold</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("stats.ticketsSold")}</p>
                         </div>
                         <div className="text-center">
                             <p className="text-3xl font-bold text-green-500">{parseFloat(stats.total_xlm_raised).toFixed(2)}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">XLM Raised</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("stats.xlmRaised")}</p>
                         </div>
                         <div className="text-center">
                             <p className="text-3xl font-bold text-yellow-500">{stats.participant_win_rate}%</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Participant Win Rate</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("stats.participantWinRate")}</p>
                         </div>
                     </div>
                 </div>
@@ -189,7 +194,7 @@ const CreatorProfile: React.FC = () => {
                 {/* Raffles Grid */}
                 <div className="mb-12">
                     <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                        Raffles by this Creator
+                        {t("rafflesSection.heading")}
                         <span className="text-sm font-normal text-gray-500 bg-gray-100 dark:bg-[#1E2540] px-3 py-1 rounded-full">
                             {total}
                         </span>
@@ -203,17 +208,17 @@ const CreatorProfile: React.FC = () => {
                         </div>
                     ) : rafflesError ? (
                         <div className="text-center space-y-4 py-12">
-                            <ErrorMessage message="Failed to load raffles" />
+                            <ErrorMessage message={t("error.rafflesFailed")} />
                             <button
                                 onClick={() => retryRaffles()}
                                 className="px-6 py-2 rounded-xl bg-[#FF389C] text-white text-sm font-medium hover:bg-[#FF389C]/90 transition"
                             >
-                                Retry
+                                {t("error.retry")}
                             </button>
                         </div>
                     ) : raffles.length === 0 ? (
                         <div className="text-center py-20 bg-white dark:bg-[#11172E] rounded-3xl">
-                            <p className="text-gray-500 dark:text-gray-400">This creator hasn't published any raffles yet.</p>
+                            <p className="text-gray-500 dark:text-gray-400">{t("rafflesSection.empty")}</p>
                         </div>
                     ) : (
                         <>
@@ -234,17 +239,17 @@ const CreatorProfile: React.FC = () => {
                                         disabled={page === 0}
                                         className="px-6 py-3 rounded-xl font-medium bg-white dark:bg-[#11172E] text-gray-700 dark:text-white disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-[#1E2540] transition-colors shadow-sm"
                                     >
-                                        ← Previous
+                                        {t("pagination.previous")}
                                     </button>
                                     <span className="text-sm font-medium">
-                                        Page {page + 1} of {totalPages}
+                                        {t("pagination.page", { current: page + 1, total: totalPages })}
                                     </span>
                                     <button
                                         onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                                         disabled={page >= totalPages - 1}
                                         className="px-6 py-3 rounded-xl font-medium bg-white dark:bg-[#11172E] text-gray-700 dark:text-white disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-[#1E2540] transition-colors shadow-sm"
                                     >
-                                        Next →
+                                        {t("pagination.next")}
                                     </button>
                                 </div>
                             )}

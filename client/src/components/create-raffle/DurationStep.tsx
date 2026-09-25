@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { StepComponentProps } from "../../types/forms";
 import { CreateRaffleFormSchema } from "../../utils/raffleValidation";
 
@@ -8,6 +9,8 @@ const DurationStep: React.FC<StepComponentProps> = ({
     onNext,
     onBack,
 }) => {
+    const { t } = useTranslation("create");
+
     const handleDaysChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseInt(e.target.value) || 0;
         updateFormData({
@@ -70,7 +73,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
 
     const formatEndTime = () => {
         if (formData.duration.days === 0 && formData.duration.hours === 0) {
-            return "Not set";
+            return t("duration.notSet");
         }
         return `${formData.duration.days}d ${formData.duration.hours}h`;
     };
@@ -95,11 +98,11 @@ const DurationStep: React.FC<StepComponentProps> = ({
                     />
                 </svg>
                 <h3 className="text-gray-900 dark:text-white text-xl font-bold">
-                    Raffle Duration
+                    {t("duration.heading")}
                 </h3>
             </div>
             <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
-                How long will the raffle run?
+                {t("duration.subtitle")}
             </p>
 
             <div className="space-y-6">
@@ -108,7 +111,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                     {/* Days */}
                     <div>
                         <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                            Days
+                            {t("duration.daysLabel")}
                         </label>
                         <div className="relative">
                             <input
@@ -121,7 +124,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col">
                                 <button
                                     onClick={incrementDays}
-                                    aria-label="Increase days"
+                                    aria-label={t("duration.increaseDays")}
                                     className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] rounded p-1"
                                 >
                                     <svg
@@ -139,7 +142,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                                 </button>
                                 <button
                                     onClick={decrementDays}
-                                    aria-label="Decrease days"
+                                    aria-label={t("duration.decreaseDays")}
                                     className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] rounded p-1"
                                 >
                                     <svg
@@ -162,7 +165,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                     {/* Hours */}
                     <div>
                         <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                            Hours
+                            {t("duration.hoursLabel")}
                         </label>
                         <div className="relative">
                             <input
@@ -176,7 +179,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col">
                                 <button
                                     onClick={incrementHours}
-                                    aria-label="Increase hours"
+                                    aria-label={t("duration.increaseHours")}
                                     className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] rounded p-1"
                                 >
                                     <svg
@@ -194,7 +197,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                                 </button>
                                 <button
                                     onClick={decrementHours}
-                                    aria-label="Decrease hours"
+                                    aria-label={t("duration.decreaseHours")}
                                     className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] rounded p-1"
                                 >
                                     <svg
@@ -218,7 +221,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                 {/* End Time Display */}
                 <div>
                     <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                        Raffle will end in
+                        {t("duration.endsInLabel")}
                     </label>
                     <div className="px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-center">
                         <span className="text-gray-900 dark:text-white text-lg font-semibold">
@@ -234,7 +237,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                     onClick={onBack}
                     className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-[#3A365A] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
                 >
-                    Back
+                    {t("nav.back")}
                 </button>
                 <button
                     onClick={onNext}
@@ -245,7 +248,7 @@ const DurationStep: React.FC<StepComponentProps> = ({
                             : "bg-gray-300 dark:bg-gray-600 text-gray-400 cursor-not-allowed"
                     }`}
                 >
-                    Continue
+                    {t("nav.continue")}
                 </button>
             </div>
         </div>

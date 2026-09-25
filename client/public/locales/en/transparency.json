@@ -1,0 +1,60 @@
+{
+  "page": {
+    "title": "Transparency",
+    "subtitle": "Every oracle reveal is logged on-chain. Stats refresh every 30 seconds. Use the verify form to independently confirm any draw result."
+  },
+  "stats": {
+    "totalRaffles": "Total Raffles",
+    "xlmDistributed": "XLM Distributed",
+    "platformUptime": "Platform Uptime",
+    "mostRecentProof": "Most Recent Proof",
+    "viewOnExplorer": "View on Stellar Expert"
+  },
+  "oracleKey": {
+    "label": "Oracle Public Key",
+    "notConfigured": "Not configured",
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
+  "verify": {
+    "heading": "Verify a Draw",
+    "viewAuditLog": "View Oracle Audit Log →",
+    "placeholder": "Paste Raffle ID to verify...",
+    "button": "Verify",
+    "verifying": "Verifying…",
+    "valid": "✓ Valid — draw result is authentic",
+    "invalid": "✗ Invalid — {{reason}}",
+    "invalidDefault": "verification failed",
+    "proofLabel": "Proof:"
+  },
+  "filter": {
+    "placeholder": "Filter by Raffle ID",
+    "clear": "Clear",
+    "totalEntries": "{{count}} total entries"
+  },
+  "table": {
+    "timestamp": "Timestamp",
+    "raffle": "Raffle",
+    "method": "Method",
+    "requestId": "Request ID",
+    "txHash": "Tx Hash",
+    "details": "Details",
+    "hide": "Hide",
+    "verifyThisDraw": "↑ Verify this draw",
+    "loading": "Loading…",
+    "empty": "No audit entries found.",
+    "oracleId": "Oracle ID",
+    "requestIdFull": "Request ID",
+    "seedHex": "Seed (hex)",
+    "proofHex": "Proof (hex)",
+    "txHashFull": "Tx Hash"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "page": "{{current}} / {{total}}"
+  },
+  "error": {
+    "loadFailed": "Failed to load audit log"
+  }
+}

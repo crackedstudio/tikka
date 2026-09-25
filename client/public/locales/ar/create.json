@@ -1,0 +1,113 @@
+{
+  "page": {
+    "title": "إنشاء سحب جديد",
+    "subtitle": "أعدّ سحبك في بضع خطوات بسيطة"
+  },
+  "steps": {
+    "details": "التفاصيل",
+    "image": "الصورة",
+    "pricing": "التسعير",
+    "duration": "المدة",
+    "review": "المراجعة"
+  },
+  "nav": {
+    "back": "رجوع",
+    "continue": "متابعة",
+    "confirmSubmit": "تأكيد وإرسال"
+  },
+  "aria": {
+    "stepLabel": "الخطوة {{number}}: {{title}}",
+    "stepCompleted": "(مكتملة)",
+    "stepCurrent": "(الحالية)",
+    "creationSteps": "خطوات إنشاء السحب",
+    "stepRegion": "الخطوة {{number}}: {{title}}"
+  },
+  "details": {
+    "heading": "تفاصيل السحب",
+    "subtitle": "أخبر المشاركين بما يمكنهم الفوز به",
+    "titleLabel": "عنوان السحب",
+    "titlePlaceholder": "أدخل عنوان السحب",
+    "descriptionLabel": "الوصف",
+    "descriptionPlaceholder": "صف جائزة سحبك بالتفصيل"
+  },
+  "image": {
+    "heading": "صور الجائزة",
+    "subtitle": "ارفع صوراً متعددة لعرض جائزتك من زوايا مختلفة",
+    "uploadAreaLabel": "رفع صور الجائزة",
+    "dragDrop": "اسحب وأفلت صور الجائزة هنا",
+    "or": "أو",
+    "uploadButton": "رفع الصور",
+    "imagesUploaded_one": "تم رفع {{count}} صورة — انقر لإضافة المزيد",
+    "imagesUploaded_other": "تم رفع {{count}} صور — انقر لإضافة المزيد",
+    "footerHint": "ارفع صوراً واضحة لجائزتك. الزوايا المتعددة تعزز الثقة",
+    "primary": "رئيسية",
+    "setPrimary": "تعيين كرئيسية",
+    "removeImage": "إزالة الصورة {{number}}",
+    "setPrimaryImage": "تعيين الصورة {{number}} كرئيسية",
+    "prizeAlt": "الجائزة {{number}}",
+    "tips": {
+      "lighting": {
+        "title": "إضاءة جيدة",
+        "description": "الضوء الطبيعي هو الأفضل"
+      },
+      "angles": {
+        "title": "زوايا متعددة",
+        "description": "أظهر وجهات نظر مختلفة"
+      },
+      "background": {
+        "title": "خلفية واضحة",
+        "description": "تجنب الخلفيات المزدحمة"
+      }
+    }
+  },
+  "pricing": {
+    "heading": "$ تسعير التذاكر",
+    "subtitle": "حدد سعر التذكرة والكمية",
+    "priceLabel": "سعر التذكرة ($)",
+    "pricePlaceholder": "0.0",
+    "ticketsLabel": "إجمالي التذاكر المتاحة",
+    "ticketsPlaceholder": "0",
+    "revenueLabel": "الإيرادات المحتملة",
+    "increaseTickets": "زيادة إجمالي التذاكر",
+    "decreaseTickets": "تقليل إجمالي التذاكر"
+  },
+  "duration": {
+    "heading": "مدة السحب",
+    "subtitle": "كم من الوقت سيستمر السحب؟",
+    "daysLabel": "أيام",
+    "hoursLabel": "ساعات",
+    "endsInLabel": "سينتهي السحب في",
+    "notSet": "غير محدد",
+    "increaseDays": "زيادة الأيام",
+    "decreaseDays": "تقليل الأيام",
+    "increaseHours": "زيادة الساعات",
+    "decreaseHours": "تقليل الساعات"
+  },
+  "review": {
+    "heading": "مراجعة ونشر",
+    "subtitle": "تحقق من كل شيء قبل النشر",
+    "raffleDetailsSection": "تفاصيل السحب",
+    "pricingSection": "التسعير",
+    "networkFeeSection": "رسوم الشبكة",
+    "prizeImageSection": "صورة الجائزة",
+    "prizeImageAlt": "جائزة السحب",
+    "titleLabel": "العنوان:",
+    "descriptionLabel": "الوصف:",
+    "ticketPriceLabel": "سعر التذكرة:",
+    "totalTicketsLabel": "إجمالي التذاكر:",
+    "durationLabel": "المدة:",
+    "revenueLabel": "الإيرادات:",
+    "estimatedFeeLabel": "المقدرة:",
+    "feeCalculating": "جارٍ الحساب...",
+    "feeHint": "يتم تقدير الرسوم بمحاكاة المعاملة. ستُطلب منك التوقيع بعد التأكيد.",
+    "notSet": "غير محدد"
+  },
+  "draft": {
+    "restoreTitle": "هل تريد استعادة المسودة المحفوظة؟",
+    "restoreBody": "وجدنا مسودة سحب غير محفوظة من {{savedAt}}. هل تريد استعادتها؟ الصور المرفوعة غير محفوظة وستحتاج إلى إضافتها مجدداً.",
+    "draftTitle": "عنوان المسودة:",
+    "startFresh": "البدء من جديد",
+    "restore": "استعادة المسودة",
+    "savedRecently": "مؤخراً"
+  }
+}

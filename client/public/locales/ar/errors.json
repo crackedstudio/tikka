@@ -1,0 +1,8 @@
+{
+  "unableToEstimateFee": "تعذّر تقدير رسوم الشبكة",
+  "rescueOperationFailed": "فشلت عملية الإنقاذ",
+  "adminSessionRequired": "مطلوب جلسة مدير لتنفيذ الإجراءات المميزة",
+  "enterOperatorName": "يرجى إدخال اسم المشغّل",
+  "enterReason": "يرجى إدخال سبب",
+  "operationFailed": "فشلت العملية"
+}
