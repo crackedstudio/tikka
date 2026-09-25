@@ -8,6 +8,7 @@ This folder contains Playwright smoke tests for core client happy paths.
 - Wallet unavailable sign-in state
 - Create raffle happy path
 - Ticket purchase validation
+- Mobile navbar: Escape / backdrop close the menu and restore focus to the trigger
 
 ## Mocking guidance
 
