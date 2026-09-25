@@ -12,7 +12,7 @@ This repository is split into several runnable workspaces. The fastest way to ge
 - Node.js and pnpm
 
   Node and pnpm versions are pinned repo-wide. The single source of truth for
-the Node major is `.nvmrc` (and its mirror `.node-version`):
+  the Node major is `.nvmrc` (and its mirror `.node-version`):
 
   - **Node.js 22** — read by CI (`node-version-file: .nvmrc`), the Docker
     base images, and local version managers (`nvm`, `fnm`, `mise`, ...).
@@ -189,6 +189,9 @@ pnpm typecheck  # tsc --noEmit across all packages
 All three are wired into the husky `pre-push` hook, so they run automatically
 before every `git push`. You can also run them per-workspace if you want faster
 feedback while working on a single package:
+
+See the [TypeScript strict-mode migration guide](docs/contributing/typescript-strict-migration.md)
+for current status and per-package compiler counts.
 
 ```bash
 # From the repository root
