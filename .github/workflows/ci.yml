@@ -104,6 +104,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify Node version consistency
+        run: pnpm run check:node-version
+
       - name: Check colour contrast (WCAG AA)
         run: node scripts/check-contrast.js
         continue-on-error: false
@@ -532,7 +535,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Client - install, lint, test, build
         working-directory: ./client
@@ -627,7 +630,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Validate dashboard and alert queries against METRICS_MAP.md
         run: node scripts/check-dashboard-metrics.js
@@ -838,7 +841,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Install dependencies
