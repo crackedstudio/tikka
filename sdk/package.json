@@ -77,22 +77,32 @@
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
-    "analyze:light": "node scripts/bundle-analysis/analyze.mjs"
+    "analyze:light": "node scripts/bundle-analysis/analyze.mjs",
+    "bundle:report": "node scripts/bundle-analysis/report-size-budgets.mjs",
+    "bundle:assert-light": "node scripts/bundle-analysis/assert-no-nest.mjs"
   },
   "size-limit": [
     {
-      "name": "@tikka/sdk light",
-      "path": "dist/cjs/light.js",
-      "limit": "25 Kb",
+      "name": "@tikka/sdk (.)",
+      "path": "dist/esm/index.js",
+      "limit": "450000",
       "gzip": true,
       "ignore": [
-        "@nestjs/common",
-        "@nestjs/core",
-        "@stellar/stellar-sdk",
-        "rxjs",
-        "reflect-metadata",
-        "bignumber.js"
+        "crypto",
+        "stream"
       ]
+    },
+    {
+      "name": "@tikka/sdk/light",
+      "path": "dist/light/index.light.js",
+      "limit": "120000",
+      "gzip": true
+    },
+    {
+      "name": "@tikka/sdk/network",
+      "path": "dist/esm/network/circuit-breaker.js",
+      "limit": "2000",
+      "gzip": true
     }
   ],
   "dependencies": {
