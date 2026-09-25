@@ -1,11 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  "globalDependencies": ["tsconfig.base.json", "pnpm-lock.yaml", ".nvmrc", "package.json"],
+  "globalEnv": ["NODE_ENV", "CI"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["src/**", "tsconfig*.json", "nest-cli.json", "vite.config.*", "package.json"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "env": ["ANALYZE", "VITE_*"]
     },
     "lint": {
       "inputs": ["src/**", "*.config.*", "eslint.config.*", "package.json"],
