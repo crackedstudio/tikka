@@ -6,6 +6,7 @@
  */
 
 import { API_CONFIG } from "../config/api";
+import { extractCorrelationId, rememberResponseCorrelationId } from "../sentry/correlation";
 import { toast } from "sonner";
 
 // ─── Typed API Error Types ────────────────────────────────────────────────────────
@@ -42,6 +43,12 @@ export class ApiError extends Error {
     message: string,
     public statusCode?: number,
     public details?: unknown,
+    /**
+     * Correlation id the backend returned for the failed request (the
+     * `x-request-id` response header, or `requestId` in the error body).
+     * Attached to client telemetry so an error joins its server trace.
+     */
+    public requestId?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -163,6 +170,10 @@ export async function apiRequest<T = unknown>(
       headers: requestHeaders,
       signal: requestController.signal,
     });
+
+    // Remember the backend correlation id so a later client error can be
+    // joined to this request's server trace.
+    rememberResponseCorrelationId(response);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw error;
@@ -215,6 +226,8 @@ export async function apiRequest<T = unknown>(
         ApiErrorCode.UNAUTHORIZED,
         "Unauthorized - please sign in again",
         401,
+        undefined,
+        extractCorrelationId(response.headers) ?? undefined,
       );
     }
 
@@ -250,7 +263,13 @@ export async function apiRequest<T = unknown>(
       },
     });
 
-    throw new ApiError(errorCode, errorMessage, response.status, errorData);
+    throw new ApiError(
+      errorCode,
+      errorMessage,
+      response.status,
+      errorData,
+      extractCorrelationId(response.headers, errorData) ?? undefined,
+    );
   }
 
   // Handle empty responses

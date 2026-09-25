@@ -11,15 +11,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { apiRequest, ApiError, ApiErrorCode } from './apiClient';
+import { clearCorrelationIds, getCorrelationId } from '../sentry/correlation';
 import { server } from '../test/server';
 import { API_BASE_URL } from '../test/handlers';
 
 beforeEach(() => {
   sessionStorage.clear();
+  clearCorrelationIds();
 });
 
 afterEach(() => {
   sessionStorage.clear();
+  clearCorrelationIds();
 });
 
 describe('ApiError', () => {
@@ -255,5 +258,71 @@ describe('apiRequest error handling', () => {
         expect(apiError.statusCode).toBe(429);
       }
     }
+  });
+});
+
+describe('apiRequest correlation id handling', () => {
+  it('records the x-request-id response header and attaches it to ApiError', async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json(
+          { message: 'Internal server error', requestId: 'body-request-id' },
+          { status: 500, headers: { 'x-request-id': 'header-request-id' } }
+        )
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await apiRequest('/test');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    // The header takes precedence over the requestId echoed in the body.
+    expect((thrown as ApiError).requestId).toBe('header-request-id');
+    expect(getCorrelationId()).toBe('header-request-id');
+  });
+
+  it('falls back to requestId in the error body when the header is absent', async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json(
+          { message: 'Validation failed', requestId: 'body-request-id' },
+          { status: 400 }
+        )
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await apiRequest('/test');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).requestId).toBe('body-request-id');
+    expect(getCorrelationId()).toBe('body-request-id');
+  });
+
+  it('leaves requestId unset when the backend returns no correlation id', async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/test`, () =>
+        HttpResponse.json({ message: 'Not found' }, { status: 404 })
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await apiRequest('/test');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).requestId).toBeUndefined();
+    expect(getCorrelationId()).toBeNull();
   });
 });

@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
+import { initClientSentry, installGlobalErrorHandlers } from './sentry'
 import './i18n'
 
 // Initialize RTL direction for Arabic locale
@@ -27,6 +28,14 @@ const analyticsModule = isProd ? await import('@vercel/analytics/react') : null;
 const speedInsightsModule = isProd ? await import('@vercel/speed-insights/react') : null;
 const Analytics = analyticsModule?.Analytics ?? null;
 const SpeedInsights = speedInsightsModule?.SpeedInsights ?? null;
+
+// Initialise the client error-reporting sink before the app renders so an error
+// thrown on the first paint is still captured. No-op when VITE_SENTRY_DSN is
+// unset (local development, tests), so nothing is sent and the Sentry chunk is
+// never fetched. The global handlers cover uncaught errors and unhandled promise
+// rejections; render errors are reported by the ErrorBoundary below.
+await initClientSentry();
+installGlobalErrorHandlers();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
