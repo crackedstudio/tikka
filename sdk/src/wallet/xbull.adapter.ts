@@ -1,11 +1,14 @@
 import {
   WalletAdapter,
   WalletAdapterOptions,
+  WalletAvailability,
+  WalletAvailabilityCode,
   WalletName,
   SignTransactionResult,
   WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { getGlobalProperty, hasGlobalProperty, isBrowserEnvironment } from '../utils/environment';
 
 /** Minimal DOM event-listener types (the SDK builds without "dom" in `lib`). */
 type EventListenerOrEventListenerObject = EventListener | { handleEvent: EventListener };
@@ -32,7 +35,35 @@ export class XBullAdapter extends WalletAdapter {
   }
 
   isAvailable(): boolean {
-    return typeof globalThis !== 'undefined' && typeof (globalThis as any).xbull !== 'undefined';
+    return hasGlobalProperty('xbull');
+  }
+
+  /**
+   * xBull injects a single `window.xbull` bridge. Reported as a value so
+   * SSR/Node callers never have to catch a throw to discover it is missing.
+   */
+  checkAvailability(): WalletAvailability {
+    if (this.isAvailable()) {
+      return {
+        available: true,
+        code: WalletAvailabilityCode.Available,
+        message: 'xBull is available in this browser environment',
+      };
+    }
+
+    if (!isBrowserEnvironment()) {
+      return {
+        available: false,
+        code: WalletAvailabilityCode.UnsupportedEnvironment,
+        message: 'xBull requires a browser environment (window/document are not defined)',
+      };
+    }
+
+    return {
+      available: false,
+      code: WalletAvailabilityCode.ExtensionNotInstalled,
+      message: 'xBull wallet is not installed. Install it from https://xbull.app',
+    };
   }
 
   async connect(): Promise<void> {
@@ -124,7 +155,7 @@ export class XBullAdapter extends WalletAdapter {
 
   /* Helpers  */
   private addTrackedListener(type: string, handler: EventListenerOrEventListenerObject): void {
-    const target = (globalThis as any).window;
+    const target = getGlobalProperty<any>('window');
     if (target?.addEventListener) {
       target.addEventListener(type, handler);
       this.listeners.push({ type, handler });
@@ -133,7 +164,7 @@ export class XBullAdapter extends WalletAdapter {
 
   /** Removes every tracked listener and empties the tracking array. */
   private removeAllListeners(): void {
-    const target = (globalThis as any).window;
+    const target = getGlobalProperty<any>('window');
     for (const { type, handler } of this.listeners) {
       target?.removeEventListener?.(type, handler);
     }
@@ -147,7 +178,7 @@ export class XBullAdapter extends WalletAdapter {
   }
 
   private getSdk(): any {
-    return (globalThis as any).xbull;
+    return getGlobalProperty<any>('xbull');
   }
 
   private assertInstalled(): void {
