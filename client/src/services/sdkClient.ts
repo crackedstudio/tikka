@@ -37,6 +37,7 @@ import { STELLAR_CONFIG } from "../config/stellar";
 import { CONTRACT_CONFIG } from "../config/contract";
 import { getAccountAddress, signTransaction } from "./walletService";
 import { logger } from "../utils/logger";
+import { captureClientError, scrubPii } from "../sentry";
 import {
   runPipeline,
   sdkErrorToPipelineError,
@@ -58,6 +59,38 @@ export interface CreateRaffleEstimate {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Pipeline failures that are normal user behaviour rather than defects, and so
+ * must not be reported to the error sink.
+ */
+const EXPECTED_PIPELINE_ERRORS = new Set(["USER_REJECTED"]);
+
+/**
+ * Report a failed SDK transaction to the client error sink.
+ *
+ * Params are scrubbed before they leave the browser (wallet addresses hashed,
+ * XDR envelopes redacted) and the most recent backend request id is attached
+ * automatically by `captureClientError`, joining the failure to its server trace.
+ */
+function reportTransactionFailure(
+  operation: string,
+  error: { code: string; message: string },
+  params: unknown,
+): void {
+  if (EXPECTED_PIPELINE_ERRORS.has(error.code)) {
+    return;
+  }
+
+  const reported = new Error(`[${operation}] ${error.message}`);
+  reported.name = `PipelineError:${error.code}`;
+
+  captureClientError(reported, {
+    source: "sdk-transaction",
+    tags: { pipeline_code: error.code },
+    extra: { operation, params: scrubPii(params) },
+  });
 }
 
 type ContractReadValue = Record<string, unknown>;
@@ -281,12 +314,18 @@ export async function createRaffle(
     metadataCid: params.metadataId ?? "",
   });
 
-  return runPipeline({
+  const result = await runPipeline({
     target: sdkContractService,
     method: ContractFn.CREATE_RAFFLE,
     params: contractParams,
     options,
   });
+
+  if (!result.ok) {
+    reportTransactionFailure("createRaffle", result.error, params);
+  }
+
+  return result;
 }
 
 /**
@@ -311,7 +350,9 @@ export async function buyTickets(
 
     return { ok: true, data: { txHash } };
   } catch (error) {
-    return { ok: false, error: sdkErrorToPipelineError(error) };
+    const pipelineError = sdkErrorToPipelineError(error);
+    reportTransactionFailure("buyTickets", pipelineError, params);
+    return { ok: false, error: pipelineError };
   }
 }
 
@@ -331,18 +372,22 @@ export async function claimPrize(
       result.value?.transactionHash ?? result.transactionHash ?? "";
 
     if (!txHash) {
+      const message = result.error ?? "Prize claim failed";
+      reportTransactionFailure("claimPrize", { code: "SUBMISSION_FAILED", message }, params);
       return {
         ok: false,
         error: {
           code: "SUBMISSION_FAILED",
-          message: result.error ?? "Prize claim failed",
+          message,
         },
       };
     }
 
     return { ok: true, data: { txHash } };
   } catch (error) {
-    return { ok: false, error: sdkErrorToPipelineError(error) };
+    const pipelineError = sdkErrorToPipelineError(error);
+    reportTransactionFailure("claimPrize", pipelineError, params);
+    return { ok: false, error: pipelineError };
   }
 }
 

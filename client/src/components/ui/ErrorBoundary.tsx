@@ -1,7 +1,7 @@
-import { logger } from '../../utils/logger';
 import React from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { logger } from "../../utils/logger";
+import { captureClientError } from "../../sentry";
 
 export interface ErrorFallbackProps {
     error: Error;
@@ -50,15 +50,13 @@ class ErrorBoundary extends React.Component<
             error,
             componentStack: errorInfo.componentStack,
         });
-        try {
-            import("@sentry/react").then((Sentry) => {
-                Sentry.captureException(error, {
-                    extra: errorInfo as unknown as Record<string, unknown>,
-                });
-            });
-        } catch {
-            // Ignore if Sentry is not available on the client
-        }
+
+        // Report through the shared client sink so the boundary that rendered
+        // the fallback is visible in the dashboard. No-op without a DSN.
+        captureClientError(error, {
+            source: "error-boundary",
+            extra: { componentStack: errorInfo.componentStack },
+        });
     }
 
     componentDidUpdate(prevProps: ErrorBoundaryProps) {
