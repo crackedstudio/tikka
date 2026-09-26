@@ -5,6 +5,7 @@ import { RaffleEventEntity } from '../database/entities/raffle-event.entity';
 import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
 import Redis from 'ioredis';
 import { LAG_THRESHOLD_DEFAULT } from '../health/health.constants';
+import { databaseSslOptions } from '../config/database-ssl';
 
 export interface DbPoolStats {
   total: number;
@@ -51,8 +52,7 @@ export interface StatusResult {
 }
 
 function buildDataSource(): DataSource {
-  const ssl =
-    process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
+  const ssl = databaseSslOptions();
 
   const options: DataSourceOptions = {
     type: 'postgres',
