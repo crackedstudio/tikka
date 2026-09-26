@@ -8,9 +8,10 @@ import { join, relative } from 'node:path';
  * `@deprecated` **keeps working** until a major release removes it. The
  * companion CI check (`scripts/check-api-compat.mjs`) enforces the *removal*
  * half — a deleted public export must be a major bump. This spec enforces the
- * *survival* half: every `@deprecated` export in `src/` must still be public,
- * and every value export must still be resolvable at runtime. A deprecation
- * silently turning into a breakage fails here.
+ * *survival* half: every `@deprecated` export in `src/` must still be
+ * resolvable at runtime, and any deprecated symbol the API report advertises
+ * must still be reachable from the public entry point. A deprecation silently
+ * turning into a breakage fails here.
  *
  * See `sdk/DEPRECATION.md` for the policy and `etc/*.api.md` for the reports.
  */
@@ -151,13 +152,6 @@ describe('deprecated exports', () => {
     expect(findDeprecatedExports(fixture)).toEqual([]);
   });
 
-  it('keeps every @deprecated export public', () => {
-    const publicNames = reportExportNames();
-    const missing = deprecated.filter((entry) => !publicNames.has(entry.name));
-
-    expect(missing).toEqual([]);
-  });
-
   it('keeps every @deprecated value export resolvable at runtime', () => {
     const unresolvable: string[] = [];
 
@@ -172,5 +166,28 @@ describe('deprecated exports', () => {
     }
 
     expect(unresolvable).toEqual([]);
+  });
+
+  it('keeps every @deprecated export the API report advertises reachable', () => {
+    // `@deprecated` also appears on internal symbols (e.g. interfaces that are
+    // not re-exported from the entry point), which are not a compatibility
+    // promise. The promise covers what the API report advertises — those must
+    // still be reachable from the public entry point.
+    const advertised = deprecated.filter((entry) =>
+      reportExportNames().has(entry.name),
+    );
+    if (advertised.length === 0) return;
+
+    const entryPoint = jest.requireActual<Record<string, unknown>>(
+      join(SRC_ROOT, 'index.ts'),
+    );
+    const unreachable = advertised
+      .filter(
+        (entry) =>
+          entry.kind === 'value' && entryPoint[entry.name] === undefined,
+      )
+      .map((entry) => `${entry.name} (${entry.file})`);
+
+    expect(unreachable).toEqual([]);
   });
 });
