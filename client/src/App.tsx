@@ -26,6 +26,7 @@ const Support = lazy(() => import("./pages/Support"));
 const Transparency = lazy(() => import("./pages/Transparency"));
 const FAQPage = lazy(() => import("./pages/FAQ/FAQPage"));
 const OracleAdmin = lazy(() => import("./pages/OracleAdmin"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 
@@ -113,6 +114,7 @@ function App() {
                     {/* Issue #192: FAQ Route Added Here */}
                     <Route path="faq" element={<LazyRoute Component={FAQPage} />} />
                     <Route path="admin/oracle" element={<LazyRoute Component={OracleAdmin} />} />
+                    <Route path="*" element={<LazyRoute Component={NotFound} />} />
                 </Route>
             </Routes>
             <InstallPWA />
