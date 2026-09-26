@@ -52,15 +52,37 @@ passing; any *new* file using a placeholder timestamp (a timestamp divisible by
 | `1730000000000`     | `1730000000000-CreateDeadLetterEvents`, `1730000000001-AddLedgerHashesToCursor` |
 | `1750000000000`     | `1750000000000-AddRaffleEventIndexes`, `1750000000001-BackfillSchemaVersions` |
 | `1760000000000`     | `1760000000000-CreateWebhookDeliveries`, `1760000000001-RelaxTicketsPurchaseTxHashUnique` |
-| `1770000000000`     | `1770000000000-AuditHotPathIndexes`, `1770000000000-CreateWebhookDeadLetterDeliveries` |
+| `1770000000000`     | `1770000000000-AuditHotPathIndexes` |
 
-### Known duplicate timestamp (also a historical exception)
+### Resolved duplicate timestamp
 
 `1770000000000-AuditHotPathIndexes.ts` and
-`1770000000000-CreateWebhookDeadLetterDeliveries.ts` share the same prefix. This
-is a latent ordering hazard (TypeORM falls back to stable file order for equal
-timestamps). Both migrations are independent of each other and of any later file,
-so it is harmless today. Future migrations must not reuse an existing timestamp.
+`1770000000000-CreateWebhookDeadLetterDeliveries.ts` used to share the same
+prefix, which left the order of the two files to directory read order. They are
+independent of each other and of every later file, so no schema changed — but the
+ambiguity is gone now: the dead-letter migration carries the timestamp it was
+originally generated with, `1785513791000` (2026-07-31T16:03:11Z), as
+`1785513791000-CreateWebhookDeadLetterDeliveries.ts`.
+
+Renumbering a file that has already run touches TypeORM's `migrations` history
+table. A database that recorded the old name has two options, in order of
+preference:
+
+1. Rename the recorded entry before upgrading:
+
+   ```sql
+   UPDATE migrations
+      SET name = 'CreateWebhookDeadLetterDeliveries1785513791000'
+    WHERE name = 'CreateWebhookDeadLetterDeliveries1770000000000';
+   ```
+
+2. Do nothing. Every statement in that migration is guarded (`CREATE TABLE IF NOT
+   EXISTS`, `CREATE INDEX IF NOT EXISTS`), so TypeORM running it again under the
+   new name is a no-op.
+
+New migrations must not reuse an existing timestamp — the lint in
+`backend/scripts/check-migrations.ts` now fails on any duplicate prefix, and that
+check runs in CI.
 
 ## Ordering audit against the dependency graph
 
@@ -82,7 +104,7 @@ it** — the current order is safe to apply from a clean database.
 | `1750000000001-BackfillSchemaVersions` | `raffle_events.schema_version` | `1720000000003` | ✅ |
 | `1760000000001-RelaxTicketsPurchaseTxHashUnique` | `tickets` | `1700000000001` | ✅ |
 | `1770000000000-AuditHotPathIndexes` | `users`, `tickets`, `raffles`, `raffle_events`, `dead_letter_events` | all earlier | ✅ |
-| `1770000000000-CreateWebhookDeadLetterDeliveries` | new table only | — | ✅ |
+| `1785513791000-CreateWebhookDeadLetterDeliveries` | new table only | — | ✅ |
 
 The remaining migrations create brand-new tables and have no forward
 dependency.
