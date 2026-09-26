@@ -29,7 +29,7 @@ export enum TransactionState {
 export type TransactionOutcome =
   | { status: 'SUCCESS'; txHash: string; ledger: number; feePaid: number; retriable: false }
   | { status: 'DUPLICATE_SUCCESS'; txHash: string; ledger: number; message: string; retriable: false }
-  | { status: 'TIMEOUT'; txHash?: string; error: string; retriable: true; pollAttempts: number }
+  | { status: 'TIMEOUT'; txHash?: string; error: string; retriable: false; pollAttempts: number }
   | { status: 'INSUFFICIENT_FEE'; error: string; retriable: true; currentFee: number; suggestedFee?: number }
   | { status: 'NETWORK_ERROR'; error: string; retriable: true; rpcUrl?: string; errorCode?: string }
   | { status: 'FAILED'; txHash?: string; error: string; retriable: false; failureReason?: string }
@@ -259,7 +259,7 @@ export class TxSubmitterService {
     return { status: 'INVALID_TRANSACTION', error: message, retriable: false, validationError: 'CONFIGURATION_ERROR' };
   }
 
-  private createExhaustedOutcome(telemetry: TelemetryContext): TransactionOutcome {
+  private createExhaustedOutcome(telemetry: TelemetryContext): Extract<TransactionOutcome, { status: 'FAILED' }> {
     const message = `Exhausted ${this.maxAttempts} retry attempts`;
     this.logTelemetry({ ...telemetry, finalOutcome: TransactionState.FAILED }, message);
     return { status: 'FAILED', txHash: telemetry.txHash, error: message, retriable: false, failureReason: 'MAX_ATTEMPTS_EXCEEDED' };
@@ -300,7 +300,8 @@ export class TxSubmitterService {
   private logTelemetry(telemetry: TelemetryContext, message: string): void {
     const { currentState, finalOutcome, ...fields } = telemetry;
     const logLevel = finalOutcome === TransactionState.FAILED ? 'error' : (finalOutcome === TransactionState.TIMEOUT || finalOutcome === TransactionState.NETWORK_ERROR ? 'warn' : 'log');
-    const enrichedFields: OracleLogFields = { ...fields, outcome: finalOutcome?.toString() || currentState?.toString() || 'unknown', context: TxSubmitterService.name };
+    const stateLabel = finalOutcome?.toString() || currentState?.toString() || 'unknown';
+    const enrichedFields = { ...fields, outcome: stateLabel, context: TxSubmitterService.name } as OracleLogFields;
     if (logLevel === 'error') {
       this.logger.error(`[TX-${telemetry.raffleId}-${telemetry.attempt}] ${message}`, JSON.stringify(enrichedFields));
     } else if (logLevel === 'warn') {

@@ -57,8 +57,17 @@ export class SubmissionService {
           return { shouldRetry: true, bumpFee: true };
         }
         if (errorClassifier.isTimeoutError(responseStr)) {
-          logTelemetry(telemetry, 'Submission timeout, attempting hash recovery');
-          return { shouldRetry: true, bumpFee: true };
+          logTelemetry(telemetry, 'Submission timeout with no hash; not retrying because the transaction may have landed');
+          return {
+            outcome: {
+              status: 'TIMEOUT',
+              error: responseStr,
+              retriable: false,
+              pollAttempts: 0,
+            },
+            shouldRetry: false,
+            bumpFee: false,
+          };
         }
         return { shouldRetry: true, bumpFee: false };
       }
@@ -68,7 +77,7 @@ export class SubmissionService {
       logTelemetry(telemetry, `Polling for confirmation: ${txHash}`);
 
       const outcome = await this.pollForConfirmationTyped(rpcServer, txHash, telemetry, errorClassifier, logTelemetry);
-      return { outcome, shouldRetry: outcome.retriable, bumpFee: outcome.status === 'TIMEOUT' };
+      return { outcome, shouldRetry: outcome.retriable, bumpFee: false };
     } catch (error: any) {
       const errorMessage = errorClassifier.errorToString(error);
 
@@ -79,6 +88,19 @@ export class SubmissionService {
           const existingResult = await this.queryExistingTransaction(rpcServer, txHash, telemetry, logTelemetry);
           return { outcome: existingResult, shouldRetry: false, bumpFee: false };
         }
+      }
+
+      if (errorClassifier.isTimeoutError(errorMessage)) {
+        return {
+          outcome: {
+            status: 'TIMEOUT',
+            error: errorMessage,
+            retriable: false,
+            pollAttempts: 0,
+          },
+          shouldRetry: false,
+          bumpFee: false,
+        };
       }
 
       if (errorClassifier.isInsufficientFeeError(errorMessage)) {
@@ -145,7 +167,7 @@ export class SubmissionService {
     }
 
     logTelemetry({ ...telemetry, finalOutcome: TransactionState.TIMEOUT }, `Polling timeout after ${pollAttempts} attempts`);
-    return { status: 'TIMEOUT', txHash, error: `Transaction confirmation timeout after ${this.POLL_TIMEOUT_MS}ms`, retriable: true, pollAttempts };
+    return { status: 'TIMEOUT', txHash, error: `Transaction confirmation timeout after ${this.POLL_TIMEOUT_MS}ms`, retriable: false, pollAttempts };
   }
 
   public async pollForConfirmation(rpcServer: any, hash: string) {

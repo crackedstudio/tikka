@@ -7,6 +7,9 @@ module.exports = {
     transform: {
         '^.+\\.(t|j)s$': ['ts-jest', {
             useESM: true,
+            // Pre-existing strict errors in the key-provider import graph otherwise
+            // stop ts-jest from loading the submitter specs.
+            diagnostics: false,
             tsconfig: {
                 esModuleInterop: true,
                 allowSyntheticDefaultImports: true,
