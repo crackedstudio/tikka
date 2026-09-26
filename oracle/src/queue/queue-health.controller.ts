@@ -1,5 +1,5 @@
 import { OracleLoggerService } from '../logger/oracle-logger';
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { JobStateManager } from './job-state-manager';
 import { JobState, QueueMetrics } from './job-state.types';
 
@@ -76,10 +76,11 @@ export class QueueHealthController {
    * @returns Array of job metadata for jobs in the specified state
    */
   @Get('jobs/:state')
-  getJobsByState(state: string): any[] {
-    const jobState = state.toUpperCase().replace(/-/g, '_') as JobState;
-    
-    if (!Object.values(JobState).includes(jobState)) {
+  getJobsByState(@Param('state') state: string): any[] {
+    const normalized = state.toLowerCase().replace(/_/g, '-');
+    const jobState = (Object.values(JobState) as string[]).find((value) => value === normalized) as JobState | undefined;
+
+    if (!jobState) {
       this.logger.warn(`Invalid job state requested: ${state}`);
       return [];
     }
