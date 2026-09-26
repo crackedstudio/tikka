@@ -12,6 +12,7 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  InternalServerErrorException,
   Module,
   NotFoundException,
   ServiceUnavailableException,
@@ -20,7 +21,57 @@ import {
 import { BaseExceptionFilter } from '../src/common/filters/base-exception.filter';
 import { REQUEST_ID_HEADER } from '../src/middleware/request-id.middleware';
 
-// Test controller to trigger various exceptions
+// ---------------------------------------------------------------------------
+// Fake infrastructure errors used in redaction tests
+// ---------------------------------------------------------------------------
+
+/** Mimics typeorm QueryFailedError (duck-typed, no typeorm dep needed). */
+class FakeQueryFailedError extends Error {
+  readonly query = 'SELECT * FROM users WHERE id = $1';
+  readonly parameters = ['secret-id'];
+  readonly driverError = { message: 'duplicate key value violates unique constraint "users_email_key"' };
+  constructor() {
+    super('duplicate key value violates unique constraint "users_email_key"');
+    this.name = 'QueryFailedError';
+  }
+}
+
+/** Mimics a Supabase PostgrestError. */
+class FakeSupabaseError extends Error {
+  readonly code = '23505';
+  readonly details = 'Key (email)=(user@example.com) already exists.';
+  readonly hint = 'Change the email or delete the conflicting row.';
+  // Supabase errors include the project reference in the message
+  constructor() {
+    super('duplicate key value violates unique constraint (project-ref: abcxyz123)');
+    this.name = 'PostgrestError';
+  }
+}
+
+/** Mimics the Stellar SDK AxiosError-style error. */
+class FakeStellarError extends Error {
+  readonly response = {
+    status: 400,
+    data: {
+      type: 'https://stellar.org/horizon-errors/transaction_failed',
+      title: 'Transaction Failed',
+      status: 400,
+      detail: 'tx_bad_seq — sequence=9876543210987654321, account=GABC...XYZ',
+      extras: {
+        result_codes: { transaction: 'tx_bad_seq' },
+      },
+    },
+  };
+  constructor() {
+    super('Request failed with status code 400');
+    this.name = 'AxiosError';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Test controller
+// ---------------------------------------------------------------------------
+
 @Controller('test-errors')
 class TestErrorController {
   @Get('http-exception')
@@ -76,12 +127,39 @@ class TestErrorController {
 
   @Get('string-exception')
   throwStringException() {
+    // eslint-disable-next-line @typescript-eslint/no-throw-literal
     throw 'String error';
   }
 
   @Get('null-exception')
   throwNullException() {
+    // eslint-disable-next-line @typescript-eslint/no-throw-literal
     throw null;
+  }
+
+  // ---------- infrastructure error routes ----------
+
+  @Get('db-query-failed')
+  throwQueryFailedError() {
+    throw new FakeQueryFailedError();
+  }
+
+  @Get('supabase-error')
+  throwSupabaseError() {
+    throw new FakeSupabaseError();
+  }
+
+  @Get('stellar-error')
+  throwStellarError() {
+    throw new FakeStellarError();
+  }
+
+  /** InternalServerErrorException whose message includes raw storage detail */
+  @Get('storage-error')
+  throwStorageError() {
+    throw new InternalServerErrorException(
+      'Failed to upload image to storage: StorageApiError: Bucket not found (bucket: raffle-images-prod)',
+    );
   }
 
   @Get('success')
@@ -95,30 +173,53 @@ class TestErrorController {
 })
 class TestModule {}
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function buildApp(nodeEnv: string): Promise<NestFastifyApplication> {
+  const savedEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = nodeEnv;
+
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    imports: [TestModule],
+  }).compile();
+
+  // @ts-ignore — FastifyAdapter version mismatch
+  const app = moduleFixture.createNestApplication<NestFastifyApplication>(
+    new FastifyAdapter() as any,
+  ) as any;
+
+  // Instantiate the filter AFTER setting NODE_ENV so isProd is correct.
+  app.useGlobalFilters(new BaseExceptionFilter());
+
+  await app.init();
+  await app.getHttpAdapter().getInstance().ready();
+
+  // Restore for safety in parallel test runs
+  process.env.NODE_ENV = savedEnv;
+
+  return app;
+}
+
+// ---------------------------------------------------------------------------
+// Test suites
+// ---------------------------------------------------------------------------
+
 describe('BaseExceptionFilter (e2e)', () => {
-  let app: NestFastifyApplication;
+  describe('development mode', () => {
+    let app: NestFastifyApplication;
 
-  beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [TestModule],
-    }).compile();
+    beforeAll(async () => {
+      app = await buildApp('development');
+    });
 
-    // Using 'as any' bypasses the type mismatch error between Fastify versions
-    // @ts-ignore
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter() as any,
-    ) as any;
-    app.useGlobalFilters(new BaseExceptionFilter());
+    afterAll(async () => {
+      await app.close();
+    });
 
-    await app.init();
-    await app.getHttpAdapter().getInstance().ready();
-  });
+    // ---- HttpException handling ----
 
-  afterAll(async () => {
-    await app.close();
-  });
-
-  describe('HttpException handling', () => {
     it('should catch HttpException and return proper error response', () => {
       return request(app.getHttpServer())
         .get('/test-errors/http-exception')
@@ -218,9 +319,9 @@ describe('BaseExceptionFilter (e2e)', () => {
           expect(res.body.details[1]).toHaveProperty('code', 'too_small');
         });
     });
-  });
 
-  describe('Unexpected error handling', () => {
+    // ---- Unexpected error handling ----
+
     it('should catch unexpected errors and return 500', () => {
       return request(app.getHttpServer())
         .get('/test-errors/internal-error')
@@ -229,14 +330,11 @@ describe('BaseExceptionFilter (e2e)', () => {
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 500);
           expect(res.body).toHaveProperty('error', 'INTERNAL_ERROR');
-          expect(res.body).toHaveProperty(
-            'message',
-            'Internal server error',
-          );
+          expect(res.body).toHaveProperty('requestId', 'req-500');
           expect(res.body).toHaveProperty('timestamp');
           expect(res.body).toHaveProperty('path', '/test-errors/internal-error');
-          expect(res.body).toHaveProperty('requestId', 'req-500');
           expect(res.body.timestamp).toBeTruthy();
+          // Raw message must never appear even in dev for the unknown-error path
           expect(JSON.stringify(res.body)).not.toContain('Unexpected error');
         });
     });
@@ -248,11 +346,8 @@ describe('BaseExceptionFilter (e2e)', () => {
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 500);
           expect(res.body).toHaveProperty('error', 'INTERNAL_ERROR');
-          expect(res.body).toHaveProperty(
-            'message',
-            'Internal server error',
-          );
           expect(res.body).toHaveProperty('path', '/test-errors/string-exception');
+          expect(JSON.stringify(res.body)).not.toContain('String error');
         });
     });
 
@@ -263,16 +358,12 @@ describe('BaseExceptionFilter (e2e)', () => {
         .expect((res) => {
           expect(res.body).toHaveProperty('statusCode', 500);
           expect(res.body).toHaveProperty('error', 'INTERNAL_ERROR');
-          expect(res.body).toHaveProperty(
-            'message',
-            'Internal server error',
-          );
           expect(res.body).toHaveProperty('path', '/test-errors/null-exception');
         });
     });
-  });
 
-  describe('Response format validation', () => {
+    // ---- Response format validation ----
+
     it('should include all required fields in error response', () => {
       return request(app.getHttpServer())
         .get('/test-errors/http-exception')
@@ -286,7 +377,6 @@ describe('BaseExceptionFilter (e2e)', () => {
           expect(typeof res.body.statusCode).toBe('number');
           expect(typeof res.body.error).toBe('string');
           expect(typeof res.body.message).toBe('string');
-          expect(typeof res.body.error).toBe('string');
           expect(typeof res.body.requestId).toBe('string');
           expect(typeof res.body.timestamp).toBe('string');
           expect(typeof res.body.path).toBe('string');
@@ -298,7 +388,6 @@ describe('BaseExceptionFilter (e2e)', () => {
         .get('/test-errors/http-exception')
         .expect(400)
         .expect((res) => {
-          // Should be valid ISO 8601 format
           expect(new Date(res.body.timestamp)).toBeInstanceOf(Date);
           expect(() => new Date(res.body.timestamp).toISOString()).not.toThrow();
         });
@@ -313,9 +402,9 @@ describe('BaseExceptionFilter (e2e)', () => {
           expect(res.body.path).toBe(testPath);
         });
     });
-  });
 
-  describe('Success responses (no filter interference)', () => {
+    // ---- Success passthrough ----
+
     it('should not interfere with successful responses', () => {
       return request(app.getHttpServer())
         .get('/test-errors/success')
@@ -324,6 +413,141 @@ describe('BaseExceptionFilter (e2e)', () => {
           expect(res.body).toEqual({ message: 'success' });
           expect(res.body).not.toHaveProperty('statusCode');
           expect(res.body).not.toHaveProperty('timestamp');
+        });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Production-mode redaction tests
+  // These are the acceptance criteria for issue #1570.
+  // -------------------------------------------------------------------------
+
+  describe('production mode — error detail redaction', () => {
+    let app: NestFastifyApplication;
+
+    beforeAll(async () => {
+      app = await buildApp('production');
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('redacts QueryFailedError: no SQL, no constraint name in response', () => {
+      return request(app.getHttpServer())
+        .get('/test-errors/db-query-failed')
+        .set(REQUEST_ID_HEADER, 'rid-db')
+        .expect(500)
+        .expect((res) => {
+          // Must return safe generic fields only
+          expect(res.body).toHaveProperty('statusCode', 500);
+          expect(res.body).toHaveProperty('error', 'INTERNAL_ERROR');
+          expect(res.body).toHaveProperty('requestId', 'rid-db');
+          expect(res.body).toHaveProperty('timestamp');
+          expect(res.body).toHaveProperty('path');
+
+          // Must NOT expose schema/infrastructure detail
+          const body = JSON.stringify(res.body);
+          expect(body).not.toContain('SELECT');
+          expect(body).not.toContain('users_email_key');
+          expect(body).not.toContain('duplicate key');
+          expect(body).not.toContain('secret-id');
+          expect(res.body).not.toHaveProperty('details');
+        });
+    });
+
+    it('redacts Supabase error: no project reference, no constraint detail in response', () => {
+      return request(app.getHttpServer())
+        .get('/test-errors/supabase-error')
+        .set(REQUEST_ID_HEADER, 'rid-supa')
+        .expect(500)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('statusCode', 500);
+          expect(res.body).toHaveProperty('error', 'INTERNAL_ERROR');
+          expect(res.body).toHaveProperty('requestId', 'rid-supa');
+
+          const body = JSON.stringify(res.body);
+          // Project reference must not leak
+          expect(body).not.toContain('abcxyz123');
+          // Postgres constraint must not leak
+          expect(body).not.toContain('23505');
+          // Internal hint must not leak
+          expect(body).not.toContain('email');
+          expect(res.body).not.toHaveProperty('details');
+        });
+    });
+
+    it('redacts Stellar SDK error: no account address, no sequence number in response', () => {
+      return request(app.getHttpServer())
+        .get('/test-errors/stellar-error')
+        .set(REQUEST_ID_HEADER, 'rid-stellar')
+        .expect(500)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('statusCode', 500);
+          expect(res.body).toHaveProperty('error', 'INTERNAL_ERROR');
+          expect(res.body).toHaveProperty('requestId', 'rid-stellar');
+
+          const body = JSON.stringify(res.body);
+          // Internal Stellar error detail must not leak
+          expect(body).not.toContain('tx_bad_seq');
+          expect(body).not.toContain('9876543210987654321');
+          expect(body).not.toContain('GABC');
+          expect(res.body).not.toHaveProperty('details');
+        });
+    });
+
+    it('redacts InternalServerErrorException carrying raw storage error message', () => {
+      return request(app.getHttpServer())
+        .get('/test-errors/storage-error')
+        .set(REQUEST_ID_HEADER, 'rid-storage')
+        .expect(500)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('statusCode', 500);
+          expect(res.body).toHaveProperty('error', 'INTERNAL_ERROR');
+          expect(res.body).toHaveProperty('requestId', 'rid-storage');
+
+          const body = JSON.stringify(res.body);
+          // Bucket name must not appear in the response
+          expect(body).not.toContain('raffle-images-prod');
+          expect(body).not.toContain('StorageApiError');
+          expect(body).not.toContain('Bucket not found');
+        });
+    });
+
+    it('production response contains only code, safe message, and request ID (no extra fields)', () => {
+      return request(app.getHttpServer())
+        .get('/test-errors/db-query-failed')
+        .set(REQUEST_ID_HEADER, 'rid-fields')
+        .expect(500)
+        .expect((res) => {
+          const allowedKeys = new Set(['statusCode', 'error', 'message', 'requestId', 'timestamp', 'path']);
+          const actualKeys = Object.keys(res.body);
+          for (const key of actualKeys) {
+            expect(allowedKeys).toContain(key);
+          }
+          // No `details` field
+          expect(res.body).not.toHaveProperty('details');
+        });
+    });
+
+    it('4xx HttpExceptions still return their original message in production', () => {
+      return request(app.getHttpServer())
+        .get('/test-errors/not-found')
+        .expect(404)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('error', 'NOT_FOUND');
+          expect(res.body).toHaveProperty('message', 'Resource not found');
+        });
+    });
+
+    it('validation errors still return details in production', () => {
+      return request(app.getHttpServer())
+        .get('/test-errors/validation-error')
+        .expect(400)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('error', 'VALIDATION_ERROR');
+          expect(res.body).toHaveProperty('details');
+          expect(Array.isArray(res.body.details)).toBe(true);
         });
     });
   });

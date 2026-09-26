@@ -16,13 +16,13 @@ describe('ErrorResponseInterceptor', () => {
         [REQUEST_ID_HEADER]: 'test-request-id-123',
       },
     };
-    
+
     mockExecutionContext = {
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue(mockRequest),
       }),
     };
-    
+
     mockCallHandler = {
       handle: jest.fn(),
     };
@@ -42,14 +42,14 @@ describe('ErrorResponseInterceptor', () => {
       });
   });
 
-  it('should add request ID to error response object', (done) => {
+  it('should add request ID to an existing structured error response', (done) => {
     const error = {
       response: {
         message: 'Test error',
         statusCode: 400,
       },
     };
-    
+
     (mockCallHandler.handle as jest.Mock).mockReturnValue(throwError(() => error));
 
     interceptor
@@ -64,19 +64,22 @@ describe('ErrorResponseInterceptor', () => {
       });
   });
 
-  it('should create structured response for errors without response object', (done) => {
-    const error = new Error('Simple error message');
-    
+  it('should NOT fabricate a response.message from error.message (prevents leaking internal detail)', (done) => {
+    // A raw Error without an existing .response — the interceptor must leave
+    // the error unmodified rather than putting error.message onto a new response.
+    const error = new Error('internal SQL detail: SELECT * FROM secrets');
+
     (mockCallHandler.handle as jest.Mock).mockReturnValue(throwError(() => error));
 
     interceptor
       .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
       .subscribe({
         error: (err) => {
-          expect(err.response).toEqual({
-            message: 'Simple error message',
-            requestId: 'test-request-id-123',
-          });
+          // No .response should have been synthesised from error.message
+          expect(err.response).toBeUndefined();
+          // The raw message is still on the error object (for the filter to log)
+          // but it was never placed on a response property.
+          expect(err.message).toContain('SQL detail');
           done();
         },
       });
@@ -89,7 +92,7 @@ describe('ErrorResponseInterceptor', () => {
         message: 'Test error',
       },
     };
-    
+
     (mockCallHandler.handle as jest.Mock).mockReturnValue(throwError(() => error));
 
     interceptor
@@ -98,6 +101,21 @@ describe('ErrorResponseInterceptor', () => {
         error: (err) => {
           expect(err.response.requestId).toBeUndefined();
           expect(err.response.message).toBe('Test error');
+          done();
+        },
+      });
+  });
+
+  it('should not modify the response when error has no response property and no message', (done) => {
+    const error = { code: 'SOME_CODE' };
+
+    (mockCallHandler.handle as jest.Mock).mockReturnValue(throwError(() => error));
+
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        error: (err) => {
+          expect(err).toEqual({ code: 'SOME_CODE' });
           done();
         },
       });
