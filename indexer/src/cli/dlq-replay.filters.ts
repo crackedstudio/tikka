@@ -6,6 +6,11 @@
  * criterion is that dry-run reports accurately and writes nothing, and a
  * summary that quietly disagrees with the rows the replay would touch is worse
  * than no summary at all.
+ *
+ * Safety guard (issue #1597): `requireFilterOrAll` enforces that a caller
+ * either supplies at least one narrowing filter OR passes `--all` explicitly.
+ * Neither the CLI nor the HTTP endpoint should be able to replay the entire
+ * DLQ by accident.
  */
 
 /** Minimal shape needed for filtering and summarising a DLQ row. */
@@ -29,6 +34,11 @@ export interface ReplayFilters {
 
 export interface ParsedArgs {
   dryRun: boolean;
+  /**
+   * True when `--all` was explicitly passed. Required when no other filter is
+   * set; prevents an operator from replaying the entire DLQ by typo.
+   */
+  all: boolean;
   filters: ReplayFilters;
   /** Unrecognised flags, surfaced rather than ignored. */
   unknown: string[];
@@ -50,7 +60,7 @@ export class ArgumentError extends Error {
  * accident this flag exists to prevent.
  */
 export function parseArgs(argv: string[]): ParsedArgs {
-  const parsed: ParsedArgs = { dryRun: false, filters: {}, unknown: [] };
+  const parsed: ParsedArgs = { dryRun: false, all: false, filters: {}, unknown: [] };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -70,6 +80,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     switch (name) {
       case '--dry-run':
         parsed.dryRun = true;
+        break;
+      case '--all':
+        parsed.all = true;
         break;
       case '--type':
       case '--filter-type':
@@ -103,6 +116,30 @@ function parseDate(flag: string, raw: string): Date {
     throw new ArgumentError(`${flag} is not a valid date: "${raw}"`);
   }
   return d;
+}
+
+/**
+ * Safety guard: throw `ArgumentError` when neither a narrowing filter is set
+ * nor `--all` was explicitly passed.
+ *
+ * Placing the check here (pure, no I/O) means both the CLI entry-point and
+ * the HTTP handler get identical enforcement just by calling this function.
+ * An operator who means "replay everything" must type `--all`; a filter typo
+ * or a forgotten flag is caught before any database write happens.
+ */
+export function requireFilterOrAll(args: Pick<ParsedArgs, 'all' | 'filters'>): void {
+  const hasFilter =
+    (args.filters.eventTypes != null && args.filters.eventTypes.length > 0) ||
+    args.filters.since != null ||
+    args.filters.until != null;
+
+  if (!args.all && !hasFilter) {
+    throw new ArgumentError(
+      'Refusing to replay the entire DLQ. ' +
+        'Provide at least one filter (--type, --since, --until) ' +
+        'or pass --all to replay every eligible entry.',
+    );
+  }
 }
 
 /**
