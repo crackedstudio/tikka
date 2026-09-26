@@ -46,9 +46,9 @@ describe('normalizeContractResponse', () => {
     });
 
     it('rejects a success response that also carries an error message', () => {
-      expect(() =>
-        normalizeContractResponse({ success: true, value: 1, error: 'boom' }),
-      ).toThrow(InvalidResponseError);
+      expect(() => normalizeContractResponse({ success: true, value: 1, error: 'boom' })).toThrow(
+        InvalidResponseError,
+      );
     });
   });
 
@@ -95,12 +95,12 @@ describe('normalizeContractResponse', () => {
     }
 
     it('rejects contradictory success/failure flags', () => {
-      expect(() => normalizeContractResponse({ success: true, status: 'ERROR', error: 'x' })).toThrow(
-        InvalidResponseError,
-      );
-      expect(() => normalizeContractResponse({ success: false, status: 'SUCCESS', value: 1 })).toThrow(
-        InvalidResponseError,
-      );
+      expect(() =>
+        normalizeContractResponse({ success: true, status: 'ERROR', error: 'x' }),
+      ).toThrow(InvalidResponseError);
+      expect(() =>
+        normalizeContractResponse({ success: false, status: 'SUCCESS', value: 1 }),
+      ).toThrow(InvalidResponseError);
     });
 
     it('exposes the invalid payload as the error cause', () => {

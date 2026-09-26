@@ -27,7 +27,7 @@ export interface ContractResponse<T = any> {
   /** Legacy boolean success flag used by parts of the SDK. */
   success?: boolean;
   /** Legacy string status used by parts of the SDK. */
-  status?: "SUCCESS" | "ERROR";
+  status?: 'SUCCESS' | 'ERROR';
   /** The result value on success (undefined if failed) */
   value?: T;
   /** Error message describing what went wrong (undefined if succeeded) */
@@ -64,7 +64,8 @@ function withOptionalMetadata<T>(
   response: ContractResponse<T>,
   candidate: Record<string, unknown>,
 ): ContractResponse<T> {
-  if (typeof candidate.transactionHash === 'string') response.transactionHash = candidate.transactionHash;
+  if (typeof candidate.transactionHash === 'string')
+    response.transactionHash = candidate.transactionHash;
   if (typeof candidate.txHash === 'string') response.txHash = candidate.txHash;
   if (typeof candidate.ledger === 'number') response.ledger = candidate.ledger;
   if (typeof candidate.feeCharged === 'string') response.feeCharged = candidate.feeCharged;
@@ -107,18 +108,21 @@ export function normalizeContractResponse<T = unknown>(
   const claimsFailure = candidate.success === false || candidate.status === 'ERROR';
 
   if (claimsSuccess && claimsFailure) {
-    throw new InvalidResponseError(`${context}: response is marked as both success and failure`, raw);
+    throw new InvalidResponseError(
+      `${context}: response is marked as both success and failure`,
+      raw,
+    );
   }
 
   if (claimsFailure) {
     const error = candidate.error;
     if (typeof error !== 'string' || error.trim().length === 0) {
-      throw new InvalidResponseError(`${context}: failure response is missing an error message`, raw);
+      throw new InvalidResponseError(
+        `${context}: failure response is missing an error message`,
+        raw,
+      );
     }
-    return withOptionalMetadata<T>(
-      { success: false, status: 'ERROR' as const, error },
-      candidate,
-    );
+    return withOptionalMetadata<T>({ success: false, status: 'ERROR' as const, error }, candidate);
   }
 
   if (claimsSuccess) {

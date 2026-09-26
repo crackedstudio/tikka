@@ -129,12 +129,7 @@ describe('TransactionHistoryParser — property-based tests (fast-check)', () =>
     // valid event name, so nothing may be returned.
     fc.assert(
       fc.property(
-        fc.oneof(
-          fc.integer(),
-          fc.boolean(),
-          fc.constant(null),
-          fc.record({ a: fc.integer() }),
-        ),
+        fc.oneof(fc.integer(), fc.boolean(), fc.constant(null), fc.record({ a: fc.integer() })),
         arbitraryScVal,
         (badName, data) => {
           const topics = [toScVal(badName), nativeToScVal(1)];
