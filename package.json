@@ -2,13 +2,6 @@
   "name": "tikka",
   "private": true,
   "license": "Apache-2.0",
-  "workspaces": [
-    "client",
-    "sdk",
-    "backend",
-    "indexer",
-    "oracle"
-  ],
   "scripts": {
     "install:all": "pnpm install",
     "build": "turbo run build",
@@ -93,4 +86,4 @@
       }
     ]
   }
-  }
+}
