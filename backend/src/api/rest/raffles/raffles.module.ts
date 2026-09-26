@@ -17,6 +17,7 @@ import { MetricsService } from '../../../services/metrics/metrics.service';
 import { IdempotencyService } from '../../../common/idempotency/idempotency.service';
 import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
 import { AdminGuard } from '../monitor/admin.guard';
+import { AuditLogInterceptor } from '../monitor/audit-log.interceptor';
 import { MonitorService } from '../monitor/monitor.service';
 import { SseService } from '../../../services/notifications/sse.service';
 import { RaffleOgImageService } from './raffle-og-image.service';
@@ -39,6 +40,7 @@ import { RaffleOgImageService } from './raffle-og-image.service';
     IdempotencyService,
     IdempotencyInterceptor,
     AdminGuard,
+    AuditLogInterceptor,
     MonitorService,
     SseService,
     RaffleOgImageService,

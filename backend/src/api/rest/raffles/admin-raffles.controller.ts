@@ -6,20 +6,25 @@ import {
   ParseIntPipe,
   Post,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
   ApiParam,
   ApiResponse,
+  ApiSecurity,
 } from "@nestjs/swagger";
 import { Public } from "../../../auth/decorators/public.decorator";
 import { AdminGuard } from "../monitor/admin.guard";
+import { AuditLogInterceptor } from "../monitor/audit-log.interceptor";
 import { RafflesService } from "./raffles.service";
 
 @ApiTags("Admin - Raffles")
+@ApiSecurity("admin-token")
 @Controller("admin/raffles")
 @UseGuards(AdminGuard)
+@UseInterceptors(AuditLogInterceptor)
 @Public()
 export class AdminRafflesController {
   constructor(private readonly rafflesService: RafflesService) {}
