@@ -3,18 +3,32 @@
  * Tikka Indexer — DLQ replay CLI
  *
  * Usage:
- *   pnpm run dlq:replay
- *   pnpm run dlq:replay -- --dry-run
+ *   pnpm run dlq:replay -- --all
+ *   pnpm run dlq:replay -- --dry-run --all
  *   pnpm run dlq:replay -- --dry-run --type TicketPurchased --since 2026-07-01
  *
  * Options:
  *   --dry-run          Summarise what would be replayed. Performs no writes.
+ *   --all              Required when no other filter is set; acknowledges intent
+ *                      to replay the entire DLQ.
  *   --type <a,b>       Restrict to these event types (repeatable, or comma-separated).
  *   --since <date>     Only entries created at or after this ISO date.
  *   --until <date>     Only entries created at or before this ISO date.
  *
  * Filters apply in both modes, so a dry-run reports exactly the population a
  * real replay would touch (issue #1109).
+ *
+ * Safety guard (issue #1597):
+ *   The command refuses to run unless at least one filter is active OR --all is
+ *   passed. This prevents `pnpm dlq:replay` (no args) from silently replaying
+ *   the entire queue if an operator forgets to add a filter.
+ *
+ * Live dispatch (issue #862):
+ *   This script opens its own TypeORM connection for reads and dry-runs. Full
+ *   dispatch (writing replayedAt, incrementing retryCount) is delegated to
+ *   DlqReplayService, which requires the NestJS app context. Use the HTTP
+ *   endpoint (POST /admin/dlq/replay) or call DlqReplayService.replay() from
+ *   within the running app.
  */
 
 import * as path from 'path';
@@ -29,7 +43,10 @@ function loadEnvFile(file: string): void {
     const eqIdx = trimmed.indexOf('=');
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
-    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+    const val = trimmed
+      .slice(eqIdx + 1)
+      .trim()
+      .replace(/^["']|["']$/g, '');
     if (!(key in process.env)) process.env[key] = val;
   }
 }
@@ -47,11 +64,63 @@ import {
   summarise,
   formatSummary,
   ArgumentError,
+  ReplayFilters,
 } from './dlq-replay.filters';
 
-let parsedArgs;
+// ---------------------------------------------------------------------------
+// Safety guard — shared logic with DlqReplayService.guardAgainstUnfilteredReplay
+// ---------------------------------------------------------------------------
+
+/**
+ * Refuse to run without an explicit filter or the --all acknowledgement.
+ *
+ * This is the same rule enforced by DlqReplayService so CLI and HTTP callers
+ * get the same protection. If either path is changed, update both.
+ */
+function guardAgainstUnfilteredReplay(filters: ReplayFilters, all: boolean): void {
+  const hasFilter =
+    (filters.eventTypes?.length ?? 0) > 0 ||
+    filters.since !== undefined ||
+    filters.until !== undefined;
+
+  if (!hasFilter && !all) {
+    console.error(
+      'Error: no filter is active and --all was not passed.\n' +
+        'Provide at least one of --type, --since, --until, or pass --all to\n' +
+        'intentionally replay the entire DLQ.',
+    );
+    process.exit(2);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Parse arguments — extend parseArgs with --all support
+// ---------------------------------------------------------------------------
+
+function parseArgsWithAll(argv: string[]): {
+  dryRun: boolean;
+  all: boolean;
+  filters: ReplayFilters;
+  unknown: string[];
+} {
+  // Extract --all before forwarding the rest to the shared parseArgs helper so
+  // it does not appear in the `unknown` list.
+  const remaining: string[] = [];
+  let all = false;
+  for (const arg of argv) {
+    if (arg === '--all') {
+      all = true;
+    } else {
+      remaining.push(arg);
+    }
+  }
+  const parsed = parseArgs(remaining);
+  return { ...parsed, all };
+}
+
+let parsedArgs: ReturnType<typeof parseArgsWithAll>;
 try {
-  parsedArgs = parseArgs(process.argv.slice(2));
+  parsedArgs = parseArgsWithAll(process.argv.slice(2));
 } catch (err) {
   if (err instanceof ArgumentError) {
     console.error(`Error: ${err.message}`);
@@ -67,11 +136,17 @@ if (parsedArgs.unknown.length > 0) {
   process.exit(2);
 }
 
-const { dryRun, filters } = parsedArgs;
+const { dryRun, filters, all } = parsedArgs;
+
+// Apply the safety guard before touching the database.
+guardAgainstUnfilteredReplay(filters, all);
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const ssl =
-    process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
+  const ssl = process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
 
   const options: DataSourceOptions = {
     type: 'postgres',
@@ -97,11 +172,12 @@ async function main(): Promise<void> {
   // can never report a different population than a real replay would touch.
   const entries = applyFilters(allEntries, filters);
 
+  // Print summary in both dry-run and live modes.
+  console.log(formatSummary(summarise(entries, MAX_RETRIES), filters));
+
   if (dryRun) {
     // Returns before anything that could mutate state. The connection is
     // opened read-only in practice: the only query issued above is a find().
-    console.log(formatSummary(summarise(entries, MAX_RETRIES), filters));
-
     if (entries.length > 0) {
       console.log('\nEntries:');
       for (const e of entries) {
@@ -123,7 +199,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log(`${entries.length} matching DLQ entries:\n`);
+  console.log(`\n${entries.length} matching DLQ entries:\n`);
   for (const e of entries) {
     const exhausted = e.retryCount >= MAX_RETRIES;
     console.log(
@@ -132,9 +208,9 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    '\nReplay requires the full NestJS application context. ' +
-    'Start the indexer and use the scheduled retry job, or remove --dry-run to see this message.\n' +
-    'To trigger a replay programmatically, call DlqService.replayAll() from within the app.',
+    '\nThis script has read-only access to the database. To dispatch events,\n' +
+      'use the HTTP endpoint (POST /admin/dlq/replay) or call\n' +
+      'DlqReplayService.replay() from within the running NestJS application.',
   );
 
   await ds.destroy();
