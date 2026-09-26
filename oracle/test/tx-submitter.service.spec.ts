@@ -1,125 +1,81 @@
+jest.mock('@stellar/stellar-sdk', () => ({
+  BASE_FEE: '100',
+  Networks: { TESTNET: 'Test SDF Network ; September 2015' },
+  rpc: { Server: jest.fn() },
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
-import { TxSubmitterService } from '../src/submitter/tx-submitter.service';
-import { KeyService } from '../src/keys/key.service';
-import { FeeEstimatorService } from '../src/submitter/fee-estimator.service';
-import { CostEstimatorService } from '../src/submitter/cost-estimator.service';
-import { OracleLoggerService } from '../src/logger/oracle-logger';
 import { ConfigService } from '@nestjs/config';
+import { TxSubmitterService } from '../src/submitter/tx-submitter.service';
+import { FeeEstimatorService } from '../src/submitter/fee-estimator.service';
+import { KeyService } from '../src/keys/key.service';
+import { OracleLoggerService } from '../src/logger/oracle-logger';
+import { FeeStrategyService } from '../src/submitter/fee-strategy';
+import { TxBuilderService } from '../src/submitter/tx-builder';
+import { SubmissionService } from '../src/submitter/submission';
 
-describe('TxSubmitterService', () => {
+describe('TxSubmitterService orchestration', () => {
   let service: TxSubmitterService;
-  let keyService: Partial<KeyService>;
-  let feeEstimator: Partial<FeeEstimatorService>;
-
-  const mockRpcFactory = () => {
-    const calls: any = { sendCalls: [] };
-    const rpc: any = {
-      sendTransaction: jest.fn(async () => ({ hash: 'ok-hash' })),
-      getTransaction: jest.fn(async () => ({ status: 'SUCCESS', ledger: 42 })),
-      prepareTransaction: jest.fn(async (tx: any) => ({ prepared: true, tx })),
-      simulateTransaction: jest.fn(async () => ({ result: 'ok' })),
-      getAccount: jest.fn(async () => {
-        const Account = require('@stellar/stellar-sdk').Account;
-        return new Account('GAKOTQ5JCSC2XBYVVOBM3VSBLULXBLX64XJIY7JJ2TZXZROUW2IHKPVD', '1');
-      }),
-    };
-    return { rpc, calls };
-  };
+  let submission: { submitTransactionWithRetry: jest.Mock; buildServer: jest.Mock; pollForConfirmation: jest.Mock; getRpcStatus: jest.Mock };
+  let feeStrategy: { recordRevealCost: jest.Mock; recordSubmissionFailure: jest.Mock; recordFeeBump: jest.Mock; recordSubmissionRetry: jest.Mock };
 
   beforeEach(async () => {
-    keyService = {
-      getPublicKey: jest.fn().mockResolvedValue('GAKOTQ5JCSC2XBYVVOBM3VSBLULXBLX64XJIY7JJ2TZXZROUW2IHKPVD'),
-      signTransaction: jest.fn().mockResolvedValue(undefined),
+    submission = {
+      buildServer: jest.fn().mockReturnValue({}),
+      submitTransactionWithRetry: jest.fn().mockResolvedValue({
+        outcome: { status: 'SUCCESS', txHash: 'ok-hash', ledger: 42, feePaid: 100, retriable: false },
+        shouldRetry: false,
+        bumpFee: false,
+      }),
+      pollForConfirmation: jest.fn(),
+      getRpcStatus: jest.fn().mockResolvedValue([]),
     };
-
-    feeEstimator = {
-      estimateFee: jest.fn().mockResolvedValue({ cappedFee: 100, priorityFee: 50, isCapped: false }),
+    feeStrategy = {
+      recordRevealCost: jest.fn(),
+      recordSubmissionFailure: jest.fn(),
+      recordFeeBump: jest.fn(),
+      recordSubmissionRetry: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TxSubmitterService,
         { provide: OracleLoggerService, useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } },
-        { provide: ConfigService, useValue: { get: jest.fn().mockImplementation((k: string, defaultVal?: any) => {
-          if (k === 'RAFFLE_CONTRACT_ID') return 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
-          if (k === 'SOROBAN_RPC_URL') return 'https://example.com';
-          return defaultVal !== undefined ? defaultVal : undefined;
+        { provide: ConfigService, useValue: { get: jest.fn().mockImplementation((key: string, fallback?: unknown) => {
+          if (key === 'RAFFLE_CONTRACT_ID') return 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
+          if (key === 'SOROBAN_RPC_URL') return 'https://example.com';
+          return fallback;
         }) } },
-        { provide: FeeEstimatorService, useValue: feeEstimator },
-        { provide: KeyService, useValue: keyService },
-        {
-          provide: CostEstimatorService,
-          useValue: {
-            recordRevealCost: jest.fn(),
-            recordSubmissionRetry: jest.fn(),
-            recordSubmissionFailure: jest.fn(),
-          },
-        },
+        { provide: FeeEstimatorService, useValue: { estimateFee: jest.fn().mockResolvedValue({ cappedFee: 100 }) } },
+        { provide: KeyService, useValue: { getPublicKey: jest.fn().mockResolvedValue('GTEST'), signTransaction: jest.fn() } },
+        { provide: FeeStrategyService, useValue: feeStrategy },
+        { provide: TxBuilderService, useValue: { buildPreparedTx: jest.fn().mockResolvedValue({}), buildCommitmentTx: jest.fn(), buildRevealTx: jest.fn() } },
+        { provide: SubmissionService, useValue: submission },
       ],
     }).compile();
 
-    service = module.get<TxSubmitterService>(TxSubmitterService);
-    jest.spyOn(service as any, 'delay').mockResolvedValue(undefined);
-
-    // Inject mock RPC server
-    const { rpc } = mockRpcFactory();
-    (service as any).rpcServer = rpc;
+    service = module.get(TxSubmitterService);
   });
 
-  it('should call KeyService.signTransaction and return success on submitRandomness', async () => {
-    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
+  it('delegates a successful reveal to the submission service and records the cost', async () => {
+    const result = await service.submitRandomness(1, { seed: 'seed', proof: 'proof' });
 
-    const res = await service.submitRandomness(1, randomness);
-
-    expect(res.success).toBe(true);
-    expect(res.txHash).toBe('ok-hash');
-    expect((keyService.signTransaction as jest.Mock).mock.calls.length).toBeGreaterThan(0);
+    expect(result).toMatchObject({ success: true, txHash: 'ok-hash', ledger: 42 });
+    expect(submission.submitTransactionWithRetry).toHaveBeenCalledTimes(1);
+    expect(feeStrategy.recordRevealCost).toHaveBeenCalled();
   });
 
-  it('should retry on insufficient fee error and then succeed', async () => {
-    const rpc: any = (service as any).rpcServer;
-
-    // First call returns an object indicating insufficient fee (no hash)
-    rpc.sendTransaction.mockImplementationOnce(async () => ({ error: 'tx_insufficient_fee' }));
-    // Second call succeeds
-    rpc.sendTransaction.mockImplementationOnce(async () => ({ hash: 'after-retry' }));
-
-    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
-    const res = await service.submitRandomness(2, randomness);
-
-    expect(res.success).toBe(true);
-    expect(res.txHash).toBe('after-retry');
-    expect(rpc.sendTransaction).toHaveBeenCalledTimes(2);
-  });
-
-  it('should trigger failover on RPC errors', async () => {
-    const rpc: any = (service as any).rpcServer;
-
-    // Make sendTransaction throw an RPC-like error
-    rpc.sendTransaction.mockImplementationOnce(async () => { throw new Error('ECONNREFUSED'); });
-    // After failover the next call will succeed
-    rpc.sendTransaction.mockImplementationOnce(async () => ({ hash: 'post-failover' }));
-
-    const spyFailover = jest.spyOn(service as any, 'failoverRpc');
-
-    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
-    const res = await service.submitRandomness(3, randomness);
-
-    expect(spyFailover).toHaveBeenCalled();
-    expect(res.success).toBe(true);
-    expect(res.txHash).toBe('post-failover');
-  });
-
-  it('should stop retrying on non-retriable invalid transaction errors', async () => {
-    const rpc: any = (service as any).rpcServer;
-    rpc.sendTransaction.mockImplementationOnce(async () => {
-      throw new Error('transaction invalid: malformed');
+  it('records a submission failure when the unit layer returns an ambiguous timeout', async () => {
+    submission.submitTransactionWithRetry.mockResolvedValue({
+      outcome: { status: 'TIMEOUT', txHash: 'maybe', error: 'timeout', retriable: false, pollAttempts: 1 },
+      shouldRetry: false,
+      bumpFee: false,
     });
 
-    const randomness = { seed: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', proof: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } as any;
-    const res = await service.submitRandomness(4, randomness);
+    const result = await service.submitRandomness(2, { seed: 'seed', proof: 'proof' });
 
-    expect(res.success).toBe(false);
-    expect(rpc.sendTransaction).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(false);
+    expect(submission.submitTransactionWithRetry).toHaveBeenCalledTimes(1);
+    expect(feeStrategy.recordSubmissionFailure).toHaveBeenCalledWith(2, 'PRNG', 'timeout');
   });
 });
