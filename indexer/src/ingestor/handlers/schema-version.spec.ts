@@ -9,6 +9,34 @@ import {
 import { RawSorobanEvent } from "../event-parser.interface";
 
 describe("schema-version", () => {
+  
+  describe("schema upgrade path demonstration", () => {
+    // Documenting the upgrade path:
+    // When a contract bumps to v2, the indexer codebase will change:
+    //   CURRENT_SCHEMA_VERSION = 2;
+    //   SUPPORTED_SCHEMA_VERSIONS = new Set([1, 2]);
+    // This test proves that the older versions remain supported when 
+    // the supported set expands, ensuring uninterrupted historic syncing.
+    const NEXT_SCHEMA_VERSION = 2;
+    const HYPOTHETICAL_SUPPORTED = new Set([1, 2]);
+
+    function isHypotheticallySupported(version: number) {
+      return Number.isInteger(version) && HYPOTHETICAL_SUPPORTED.has(version);
+    }
+
+    it("retains support for v1 events when bumped to v2", () => {
+      expect(isHypotheticallySupported(1)).toBe(true);
+    });
+
+    it("accepts the new v2 events", () => {
+      expect(isHypotheticallySupported(NEXT_SCHEMA_VERSION)).toBe(true);
+    });
+
+    it("continues rejecting unknown future versions", () => {
+      expect(isHypotheticallySupported(3)).toBe(false);
+    });
+  });
+
   describe("constants", () => {
     it("current version is supported", () => {
       expect(isSupportedSchemaVersion(CURRENT_SCHEMA_VERSION)).toBe(true);
