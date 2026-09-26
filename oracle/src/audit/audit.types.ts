@@ -15,6 +15,11 @@ export interface VrfAuditRecord {
   ledger_sequence: number | null;
   chain_hash: string;
   tx_hash: string | null;
+  /**
+   * Observed inclusion fee in stroops.
+   * null or 0 means the fee was not recorded (historical rows hardcoded 0).
+   */
+  fee_stroops?: number | null;
 }
 
 export interface CreateCommitParams {
@@ -43,6 +48,8 @@ export interface RecordSubmissionParams {
   oracleAddress: string;
   timestamp: Date;
   requestId?: string;
+  /** Observed inclusion fee. Omit or null when the chain did not report one. */
+  feeStroops?: number | null;
 }
 
 /**

@@ -48,28 +48,27 @@ spec:
           # anything is declared failed.
           startupProbe:
             httpGet:
-              path: /health
+              path: /health/live
               port: 8080
             initialDelaySeconds: 0
             periodSeconds: 5
             failureThreshold: 30
             timeoutSeconds: 3
-          # Readiness controls traffic. Overlays point it at whichever path
-          # reports "safe to serve" — a degraded dependency must fail this.
+          # Readiness controls traffic. A degraded dependency must fail this
+          # so the pod is taken out of rotation without a restart.
           readinessProbe:
             httpGet:
-              path: /health
+              path: /health/ready
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 5
             failureThreshold: 3
             timeoutSeconds: 5
-          # Liveness restarts the pod. Overlays point it at a path that only
-          # fails when the process itself is wedged — never at a dependency
-          # check, or a slow database will restart-loop the fleet.
+          # Liveness restarts the pod. This path only fails when the process
+          # itself is not serving — never because RPC, Redis, or the queue is down.
           livenessProbe:
             httpGet:
-              path: /health
+              path: /health/live
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
