@@ -18,6 +18,7 @@
     "test:integration": "jest --config jest.integration.config.js --runInBand",
     "status": "ts-node --transpile-only src/cli/status.command.ts",
     "archive:raffle-events": "ts-node src/maintenance/archive-raffle-events.ts",
+    "restore:raffle-events": "ts-node src/maintenance/restore-raffle-events.ts",
     "snapshot:export": "ts-node src/cli/snapshot-export.ts",
     "snapshot:import": "ts-node src/cli/snapshot-import.ts",
     "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
