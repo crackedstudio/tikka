@@ -47,6 +47,39 @@ export const ContractFn = {
 export type ContractFnName = (typeof ContractFn)[keyof typeof ContractFn];
 
 /**
+ * Contract event topics — the canonical names the raffle contract emits.
+ *
+ * Every emitted event carries its name as the first topic / discriminant, and
+ * that name is what the indexer routes on. This map is the reference the
+ * indexer cross-checks against: `indexer/src/ingestor/handlers/all-handlers.spec.ts`
+ * parses this file and asserts it matches the indexer's
+ * `CONTRACT_EVENT_TOPICS`, so adding an event here without an indexer handler
+ * (or vice versa) fails that test instead of the event being silently dropped.
+ */
+export const ContractEvent = {
+  // Lifecycle
+  RAFFLE_CREATED: 'RaffleCreated',
+  TICKET_PURCHASED: 'TicketPurchased',
+  RAFFLE_FINALIZED: 'RaffleFinalized',
+  RAFFLE_CANCELLED: 'RaffleCancelled',
+  TICKET_REFUNDED: 'TicketRefunded',
+
+  // Randomness / draw
+  DRAW_TRIGGERED: 'DrawTriggered',
+  RANDOMNESS_REQUESTED: 'RandomnessRequested',
+  RANDOMNESS_RECEIVED: 'RandomnessReceived',
+
+  // Admin
+  CONTRACT_PAUSED: 'ContractPaused',
+  CONTRACT_UNPAUSED: 'ContractUnpaused',
+  ADMIN_TRANSFER_PROPOSED: 'AdminTransferProposed',
+  ADMIN_TRANSFER_ACCEPTED: 'AdminTransferAccepted',
+} as const;
+
+export type ContractEventName =
+  (typeof ContractEvent)[keyof typeof ContractEvent];
+
+/**
  * Raffle states as returned by get_raffle_data.
  */
 import { RaffleStatus } from "@tikka/types";
