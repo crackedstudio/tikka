@@ -5,7 +5,7 @@ import { env } from '../../config/env.config';
 import {
   HorizonLedgerData,
   HorizonTransactionRecord,
-} from './indexer/indexer-backfill.types';
+} from './indexer-backfill.types';
 
 @Injectable()
 export class HorizonClientService {

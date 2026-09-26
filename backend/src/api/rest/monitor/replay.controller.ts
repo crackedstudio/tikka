@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
   BadRequestException,
@@ -13,6 +14,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 import { ReplayService, type ReplayJobStatus } from '../../../services/indexer/replay.service';
 import { AdminGuard } from './admin.guard';
+import { AuditLogInterceptor } from './audit-log.interceptor';
 import {
   ReplayJobStartResponseDto,
   ReplayJobStatusDto,
@@ -22,6 +24,7 @@ import { ReplayJobConfigDto } from './dto/replay-request.dto';
 @ApiTags('Admin - Replay')
 @ApiSecurity('admin-token')
 @UseGuards(AdminGuard)
+@UseInterceptors(AuditLogInterceptor)
 @Controller('admin/replay')
 export class ReplayController {
   constructor(private readonly replayService: ReplayService) {}

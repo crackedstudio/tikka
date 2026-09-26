@@ -3,7 +3,7 @@ import {
   ArgumentMetadata,
   BadRequestException,
 } from "@nestjs/common";
-import { ZodSchema, ZodTypeDef, ZodError } from "zod";
+import { ZodSchema, ZodError } from "zod";
 
 /**
  * Creates a validation pipe using a Zod schema.
@@ -27,18 +27,19 @@ import { ZodSchema, ZodTypeDef, ZodError } from "zod";
  * @returns PipeTransform class that validates and transforms data
  * @throws BadRequestException when validation fails
  */
-export function createZodPipe<Output, Input = Output>(schema: ZodSchema<Output, ZodTypeDef, Input>) {
+export function createZodPipe<Output = any>(schema: ZodSchema<Output>) {
   return class implements PipeTransform {
     transform(value: unknown, _metadata: ArgumentMetadata): Output {
       const result = schema.safeParse(value);
       if (!result.success) {
-        const msg = result.error.errors.map((e) => e.message).join("; ");
+        const issues: any[] = (result.error as any).issues ?? (result.error as any).errors ?? [];
+        const msg = issues.map((e: any) => e.message).join("; ");
         throw new BadRequestException({
           message: msg,
-          errors: result.error.errors,
+          errors: issues,
         });
       }
-      return result.data;
+      return result.data as Output;
     }
   };
 }
@@ -48,10 +49,12 @@ export function createZodPipe<Output, Input = Output>(schema: ZodSchema<Output, 
  * @internal Used internally by validation pipe, exposed for testing/debugging.
  */
 export function formatZodError(error: ZodError): string {
-  return error.errors
-    .map((e) => {
-      const path = e.path.length > 0 ? `${e.path.join(".")} ` : "";
+  const issues: any[] = (error as any).issues ?? (error as any).errors ?? [];
+  return issues
+    .map((e: any) => {
+      const path = Array.isArray(e.path) && e.path.length > 0 ? `${e.path.join(".")} ` : "";
       return `${path}${e.message}`;
     })
     .join("; ");
 }
+

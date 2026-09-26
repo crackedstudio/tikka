@@ -2,10 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ReplayJobConfigDto {
   @ApiProperty({ description: 'First ledger included in the replay' })
-  fromLedger: number;
+  fromLedger!: number;
 
   @ApiProperty({ description: 'Last ledger included in the replay' })
-  toLedger: number;
+  toLedger!: number;
 
   @ApiPropertyOptional({ description: 'Optional contract ID to limit the replay' })
   contractId?: string;
@@ -19,13 +19,13 @@ export class ReplayJobConfigDto {
 
 export class ReplayJobProgressDto {
   @ApiProperty({ description: 'Number of ledgers processed so far' })
-  processedCount: number;
+  processedCount!: number;
 
   @ApiProperty({ description: 'Number of ledgers skipped so far' })
-  skippedCount: number;
+  skippedCount!: number;
 
   @ApiProperty({ description: 'Total ledgers in the replay range' })
-  totalLedgers: number;
+  totalLedgers!: number;
 
   @ApiPropertyOptional({ description: 'Currently processed ledger number' })
   currentLedger?: number;
@@ -33,10 +33,10 @@ export class ReplayJobProgressDto {
 
 export class ReplayPlannedActionDto {
   @ApiProperty({ description: 'Ledger number for this action' })
-  ledger: number;
+  ledger!: number;
 
   @ApiProperty({ enum: ['submit', 'skip'], description: 'Planned action outcome' })
-  action: 'submit' | 'skip';
+  action!: 'submit' | 'skip';
 
   @ApiPropertyOptional({ description: 'Reason for the action' })
   reason?: string;
@@ -44,10 +44,10 @@ export class ReplayPlannedActionDto {
 
 export class ReplayJobResultDto {
   @ApiProperty({ description: 'Elapsed execution time in milliseconds' })
-  elapsedMs: number;
+  elapsedMs!: number;
 
   @ApiProperty({ type: [Number], description: 'Ledger numbers that were not replayed' })
-  missingLedgers: number[];
+  missingLedgers!: number[];
 
   @ApiPropertyOptional({ type: [ReplayPlannedActionDto], description: 'Planned actions taken during the replay' })
   plannedActions?: ReplayPlannedActionDto[];
@@ -70,24 +70,24 @@ export class ReplayJobResultDto {
 
 export class ReplayJobStartResponseDto {
   @ApiProperty({ description: 'Generated job identifier' })
-  jobId: string;
+  jobId!: string;
 
   @ApiProperty({ description: 'Human-readable job status message' })
-  message: string;
+  message!: string;
 }
 
 export class ReplayJobStatusDto {
   @ApiProperty({ description: 'Generated job identifier' })
-  jobId: string;
+  jobId!: string;
 
   @ApiProperty({ enum: ['pending', 'running', 'completed', 'failed'], description: 'Replay job state' })
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status!: 'pending' | 'running' | 'completed' | 'failed';
 
   @ApiProperty({ type: ReplayJobConfigDto })
-  config: ReplayJobConfigDto;
+  config!: ReplayJobConfigDto;
 
   @ApiProperty({ type: ReplayJobProgressDto })
-  progress: ReplayJobProgressDto;
+  progress!: ReplayJobProgressDto;
 
   @ApiPropertyOptional({ type: ReplayJobResultDto })
   result?: ReplayJobResultDto;
@@ -96,11 +96,11 @@ export class ReplayJobStatusDto {
   error?: string;
 
   @ApiProperty({ description: 'ISO timestamp when the job was created' })
-  createdAt: string;
+  createdAt!: string;
 
   @ApiPropertyOptional({ description: 'ISO timestamp when the job started' })
   startedAt?: string;
 
   @ApiPropertyOptional({ description: 'ISO timestamp when the job completed' })
   completedAt?: string;
-}
+}
