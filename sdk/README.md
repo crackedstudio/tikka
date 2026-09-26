@@ -6,7 +6,30 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 
 **Consumers:** Frontend (client), third-party developers.
 
-**Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./docs/DEPRECATION.md).
+**Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./DEPRECATION.md).
+
+## Migrating from direct `@stellar/stellar-sdk`
+
+**Already talking to Soroban with `@stellar/stellar-sdk` yourself?** Start here.
+[`docs/sdk/migration.md`](../docs/sdk/migration.md) maps the direct-SDK approach
+(`new Contract()`, `rpc.Server`, `TransactionBuilder`, `nativeToScVal`,
+`rpc.assembleTransaction`) onto the `@tikka/sdk` equivalents, operation by
+operation, with before/after code for every raffle and ticket call.
+
+It also covers:
+
+- **The `@stellar/stellar-sdk` version constraint.** The SDK depends on
+  `@stellar/stellar-sdk@^16.1.0` (Node 22+). Align your own range or add the
+  `pnpm.overrides` pin so you do not end up with two copies in your tree, and
+  see [what actually breaks coming from v14](../docs/sdk/migration.md#what-breaks-on-v14).
+- **Wallet strategy.** When a built-in `WalletAdapter` is enough, when you want
+  a wallet kit, and how to bridge one behind `WalletAdapter` so the wallet only
+  ever signs XDR — see
+  [Wallet adapters vs. a wallet kit](../docs/sdk/migration.md#8-wallet-adapters-vs-a-wallet-kit).
+- **Unit gotchas.** `RaffleParams.ticketPrice` is XLM, `endTime` is
+  milliseconds, `maxPricePerTicket` is stroops.
+- **A migration checklist** to work through before you cut over.
+
 ## Light vs full build
 
 Choose the full SDK when you need NestJS modules, dependency injection, wallet services, or the higher-level contract helpers that assume the framework runtime. Choose the light build when you need a browser-friendly entry point for low-level RPC access and lightweight types without the NestJS overhead.
@@ -336,6 +359,12 @@ The CLI provides safe error messages that don't leak sensitive information:
 Full TypeDoc reference is auto-generated and hosted on GitHub Pages:
 **[crackedstudio.github.io/tikka](https://crackedstudio.github.io/tikka)**
 
+Coming from direct `@stellar/stellar-sdk`? Start with the
+**[migration guide](../docs/sdk/migration.md)** — it maps each direct-SDK operation
+to its `@tikka/sdk` equivalent, documents the `@stellar/stellar-sdk@^16.1.0`
+constraint and what breaks on v14, and covers wallet adapters versus a wallet
+kit.
+
 To build locally:
 ```bash
 npm run docs        # generates sdk/docs/
@@ -582,7 +611,7 @@ npm run example:custom-wallet
 
 The SDK provides a unified interface for multiple Stellar wallets. All adapters implement the same `WalletAdapter` interface with `getPublicKey()` and `signTransaction(xdr)` methods.
 
-> **Implementing a custom wallet?** See the full integrator contract — methods, expected errors, and signing flow — in [`WALLET_ADAPTER.md`](./docs/WALLET_ADAPTER.md), plus the runnable [`examples/custom-wallet.ts`](./examples/custom-wallet.ts).
+> **Implementing a custom wallet?** See the full integrator contract — methods, expected errors, and signing flow — in [`WALLET_ADAPTERS.md`](../docs/WALLET_ADAPTERS.md), plus the runnable [`examples/custom-wallet.ts`](./examples/custom-wallet.ts). Choosing between a built-in adapter and a wallet kit? See [Wallet adapters vs. a wallet kit](../docs/sdk/migration.md#8-wallet-adapters-vs-a-wallet-kit).
 
 ### Supported Wallets
 
@@ -828,7 +857,7 @@ class MyWalletAdapter extends WalletAdapter {
 }
 ```
 
-Full contract (methods, error codes, signing flow): [`WALLET_ADAPTER.md`](./docs/WALLET_ADAPTER.md).  
+Full contract (methods, error codes, signing flow): [`WALLET_ADAPTERS.md`](../docs/WALLET_ADAPTERS.md).  
 Runnable demo: [`examples/custom-wallet.ts`](./examples/custom-wallet.ts) (`npm run example:custom-wallet`).
 
 ### Selecting Adapters
