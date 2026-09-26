@@ -38,7 +38,7 @@ import {
   toTypedContractError,
 } from '../utils/errors';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────
 
 /**
  * Transaction memo — attach tracking data or external references.
@@ -108,7 +108,7 @@ export interface InvokeLifecycleOptions {
   memo?: TxMemo;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────
 
 /** Detects Soroban contract errors in error messages / XDR. */
 function isExternalContractFailure(msg: string): boolean {
@@ -178,7 +178,7 @@ export function validateLifecycleTransition(
   }
 }
 
-// ─── Class ───────────────────────────────────────────────────────────────────
+// ─── Class ───────────────────────────────────────────────────────────
 
 /**
  * TransactionLifecycle manages the four-phase Soroban transaction lifecycle.
@@ -227,7 +227,7 @@ export class TransactionLifecycle {
    */
   async simulate<T = unknown>(
     method: string,
-    params: any[],
+    params: unknown[],
     options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
     const sourceKey = options.sourcePublicKey ?? (await this.resolveSourceKey());
@@ -236,7 +236,7 @@ export class TransactionLifecycle {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? '';
+      const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Simulation failed for "${method}": ${errMsg}`;
       throw (
         toTypedContractError(message, errMsg) ??
@@ -247,7 +247,7 @@ export class TransactionLifecycle {
     const success = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
     const assembled = rpc.assembleTransaction(tx, success).build();
 
-    const returnValue = success.result?.retval ? (scValToNative(success.result.retval) as T) : null;
+    const returnValue = success.result?.retval ? scValToNative(success.result.retval) : null;
 
     return {
       returnValue,
@@ -279,8 +279,8 @@ export class TransactionLifecycle {
         networkPassphrase: networkPassphrase ?? this.networkConfig.networkPassphrase,
       });
       signedXdr = result.signedXdr;
-    } catch (err: any) {
-      const msg: string = err?.message ?? String(err);
+    } catch (err: unknown) {
+      const msg: string = err instanceof Error ? err.message : String(err);
       const isRejection =
         msg.toLowerCase().includes('reject') ||
         msg.toLowerCase().includes('denied') ||
@@ -311,7 +311,7 @@ export class TransactionLifecycle {
     const sendResp = await this.rpc.sendTransaction(signedTx);
 
     if (sendResp.status === 'ERROR') {
-      const detail = (sendResp as any).errorResultXdr ?? '';
+      const detail = (sendResp as Record<string, unknown>).errorResultXdr ?? '';
       throw new TransactionRejectedError(`Transaction submission failed: ${detail}`);
     }
 
@@ -371,7 +371,7 @@ export class TransactionLifecycle {
       if (resp.status === rpc.Api.GetTransactionStatus.SUCCESS) {
         const ok = resp as rpc.Api.GetSuccessfulTransactionResponse;
         return {
-          returnValue: ok.returnValue ? (scValToNative(ok.returnValue) as T) : null,
+          returnValue: ok.returnValue ? scValToNative(ok.returnValue) : null,
           txHash,
           ledger: ok.ledger,
           resultXdr:
@@ -382,7 +382,7 @@ export class TransactionLifecycle {
       }
 
       if (resp.status === rpc.Api.GetTransactionStatus.FAILED) {
-        const resultXdr = (resp as any).resultXdr ?? '';
+        const resultXdr = (resp as Record<string, unknown>).resultXdr ?? '';
         const message = `Transaction ${txHash} failed on-chain (attempt ${attempts})`;
 
         if (isExternalContractFailure(String(resultXdr))) {
@@ -417,7 +417,7 @@ export class TransactionLifecycle {
    */
   async invoke<T = unknown>(
     method: string,
-    params: any[],
+    params: unknown[],
     options: InvokeLifecycleOptions = {},
   ): Promise<SubmitResult<T>> {
     if (!this.wallet) {
@@ -445,7 +445,7 @@ export class TransactionLifecycle {
 
   private async buildTx(
     method: string,
-    params: any[],
+    params: unknown[],
     sourceKey: string,
     fee?: string,
     memo?: TxMemo,
@@ -456,7 +456,7 @@ export class TransactionLifecycle {
           accountId: () => sourceKey,
           sequenceNumber: () => '0',
           incrementSequenceNumber: () => {},
-        }) as any,
+        }) as xdr.Account,
     );
 
     let finalFee = fee;
@@ -489,7 +489,7 @@ export class TransactionLifecycle {
     }
   }
 
-  private toScVal(val: any): xdr.ScVal {
+  private toScVal(val: unknown): xdr.ScVal {
     if (val instanceof xdr.ScVal) return val;
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();

@@ -202,6 +202,21 @@ jobs:
         run: pnpm run typecheck
         continue-on-error: false
 
+      - name: Verify contract bindings are up to date
+        run: |
+          # Ensure generated bindings exist and are non-empty
+          if [ ! -s src/contract/generated/bindings.ts ]; then
+            echo "❌ src/contract/generated/bindings.ts is missing or empty"
+            exit 1
+          fi
+          # Ensure no 'any' types remain in src/contract/
+          if grep -rn '\bany\b' src/contract/ --include='*.ts' | grep -v '.spec.ts'; then
+            echo "❌ Found 'any' types in src/contract/ — remove them or use parsers"
+            exit 1
+          fi
+          echo "✅ Contract bindings verified — no 'any' in src/contract/"
+        continue-on-error: false
+
       - name: Run tests
         run: pnpm run test -- --coverage
         continue-on-error: false

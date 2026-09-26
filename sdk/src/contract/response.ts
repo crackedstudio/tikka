@@ -21,7 +21,7 @@
  * }
  * ```
  */
-export interface ContractResponse<T = any> {
+export interface ContractResponse<T> {
   /** Legacy boolean success flag used by parts of the SDK. */
   success?: boolean;
   /** Legacy string status used by parts of the SDK. */
@@ -43,9 +43,9 @@ export interface ContractResponse<T = any> {
   warnings?: string[];
 }
 
-export type TxResponse<T = any> = ContractResponse<T>;
+export type TxResponse<T> = ContractResponse<T>;
 
-export type TicketTxResponse<T = number[]> = ContractResponse<T>;
-export type RaffleTxResponse<T = number> = ContractResponse<T>;
-export type AdminTxResponse<T = void> = ContractResponse<T>;
-export type UserTxResponse<T = any> = ContractResponse<T>;
+export type TicketTxResponse<T> = ContractResponse<T>;
+export type RaffleTxResponse<T> = ContractResponse<T>;
+export type AdminTxResponse<T> = ContractResponse<T>;
+export type UserTxResponse<T> = ContractResponse<T>;
