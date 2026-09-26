@@ -374,6 +374,10 @@ jobs:
           NODE_ENV: test
         continue-on-error: false
 
+      - name: Check migration timestamps and structure
+        run: pnpm run migrations:check
+        continue-on-error: false
+
       - name: Validate OpenAPI Spec
         run: pnpm run validate:openapi
 
