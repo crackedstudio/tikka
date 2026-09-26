@@ -7,6 +7,35 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 **Consumers:** Frontend (client), third-party developers.
 
 **Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./docs/DEPRECATION.md).
+
+## Stellar SDK peer dependency
+
+`@tikka/sdk` declares `@stellar/stellar-sdk` as a **peer dependency** with the supported range:
+
+```
+@stellar/stellar-sdk >=14.0.0 <17.0.0
+```
+
+Install it alongside this package:
+
+```bash
+# npm
+npm install @tikka/sdk @stellar/stellar-sdk
+
+# pnpm
+pnpm add @tikka/sdk @stellar/stellar-sdk
+```
+
+| `@stellar/stellar-sdk` | Supported | Notes |
+|---|:---:|---|
+| 14.x (≥ 14.3.0) | ✅ | `rpc` namespace available; ESM-only deps absent — Jest compat pattern still applies |
+| 15.x | ⚠️ | In-range but not explicitly tested in CI |
+| 16.x (≥ 16.1.0) | ✅ | Development baseline; all CI jobs run against this version |
+| < 14 | ❌ | `rpc` namespace absent; not supported |
+| ≥ 17 | ❌ | Untested; update matrix before using |
+
+A weekly CI matrix (`.github/workflows/sdk-compat.yml`) runs the full unit-test suite against v14 and v16 in isolation. For full details, upgrade instructions, and the `transformIgnorePatterns` rationale, see [docs/STELLAR_SDK_COMPATIBILITY.md](../docs/STELLAR_SDK_COMPATIBILITY.md).
+
 ## Light vs full build
 
 Choose the full SDK when you need NestJS modules, dependency injection, wallet services, or the higher-level contract helpers that assume the framework runtime. Choose the light build when you need a browser-friendly entry point for low-level RPC access and lightweight types without the NestJS overhead.

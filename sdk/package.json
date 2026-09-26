@@ -95,6 +95,14 @@
       ]
     }
   ],
+  "peerDependencies": {
+    "@stellar/stellar-sdk": ">=14.0.0 <17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@stellar/stellar-sdk": {
+      "optional": false
+    }
+  },
   "dependencies": {
     "@albedo-link/intent": "^0.13.0",
     "@lobstrco/signer-extension-api": "^2.0.0",
