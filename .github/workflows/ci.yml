@@ -104,6 +104,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check module boundaries (dependency-cruiser)
+        run: pnpm run check:boundaries
+        continue-on-error: false
+
       - name: Check colour contrast (WCAG AA)
         run: node scripts/check-contrast.js
         continue-on-error: false

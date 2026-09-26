@@ -199,10 +199,25 @@ in CI):
 3. Add a mapper function in `indexer.mapper.ts` and a test in `indexer.mapper.spec.ts`.
 4. Expose the method on `IndexerService`, returning only backend-owned types.
 
+## Enforced rules
+
+`pnpm run check:boundaries` (root, `.dependency-cruiser.cjs`) fails on:
+
+- `client-not-to-backend-indexer` — `client` must not import `backend/` or `indexer/`.
+- `indexer-not-to-backend` — `indexer` must not import `backend/`.
+- `sdk-not-to-app-packages` — `sdk` must not import any app package.
+- `shared-package-not-to-app-packages` — `packages/*` (today `packages/types`) must not import an app package. A shared library that depends on an application inverts the dependency direction and drags that application into every consumer.
+- `oracle-not-to-indexer` — `oracle` must not reach into the indexer query layer. If oracle needs indexed state, it belongs in a shared package or behind a backend endpoint.
+- `no-stellar-sdk-in-shared-packages` — `packages/*` stay chain-agnostic: anything needing chain primitives depends on `@tikka/sdk`, the single wrapper around `@stellar/stellar-sdk`.
+
+The backend keeps its own scoped config (`backend/.dependency-cruiser.js`, run as
+`pnpm run boundaries` inside `backend/`).
+
 ## Enforcement in CI
 
 Module-boundary checks run automatically:
 
+- Workspace: `pnpm run check:boundaries` in the turbo CI job (the rules above).
 - Backend: `pnpm run boundaries` (dependency-cruiser) in the backend CI job.
 
 If a PR introduces a forbidden cross-boundary import, CI fails with a message
