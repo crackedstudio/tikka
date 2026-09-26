@@ -12,12 +12,14 @@ on:
       - master
     paths:
       - 'sdk/**'
+      - 'packages/types/**'
       - '.github/workflows/sdk-compat.yml'
   pull_request:
     branches:
       - master
     paths:
       - 'sdk/**'
+      - 'packages/types/**'
       - '.github/workflows/sdk-compat.yml'
 
 concurrency:
@@ -41,12 +43,8 @@ jobs:
         # the peerDependencies range in sdk/package.json accordingly.
         # See docs/STELLAR_SDK_COMPATIBILITY.md for the support policy.
         stellar-sdk-version:
-          - '14.3.0'  # oldest supported minor of v14
-          - '16.1.0'  # pinned v16 (matches workspace pnpm.overrides)
-
-    defaults:
-      run:
-        working-directory: ./sdk
+          - '14.3.0' # oldest tested minor of v14
+          - '16.1.0' # pinned v16 (matches workspace pnpm.overrides baseline)
 
     steps:
       - name: Checkout
@@ -61,26 +59,32 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
+          # No pnpm cache here — we modify package.json before install.
 
-      # Install workspace deps first using the lockfile, then override
-      # @stellar/stellar-sdk in the sdk package directory only.  We cannot
-      # use --frozen-lockfile after the override, so we use --no-frozen-lockfile
-      # explicitly here.
-      - name: Install workspace dependencies
-        working-directory: .
-        run: pnpm install --frozen-lockfile
-
-      - name: Override @stellar/stellar-sdk to ${{ matrix.stellar-sdk-version }}
+      # Patch the root pnpm.overrides in-memory so pnpm resolves the exact
+      # stellar-sdk version we want across the whole workspace.  We do NOT
+      # commit this change; it only lives for the duration of this job.
+      - name: Pin @stellar/stellar-sdk to ${{ matrix.stellar-sdk-version }}
         run: |
-          pnpm add --save-peer \
-            "@stellar/stellar-sdk@${{ matrix.stellar-sdk-version }}" \
-            --no-lockfile
+          node - <<'EOF'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.pnpm = pkg.pnpm ?? {};
+          pkg.pnpm.overrides = pkg.pnpm.overrides ?? {};
+          pkg.pnpm.overrides['@stellar/stellar-sdk'] = '${{ matrix.stellar-sdk-version }}';
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          console.log('pnpm.overrides now:', pkg.pnpm.overrides);
+          EOF
+
+      # Install from the workspace root so workspace: links (e.g. @tikka/types)
+      # resolve correctly.  --no-frozen-lockfile is required because we just
+      # mutated package.json.
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
 
       - name: Verify installed stellar-sdk version
         run: |
-          INSTALLED=$(node -e "console.log(require('./node_modules/@stellar/stellar-sdk/package.json').version)")
+          INSTALLED=$(node -e "console.log(require('./sdk/node_modules/@stellar/stellar-sdk/package.json').version)")
           echo "Installed: $INSTALLED"
           if [ "$INSTALLED" != "${{ matrix.stellar-sdk-version }}" ]; then
             echo "❌ Version mismatch: expected ${{ matrix.stellar-sdk-version }}, got $INSTALLED"
@@ -88,10 +92,18 @@ jobs:
           fi
           echo "✅ Version matches"
 
-      - name: Typecheck against ${{ matrix.stellar-sdk-version }}
+      # @tikka/types is a workspace package with no pre-built dist.
+      # Build it before running the SDK tests so TypeScript can resolve its types.
+      - name: Build @tikka/types
+        working-directory: ./packages/types
+        run: pnpm run build
+
+      - name: Typecheck SDK against stellar-sdk ${{ matrix.stellar-sdk-version }}
+        working-directory: ./sdk
         run: pnpm run typecheck
 
-      - name: Run tests against ${{ matrix.stellar-sdk-version }}
+      - name: Run SDK tests against stellar-sdk ${{ matrix.stellar-sdk-version }}
+        working-directory: ./sdk
         run: |
           pnpm exec jest --config jest.config.compat.cjs --coverage \
             --coverageDirectory ../coverage-compat-${{ matrix.stellar-sdk-version }}
