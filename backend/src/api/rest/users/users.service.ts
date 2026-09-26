@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { normalizeStellarAddress } from '@tikka/types/address';
 import {
   IndexerService,
   IndexerUserData,
@@ -14,9 +15,10 @@ export class UsersService {
 
   /** Get user profile by Stellar address. */
   async getByAddress(address: string): Promise<IndexerUserData> {
-    const user = await this.indexerService.getUser(address);
+    const normalizedAddress = this.normalizeAddress(address);
+    const user = await this.indexerService.getUser(normalizedAddress);
     if (!user) {
-      throw new NotFoundException(`User ${address} not found`);
+      throw new NotFoundException(`User ${normalizedAddress} not found`);
     }
     return user;
   }
@@ -26,12 +28,13 @@ export class UsersService {
     address: string,
     query: UserHistoryQueryDto,
   ): Promise<IndexerUserHistoryResponse> {
+    const normalizedAddress = this.normalizeAddress(address);
     // Ensure user exists before fetching history
-    const user = await this.indexerService.getUser(address);
+    const user = await this.indexerService.getUser(normalizedAddress);
     if (!user) {
-      throw new NotFoundException(`User ${address} not found`);
+      throw new NotFoundException(`User ${normalizedAddress} not found`);
     }
-    return this.indexerService.getUserHistory(address, query.limit, query.offset);
+    return this.indexerService.getUserHistory(normalizedAddress, query.limit, query.offset);
   }
 
   /**
@@ -39,9 +42,10 @@ export class UsersService {
    * Columns: raffle_id, tickets_bought, purchased_at_ledger, is_winner, prize_amount
    */
   async getHistoryAsCsvStream(address: string): Promise<PassThrough> {
-    const user = await this.indexerService.getUser(address);
+    const normalizedAddress = this.normalizeAddress(address);
+    const user = await this.indexerService.getUser(normalizedAddress);
     if (!user) {
-      throw new NotFoundException(`User ${address} not found`);
+      throw new NotFoundException(`User ${normalizedAddress} not found`);
     }
 
     const stringifier = stringify({
@@ -56,7 +60,7 @@ export class UsersService {
         const limit = 100;
 
         while (true) {
-          const { items } = await this.indexerService.getUserHistory(address, limit, offset);
+          const { items } = await this.indexerService.getUserHistory(normalizedAddress, limit, offset);
           if (items.length === 0) {
             break;
           }
@@ -89,5 +93,13 @@ export class UsersService {
     stringifier.pipe(passThrough);
 
     return passThrough;
+  }
+
+  private normalizeAddress(address: string): string {
+    try {
+      return normalizeStellarAddress(address);
+    } catch {
+      throw new BadRequestException('Invalid Stellar account address');
+    }
   }
 }

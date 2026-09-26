@@ -16,6 +16,7 @@ import * as zlib from "zlib";
 import * as crypto from "crypto";
 import { promisify } from "util";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { normalizeStellarAddress } from "@tikka/types/address";
 
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
@@ -200,6 +201,10 @@ export class SnapshotService {
 
     // 3. Verify entity counts
     this.assertEntityCounts(manifest, data);
+    const users = data.users.map((user) => ({
+      ...user,
+      address: normalizeStellarAddress(user.address),
+    }));
 
     if (dryRun) {
       this.logger.log("Dry run successful. Skipping database transaction.");
@@ -229,8 +234,8 @@ export class SnapshotService {
 
       this.logger.log("Inserting snapshot data...");
 
-      if (data.users.length > 0) {
-        await manager.save(UserEntity, data.users);
+      if (users.length > 0) {
+        await manager.save(UserEntity, users);
       }
       if (data.raffles.length > 0) {
         await manager.save(RaffleEntity, data.raffles);
