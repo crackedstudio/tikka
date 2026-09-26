@@ -20,8 +20,7 @@
  */
 
 // ── Contract bindings & types (public API surface) ──────────────────────────
-export { ContractFn, ContractEvent, RaffleStatus } from './contract/bindings';
-export type { ContractEventName } from './contract/bindings';
+export { ContractFn, RaffleStatus } from './contract/bindings';
 export { TxResponse } from './contract/response';
 export type { TxMemo } from './contract/contract.service';
 export { TransactionLifecycle } from './contract/lifecycle';
