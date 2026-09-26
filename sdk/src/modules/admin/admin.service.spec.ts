@@ -15,10 +15,7 @@ describe('AdminService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AdminService,
-        { provide: ContractService, useValue: mockContractService },
-      ],
+      providers: [AdminService, { provide: ContractService, useValue: mockContractService }],
     }).compile();
 
     service = module.get<AdminService>(AdminService);
@@ -37,7 +34,12 @@ describe('AdminService', () => {
       const result = await service.pause();
 
       expect(contractService.invoke).toHaveBeenCalledWith('pause', [], expect.anything());
-      expect(result).toEqual({ status: 'SUCCESS' as const, value: undefined, txHash: 'abc123', ledger: 100 });
+      expect(result).toEqual({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'abc123',
+        ledger: 100,
+      });
     });
   });
 
@@ -52,14 +54,22 @@ describe('AdminService', () => {
 
       const result = await service.unpause();
 
-     expect(contractService.invoke).toHaveBeenCalledWith('unpause', [], expect.anything());
-      expect(result).toEqual({ status: 'SUCCESS' as const, value: undefined, txHash: 'def456', ledger: 101 });
+      expect(contractService.invoke).toHaveBeenCalledWith('unpause', [], expect.anything());
+      expect(result).toEqual({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'def456',
+        ledger: 101,
+      });
     });
   });
 
   describe('isPaused', () => {
     it('should return true when contract is paused', async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: true });
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: 'SUCCESS' as const,
+        value: true,
+      });
 
       const result = await service.isPaused();
 
@@ -68,7 +78,10 @@ describe('AdminService', () => {
     });
 
     it('should return false when contract is not paused', async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: false });
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: 'SUCCESS' as const,
+        value: false,
+      });
 
       const result = await service.isPaused();
       expect(result.value).toBe(false);
@@ -101,8 +114,17 @@ describe('AdminService', () => {
 
       const result = await service.transferAdmin(newAdmin);
 
-      expect(contractService.invoke).toHaveBeenCalledWith('transfer_admin', [newAdmin], expect.anything());
-      expect(result).toEqual({ status: 'SUCCESS' as const, value: undefined, txHash: 'ghi789', ledger: 102 });
+      expect(contractService.invoke).toHaveBeenCalledWith(
+        'transfer_admin',
+        [newAdmin],
+        expect.anything(),
+      );
+      expect(result).toEqual({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'ghi789',
+        ledger: 102,
+      });
     });
 
     it('should throw on empty address', async () => {
@@ -122,7 +144,12 @@ describe('AdminService', () => {
       const result = await service.acceptAdmin();
 
       expect(contractService.invoke).toHaveBeenCalledWith('accept_admin', [], expect.anything());
-      expect(result).toEqual({ status: 'SUCCESS' as const, value: undefined, txHash: 'jkl012', ledger: 103 });
+      expect(result).toEqual({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'jkl012',
+        ledger: 103,
+      });
     });
   });
 
@@ -148,7 +175,12 @@ describe('AdminService', () => {
 
       expect(contractService.simulateReadOnly).toHaveBeenCalledWith('get_raffle_data', [1]);
       expect(contractService.invoke).toHaveBeenCalledWith('cancel_raffle', [1], expect.anything());
-      expect(result).toEqual({ status: 'SUCCESS' as const, value: undefined, txHash: 'mno345', ledger: 104 });
+      expect(result).toEqual({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'mno345',
+        ledger: 104,
+      });
     });
 
     it('should allow admin to cancel a raffle', async () => {
@@ -181,7 +213,12 @@ describe('AdminService', () => {
       expect(contractService.simulateReadOnly).toHaveBeenCalledWith('get_raffle_data', [2]);
       expect(contractService.simulateReadOnly).toHaveBeenCalledWith('get_admin', []);
       expect(contractService.invoke).toHaveBeenCalledWith('cancel_raffle', [2], expect.anything());
-      expect(result).toEqual({ status: 'SUCCESS' as const, value: undefined, txHash: 'pqr678', ledger: 105 });
+      expect(result).toEqual({
+        status: 'SUCCESS' as const,
+        value: undefined,
+        txHash: 'pqr678',
+        ledger: 105,
+      });
     });
 
     it('should throw UnauthorizedError for non-creator non-admin', async () => {
@@ -221,6 +258,38 @@ describe('AdminService', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Raffle not found');
       expect(contractService.invoke).not.toHaveBeenCalled();
+    });
+
+    it('cancelRaffle throws RaffleEndedError when raffle is not OPEN', async () => {
+      contractService.simulateReadOnly.mockResolvedValueOnce({
+        success: true,
+        value: { creator: 'GCREATOR', status: 1 }, // Drawing state
+      });
+
+      await expect(service.cancelRaffle(1)).rejects.toMatchObject({
+        code: TikkaSdkErrorCode.RaffleEnded,
+      });
+    });
+
+    it('cancelRaffle throws UnauthorizedError for non-creator non-admin', async () => {
+      const creatorAddress = 'GCREATOR1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB';
+      const callerAddress = 'GOTHER1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB';
+
+      contractService.getPublicKey.mockResolvedValue(callerAddress);
+      contractService.simulateReadOnly
+        .mockResolvedValueOnce({
+          success: true,
+          value: { creator: creatorAddress, status: 0 },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          value: 'GADMIN1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB',
+        });
+
+      await expect(service.cancelRaffle(3)).rejects.toMatchObject({
+        name: 'TikkaSdkError',
+        code: TikkaSdkErrorCode.Unauthorized,
+      });
     });
   });
 });

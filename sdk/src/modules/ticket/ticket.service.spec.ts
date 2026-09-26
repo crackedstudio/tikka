@@ -452,4 +452,46 @@ describe('TicketService', () => {
       );
     });
   });
+
+  /* ------------------------------------------------------------------ */
+  /*  Error type assertions                                            */
+  /* ------------------------------------------------------------------ */
+
+  describe('error types', () => {
+    it('buy throws InvalidTicketPurchaseError for invalid raffleId', async () => {
+      await expect(service.buy({ raffleId: 0, quantity: 1 })).rejects.toMatchObject({
+        code: TikkaSdkErrorCode.ValidationError,
+      });
+    });
+
+    it('buy throws InvalidTicketPurchaseError for invalid quantity', async () => {
+      await expect(service.buy({ raffleId: 1, quantity: -1 })).rejects.toMatchObject({
+        code: TikkaSdkErrorCode.ValidationError,
+      });
+    });
+
+    it('buyTickets throws InvalidTicketPurchaseError for invalid count', async () => {
+      await expect(
+        service.buyTickets({ raffleId: 1, count: 0, maxPricePerTicket: '1000000' }),
+      ).rejects.toMatchObject({ code: TikkaSdkErrorCode.ValidationError });
+    });
+
+    it('buyBatch throws InvalidTicketPurchaseError for empty purchases', async () => {
+      await expect(service.buyBatch({ purchases: [] })).rejects.toMatchObject({
+        code: TikkaSdkErrorCode.ValidationError,
+      });
+    });
+
+    it('refund throws ValidationError for invalid raffleId', async () => {
+      await expect(service.refund({ raffleId: -1, ticketId: 101 })).rejects.toMatchObject({
+        code: TikkaSdkErrorCode.ValidationError,
+      });
+    });
+
+    it('claimPrize throws ValidationError for invalid raffleId', async () => {
+      await expect(service.claimPrize({ raffleId: -1 })).rejects.toMatchObject({
+        code: TikkaSdkErrorCode.ValidationError,
+      });
+    });
+  });
 });
