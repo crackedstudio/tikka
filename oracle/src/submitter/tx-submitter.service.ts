@@ -374,7 +374,7 @@ export class TxSubmitterService {
     };
   }
 
-  private createExhaustedOutcome(telemetry: TelemetryContext): TransactionOutcome {
+  private createExhaustedOutcome(telemetry: TelemetryContext): Extract<TransactionOutcome, { status: 'FAILED' }> {
     const message = `Exhausted ${this.maxAttempts} retry attempts`;
     this.logTelemetry({ ...telemetry, finalOutcome: TransactionState.FAILED }, message);
     return {

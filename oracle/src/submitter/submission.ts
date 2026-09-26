@@ -81,8 +81,17 @@ export class SubmissionService {
           return { shouldRetry: true, bumpFee: true };
         }
         if (errorClassifier.isTimeoutError(responseStr)) {
-          logTelemetry(telemetry, 'Submission timeout, attempting hash recovery');
-          return { shouldRetry: true, bumpFee: true };
+          logTelemetry(telemetry, 'Submission timeout with no hash; not retrying because the transaction may have landed');
+          return {
+            outcome: {
+              status: 'TIMEOUT',
+              error: responseStr,
+              retriable: false,
+              pollAttempts: 0,
+            },
+            shouldRetry: false,
+            bumpFee: false,
+          };
         }
         return { shouldRetry: true, bumpFee: false };
       }
@@ -117,6 +126,19 @@ export class SubmissionService {
           );
           return { outcome: existingResult, shouldRetry: false, bumpFee: false };
         }
+      }
+
+      if (errorClassifier.isTimeoutError(errorMessage)) {
+        return {
+          outcome: {
+            status: 'TIMEOUT',
+            error: errorMessage,
+            retriable: false,
+            pollAttempts: 0,
+          },
+          shouldRetry: false,
+          bumpFee: false,
+        };
       }
 
       if (errorClassifier.isInsufficientFeeError(errorMessage)) {
