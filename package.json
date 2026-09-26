@@ -24,6 +24,7 @@
     "version-packages": "changeset version",
     "release": "changeset publish",
     "check:dependencies": "node scripts/check-dependencies.js",
+    "check:audit": "node scripts/check-dependency-audit.js",
     "check:observability": "node scripts/check-dashboard-metrics.js",
     "check:boundaries": "depcruise .",
     "db:check-drift": "npx tsx scripts/check-schema-drift.ts",
@@ -93,4 +94,4 @@
       }
     ]
   }
-  }
+}
