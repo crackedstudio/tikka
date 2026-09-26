@@ -193,6 +193,7 @@ document the rationale in the PR.
 - `src/wallet/` — Multi-wallet adapter system.
 - `src/modules/` — Feature modules (Raffle, Ticket, User).
 - `src/utils/` — Shared utilities for formatting, validation, and error handling.
+- `src/testing/` — Public testing utilities, published as `@tikka/sdk/testing`.
 - `bin/tikka.cjs` — Developer CLI for network testing and contract interaction.
 
 ## CLI Commands
@@ -455,6 +456,46 @@ try {
   }
 }
 ```
+
+## Testing utilities (`@tikka/sdk/testing`)
+
+Reusable end-to-end flows for consumer test suites, published from
+[`src/testing/`](./src/testing/) under the `@tikka/sdk/testing` sub-path. They
+drive a *configured* service through create → buy → cancel, resolving the
+`TIKKA_*` defaults for you; they perform no network I/O themselves, so point
+them at a mock RPC, a local standalone network, or testnet.
+
+```ts
+import {
+  createRaffleFlow,
+  buyTicketsFlow,
+  cancelRaffleFlow,
+  MockWalletAdapter,
+} from '@tikka/sdk/testing';
+import { RaffleService } from '@tikka/sdk';
+
+const wallet = new MockWalletAdapter();           // no browser wallet needed
+const raffle = new RaffleService(/* rpc, network, wallet */);
+
+const created = await createRaffleFlow(raffle, { ticketPrice: '1' });
+await buyTicketsFlow(ticketService, { raffleId: created.returnValue!, quantity: 2 });
+await cancelRaffleFlow(raffle, { raffleId: created.returnValue! });
+```
+
+Env-var defaults (all optional — pass explicit params to override):
+
+| Env var | Default | Used by |
+|---|---|---|
+| `TIKKA_TICKET_PRICE` | `1` | `createRaffleFlow` |
+| `TIKKA_ASSET_CODE` | `XLM` | `createRaffleFlow` |
+| `TIKKA_ASSET_ISSUER` | `""` (native asset) | `createRaffleFlow` |
+| `TIKKA_MAX_TICKETS` | `50` | `createRaffleFlow` |
+| `TIKKA_DURATION_HOURS` | `24` | `createRaffleFlow` |
+| `TIKKA_METADATA_CID` | `""` | `createRaffleFlow` |
+| `TIKKA_QUANTITY` | `1` | `buyTicketsFlow` |
+
+These helpers are covered by `src/testing/example-flows.spec.ts` and are the
+same helpers the SDK's opt-in testnet suite uses.
 
 ## Architecture
 

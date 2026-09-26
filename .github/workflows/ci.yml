@@ -222,6 +222,14 @@ jobs:
         run: pnpm run build:read && pnpm run build:light
         continue-on-error: false
 
+      # `npm pack --dry-run` is the only honest view of the published package:
+      # it applies `files`, the .gitignore fallback (which ignores /dist) and
+      # npm's always-included entries. Fails if anything but dist/, bin/ and the
+      # documented docs would ship — see sdk/scripts/check-pack.mjs.
+      - name: Packaging check (published artifacts)
+        run: pnpm run pack:check
+        continue-on-error: false
+
       - name: API surface report check
         run: |
           pnpm exec api-extractor run --config api-extractor.json

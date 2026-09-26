@@ -14,10 +14,20 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "DEPRECATION.md",
+    "OPERATIONAL.md"
+  ],
   "typesVersions": {
     "*": {
       "network": [
         "dist/network/circuit-breaker.d.ts"
+      ],
+      "testing": [
+        "dist/testing/index.d.ts"
       ]
     }
   },
@@ -41,6 +51,11 @@
       "import": "./dist/network/circuit-breaker.js",
       "require": "./dist/network/circuit-breaker.js",
       "types": "./dist/network/circuit-breaker.d.ts"
+    },
+    "./testing": {
+      "import": "./dist/testing/index.js",
+      "require": "./dist/testing/index.js",
+      "types": "./dist/testing/index.d.ts"
     }
   },
   "bin": {
@@ -61,6 +76,7 @@
     "test:integration": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs --testPathPattern=test/integration",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
+    "pack:check": "node scripts/check-pack.mjs",
     "example:cli": "node bin/tikka.mjs",
     "example:quickstart": "ts-node examples/quickstart.ts",
     "example:create-raffle": "ts-node examples/create-raffle.ts",
