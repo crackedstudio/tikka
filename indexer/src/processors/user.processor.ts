@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
+import { normalizeStellarAddress } from '@tikka/types';
 import { CacheService } from '../cache/cache.service';
 import { UserEntity } from '../database/entities/user.entity';
 
@@ -8,6 +9,30 @@ export class UserProcessor {
   private readonly logger = new Logger(UserProcessor.name);
 
   constructor(private dataSource: DataSource, private cacheService: CacheService) {}
+
+  /**
+   * Reduce an address taken from a decoded event to the canonical strkey form
+   * used as the `users` primary key.
+   *
+   * The backend reads the same rows through the same helper, so the two sides
+   * cannot disagree about which row an account owns. Without this, a variant
+   * spelling produces a second row under a second primary key and the account's
+   * raffle history fragments across both.
+   *
+   * A value that cannot be canonicalised is stored verbatim after a warning
+   * rather than rejected. The contract emits canonical strkeys, so this branch is
+   * a data-integrity signal, and dropping the whole event over one malformed
+   * field would lose ledger state that a later reconciliation could not recover.
+   */
+  private canonicalAddress(address: string, field: string): string {
+    const canonical = normalizeStellarAddress(address);
+    if (canonical) return canonical;
+
+    this.logger.warn(
+      `UserProcessor: ${field} is not a canonical Stellar address — storing it verbatim`,
+    );
+    return address;
+  }
 
   /**
    * Called when a TicketPurchased event is indexed.
@@ -21,12 +46,13 @@ export class UserProcessor {
    */
   async handleTicketPurchased(
     raffleId: number,
-    buyer: string,
+    rawBuyer: string,
     ticketCount: number,
     ledger: number,
     txHash: string,
     queryRunner?: QueryRunner,
   ) {
+    const buyer = this.canonicalAddress(rawBuyer, 'buyer');
     this.logger.log(`Handling TicketPurchased for ${buyer} in raffle ${raffleId}`);
     const runner = queryRunner ?? this.dataSource.createQueryRunner();
     const ownTx = !queryRunner;
@@ -100,9 +126,10 @@ export class UserProcessor {
    * Invalidates the recipient's user profile cache and the raffle detail.
    */
   async handleTicketRefunded(address: string, raffleId: string) {
-    this.logger.log(`Handling TicketRefunded for ${address} in raffle ${raffleId}`);
+    const recipient = this.canonicalAddress(address, 'recipient');
+    this.logger.log(`Handling TicketRefunded for ${recipient} in raffle ${raffleId}`);
 
-    await this.cacheService.invalidateUserProfile(address);
+    await this.cacheService.invalidateUserProfile(recipient);
     await this.cacheService.invalidateRaffleDetail(raffleId);
   }
 
@@ -119,11 +146,12 @@ export class UserProcessor {
    */
   async handleRaffleFinalized(
     raffleId: number,
-    winner: string | null,
+    rawWinner: string | null,
     prizeAmount: string,
     queryRunner?: QueryRunner,
   ) {
-    if (!winner) return;
+    if (!rawWinner) return;
+    const winner = this.canonicalAddress(rawWinner, 'winner');
     this.logger.log(`Handling RaffleFinalized for raffle ${raffleId}, winner ${winner}`);
 
     // Synthetic idempotency key — one finalization per raffle
@@ -191,10 +219,11 @@ export class UserProcessor {
    * No stats to increment — creation is tracked on the raffles table.
    */
   async handleRaffleCreated(
-    creator: string,
+    rawCreator: string,
     createdLedger: number,
     queryRunner?: QueryRunner,
   ) {
+    const creator = this.canonicalAddress(rawCreator, 'creator');
     this.logger.log(`Handling RaffleCreated by ${creator}`);
     const runner = queryRunner ?? this.dataSource.createQueryRunner();
     const ownTx = !queryRunner;

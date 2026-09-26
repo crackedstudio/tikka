@@ -37,9 +37,10 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
 
   /**
    * Called by NestJS on SIGTERM (requires app.enableShutdownHooks()).
-   * Delegates to BullMQ Worker.close() which:
-   *  1. Stops picking up new jobs
-  }
+   * Pauses the queue so BullMQ stops handing out new jobs, then waits for the
+   * deliveries already in flight — tracked in `activeJobPromises` — to settle,
+   * bounded by a timeout so one hung target cannot block process exit.
+   */
 
   async process(job: Job<WebhookDeliveryJobData>): Promise<void> {
     if (this.shuttingDown) {
@@ -55,10 +56,7 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
         data: payload,
       });
 
-      const signature = crypto
-        .createHmac('sha256', secret)
-        .update(payloadString)
-        .digest('hex');
+      const signature = crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
 
       let statusCode: number | null = null;
       let responseBody: string | null = null;
@@ -128,8 +126,18 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
       return;
     }
 
-    const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 25000));
-    await Promise.race([Promise.all(activePromises), timeoutPromise]);
+    // The timer has to be cleared once the race settles, otherwise a completed
+    // shutdown still holds the event loop open for the full timeout — the exact
+    // delay this drain is meant to bound.
+    let drainTimeout: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<void>((resolve) => {
+      drainTimeout = setTimeout(resolve, 25000);
+    });
+    try {
+      await Promise.race([Promise.all(activePromises), timeoutPromise]);
+    } finally {
+      if (drainTimeout) clearTimeout(drainTimeout);
+    }
 
     const remaining = this.activeJobPromises.size;
     if (remaining > 0) {
@@ -160,10 +168,7 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
         last_attempt_at: new Date().toISOString(),
       });
     } catch (err) {
-      this.logger.error(
-        `Failed to record dead letter for webhook ${job.data.webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to record dead letter for webhook ${job.data.webhookId}`, err);
     }
   }
 
@@ -185,36 +190,24 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
         success,
       });
     } catch (err) {
-      this.logger.error(
-        `Failed to log delivery for webhook ${job.data.webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to log delivery for webhook ${job.data.webhookId}`, err);
     }
   }
 
   private async resetFailureCount(webhookId: string): Promise<void> {
     try {
-      await this.client
-        .from(WEBHOOKS_TABLE)
-        .update({ failure_count: 0 })
-        .eq('id', webhookId);
+      await this.client.from(WEBHOOKS_TABLE).update({ failure_count: 0 }).eq('id', webhookId);
     } catch (err) {
-      this.logger.error(
-        `Failed to reset failure count for webhook ${webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to reset failure count for webhook ${webhookId}`, err);
     }
   }
 
   private async incrementFailureCount(webhookId: string): Promise<void> {
     try {
-      const { error } = await this.client.rpc(
-        'increment_webhook_failure_count',
-        {
-          p_webhook_id: webhookId,
-          p_max_failures: MAX_FAILURES,
-        },
-      );
+      const { error } = await this.client.rpc('increment_webhook_failure_count', {
+        p_webhook_id: webhookId,
+        p_max_failures: MAX_FAILURES,
+      });
 
       if (error) {
         this.logger.error(
@@ -223,10 +216,7 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
         );
       }
     } catch (err) {
-      this.logger.error(
-        `Failed to increment failure count for webhook ${webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to increment failure count for webhook ${webhookId}`, err);
     }
   }
 }

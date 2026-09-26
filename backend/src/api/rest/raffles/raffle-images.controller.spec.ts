@@ -4,8 +4,8 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { RaffleImagesController } from './raffle-images.controller';
-import { StorageService } from '../../../services/storage.service';
-import { ImageOptimizerService } from '../../../services/image-optimizer.service';
+import { StorageService } from '../../../services/storage/storage.service';
+import { ImageOptimizerService } from '../../../services/metadata/image-optimizer.service';
 import {
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_IMAGE_HEIGHT,

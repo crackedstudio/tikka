@@ -8,6 +8,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./address": {
+      "types": "./dist/address.d.ts",
+      "default": "./dist/address.js"
+    },
     "./raffle": {
       "types": "./dist/raffle.d.ts",
       "default": "./dist/raffle.js"

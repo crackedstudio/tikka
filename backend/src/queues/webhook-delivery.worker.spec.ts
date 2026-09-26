@@ -1,13 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 import { WebhookDeliveryWorker } from './webhook-delivery.worker';
 import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
+import { WEBHOOK_DELIVERY_QUEUE } from './webhook-delivery.constants';
 import { Job } from 'bullmq';
 import { WebhookDeliveryJobData } from './webhook-delivery.constants';
 
 describe('WebhookDeliveryWorker', () => {
   let worker: WebhookDeliveryWorker;
   let mockSupabaseClient: any;
+  let mockQueue: { pause: jest.Mock };
 
   const mockJobData: WebhookDeliveryJobData = {
     webhookId: 'webhook-test-id',
@@ -37,10 +40,13 @@ describe('WebhookDeliveryWorker', () => {
       rpc: jest.fn(),
     };
 
+    mockQueue = { pause: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebhookDeliveryWorker,
         { provide: SUPABASE_CLIENT, useValue: mockSupabaseClient },
+        { provide: getQueueToken(WEBHOOK_DELIVERY_QUEUE), useValue: mockQueue },
       ],
     }).compile();
 
@@ -187,21 +193,44 @@ describe('WebhookDeliveryWorker', () => {
   });
 
   describe('onApplicationShutdown', () => {
-    it('should call worker.close() to drain in-flight jobs', async () => {
-      const closeMock = jest.fn().mockResolvedValue(undefined);
-      // WorkerHost stores the BullMQ worker on a protected property
-      (worker as any).worker = { close: closeMock };
+    it('pauses the queue so no new deliveries are handed out', async () => {
+      await worker.onApplicationShutdown('SIGTERM');
 
-      await worker.onApplicationShutdown();
-
-      expect(closeMock).toHaveBeenCalledTimes(1);
+      expect(mockQueue.pause).toHaveBeenCalledTimes(1);
     });
 
-    it('should not throw if worker is not yet initialised', async () => {
-      // Simulate shutdown before the worker property is assigned
-      (worker as any).worker = undefined;
+    it('waits for in-flight deliveries to settle', async () => {
+      let settled = false;
+      const inFlight = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          settled = true;
+          resolve();
+        }, 20);
+      });
+      (worker as any).activeJobPromises.set('job-1', inFlight);
 
-      await expect(worker.onApplicationShutdown()).resolves.toBeUndefined();
+      await worker.onApplicationShutdown('SIGTERM');
+
+      expect(settled).toBe(true);
+    });
+
+    it('rejects new deliveries once shutdown has started', async () => {
+      await worker.onApplicationShutdown('SIGTERM');
+
+      await expect(worker.process(createMockJob())).rejects.toThrow('shutting down');
+    });
+
+    it('still resolves when pausing the queue fails', async () => {
+      mockQueue.pause.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(worker.onApplicationShutdown('SIGTERM')).resolves.toBeUndefined();
+      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to pause webhook queue'),
+      );
+    });
+
+    it('resolves without waiting when nothing is in flight', async () => {
+      await expect(worker.onApplicationShutdown('SIGTERM')).resolves.toBeUndefined();
     });
   });
 });

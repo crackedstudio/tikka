@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Subject } from 'rxjs';
 import { RaffleEventsController } from './raffle-events.controller';
-import { SseService, TicketCountEvent } from '../../../services/sse.service';
+import { SseService, TicketCountEvent } from '../../../services/notifications/sse.service';
 
 describe('RaffleEventsController', () => {
   let controller: RaffleEventsController;
