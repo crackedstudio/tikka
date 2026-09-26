@@ -177,7 +177,11 @@ jobs:
       run:
         working-directory: ./sdk
     steps:
+      # Full history: the API compatibility gate diffs sdk/etc/*.api.md against
+      # the pull request's base commit, which a shallow clone cannot resolve.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
@@ -228,6 +232,17 @@ jobs:
           pnpm exec api-extractor run --config api-extractor.read.json
           pnpm exec api-extractor run --config api-extractor.write.json
           pnpm exec api-extractor run --config api-extractor.light.json
+        continue-on-error: false
+
+      # Deprecation policy gate (docs/RELEASE.md § Deprecation Policy):
+      # a public export may only disappear under a major bump, and every
+      # @deprecated export must survive at least one minor release.
+      - name: API compatibility / deprecation check
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-api-compat.mjs "$BASE_SHA"
         continue-on-error: false
 
       - name: Check bundle size budgets
