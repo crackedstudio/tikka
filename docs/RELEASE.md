@@ -10,7 +10,7 @@ This document defines versioning, changelog, and deployment procedures for the T
 - **MINOR**: New features, non-breaking additions, **or** marking public API as deprecated
 - **PATCH**: Bug fixes, internal improvements
 - **Pre-release**: `0.x.y` during development; increment MINOR for feature releases
-- **Deprecation**: Announce via JSDoc `@deprecated` + `CHANGELOG` `### Deprecated`, keep for at least one MINOR cycle, remove only in a subsequent MAJOR (see [sdk/DEPRECATION.md](../sdk/DEPRECATION.md))
+- **Deprecation**: Announce via JSDoc `@deprecated` + `CHANGELOG` `### Deprecated`, keep for at least one MINOR cycle, remove only in a subsequent MAJOR — see [Deprecation Policy (enforced)](#deprecation-policy-enforced) below and [sdk/DEPRECATION.md](../sdk/DEPRECATION.md)
 
 ### Apps (Client, Backend, Indexer, Oracle)
 - **Calendar Versioning**: `YYYY.MM.PATCH`
@@ -22,6 +22,48 @@ This document defines versioning, changelog, and deployment procedures for the T
 - Versioned by timestamp: `YYYYMMDD_HHMMSS_description.sql`
 - Must be reversible (include rollback logic)
 - Deployed independently of app versions
+
+## Deprecation Policy (enforced)
+
+An export is removed from `@tikka/sdk` in three steps, and every step is checked
+in CI. The bump rules are also tabulated in
+[sdk/DEPRECATION.md](../sdk/DEPRECATION.md).
+
+1. **Announce** — mark it with a JSDoc `@deprecated` tag naming the replacement,
+   and add a `### Deprecated` entry to `CHANGELOG.md`. This is a **minor** bump.
+2. **Survive** — the export keeps working for at least one minor release.
+   `sdk/src/deprecation.spec.ts` asserts that every `@deprecated` export is
+   still listed in the committed API reports and, for value exports, still
+   resolvable at runtime, so a deprecation cannot silently become a breakage.
+3. **Remove** — only in a **major** release. A changeset declaring
+   `'@tikka/sdk': major` must accompany the removal.
+   `scripts/check-api-compat.mjs` diffs the committed API Extractor reports
+   (`sdk/etc/*.api.md`) against the base branch and fails the build when any
+   public export disappears under a `minor`/`patch` bump.
+
+The `sdk/etc/*.api.md` reports are the canonical record: a deprecated symbol
+stays listed there until it is removed, and the report must be regenerated
+(`pnpm --filter @tikka/sdk run api-extractor:all`) in the same PR as any surface
+change.
+
+### 1.0 semantics
+
+**Decision (2026-09): the rules above are 1.0-grade from now on.** While the
+package is pre-1.0, a `0.x` MINOR is *not* a licence to break: removing or
+renaming a public export requires moving to a major (`1.0.0` for the first such
+change). New features and deprecations stay `minor`; bug fixes stay `patch`.
+
+### Applying a deprecation or removal locally
+
+```bash
+# 1. announce the deprecation (minor)
+pnpm changeset                                  # @tikka/sdk → minor
+
+# 2. later, remove it (major)
+pnpm changeset                                  # @tikka/sdk → major
+pnpm --filter @tikka/sdk run api-extractor:all   # regenerate sdk/etc/*.api.md
+node scripts/check-api-compat.mjs origin/master  # run the gate locally
+```
 
 ## Changelog Automation (Changesets)
 
