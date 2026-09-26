@@ -75,6 +75,9 @@
     "transform": {
       "^.+\\.(t|j)sx?$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!.*(uint8array-extras|@noble|@stellar|@scure|base32\\.js)/)"
+    ],
     "testEnvironment": "node",
     "collectCoverageFrom": [
       "**/*.ts"

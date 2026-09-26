@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
 import { UserEntity } from '../database/entities/user.entity';
+import { normalizeStellarAddress } from '@tikka/types/address';
 
 @Injectable()
 export class UserProcessor {
@@ -27,6 +28,7 @@ export class UserProcessor {
     txHash: string,
     queryRunner?: QueryRunner,
   ) {
+    buyer = normalizeStellarAddress(buyer);
     this.logger.log(`Handling TicketPurchased for ${buyer} in raffle ${raffleId}`);
     const runner = queryRunner ?? this.dataSource.createQueryRunner();
     const ownTx = !queryRunner;
@@ -100,6 +102,7 @@ export class UserProcessor {
    * Invalidates the recipient's user profile cache and the raffle detail.
    */
   async handleTicketRefunded(address: string, raffleId: string) {
+    address = normalizeStellarAddress(address);
     this.logger.log(`Handling TicketRefunded for ${address} in raffle ${raffleId}`);
 
     await this.cacheService.invalidateUserProfile(address);
@@ -124,7 +127,8 @@ export class UserProcessor {
     queryRunner?: QueryRunner,
   ) {
     if (!winner) return;
-    this.logger.log(`Handling RaffleFinalized for raffle ${raffleId}, winner ${winner}`);
+    const normalizedWinner = normalizeStellarAddress(winner);
+    this.logger.log(`Handling RaffleFinalized for raffle ${raffleId}, winner ${normalizedWinner}`);
 
     // Synthetic idempotency key — one finalization per raffle
     const txHash = `finalized:${raffleId}`;
@@ -142,7 +146,7 @@ export class UserProcessor {
         .insert()
         .into(UserEntity)
         .values({
-          address: winner,
+          address: normalizedWinner,
           firstSeenLedger: 0,
           lastTxHash: null,
         })
@@ -151,11 +155,11 @@ export class UserProcessor {
 
       // 2. Idempotency check
       const existing = await runner.manager.findOne(UserEntity, {
-        where: { address: winner },
+        where: { address: normalizedWinner },
         select: { lastTxHash: true },
       });
       if (existing?.lastTxHash === txHash) {
-        this.logger.debug(`RaffleFinalized ${raffleId} already applied for ${winner}, skipping`);
+        this.logger.debug(`RaffleFinalized ${raffleId} already applied for ${normalizedWinner}, skipping`);
         if (ownTx) await runner.commitTransaction();
         return;
       }
@@ -170,12 +174,12 @@ export class UserProcessor {
           totalPrizeXlm: () => `(total_prize_xlm::numeric + ${safePrize})::text`,
           lastTxHash: txHash,
         })
-        .where('address = :winner', { winner })
+        .where('address = :winner', { winner: normalizedWinner })
         .execute();
 
       if (ownTx) await runner.commitTransaction();
 
-      await this.cacheService.invalidateUserProfile(winner);
+      await this.cacheService.invalidateUserProfile(normalizedWinner);
       await this.cacheService.invalidateLeaderboard();
     } catch (e) {
       if (ownTx) await runner.rollbackTransaction();
@@ -195,6 +199,7 @@ export class UserProcessor {
     createdLedger: number,
     queryRunner?: QueryRunner,
   ) {
+    creator = normalizeStellarAddress(creator);
     this.logger.log(`Handling RaffleCreated by ${creator}`);
     const runner = queryRunner ?? this.dataSource.createQueryRunner();
     const ownTx = !queryRunner;

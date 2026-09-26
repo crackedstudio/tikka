@@ -16,6 +16,7 @@ import { DataSource } from 'typeorm';
 import * as zlib from 'zlib';
 import * as crypto from 'crypto';
 import { promisify } from 'util';
+import { Keypair } from '@stellar/stellar-sdk';
 
 const gzip = promisify(zlib.gzip);
 
@@ -206,6 +207,59 @@ describe('SnapshotService', () => {
 
     expect(result).toBeDefined();
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes user addresses before saving imported snapshot rows', async () => {
+    const address = Keypair.random().publicKey();
+    const data = {
+      raffles: [],
+      tickets: [],
+      users: [{ address: ` ${address.toLowerCase()} ` }],
+      cursor: null,
+      raffleEvents: [],
+      deadLetterEvents: [],
+      platformStats: [],
+      platformState: null,
+      webhooks: [],
+      archiveCheckpoints: [],
+    } as any;
+    const checksum = crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
+    const manifest: SnapshotManifest = {
+      schemaVersion: '1.1.0',
+      exportedAt: new Date().toISOString(),
+      ledgerRange: { min: 0, max: 0 },
+      entityCounts: {
+        raffles: 0,
+        tickets: 0,
+        users: 1,
+        raffleEvents: 0,
+        deadLetterEvents: 0,
+        platformStats: 0,
+        webhooks: 0,
+        archiveCheckpoints: 0,
+        hasCursor: false,
+        hasPlatformState: false,
+      },
+      checksum,
+    };
+    (service as any).downloadFromS3.mockResolvedValue(await gzip(JSON.stringify({ manifest, data })));
+
+    const deleteBuilder = {
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue(undefined),
+    };
+    const manager = {
+      createQueryBuilder: jest.fn().mockReturnValue(deleteBuilder),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    dataSource.transaction.mockImplementation(async (callback: any) => callback(manager) as any);
+
+    await service.importSnapshot('normalized.json.gz');
+
+    expect(manager.save).toHaveBeenCalledWith(UserEntity, [
+      expect.objectContaining({ address }),
+    ]);
   });
 });
 

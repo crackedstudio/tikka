@@ -25,6 +25,7 @@ import {
   UserRaffleHistoryResponseDto,
 } from "./dto/raffle.dto";
 import { PaginationQueryDto } from "./dto/query.dto";
+import { normalizeStellarAddress } from "@tikka/types/address";
 
 @ApiTags('users')
 @ApiSecurity('api-key')
@@ -101,6 +102,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   @Get("users/:address")
   async profile(@Param("address") address: string): Promise<UserProfileDto> {
+    address = normalizeStellarAddress(address);
     const cached = await this.cacheService.getUserProfile(address);
     if (cached) return cached;
 
@@ -170,6 +172,7 @@ export class UsersController {
     @Param("address") address: string,
     @Query() query: PaginationQueryDto,
   ): Promise<UserRaffleHistoryResponseDto> {
+    address = normalizeStellarAddress(address);
     const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
 
