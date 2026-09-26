@@ -38,6 +38,7 @@ jobs:
             source:
               - 'client/**'
               - 'backend/openapi.json'
+              - 'packages/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
@@ -204,6 +205,15 @@ jobs:
 
       - name: Run tests
         run: pnpm run test -- --coverage
+        continue-on-error: false
+
+      # The SDK fee accuracy specs import the shared harness, so it is verified
+      # here even when the turbo job is skipped for an SDK-only change.
+      - name: Verify shared fee accuracy harness
+        run: |
+          pnpm --filter @tikka/fee-accuracy run lint
+          pnpm --filter @tikka/fee-accuracy run typecheck
+          pnpm --filter @tikka/fee-accuracy run test
         continue-on-error: false
 
       - name: Upload coverage artifact

@@ -39,7 +39,6 @@
     "nest-winston": "^1.10.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^4.4.3",
@@ -58,7 +57,8 @@
     "jest": "^30.4.2",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "@tikka/fee-accuracy": "workspace:*"
   },
   "optionalDependencies": {
     "@aws-sdk/client-kms": "^3.0.0",

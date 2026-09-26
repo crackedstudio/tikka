@@ -59,6 +59,7 @@
     "test": "jest --config jest.config.cjs",
     "test:testnet": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs",
     "test:integration": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs --testPathPattern=test/integration",
+    "test:fee-accuracy": "TIKKA_TESTNET_TESTS=1 TIKKA_FEE_ACCURACY_TESTS=1 jest --config jest.config.cjs --testPathPattern=test/integration/fee-estimate-accuracy",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
     "example:cli": "node bin/tikka.mjs",
@@ -128,6 +129,7 @@
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "@microsoft/api-extractor": "7.59.0",
+    "@tikka/fee-accuracy": "workspace:*",
     "typedoc": "^0.28.18",
     "typedoc-plugin-markdown": "4.12",
     "typescript": "^5.6.0"
