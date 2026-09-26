@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mergeRafflesById } from "./mergeRafflesById";
-import type { ApiRaffleListItem } from "../types/types";
+import type { ApiRaffleListItem } from "../types/raffle";
 
 function makeItem(overrides: Partial<ApiRaffleListItem> = {}): ApiRaffleListItem {
     return {

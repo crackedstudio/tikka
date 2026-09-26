@@ -1,11 +1,12 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { initTracing, shutdownTracing } from './tracing/tracing';
 import { RequestLoggerService } from './common/request-logger.service';
+import { validateEnv } from './config/env.config';
 
-const logger = new NestLogger("Bootstrap");
+const logger = new Logger('Bootstrap');
 
 export async function bootstrap() {
   validateEnv();
@@ -44,7 +45,7 @@ export async function bootstrap() {
   const serveUi = process.env.NODE_ENV !== 'production' || !!process.env.INTERNAL_API_KEY;
 
   SwaggerModule.setup('api-docs', app, document, {
-    jsonDocumentUrl: 'api-docs',          // serves JSON at exactly /api-docs
+    jsonDocumentUrl: 'api-docs', // serves JSON at exactly /api-docs
     swaggerUrl: serveUi ? 'api-docs/ui' : undefined,
     swaggerOptions: { persitAuthorization: true },
   });

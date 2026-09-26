@@ -46,9 +46,42 @@ export interface RecordSubmissionParams {
 }
 
 /**
- * A structured record emitted whenever oracle nodes submit divergent values
- * (i.e. consensus was not reached). Captured in the audit trail for investigation.
+ * A record of a chain anchor — a point-in-time snapshot of the chain head
+ * that has been published or stored in a separate location. An attacker who
+ * can rewrite the entire vrf_audit_log table *and* this anchor table can
+ * still falsify history, which is why anchors should be published to a
+ * public bulletin (e.g. a tweet, a GitHub Gist, or an on-chain hash).
  */
+export interface AuditChainAnchor {
+  id: number;
+  /** The chain_hash of the last record that was anchored. */
+  chain_head_hash: string;
+  /** Total number of audit records when this anchor was created. */
+  record_count: number;
+  /** ISO 8601 timestamp when the anchor was created. */
+  anchored_at: string;
+  /** Free-text reason or identifier for the anchor (e.g. "cli", "scheduled-cron"). */
+  anchor_type: string;
+  /** Optional external reference URL or hash where the anchor was published. */
+  external_ref: string | null;
+}
+
+/**
+ * Result of walking the audit chain and checking every link.
+ */
+export interface ChainVerificationResult {
+  valid: boolean;
+  total_records: number;
+  /** Index (1-based) of the first broken link, or null if the chain is valid. */
+  first_broken_at: number | null;
+  /** ID of the record whose chain_hash does not match, or null. */
+  first_broken_record_id: number | null;
+  /** Expected chain_hash value at the first broken record, or null. */
+  expected_hash: string | null;
+  /** Stored chain_hash value at the first broken record, or null. */
+  stored_hash: string | null;
+}
+
 export interface OracleDivergenceRecord {
   /** The VRF request ID that triggered the round. */
   requestId: string;

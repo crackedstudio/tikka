@@ -1,4 +1,4 @@
-/** @type { import('jest').Config } */
+/** @type {import('jest').Config} */
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
@@ -7,14 +7,16 @@ module.exports = {
     '^.+\\.(t|j)s$': [
       'ts-jest',
       {
+        // Type errors in specs (and their imports) now fail the suite instead
+        // of being downgraded to warnings — see #1350.
         diagnostics: true,
       },
     ],
   },
-  // stellar-sdk@16 pulls ESM-only deps (@noble/*, uint8Array-extras, ...).
+  // stellar-sdk@16 pulls ESM-only deps (@noble/*, uint8array-extras, …).
   // Transform those (and their pnpm-nested copies) so Jest can load them.
   transformIgnorePatterns: [
-    '/node_modules/(?!.*(uint8Array-extras|@noble|stellar-base|@stellar|scure-base|base32))',
+    '/node_modules/(?!.*(uint8array-extras|@noble|@stellar|@scure|base32\\.js)/)',
   ],
   testEnvironment: 'node',
   coverageReporters: ['lcov', 'text'],

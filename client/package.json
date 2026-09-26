@@ -34,6 +34,7 @@
         "@tanstack/react-query": "^5.101.1",
         "@tanstack/react-query-devtools": "^5.101.1",
         "@tikka/sdk": "workspace:*",
+        "@tikka/types": "workspace:*",
         "@vercel/analytics": "^1.5.0",
         "@vercel/speed-insights": "^1.2.0",
         "canvas-confetti": "^1.9.4",
@@ -52,8 +53,7 @@
         "tailwindcss": "^4.1.13",
         "workbox-window": "^7.4.1",
         "zod": "^4.4.3",
-        "zustand": "^5.0.15",
-        "@tikka/types": "workspace:*"
+        "zustand": "^5.0.15"
     },
     "devDependencies": {
         "@axe-core/playwright": "^4.10.1",

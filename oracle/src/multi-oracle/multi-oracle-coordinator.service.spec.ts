@@ -2,6 +2,9 @@ import { MultiOracleCoordinatorService } from './multi-oracle-coordinator.servic
 import { OracleLoggerService } from '../logger/oracle-logger';
 
 const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
+const mockAuditLog = { recordDivergence: jest.fn() };
+const mockMetrics = { recordDivergence: jest.fn() };
+const mockAlerting = { fire: jest.fn() };
 
 describe('MultiOracleCoordinatorService (Quorum)', () => {
   let service: MultiOracleCoordinatorService;
@@ -32,6 +35,9 @@ describe('MultiOracleCoordinatorService (Quorum)', () => {
       mockLogger,
       registry as any,
       config as any,
+      mockAuditLog as any,
+      mockMetrics as any,
+      mockAlerting as any,
     );
   });
 

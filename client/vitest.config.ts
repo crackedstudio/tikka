@@ -25,8 +25,17 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      'virtual:pregister/react': path.resolve(__dirname, 'src/test-utils/virtual-pwa-register.ts'),
-    },
+    alias: [
+      {
+        find: 'virtual:pregister/react',
+        replacement: path.resolve(__dirname, 'src/test-utils/virtual-pwa-register.ts'),
+      },
+      // Mirror vite.config.ts: the SDK's dist is never built in client CI, so
+      // resolve @tikka/sdk (and subpaths) straight to its source entry.
+      {
+        find: /^@tikka\/sdk(\/.*)?$/,
+        replacement: path.resolve(__dirname, '../sdk/src/index.light.ts'),
+      },
+    ],
   },
 });

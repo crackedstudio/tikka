@@ -19,7 +19,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { RaffleService } from '../src/modules/raffle/raffle.service';
 import { TicketService } from '../src/modules/ticket/ticket.service';
-import { BuyTicketsResult } from '../src/modules/ticket/ticket.types';
+import { BuyTicketResult } from '../src/modules/ticket/ticket.types';
 import { RaffleTxResponse } from '../src/contract/response';
 import { MockWalletAdapter } from '../src/wallet/mock-wallet.adapter';
 import { TikkaNetwork } from '../src/network/network.config';
@@ -28,7 +28,7 @@ import { RaffleStatus } from '../src/contract/bindings';
 export async function buyTicketsFlow(
   ticketService: TicketService,
   params: { raffleId: number; quantity?: number },
-): Promise<RaffleTxResponse<BuyTicketsResult>> {
+): Promise<RaffleTxResponse<BuyTicketResult>> {
   const quantity = params.quantity ?? parseInt(process.env.TIKKA_QUANTITY ?? '1', 10);
   return ticketService.buy({ raffleId: params.raffleId, quantity });
 }
@@ -51,10 +51,9 @@ async function main() {
   // Replace MockWalletAdapter with FreighterAdapter / XBullAdapter in a real app
   const wallet = new MockWalletAdapter({ publicKey });
 
-  const app = await NestFactory.createApplicationContext(
-    AppModule.forRoot({ network, wallet }),
-    { logger: false },
-  );
+  const app = await NestFactory.createApplicationContext(AppModule.forRoot({ network, wallet }), {
+    logger: false,
+  });
 
   const raffleService = app.get(RaffleService);
   const ticketService = app.get(TicketService);
@@ -67,14 +66,16 @@ async function main() {
     process.exit(1);
   }
   const raffle = raffleRes.value;
-  if (raffle.status !== RaffleStatus.Open) {
+  if (raffle.status !== RaffleStatus.OPEN) {
     console.error(`Raffle ${raffleId} is not open (status=${raffle.status})`);
     await app.close();
     process.exit(1);
   }
 
   const available = raffle.maxTickets - raffle.ticketsSold;
-  console.log(`Raffle ${raffleId}: ${available} tickets remaining at ${raffle.ticketPrice} XLM each`);
+  console.log(
+    `Raffle ${raffleId}: ${available} tickets remaining at ${raffle.ticketPrice} XLM each`,
+  );
 
   if (quantity > available) {
     console.error(`Requested ${quantity} tickets but only ${available} available`);
@@ -98,7 +99,9 @@ async function main() {
 
   // Show updated ticket list for this user
   const myTicketsRes = await ticketService.getUserTickets({ raffleId, userAddress: publicKey });
-  console.log(`\nAll your tickets for raffle ${raffleId}: [${(myTicketsRes.value ?? []).join(', ')}]`);
+  console.log(
+    `\nAll your tickets for raffle ${raffleId}: [${(myTicketsRes.value ?? []).join(', ')}]`,
+  );
 
   await app.close();
 }
@@ -109,4 +112,3 @@ if (require.main === module) {
     process.exit(1);
   });
 }
-

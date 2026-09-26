@@ -1,6 +1,6 @@
 import { logger } from '../../utils/logger';
 import React, { useEffect, useState } from "react";
-import type { StepComponentProps } from "../../types/types";
+import type { StepComponentProps } from "../../types/forms";
 import CreateRaffleButton from "../CreateRaffleButton";
 import { useNavigate } from "react-router-dom";
 import { estimateCreate } from "../../services/sdkClient";

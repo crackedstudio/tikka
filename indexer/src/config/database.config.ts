@@ -2,7 +2,7 @@ import { registerAs } from '@nestjs/config';
 import { DataSourceOptions } from 'typeorm';
 
 // ----- Environment validation (temporary measure: normally in env.schema.ts) -----
-function assert(condition: boolean, message: string): void {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new Error(`[Env] ${message}`);
   }
@@ -13,8 +13,11 @@ const env = process.env;
 // Required: SOROBAN_RPC_URL
 assert(!!env.SOROBAN_RPC_URL, 'SOROBAN_RPC_URL is required.');
 try {
-  const url = new URL(env.SOROBAN_RPC_URL);
-  assert(['http:', 'https:'].includes(url.protocol), 'SOROBAN_RPC_URL must be a valid https:/ url.');
+  const url = new URL(env.SOROBAN_RPC_URL as string);
+  assert(
+    ['http:', 'https:'].includes(url.protocol),
+    'SOROBAN_RPC_URL must be a valid https:/ url.',
+  );
 } catch {
   throw new Error('[Env] SOROBAN_RPC_URL must be a valid URL.');
 }
@@ -22,30 +25,48 @@ try {
 // Required: TIKKA_CONTRACT_ID (C... strkey)
 const contractId = env.TIKKA_CONTRACT_ID;
 assert(!!contractId, 'TIKKA_CONTRACT_ID is required.');
-assert(/^C[2-9A-HJ-NP-Za-kmz]{55}$/.test(contractId), 'TIKKA_CONTRACT_ID must be a valid Stellar strkey (C...).');
+assert(
+  /^C[2-9A-HJ-NP-Za-kmz]{55}$/.test(contractId as string),
+  'TIKKA_CONTRACT_ID must be a valid Stellar strkey (C...).',
+);
 
 // Database: DATABASE_URL or DB_* fallback
 if (!env.DATABASE_URL) {
-  const requiredDbVars = ['DB_HOST', 'DB_PORT', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE'] as const;
+  const requiredDbVars = [
+    'DB_HOST',
+    'DB_PORT',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_DATABASE',
+  ] as const;
   for (const varName of requiredDbVars) {
     assert(!!env[varName], `${varName} is required when DATABASE_URL is not set.`);
   }
-  assert(!isNaN(parseInt(env.DB_PORT, 10)), 'DB_PORT must be a number.');
+  assert(!isNaN(parseInt(env.DB_PORT as string, 10)), 'DB_PORT must be a number.');
 } else {
   try {
     const url = new URL(env.DATABASE_URL);
-    assert(url.protocol === 'postgres:' || url.protocol === 'postgresql:', 'DATABASE_URL must be a valid PostgreSQL URL.');
+    assert(
+      url.protocol === 'postgres:' || url.protocol === 'postgresql:',
+      'DATABASE_URL must be a valid PostgreSQL URL.',
+    );
   } catch {
     throw new Error('[Env] DATABASE_URL must be a valid PostgreSQL URL.');
   }
 }
 
 if (env.DB_SSL !== undefined) {
-  assert([null, 'true', 'false', 'true', 'false'].includes(env.DB_SSL.toLowerCase()), 'DB_SSL must be "true" or "false".');
+  assert(
+    [null, 'true', 'false', 'true', 'false'].includes(env.DB_SSL.toLowerCase()),
+    'DB_SSL must be "true" or "false".',
+  );
 }
 
 if (env.SLOW_QUERY_THRESHOLD_MS !== undefined) {
-  assert(!isNaN(parseInt(env.SLOW_QUERY_THRESHOLD_MS, 10)), 'SLOW_QUERY_THRESHOLD_MS must be a number.');
+  assert(
+    !isNaN(parseInt(env.SLOW_QUERY_THRESHOLD_MS, 10)),
+    'SLOW_QUERY_THRESHOLD_MS must be a number.',
+  );
 }
 
 if (env.DATABASE_REPLICA_URL) {
@@ -55,7 +76,10 @@ if (env.DATABASE_REPLICA_URL) {
     // each should be a valid postgres url
     try {
       const parsed = new URL(url);
-      assert(parsed.protocol === 'postgres:' || parsed.protocol === 'postgresql:', 'DATABASE_REPLICA_URL entries must be valid PostgreSQL URLs.');
+      assert(
+        parsed.protocol === 'postgres:' || parsed.protocol === 'postgresql:',
+        'DATABASE_REPLICA_URL entries must be valid PostgreSQL URLs.',
+      );
     } catch {
       throw new Error('[Env] DATABASE_REPLICA_URL entries must be valid PostgreSQL URLs.');
     }
@@ -66,7 +90,10 @@ if (env.DATABASE_REPLICA_URL) {
 if (env.REDIS_URL) {
   try {
     const url = new URL(env.REDIS_URL);
-    assert(url.protocol === 'redis:' || url.protocol === 'rediss:', 'REDIS_URL must be a valid redis/url.');
+    assert(
+      url.protocol === 'redis:' || url.protocol === 'rediss:',
+      'REDIS_URL must be a valid redis/url.',
+    );
   } catch {
     throw new Error('[Env] REDIS_URL must be a valid URL.');
   }
@@ -90,11 +117,12 @@ if (env.REDIS_HOST) {
  *                          When set, TypeORM uses master/slave replication.
  */
 export default registerAs('database', (): DataSourceOptions => {
-  const ssl =
-    process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
+  const ssl = process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
 
   const replicaUrls = process.env.DATABASE_REPLICA_URL
-    ? process.env.DATABASE_REPLICA_URL.split(',').map((u) => u.trim()).filter(Boolean)
+    ? process.env.DATABASE_REPLICA_URL.split(',')
+        .map((u) => u.trim())
+        .filter(Boolean)
     : [];
 
   const slowQueryThresholdMs = Math.max(

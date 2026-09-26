@@ -81,15 +81,11 @@ export class RpcService {
     return this.request('sendTransaction', [tx.toXDR()], options);
   }
 
-  async getLedger(
-    options: RequestOptions = {},
-  ): Promise<rpc.Api.GetLatestLedgerResponse> {
+  async getLedger(options: RequestOptions = {}): Promise<rpc.Api.GetLatestLedgerResponse> {
     return this.request('getLatestLedger', [], options);
   }
 
-  async getTransaction(
-    hash: string,
-  ): Promise<rpc.Api.GetTransactionResponse> {
+  async getTransaction(hash: string): Promise<rpc.Api.GetTransactionResponse> {
     return this.request('getTransaction', [hash]);
   }
 
@@ -100,13 +96,15 @@ export class RpcService {
       if (!response.ok) {
         throw new Error(`Failed to fetch fee stats: ${response.statusText}`);
       }
-      const stats = await response.json();
+      const stats = (await response.json()) as { fee_charged?: { min?: number; p90?: number } };
       return {
         minFee: Number(stats.fee_charged?.min ?? 100),
         suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
       };
     } catch (err: any) {
-      this.logger.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
+      this.logger.warn(
+        `[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`,
+      );
       return { minFee: 100, suggestedFee: 100 };
     }
   }
@@ -155,7 +153,7 @@ export class RpcService {
       () => this.executeSingleRequest<T>(url, method, params),
       buildRetryConfig(this.rpcConfig, {
         onRetry: (info) => {
-          console.warn(
+          this.logger.warn(
             `[RpcService] ${method} retry ${info.attempt} in ${Math.round(info.delayMs)}ms (${url}): ${
               info.error instanceof Error ? info.error.message : String(info.error)
             }`,
@@ -165,11 +163,7 @@ export class RpcService {
     );
   }
 
-  private async executeSingleRequest<T>(
-    url: string,
-    method: string,
-    params: any[],
-  ): Promise<T> {
+  private async executeSingleRequest<T>(url: string, method: string, params: any[]): Promise<T> {
     const fetchClient = this.resolveFetchClient();
     const timeoutMs = this.rpcConfig.timeoutMs ?? 30_000;
     const controller = new AbortController();
@@ -199,7 +193,10 @@ export class RpcService {
         );
       }
 
-      const payload = await response.json();
+      const payload = (await response.json()) as {
+        result?: unknown;
+        error?: { message?: string };
+      };
       if (payload.error) {
         throw new TikkaSdkError(
           TikkaSdkErrorCode.SimulationFailed,

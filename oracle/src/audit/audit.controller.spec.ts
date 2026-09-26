@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AuditController } from './audit.controller';
 import { AuditLogService } from './audit-log.service';
-import { VrfAuditRecord } from './audit.types';
+import { VrfAuditRecord, AuditChainAnchor, ChainVerificationResult } from './audit.types';
 
 describe('AuditController', () => {
   let controller: AuditController;
@@ -25,11 +25,45 @@ describe('AuditController', () => {
     tx_hash: '0xabcdef1234567890',
   };
 
+  const mockAnchor: AuditChainAnchor = {
+    id: 1,
+    chain_head_hash: 'abc123',
+    record_count: 42,
+    anchored_at: '2024-01-01T00:00:00Z',
+    anchor_type: 'api',
+    external_ref: null,
+  };
+
+  const mockChainVerification: ChainVerificationResult = {
+    valid: true,
+    total_records: 42,
+    first_broken_at: null,
+    first_broken_record_id: null,
+    expected_hash: null,
+    stored_hash: null,
+  };
+
+  const mockAnchorVerification = {
+    matches: true,
+    anchoredHash: 'abc123',
+    currentHead: 'abc123',
+    anchoredAt: '2024-01-01T00:00:00Z',
+  };
+
   beforeEach(async () => {
     const mockAuditLogServiceProvider = {
       provide: AuditLogService,
       useValue: {
         getByRaffleId: jest.fn(),
+        getByTimeRange: jest.fn(),
+        getByStatus: jest.fn(),
+        getSummary: jest.fn(),
+        verifyChain: jest.fn(),
+        anchorChainHead: jest.fn(),
+        getLatestAnchor: jest.fn(),
+        getAnchorHistory: jest.fn(),
+        verifyAnchor: jest.fn(),
+        getChainHead: jest.fn(),
       },
     };
 
@@ -104,6 +138,85 @@ describe('AuditController', () => {
       await expect(controller.getAuditByQuery('999')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('GET /oracle/audit/chain/verify', () => {
+    it('should return chain verification result', async () => {
+      auditLogService.verifyChain.mockResolvedValue(mockChainVerification);
+
+      const result = await controller.verifyChain();
+
+      expect(result).toEqual(mockChainVerification);
+      expect(auditLogService.verifyChain).toHaveBeenCalledWith(undefined);
+    });
+
+    it('should accept fromId query parameter', async () => {
+      auditLogService.verifyChain.mockResolvedValue(mockChainVerification);
+
+      const result = await controller.verifyChain('100');
+
+      expect(result).toEqual(mockChainVerification);
+      expect(auditLogService.verifyChain).toHaveBeenCalledWith(100);
+    });
+
+    it('should throw BadRequestException for invalid fromId', async () => {
+      await expect(controller.verifyChain('invalid')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('POST /oracle/audit/chain/anchor', () => {
+    it('should create a chain anchor', async () => {
+      auditLogService.anchorChainHead.mockResolvedValue(mockAnchor);
+
+      const result = await controller.anchorChain('api', 'https://example.com');
+
+      expect(result).toEqual(mockAnchor);
+      expect(auditLogService.anchorChainHead).toHaveBeenCalledWith('api', 'https://example.com');
+    });
+  });
+
+  describe('GET /oracle/audit/chain/anchor', () => {
+    it('should return latest anchor', async () => {
+      auditLogService.getLatestAnchor.mockResolvedValue(mockAnchor);
+
+      const result = await controller.getLatestAnchor();
+
+      expect(result).toEqual(mockAnchor);
+    });
+
+    it('should throw NotFoundException when no anchor exists', async () => {
+      auditLogService.getLatestAnchor.mockResolvedValue(null);
+
+      await expect(controller.getLatestAnchor()).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('GET /oracle/audit/chain/anchor/verify', () => {
+    it('should verify anchor matches chain head', async () => {
+      auditLogService.verifyAnchor.mockResolvedValue(mockAnchorVerification);
+
+      const result = await controller.verifyAnchor();
+
+      expect(result).toEqual(mockAnchorVerification);
+    });
+
+    it('should throw NotFoundException when no anchor exists', async () => {
+      auditLogService.verifyAnchor.mockResolvedValue(null);
+
+      await expect(controller.verifyAnchor()).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('GET /oracle/audit/chain/head', () => {
+    it('should return chain head hash', async () => {
+      auditLogService.getChainHead.mockResolvedValue('abc123');
+
+      const result = await controller.getChainHead();
+
+      expect(result).toEqual({ chain_head_hash: 'abc123' });
     });
   });
 });

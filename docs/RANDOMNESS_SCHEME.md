@@ -73,13 +73,44 @@ Users should trust a draw only as much as the path used:
 - VRF path: strong verifiability, assuming the oracle private key remains secret and the contract verifies the proof.
 - PRNG path: reproducible and inspectable, but weaker trust because the contract does not validate it with a public-key signature.
 
-## 4. Why outcomes are verifiable
+## 4. Multi-oracle consensus and Byzantine fault tolerance
+
+When the oracle runs in multi-oracle mode, randomness is derived from multiple independent oracle nodes. This prevents a single malicious or compromised node from manipulating the draw outcome.
+
+### How consensus works
+
+Each round has two parameters:
+
+- **Threshold (N):** the minimum number of oracle nodes that must respond before a round can proceed.
+- **Consensus threshold (K):** the number of nodes that must agree on the same seed value for their response to be accepted.
+
+A round succeeds when at least K out of the responding nodes produce identical seed values. The aggregated seed is the XOR of all seeds in the consensus group; proofs are combined. Every node in the consensus group is recorded in the submission payload.
+
+### Byzantine failure modes handled
+
+| Failure mode | Behaviour |
+|---|---|
+| **Honest minority (unanimous)** | All nodes agree, consensus succeeds, submission proceeds. |
+| **Threshold met with dissent** | Enough nodes agree (≥K) despite some dissenters. Those who agreed form the consensus group; the dissenting nodes are excluded. The submission uses only the consensus group's values. |
+| **Threshold not met** | Fewer than K nodes agree on the same seed. Consensus fails; the system **refuses to submit** the randomness. No fallback to a single node's value ever occurs — the draw is simply not finalized in this round. |
+| **Non-revealing node** | A node that committed to participate but never reveals its seed. If the remaining nodes still meet the threshold and consensus threshold, the round proceeds without the non-revealing node. If not, the round fails (refuses to submit, no single-node fallback). |
+| **Equivocating node (commit-reveal mismatch)** | A node that reveals a seed whose hash does not match its earlier commitment. The node is excluded from the round, and its operator is alerted at severity critical. |
+| **Insufficient quorum** | Fewer than N nodes respond at all (data-availability failure). The system falls back to the local node's value so the raffle can still be drawn, but this path offers no Byzantine protection. |
+
+### What this guarantees
+
+- A single dishonest node cannot cause a submission of manipulated randomness unless it also controls K-1 other responding nodes.
+- Consensus failure never degrades to a single node's value — the system refuses to submit rather than fall back.
+- Equivocation (different values to different peers) is detectable through the commitment binding: a node that commits to hash H but reveals seed S where SHA-256(S) ≠ H is excluded and its operator is alerted.
+- A node that participates in the commit phase but vanishes before reveal is treated as missing; if sufficient honest nodes remain, the round proceeds without it.
+
+## 5. Why outcomes are verifiable
 
 The VRF path is verifiable because the contract can check the proof against the registered oracle public key and then recompute the seed from the proof. A third party can reproduce the same check from the on-chain request and the submitted payload.
 
 The PRNG path is still inspectable because the derivation is deterministic and public. A skeptical user can recompute the expected seed/proof from the request input and compare it with the values submitted on-chain.
 
-## 5. How a third party can verify a past draw
+## 6. How a third party can verify a past draw
 
 1. Find the raffle and its randomness request on-chain.
    - Look for the contract event that emitted the draw request.
@@ -101,8 +132,110 @@ The PRNG path is still inspectable because the derivation is deterministic and p
    - Recompute commitment = SHA-256(secret || nonce).
    - Confirm that the published commitment matches and that the reveal values are the ones that produce it.
 
-## 6. Operational notes
+## 6. Audit log tamper evidence
+
+The oracle records every randomness submission in the `vrf_audit_log` table in Supabase. This table is the evidence trail — it proves that a specific VRF proof, seed, and transaction hash were used for a given raffle.
+
+### 6.1 Hash chain
+
+Each audit record carries a `chain_hash` column. This value is computed as:
+
+```
+chain_hash = SHA-256(
+  raffle_id ||
+  commitment_hash ||
+  reveal_hash ||
+  proof ||
+  seed ||
+  oracle_public_key ||
+  status ||
+  committed_at ||
+  previous_chain_hash
+)
+```
+
+Where `previous_chain_hash` is the `chain_hash` of the immediately preceding record (ordered by the surrogate `id` column). The first record in the chain uses the string `"GENESIS"` as its predecessor.
+
+This means every record cryptographically binds to its predecessor. Modifying any field of any record changes its `chain_hash`, which breaks the link to every subsequent record.
+
+### 6.2 Verification
+
+The oracle exposes a verification command that walks every record in order, recomputes each `chain_hash`, and compares it with what is stored. If any record has been tampered with, the command reports the exact position of the first broken link and exits with a non-zero status.
+
+```
+npx ts-node src/audit/audit-cli.ts verify-chain
+# or start from a specific record ID:
+npx ts-node src/audit/audit-cli.ts verify-chain --from-id 100
+```
+
+A REST endpoint is also available:
+
+```
+GET /oracle/audit/chain/verify?fromId=100
+```
+
+### 6.3 External anchoring
+
+The hash chain alone prevents *internal* tampering (modifying individual records), but an attacker with full database access could rewrite the entire chain — including all `chain_hash` values. To defend against this, the operator periodically anchors the chain head to an external location.
+
+Anchoring works by recording a point-in-time snapshot of the current chain head hash into a separate `audit_chain_anchors` table:
+
+```
+npx ts-node src/audit/audit-cli.ts anchor --type daily --external-ref https://example.com/audit-hashes
+```
+
+The resulting anchor record stores:
+
+- `chain_head_hash` — the `chain_hash` of the most recent audit record at anchor time
+- `record_count` — total number of audit records at anchor time
+- `anchored_at` — when the anchor was created
+- `anchor_type` — a label (e.g. `"cli"`, `"scheduled-cron"`)
+- `external_ref` — an optional URL, transaction hash, or other identifier where the hash was published externally
+
+The anchored hash should be published to a public, immutable location:
+
+- A tweet, toot, or other public social-media post
+- A GitHub Gist (pinned in the repository)
+- A transaction memo on the Stellar blockchain
+- A hash in a public bulletin board or transparency log
+
+Once published, anyone can verify that the current audit chain head matches what was published at a known point in time.
+
+```
+npx ts-node src/audit/audit-cli.ts anchor-verify
+```
+
+Returns whether the latest anchor's chain head hash matches the current chain head.
+
+### 6.4 Tamper-evident ≠ tamper-proof
+
+This system is **tamper-evident**, not **tamper-proof**. The distinction is important:
+
+- **Tamper-evident**: any modification to the audit records is detectable by running the verification command and comparing anchored hashes.
+- **Tamper-proof**: no modification could ever be made, even by an operator with full database access.
+
+An attacker who can simultaneously:
+
+1. Modify audit records in the `vrf_audit_log` table,
+2. Recompute all subsequent `chain_hash` values to match their modifications, and
+3. Modify or delete all rows in the `audit_chain_anchors` table, **and**
+4. Suppress the external publication (or forge the external record)
+
+…could falsify the audit trail without detection. The external anchor raises the bar dramatically: an attacker would need to compromise both the database and every independent location where the anchor hash was published.
+
+### 6.5 Recommended operational practices
+
+| Practice | Why |
+|---|---|
+| Run `verify-chain` after every restart | Detects drift from interrupted operations. |
+| Anchor the chain head at least once per day | Limits the window for undetected rewriting. |
+| Publish the anchor hash to two independent locations | Prevents a single external compromise from hiding a rewrite. |
+| Monitor verification results via the health endpoint | Surfaces silent failures before they compound. |
+
+## 7. Operational notes
 
 The oracle also records audit information such as the proof, transaction hash, and public key used for the submission. That audit trail helps operators and third parties reconstruct the randomness path after the fact.
 
 In short: the system is verifiable when the contract and the oracle public key are available, and the trust assumption is that the oracle key is not abused. The PRNG path is simpler and deterministic, but it provides less cryptographic assurance than the VRF path.
+
+The audit log hash chain makes the evidence trail tamper-evident: any retroactive edit is detectable, and external anchoring ensures the entire chain cannot be rewritten without detection by anyone watching the published anchors.

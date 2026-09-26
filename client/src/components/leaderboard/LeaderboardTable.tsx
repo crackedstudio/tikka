@@ -1,5 +1,5 @@
 import React from "react";
-import type { Player } from "../../types/types";
+import type { Player } from "../../types/leaderboard";
 
 interface LeaderboardTableProps {
     players: Player[];
