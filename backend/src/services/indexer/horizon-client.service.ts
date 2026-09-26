@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Horizon } from '@stellar/stellar-sdk';
 import { env } from '../../config/env.config';
-import {
-  HorizonLedgerData,
-  HorizonTransactionRecord,
-} from './indexer/indexer-backfill.types';
+import { HorizonLedgerData, HorizonTransactionRecord } from './indexer-backfill.types';
 
 @Injectable()
 export class HorizonClientService {
@@ -13,15 +10,11 @@ export class HorizonClientService {
 
   constructor(private readonly config: ConfigService) {
     const horizonUrl = env.stellar.horizonUrl;
-    const timeoutMs = this.config.get<number>(
-      'BACKFILL_HORIZON_TIMEOUT_MS',
-      10_000,
-    );
+    const timeoutMs = this.config.get<number>('BACKFILL_HORIZON_TIMEOUT_MS', 10_000);
     this.server = new Horizon.Server(horizonUrl);
     // The SDK's Options interface doesn't expose timeout directly;
     // set it on the underlying HTTP client defaults instead.
-    (this.server.httpClient.defaults as Record<string, unknown>).timeout =
-      timeoutMs;
+    (this.server.httpClient.defaults as Record<string, unknown>).timeout = timeoutMs;
   }
 
   async fetchLedger(sequence: number): Promise<HorizonLedgerData | null> {
@@ -36,22 +29,17 @@ export class HorizonClientService {
 
       let transactions: HorizonTransactionRecord[] = [];
       try {
-        const txPage = await this.server
-          .transactions()
-          .forLedger(sequence)
-          .call();
+        const txPage = await this.server.transactions().forLedger(sequence).call();
 
-        transactions = txPage.records.map(
-          (tx): HorizonTransactionRecord => ({
-            id: tx.id,
-            hash: tx.hash,
-            ledger: sequence,
-            createdAt: tx.created_at,
-            sourceAccount: tx.source_account,
-            operationCount: tx.operation_count,
-            successful: tx.successful,
-          }),
-        );
+        transactions = txPage.records.map((tx): HorizonTransactionRecord => ({
+          id: tx.id,
+          hash: tx.hash,
+          ledger: sequence,
+          createdAt: tx.created_at,
+          sourceAccount: tx.source_account,
+          operationCount: tx.operation_count,
+          successful: tx.successful,
+        }));
       } catch (txErr) {
         if (this.is404(txErr)) {
           // No transactions for this ledger — valid for empty ledgers
@@ -85,9 +73,7 @@ export class HorizonClientService {
       typeof (err as Record<string, unknown>).response === 'object' &&
       (err as Record<string, unknown>).response !== null
     ) {
-      const status = (
-        (err as Record<string, unknown>).response as Record<string, unknown>
-      ).status;
+      const status = ((err as Record<string, unknown>).response as Record<string, unknown>).status;
       if (status === 404) return true;
     }
     if (err instanceof Error && err.message.includes('404')) {
