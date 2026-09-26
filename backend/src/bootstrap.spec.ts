@@ -6,7 +6,11 @@ describe('configureSecurity', () => {
 
   beforeEach(() => {
     mockApp = {
-      register: jest.fn().mockResolvedValue(undefined),
+      getHttpAdapter: jest.fn().mockReturnValue({
+        getInstance: jest.fn().mockReturnValue({
+          register: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
       enableCors: jest.fn(),
     } as any;
   });
