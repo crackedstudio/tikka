@@ -21,12 +21,13 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { AuditPresenter } from './audit-presenter';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
+  AuditPresenter.fail('Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
   process.exit(1);
 }
 
@@ -118,12 +119,12 @@ async function queryByRaffleId(raffleId: number): Promise<void> {
     .single();
 
   if (error) {
-    console.error(`No record found for raffle ID ${raffleId}: ${error.message}`);
+    AuditPresenter.fail(`No record found for raffle ID ${raffleId}: ${error.message}`);
     process.exit(1);
   }
 
-  console.log(`\nAudit Record for Raffle ${raffleId}:\n`);
-  console.log(formatRecord(data as AuditRecord));
+  AuditPresenter.write(`\nAudit Record for Raffle ${raffleId}:\n`);
+  AuditPresenter.write(formatRecord(data as AuditRecord));
 }
 
 async function queryByTimeRange(args: Record<string, string | boolean>): Promise<void> {
@@ -147,25 +148,25 @@ async function queryByTimeRange(args: Record<string, string | boolean>): Promise
   const { data, error } = await query;
 
   if (error) {
-    console.error(`Query failed: ${error.message}`);
+    AuditPresenter.fail(`Query failed: ${error.message}`);
     process.exit(1);
   }
 
   if (!data || data.length === 0) {
-    console.log('No records found matching the criteria.');
+    AuditPresenter.write('No records found matching the criteria.');
     return;
   }
 
-  console.log(`\nFound ${data.length} record(s) from ${from} to ${to}:\n`);
+  AuditPresenter.write(`\nFound ${data.length} record(s) from ${from} to ${to}:\n`);
   for (const record of data) {
-    console.log(formatRecord(record as AuditRecord));
-    console.log('');
+    AuditPresenter.write(formatRecord(record as AuditRecord));
+    AuditPresenter.write('');
   }
 }
 
 async function queryByStatus(status: string, limit: number): Promise<void> {
   if (!['committed', 'revealed', 'abandoned'].includes(status)) {
-    console.error('Invalid status. Must be: committed, revealed, or abandoned');
+    AuditPresenter.fail('Invalid status. Must be: committed, revealed, or abandoned');
     process.exit(1);
   }
 
@@ -177,19 +178,19 @@ async function queryByStatus(status: string, limit: number): Promise<void> {
     .limit(limit);
 
   if (error) {
-    console.error(`Query failed: ${error.message}`);
+    AuditPresenter.fail(`Query failed: ${error.message}`);
     process.exit(1);
   }
 
   if (!data || data.length === 0) {
-    console.log(`No records found with status: ${status}`);
+    AuditPresenter.write(`No records found with status: ${status}`);
     return;
   }
 
-  console.log(`\nFound ${data.length} record(s) with status "${status}":\n`);
+  AuditPresenter.write(`\nFound ${data.length} record(s) with status "${status}":\n`);
   for (const record of data) {
-    console.log(formatRecord(record as AuditRecord));
-    console.log('');
+    AuditPresenter.write(formatRecord(record as AuditRecord));
+    AuditPresenter.write('');
   }
 }
 
@@ -201,11 +202,11 @@ async function getSummary(): Promise<void> {
     supabase.from('vrf_audit_log').select('id', { count: 'exact', head: true }).eq('status', 'abandoned'),
   ]);
 
-  console.log('\nAudit Log Summary:\n');
-  console.log(`  Total:     ${total.count || 0}`);
-  console.log(`  Committed: ${committed.count || 0}`);
-  console.log(`  Revealed:  ${revealed.count || 0}`);
-  console.log(`  Abandoned: ${abandoned.count || 0}`);
+  AuditPresenter.write('\nAudit Log Summary:\n');
+  AuditPresenter.write(`  Total:     ${total.count || 0}`);
+  AuditPresenter.write(`  Committed: ${committed.count || 0}`);
+  AuditPresenter.write(`  Revealed:  ${revealed.count || 0}`);
+  AuditPresenter.write(`  Abandoned: ${abandoned.count || 0}`);
 }
 
 async function verifyChain(fromId?: number): Promise<void> {
@@ -221,16 +222,16 @@ async function verifyChain(fromId?: number): Promise<void> {
   const { data, error } = await query;
 
   if (error) {
-    console.error(`Failed to fetch records: ${error.message}`);
+    AuditPresenter.fail(`Failed to fetch records: ${error.message}`);
     process.exit(1);
   }
 
   if (!data || data.length === 0) {
-    console.log('No records to verify.');
+    AuditPresenter.write('No records to verify.');
     return;
   }
 
-  console.log(`\nVerifying chain integrity for ${data.length} record(s)...\n`);
+  AuditPresenter.write(`\nVerifying chain integrity for ${data.length} record(s)...\n`);
 
   let previousHash = 'GENESIS';
   let valid = true;
@@ -256,25 +257,25 @@ async function verifyChain(fromId?: number): Promise<void> {
       .digest('hex');
 
     if (expected !== record.chain_hash) {
-      console.log(`  FAIL: Record ID ${record.id} (raffle ${record.raffle_id})`);
-      console.log(`    Expected: ${expected.slice(0, 16)}...`);
-      console.log(`    Got:      ${record.chain_hash.slice(0, 16)}...`);
+      AuditPresenter.write(`  FAIL: Record ID ${record.id} (raffle ${record.raffle_id})`);
+      AuditPresenter.write(`    Expected: ${expected.slice(0, 16)}...`);
+      AuditPresenter.write(`    Got:      ${record.chain_hash.slice(0, 16)}...`);
       if (!brokenRecord) {
         brokenRecord = record;
       }
       valid = false;
     } else {
-      console.log(`  OK:   Record ID ${record.id} (raffle ${record.raffle_id})`);
+      AuditPresenter.write(`  OK:   Record ID ${record.id} (raffle ${record.raffle_id})`);
     }
 
     previousHash = record.chain_hash;
   }
 
   if (valid) {
-    console.log(`\nChain integrity: VALID — all ${data.length} record(s) pass.`);
+    AuditPresenter.write(`\nChain integrity: VALID — all ${data.length} record(s) pass.`);
     process.exit(0);
   } else {
-    console.log(`\nChain integrity: BROKEN — first failure at record ID ${brokenRecord?.id ?? 'unknown'}.`);
+    AuditPresenter.write(`\nChain integrity: BROKEN — first failure at record ID ${brokenRecord?.id ?? 'unknown'}.`);
     process.exit(1);
   }
 }
@@ -291,7 +292,7 @@ async function anchorChainHead(
     .limit(1);
 
   if (headError) {
-    console.error(`Failed to fetch chain head: ${headError.message}`);
+    AuditPresenter.fail(`Failed to fetch chain head: ${headError.message}`);
     process.exit(1);
   }
 
@@ -305,7 +306,7 @@ async function anchorChainHead(
     .select('id', { count: 'exact', head: true });
 
   if (countError) {
-    console.error(`Failed to count records: ${countError.message}`);
+    AuditPresenter.fail(`Failed to count records: ${countError.message}`);
     process.exit(1);
   }
 
@@ -322,16 +323,16 @@ async function anchorChainHead(
     .single();
 
   if (error) {
-    console.error(`Failed to anchor chain head: ${error.message}`);
+    AuditPresenter.fail(`Failed to anchor chain head: ${error.message}`);
     process.exit(1);
   }
 
   const anchor = data as AuditChainAnchor;
 
-  console.log(`\nChain anchored successfully:\n`);
-  console.log(formatAnchor(anchor));
-  console.log(`\nShare this hash externally to make the chain tamper-evident:`);
-  console.log(`  ${chainHeadHash}\n`);
+  AuditPresenter.write(`\nChain anchored successfully:\n`);
+  AuditPresenter.write(formatAnchor(anchor));
+  AuditPresenter.write(`\nShare this hash externally to make the chain tamper-evident:`);
+  AuditPresenter.write(`  ${chainHeadHash}\n`);
 }
 
 async function verifyAnchor(): Promise<void> {
@@ -343,12 +344,12 @@ async function verifyAnchor(): Promise<void> {
     .limit(1);
 
   if (anchorError) {
-    console.error(`Failed to fetch anchor: ${anchorError.message}`);
+    AuditPresenter.fail(`Failed to fetch anchor: ${anchorError.message}`);
     process.exit(1);
   }
 
   if (!anchorData || anchorData.length === 0) {
-    console.log('No anchor found. Use "audit-cli anchor" to create one.\n');
+    AuditPresenter.write('No anchor found. Use "audit-cli anchor" to create one.\n');
     process.exit(0);
   }
 
@@ -362,7 +363,7 @@ async function verifyAnchor(): Promise<void> {
     .limit(1);
 
   if (headError) {
-    console.error(`Failed to fetch chain head: ${headError.message}`);
+    AuditPresenter.fail(`Failed to fetch chain head: ${headError.message}`);
     process.exit(1);
   }
 
@@ -372,14 +373,14 @@ async function verifyAnchor(): Promise<void> {
 
   const matches = anchor.chain_head_hash === currentHead;
 
-  console.log(`\nAnchor Verification:\n`);
-  console.log(`  Anchored Hash:  ${anchor.chain_head_hash}`);
-  console.log(`  Current Head:   ${currentHead}`);
-  console.log(`  Record Count:   ${anchor.record_count}`);
-  console.log(`  Anchored At:    ${anchor.anchored_at}`);
-  console.log(`  Anchor Type:    ${anchor.anchor_type}`);
-  console.log(`  External Ref:   ${anchor.external_ref || '(none)'}`);
-  console.log(`\n  Status: ${matches ? 'MATCH — chain head matches anchor.' : 'MISMATCH — chain has advanced since anchor was taken.'}\n`);
+  AuditPresenter.write(`\nAnchor Verification:\n`);
+  AuditPresenter.write(`  Anchored Hash:  ${anchor.chain_head_hash}`);
+  AuditPresenter.write(`  Current Head:   ${currentHead}`);
+  AuditPresenter.write(`  Record Count:   ${anchor.record_count}`);
+  AuditPresenter.write(`  Anchored At:    ${anchor.anchored_at}`);
+  AuditPresenter.write(`  Anchor Type:    ${anchor.anchor_type}`);
+  AuditPresenter.write(`  External Ref:   ${anchor.external_ref || '(none)'}`);
+  AuditPresenter.write(`\n  Status: ${matches ? 'MATCH — chain head matches anchor.' : 'MISMATCH — chain has advanced since anchor was taken.'}\n`);
 
   process.exit(matches ? 0 : 0); // informational, not an error
 }
@@ -392,24 +393,24 @@ async function anchorHistory(limit: number): Promise<void> {
     .limit(limit);
 
   if (error) {
-    console.error(`Failed to fetch anchor history: ${error.message}`);
+    AuditPresenter.fail(`Failed to fetch anchor history: ${error.message}`);
     process.exit(1);
   }
 
   if (!data || data.length === 0) {
-    console.log('No anchors found.\n');
+    AuditPresenter.write('No anchors found.\n');
     return;
   }
 
-  console.log(`\nAnchor History (${data.length} most recent):\n`);
+  AuditPresenter.write(`\nAnchor History (${data.length} most recent):\n`);
   for (const anchor of data as AuditChainAnchor[]) {
-    console.log(formatAnchor(anchor));
-    console.log('');
+    AuditPresenter.write(formatAnchor(anchor));
+    AuditPresenter.write('');
   }
 }
 
 function printUsage(): void {
-  console.log(`
+  AuditPresenter.write(`
 Usage:
   audit-cli by-raffle <raffleId>
   audit-cli by-time --from <ISO date> --to <ISO date> [--status <status>] [--limit <n>]
@@ -441,7 +442,7 @@ async function main(): Promise<void> {
     case 'by-raffle': {
       const raffleId = parseInt(parsed._0 as string, 10);
       if (isNaN(raffleId) || raffleId <= 0) {
-        console.error('Invalid raffle ID');
+        AuditPresenter.fail('Invalid raffle ID');
         process.exit(1);
       }
       await queryByRaffleId(raffleId);
@@ -493,6 +494,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('Fatal error:', err);
+  AuditPresenter.fail('Fatal error:', err);
   process.exit(1);
 });

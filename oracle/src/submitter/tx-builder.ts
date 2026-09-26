@@ -37,7 +37,9 @@ export class TxBuilderService {
 
     const simulated = await rpcServer.simulateTransaction(tx);
     if (simulated?.error || simulated?.restorePreamble?.error) {
-      this.logger.warn(`Simulation returned an error: ${JSON.stringify(simulated)}`);
+      const reason = simulated.error || simulated.restorePreamble?.error;
+      const detail = typeof reason === 'string' ? reason : 'simulation failed';
+      this.logger.warn(`Simulation returned an error: ${detail}`);
     }
 
     return rpcServer.prepareTransaction(tx);

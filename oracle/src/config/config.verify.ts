@@ -9,6 +9,7 @@
 import { ZodError } from 'zod';
 import { loadOracleConfig } from './config.loader';
 import { OracleConfig } from './config.schema';
+import { ConfigPresenter } from './config-presenter';
 
 export interface ConfigVerifyIssue {
   field: string;
@@ -156,26 +157,7 @@ export function verifyOracleConfig(
  * Does not call process.exit — callers decide.
  */
 export function reportConfigVerification(result: ConfigVerifyResult): number {
-  if (result.warnings.length > 0) {
-    console.warn('Configuration warnings:');
-    result.warnings.forEach((w, i) => {
-      console.warn(`  ${i + 1}. [${w.field}] ${w.message}`);
-    });
-    console.warn('');
-  }
-
-  if (!result.ok) {
-    console.error('Configuration validation failed. Invalid fields:');
-    result.errors.forEach((e, i) => {
-      console.error(`  ${i + 1}. [${e.field}] ${e.message}`);
-    });
-    console.error('');
-    console.error('Fix the configuration and retry.');
-    console.error('See oracle/src/config/ENVIRONMENT_VARIABLES.md for documentation.');
-    return 1;
-  }
-
-  return 0;
+  return ConfigPresenter.reportIssues(result);
 }
 
 /**

@@ -95,7 +95,7 @@ export class ErrorClassifier {
   public extractFailureReason(result: any): string {
     try {
       if (result.resultXdr) {
-        return `XDR: ${result.resultXdr}`;
+        return 'transaction rejected (result XDR omitted)';
       }
       if (result.error) {
         return result.error;

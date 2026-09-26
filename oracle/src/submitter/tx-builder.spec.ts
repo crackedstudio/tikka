@@ -61,10 +61,13 @@ describe('TxBuilderService', () => {
   });
 
   it('still prepares the transaction when simulation reports an error', async () => {
-    const server = rpc(jest.fn().mockResolvedValue({ error: 'declined' }));
+    const xdr = 'A'.repeat(180);
+    const server = rpc(jest.fn().mockResolvedValue({ error: 'declined', resultXdr: xdr }));
     await service.buildPreparedTx(server, 'CABC', 'passphrase', 'GTEST', 1, { seed: 'aa', proof: 'bb' }, 1);
 
-    expect(logger.warn).toHaveBeenCalled();
+    const message = (logger.warn as jest.Mock).mock.calls.map((call) => String(call[0])).join('\n');
+    expect(message).toContain('declined');
+    expect(message).not.toContain(xdr);
     expect(prepareTransaction).toHaveBeenCalled();
   });
 });

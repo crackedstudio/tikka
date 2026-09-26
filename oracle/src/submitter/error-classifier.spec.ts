@@ -57,8 +57,10 @@ describe('ErrorClassifier', () => {
     expect(instance.extractTxHashFromError(new Error(`duplicate ${hash}`))).toBe(hash);
   });
 
-  it('reads a failure reason without requiring result xdr', () => {
+  it('reads a failure reason without including result xdr', () => {
     expect(classifier().extractFailureReason({ error: 'host rejected' })).toBe('host rejected');
+    const xdr = 'A'.repeat(200);
+    expect(classifier().extractFailureReason({ resultXdr: xdr })).toBe('transaction rejected (result XDR omitted)');
     expect(classifier().extractFailureReason({})).toBe('Unknown failure reason');
   });
 });
