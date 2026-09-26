@@ -63,6 +63,10 @@ export class RaffleService {
   /**
    * Pre-confirmation fee preview for raffle creation.
    * Simulates the transaction via {@link FeeEstimatorService} without submitting.
+   * @throws {TikkaSdkError} code `ValidationError` if params are invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async estimateCreate(params: RaffleParams): Promise<CreateRaffleEstimate> {
     const contractParams = this.buildCreateContractParams(params);
@@ -82,6 +86,16 @@ export class RaffleService {
    * SEP-41 tokens such as USDC or yXLM.
    *
    * @returns The on-chain raffle ID, transaction hash, and ledger.
+   * @throws {TikkaSdkError} code `ValidationError` if params are invalid
+   * @throws {TikkaSdkError} code `RaffleEnded` if the raffle is not OPEN
+   * @throws {TikkaSdkError} code `InsufficientFunds` if the caller lacks balance
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   * @throws {TikkaSdkError} code `Unauthorized` if the caller is not the creator
    */
   async create(params: RaffleParams): Promise<RaffleTxResponse<number>> {
     assertNonEmpty(params.ticketPrice, 'ticketPrice');
@@ -118,6 +132,10 @@ export class RaffleService {
 
   /**
    * Fetches on-chain data for a single raffle (read-only).
+   * @throws {TikkaSdkError} code `ValidationError` if raffleId is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `RaffleNotFound` if the raffle ID does not exist
    */
   async get(raffleId: number): Promise<RaffleTxResponse<RaffleData>> {
     assertPositiveInt(raffleId, 'raffleId');
@@ -138,6 +156,8 @@ export class RaffleService {
 
   /**
    * Returns IDs of all currently active (OPEN) raffles.
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async listActive(): Promise<RaffleTxResponse<number[]>> {
     return this.contract.simulateReadOnly<number[]>(ContractFn.GET_ACTIVE_RAFFLE_IDS, []);
@@ -149,6 +169,8 @@ export class RaffleService {
 
   /**
    * Returns IDs of all raffles (any state).
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async listAll(): Promise<RaffleTxResponse<number[]>> {
     return this.contract.simulateReadOnly<number[]>(ContractFn.GET_ALL_RAFFLE_IDS, []);
@@ -161,6 +183,12 @@ export class RaffleService {
   /**
    * Cancels an OPEN raffle (must be the raffle creator).
    * Throws `RaffleStateError` if the raffle is not in the Open state.
+   * @throws {TikkaSdkError} code `ValidationError` if raffleId is invalid
+   * @throws {TikkaSdkError} code `RaffleEnded` if the raffle is not OPEN
+   * @throws {TikkaSdkError} code `Unauthorized` if the caller is not the creator or admin
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
    */
   async cancel(params: CancelRaffleParams): Promise<TxResponse<void>> {
     assertPositiveInt(params.raffleId, 'raffleId');
@@ -185,6 +213,12 @@ export class RaffleService {
    *
    * Requires the caller to be authorised (oracle or protocol admin).
    * Throws `RaffleStateError` if the raffle is not currently Open.
+   * @throws {TikkaSdkError} code `ValidationError` if raffleId is invalid
+   * @throws {TikkaSdkError} code `RaffleEnded` if the raffle is not OPEN
+   * @throws {TikkaSdkError} code `Unauthorized` if the caller is not authorized
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
    */
   async triggerDraw(params: TriggerDrawParams): Promise<ContractResponse<TriggerDrawResult>> {
     assertPositiveInt(params.raffleId, 'raffleId');
@@ -210,6 +244,10 @@ export class RaffleService {
    * Returns `undefined` fields when the raffle has not yet been finalized.
    *
    * Source of truth: contract RPC (`get_raffle_data`).
+   * @throws {TikkaSdkError} code `ValidationError` if raffleId is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `RaffleNotFound` if the raffle ID does not exist
    */
   async getWinner(raffleId: number): Promise<ContractResponse<WinnerResult | null>> {
     assertPositiveInt(raffleId, 'raffleId');
@@ -243,6 +281,7 @@ export class RaffleService {
    * Public so frontend progress-emission pipelines can reuse the exact scVal
    * shape instead of hand-rolling a private copy. Accepts the same `RaffleParams`
    * as {@link create} / {@link estimateCreate} (endTime in ms).
+   * @throws {TikkaSdkError} code `ValidationError` if params are invalid
    */
   buildCreateContractParams(params: RaffleParams): any[] {
     assertNonEmpty(params.ticketPrice, 'ticketPrice');

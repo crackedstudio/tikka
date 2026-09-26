@@ -53,7 +53,11 @@ export class AdminService {
    *
    * @param options - Optional configuration for the transaction
    * @returns Promise containing the transaction result with hash and ledger info
-   * @throws Will reject if not called by admin
+   * @throws {TikkaSdkError} code `Unauthorized` if the caller is not the admin
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```ts
@@ -75,7 +79,11 @@ export class AdminService {
    *
    * @param options - Optional configuration for the transaction
    * @returns Promise containing the transaction result with hash and ledger info
-   * @throws Will reject if not called by admin
+   * @throws {TikkaSdkError} code `Unauthorized` if the caller is not the admin
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```ts
@@ -93,6 +101,9 @@ export class AdminService {
    * Read-only operation — no signing required.
    *
    * @returns Promise with boolean indicating pause status
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```ts
@@ -111,6 +122,9 @@ export class AdminService {
    * Read-only operation — no signing required.
    *
    * @returns Promise with the Stellar public key of the current admin
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```ts
@@ -132,7 +146,12 @@ export class AdminService {
    * @param newAdmin - Stellar public key of the new admin
    * @param options - Optional configuration for the transaction
    * @returns Promise containing the transaction result
-   * @throws Will reject if `newAdmin` is invalid or if not called by admin
+   * @throws {TikkaSdkError} code `ValidationError` if `newAdmin` is invalid
+   * @throws {TikkaSdkError} code `Unauthorized` if the caller is not the admin
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```ts
@@ -142,13 +161,14 @@ export class AdminService {
    * });
    * ```
    */
-  async transferAdmin(newAdmin: string, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+  async transferAdmin(
+    newAdmin: string,
+    options: AdminWriteOptions = {},
+  ): Promise<ContractResponse<void>> {
     assertNonEmpty(newAdmin, 'newAdmin');
-    return this.contract.invoke<void>(
-      ContractFn.TRANSFER_ADMIN,
-      [newAdmin],
-      { memo: options.memo },
-    );
+    return this.contract.invoke<void>(ContractFn.TRANSFER_ADMIN, [newAdmin], {
+      memo: options.memo,
+    });
   }
 
   /**
@@ -158,7 +178,13 @@ export class AdminService {
    *
    * @param options - Optional configuration for the transaction
    * @returns Promise containing the transaction result
-   * @throws Will reject if there are no pending admin rights or if called by wrong address
+   * @throws {TikkaSdkError} code `Unauthorized` if there are no pending admin rights or if called by wrong address
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   *
+   * @example
    *
    * @example
    * ```ts
@@ -179,28 +205,33 @@ export class AdminService {
    * Validates the raffle is in OPEN state before proceeding.
    *
    * @param raffleId - The raffle to finalize
-    * @param options - Optional transaction configuration
-    * @returns Promise containing the transaction result
-    * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
-    *
-    * @example
-    * ```ts
-    * const result = await adminService.finalizeRaffle(1);
-    * if (result.success) {
-    *   console.log('Raffle finalized at block:', result.ledger);
-    * }
-    * ```
-    */
-  async finalizeRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+   * @param options - Optional transaction configuration
+   * @returns Promise containing the transaction result
+   * @throws {TikkaSdkError} code `RaffleEnded` if raffle is not OPEN
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   *
+   * @example
+   *
+   * @example
+   * ```ts
+   * const result = await adminService.finalizeRaffle(1);
+   * if (result.success) {
+   *   console.log('Raffle finalized at block:', result.ledger);
+   * }
+   * ```
+   */
+  async finalizeRaffle(
+    raffleId: number,
+    options: AdminWriteOptions = {},
+  ): Promise<ContractResponse<void>> {
     const stateResp = await this.contract.simulateReadOnly<{ status: number }>(
       ContractFn.GET_RAFFLE_STATE,
       [raffleId],
     );
-    validateLifecycleTransition(
-      ContractFn.TRIGGER_DRAW,
-      stateResp.value?.status ?? -1,
-      raffleId,
-    );
+    validateLifecycleTransition(ContractFn.TRIGGER_DRAW, stateResp.value?.status ?? -1, raffleId);
     return this.contract.invoke<void>(ContractFn.TRIGGER_DRAW, [raffleId], { memo: options.memo });
   }
 
@@ -210,34 +241,38 @@ export class AdminService {
    * or an admin before proceeding.
    *
    * @param raffleId - The raffle to cancel
-    * @param options - Optional transaction configuration
-    * @throws {TikkaSdkError} with code RaffleEnded if raffle is not OPEN
-    * @throws {UnauthorizedError} if the caller is not the raffle creator or admin
-    *
-    * @example
-    * ```ts
-    * const result = await adminService.cancelRaffle(1);
-    * if (result.success) {
-    *   console.log('Raffle cancelled at block:', result.ledger);
-    * }
-    * ```
-    */
-  async cancelRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
-    const stateResp = await this.contract.simulateReadOnly<any>(
-      ContractFn.GET_RAFFLE_DATA,
-      [raffleId],
-    );
+   * @param options - Optional transaction configuration
+   * @throws {TikkaSdkError} code `RaffleEnded` if raffle is not OPEN
+   * @throws {TikkaSdkError} code `Unauthorized` if the caller is not the raffle creator or admin
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   *
+   * @example
+   *
+   * @example
+   * ```ts
+   * const result = await adminService.cancelRaffle(1);
+   * if (result.success) {
+   *   console.log('Raffle cancelled at block:', result.ledger);
+   * }
+   * ```
+   */
+  async cancelRaffle(
+    raffleId: number,
+    options: AdminWriteOptions = {},
+  ): Promise<ContractResponse<void>> {
+    const stateResp = await this.contract.simulateReadOnly<any>(ContractFn.GET_RAFFLE_DATA, [
+      raffleId,
+    ]);
     if (!stateResp.success) {
       return stateResp as ContractResponse<void>;
     }
 
     const raffleData = stateResp.value;
     const currentStatus = raffleData.status ?? raffleData.Status ?? -1;
-    validateLifecycleTransition(
-      ContractFn.CANCEL_RAFFLE,
-      currentStatus,
-      raffleId,
-    );
+    validateLifecycleTransition(ContractFn.CANCEL_RAFFLE, currentStatus, raffleId);
 
     const callerAddress = await this.contract.getPublicKey();
     const creatorAddress = raffleData.creator ?? raffleData.Creator ?? '';
@@ -254,5 +289,4 @@ export class AdminService {
 
     return this.contract.invoke<void>(ContractFn.CANCEL_RAFFLE, [raffleId], { memo: options.memo });
   }
-
 }

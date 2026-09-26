@@ -107,7 +107,7 @@ export class ContractService {
 
   /**
    * Returns the public key of the currently connected wallet.
-   * @throws TikkaSdkError(WalletNotConnected) if no wallet is connected
+   * @throws {TikkaSdkError} code `WalletNotConnected` if no wallet is connected
    */
   async getPublicKey(): Promise<string> {
     if (!this.wallet) {
@@ -122,6 +122,11 @@ export class ContractService {
    * Phase 1 — Build and simulate a transaction.
    * Returns the assembled XDR, decoded return value, fee, and network passphrase.
    * Safe to call without a wallet (uses anonymous fallback key).
+   * @throws {TikkaSdkError} code `SimulationFailed` if the RPC simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   * @throws {TikkaSdkError} code `Timeout` if the simulation times out
    */
   async simulate<T = unknown>(
     method: ContractFnName | string,
@@ -134,6 +139,9 @@ export class ContractService {
   /**
    * Phase 2 — Sign an assembled transaction XDR via the connected wallet.
    * Returns the signed XDR string.
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet adapter is set
+   * @throws {TikkaSdkError} code `UserRejected` if the user rejects the signature request
+   * @throws {TikkaSdkError} code `Unknown` for other wallet signing failures
    */
   async sign(assembledXdr: string, networkPassphrase?: string): Promise<string> {
     return this.lifecycle.sign(assembledXdr, networkPassphrase);
@@ -142,6 +150,9 @@ export class ContractService {
   /**
    * Phase 3 — Submit a signed transaction XDR to the network.
    * Returns the transaction hash.
+   * @throws {TikkaSdkError} code `TransactionRejected` if the RPC rejects the submission
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   * @throws {TikkaSdkError} code `SubmissionFailed` if the submission fails
    */
   async submit(signedXdr: string): Promise<string> {
     return this.lifecycle.submit(signedXdr);
@@ -150,6 +161,10 @@ export class ContractService {
   /**
    * Phase 4 — Poll for transaction confirmation.
    * Returns the on-chain return value, tx hash, and ledger.
+   * @throws {TikkaSdkError} code `Timeout` if the confirmation timeout is exceeded
+   * @throws {TikkaSdkError} code `ContractError` if the transaction failed on-chain
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async poll<T = unknown>(txHash: string, config?: PollConfig): Promise<SubmitResult<T>> {
     return this.lifecycle.poll<T>(txHash, config);
@@ -157,6 +172,13 @@ export class ContractService {
 
   /* ---------------- READ ONLY ---------------- */
 
+  /**
+   * Simulates a contract call without signing or submitting.
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   */
   async simulateReadOnly<T>(
     method: ContractFnName | string,
     params: any[],
@@ -215,6 +237,17 @@ export class ContractService {
 
   /* ---------------- FULL INVOKE ---------------- */
 
+  /**
+   * Full invoke: simulate → sign → submit → poll.
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet and simulateOnly is false
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `UserRejected` if the user rejects the signature
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects submission
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `ContractError` if the transaction fails on-chain
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   */
   async invoke<T = any>(
     method: ContractFnName | string,
     params: any[],
@@ -260,6 +293,10 @@ export class ContractService {
 
   /**
    * Builds a fully-prepared (simulated + auth-populated) unsigned transaction XDR.
+   * @throws {TikkaSdkError} code `InvalidParams` if sourcePublicKey is empty
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async buildUnsigned<T = any>(
     method: ContractFnName | string,
@@ -288,6 +325,11 @@ export class ContractService {
 
   /**
    * Submits a signed transaction XDR that was previously built with buildUnsigned().
+   * @throws {TikkaSdkError} code `InvalidParams` if signedXdr is empty
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects submission
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `ContractError` if the transaction fails on-chain
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async submitSigned<T = any>(signedXdr: string): Promise<TxResponse<T>> {
     if (!signedXdr) {
@@ -309,6 +351,16 @@ export class ContractService {
 
   /* ---------------- BATCH INVOKE ---------------- */
 
+  /**
+   * Batch purchases tickets for multiple raffles.
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet and simulateOnly is false
+   * @throws {TikkaSdkError} code `InvalidParams` if source public key is missing
+   * @throws {TikkaSdkError} code `SimulationFailed` if all batch purchases fail simulation
+   * @throws {TikkaSdkError} code `SubmissionFailed` if batch submission fails
+   * @throws {TikkaSdkError} code `ContractError` if the transaction fails on-chain
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   */
   async batchBuyTickets(
     raffleId: number,
     count: number,
