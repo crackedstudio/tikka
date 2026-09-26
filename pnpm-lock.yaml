@@ -641,6 +641,9 @@ importers:
       '@nestjs/testing':
         specifier: ^10.4.22
         version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(@nestjs/platform-express@10.4.22)
+      '@tikka/fee-accuracy':
+        specifier: workspace:*
+        version: link:../packages/fee-accuracy
       '@types/express':
         specifier: ^5.0.6
         version: 5.0.6
@@ -662,6 +665,36 @@ importers:
       fast-check:
         specifier: ^4.6.0
         version: 4.9.0
+      jest:
+        specifier: ^30.4.2
+        version: 30.5.0(@types/node@22.20.1)(ts-node@10.9.2(@types/node@22.20.1)(typescript@5.8.3))
+      ts-jest:
+        specifier: ^29.4.11
+        version: 29.4.12(@babel/core@7.29.7)(@jest/transform@30.5.0)(@jest/types@30.5.0)(babel-jest@30.5.0(@babel/core@7.29.7))(jest-util@30.5.0)(jest@30.5.0(@types/node@22.20.1)(ts-node@10.9.2(@types/node@22.20.1)(typescript@5.8.3)))(typescript@5.8.3)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@types/node@22.20.1)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.6.0
+        version: 5.8.3
+
+  packages/fee-accuracy:
+    devDependencies:
+      '@types/jest':
+        specifier: ^30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.56.1
+        version: 8.68.0(@typescript-eslint/parser@8.68.0(eslint@10.9.1(jiti@2.7.0))(typescript@5.8.3))(eslint@10.9.1(jiti@2.7.0))(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.56.1
+        version: 8.68.0(eslint@10.9.1(jiti@2.7.0))(typescript@5.8.3)
+      eslint:
+        specifier: ^10.0.2
+        version: 10.9.1(jiti@2.7.0)
       jest:
         specifier: ^30.4.2
         version: 30.5.0(@types/node@22.20.1)(ts-node@10.9.2(@types/node@22.20.1)(typescript@5.8.3))
@@ -738,6 +771,9 @@ importers:
       '@size-limit/preset-small-lib':
         specifier: ^11.1.6
         version: 11.2.0(size-limit@11.2.0)
+      '@tikka/fee-accuracy':
+        specifier: workspace:*
+        version: link:../packages/fee-accuracy
       '@types/inquirer':
         specifier: ^9.0.7
         version: 9.0.10

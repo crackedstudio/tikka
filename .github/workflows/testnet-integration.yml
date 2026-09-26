@@ -10,10 +10,26 @@ on:
         description: 'Reason for manual trigger'
         required: false
         default: 'Manual testnet integration trigger'
+      fee_tolerance_percent:
+        description: 'Fee accuracy tolerance (%) for the estimate-vs-actual check'
+        required: false
+        default: '15'
+      surge_tolerance_percent:
+        description: 'Fee accuracy tolerance (%) while the network is surged'
+        required: false
+        default: '100'
+      surge_threshold_stroops:
+        description: 'Inclusion fee (stroops) at or above which the network counts as surged'
+        required: false
+        default: '1000'
 
 concurrency:
   group: sdk-testnet-integration
   cancel-in-progress: true
+
+env:
+  FEE_REPORT_JSON: ${{ github.workspace }}/sdk/fee-accuracy-report.json
+  FEE_REPORT_MARKDOWN: ${{ github.workspace }}/sdk/fee-accuracy-report.md
 
 jobs:
   testnet-integration:
@@ -39,7 +55,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: sdk/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -50,6 +66,37 @@ jobs:
           TIKKA_TESTNET_SECRET_KEY: ${{ secrets.TIKKA_TESTNET_SECRET_KEY }}
           TIKKA_CONTRACT_TESTNET: ${{ secrets.TIKKA_CONTRACT_TESTNET }}
         run: pnpm run test:integration
+
+      # Submits real transactions and compares the fee the SDK quoted against
+      # the fee the network charged, within the tolerance configured below.
+      - name: Run Fee Accuracy Suite
+        env:
+          TIKKA_TESTNET_TESTS: '1'
+          TIKKA_FEE_ACCURACY_TESTS: '1'
+          TIKKA_TESTNET_SECRET_KEY: ${{ secrets.TIKKA_TESTNET_SECRET_KEY }}
+          TIKKA_CONTRACT_TESTNET: ${{ secrets.TIKKA_CONTRACT_TESTNET }}
+          TIKKA_FEE_REPORT_PATH: fee-accuracy-report.json
+          TIKKA_FEE_ACCURACY_TOLERANCE_PERCENT: ${{ inputs.fee_tolerance_percent || '15' }}
+          TIKKA_FEE_ACCURACY_SURGE_TOLERANCE_PERCENT: ${{ inputs.surge_tolerance_percent || '100' }}
+          TIKKA_FEE_ACCURACY_SURGE_THRESHOLD_STROOPS: ${{ inputs.surge_threshold_stroops || '1000' }}
+        run: pnpm run test:fee-accuracy
+
+      # Fails the run when any observation drifted outside the tolerance band,
+      # or when the suite recorded no observations at all.
+      - name: Enforce fee accuracy tolerance
+        if: always()
+        run: pnpm --filter @tikka/fee-accuracy run gate -- --path "$FEE_REPORT_JSON"
+
+      - name: Upload fee accuracy report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sdk-fee-accuracy-report
+          path: |
+            sdk/fee-accuracy-report.json
+            sdk/fee-accuracy-report.md
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Report job summary
         if: always()
@@ -63,3 +110,19 @@ jobs:
           | **Run at** | $(date -u) |
           | **Trigger** | \`${{ github.event_name }}\` |
           EOF
+
+          if [ -f "$FEE_REPORT_MARKDOWN" ]; then
+            {
+              echo ""
+              echo "### Fee estimate accuracy"
+              echo ""
+              cat "$FEE_REPORT_MARKDOWN"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo ""
+              echo "### Fee estimate accuracy"
+              echo ""
+              echo "No report was produced — the fee accuracy suite did not complete."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

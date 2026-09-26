@@ -12,7 +12,7 @@ This repository is split into several runnable workspaces. The fastest way to ge
 - Node.js and pnpm
 
   Node and pnpm versions are pinned repo-wide. The single source of truth for
-the Node major is `.nvmrc` (and its mirror `.node-version`):
+  the Node major is `.nvmrc` (and its mirror `.node-version`):
 
   - **Node.js 22** — read by CI (`node-version-file: .nvmrc`), the Docker
     base images, and local version managers (`nvm`, `fnm`, `mise`, ...).
@@ -263,6 +263,70 @@ File: `sdk/src/test/rpc-integration.spec.ts`
 
 These are currently mock-based and run as part of the normal unit test suite.
 A future issue will convert them to use a real Soroban testnet endpoint.
+
+### Fee estimate accuracy tests
+
+File: `sdk/src/test/integration/fee-estimate-accuracy.spec.ts`
+
+Measures how close a fee estimate is to what the network actually charges. For
+each measured write the suite quotes a fee with `FeeEstimatorService`, submits
+that same call with the quoted fee, reads the charged fee back out of the
+confirmed transaction, and compares the two.
+
+The comparison lives in the shared `@tikka/fee-accuracy` workspace package, so
+the SDK and the oracle cost estimator are validated by the same tolerance, the
+same surge classification and the same report format.
+
+```bash
+# Requires TIKKA_TESTNET_SECRET_KEY (or TIKKA_SECRET_KEY) and TIKKA_CONTRACT_TESTNET
+pnpm --dir sdk run test:fee-accuracy
+```
+
+Gate an already-written report without re-running the suite:
+
+```bash
+pnpm --filter @tikka/fee-accuracy run gate -- --path sdk/fee-accuracy-report.json
+```
+
+| Variable                                     | Default                    | Description                                                                    |
+| -------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------ |
+| `TIKKA_TESTNET_TESTS`                        | `false`                    | Set to `1` to enable the live testnet suites.                                  |
+| `TIKKA_FEE_ACCURACY_TESTS`                   | `false`                    | Set to `1` to enable the fee accuracy suite (implies testnet tests).           |
+| `TIKKA_FEE_ACCURACY_TOLERANCE_PERCENT`       | `15`                       | Allowed deviation from the quote on a normal network.                          |
+| `TIKKA_FEE_ACCURACY_TOLERANCE_STROOPS`       | `2000`                     | Floor for the allowed deviation, so cheap calls are not judged on ratio alone. |
+| `TIKKA_FEE_ACCURACY_SURGE_TOLERANCE_PERCENT` | `100`                      | Allowed deviation while the network is surged.                                 |
+| `TIKKA_FEE_ACCURACY_SURGE_TOLERANCE_STROOPS` | `10000`                    | Floor for the surged allowed deviation.                                        |
+| `TIKKA_FEE_ACCURACY_SURGE_THRESHOLD_STROOPS` | `1000`                     | Inclusion fee at or above which the network counts as surged.                  |
+| `TIKKA_FEE_REPORT_PATH`                      | `fee-accuracy-report.json` | Where the JSON (and sibling `.md`) report is written.                          |
+
+A run is surged when the ledger's typical Soroban inclusion fee reaches the
+threshold. Testnet congestion cannot be forced, so the live suite reads
+`getFeeStats` per submission: a surged observation is judged against the wider
+surge band, and the quote is additionally asserted to cover the inclusion fee
+the network demanded (below it, the transaction is rejected with
+`tx_insufficient_fee` rather than charged). The deterministic surge behaviour of
+the estimator is covered by `sdk/src/fee-estimator/fee-accuracy.spec.ts`.
+
+Reports are written even when a transaction fails, and the nightly
+[SDK Testnet Integration workflow](./.github/workflows/testnet-integration.yml)
+publishes them as an artifact and in the job summary. The workflow fails the run
+when any observation leaves the tolerance band — or when no observation was
+recorded at all.
+
+### Oracle cost accounting
+
+File: `oracle/test/fee-accuracy.spec.ts`
+
+Locks the contract that makes the oracle's books auditable: the fee booked for
+a reveal must match the fee the network charged, a `feePaid` of `0` is rejected
+as `invalid` rather than passing as a free transaction, and a stale quote is
+flagged when inclusion fees surge.
+
+`SubmissionService` reads the real charge from the confirmed transaction
+(`SubmissionService.extractFeePaid`, backed by `extractFeeChargedStroops`);
+`TxSubmitterService` falls back to the fee it quoted for that submission rather
+than a flat base fee, so a missing RPC fee cannot make a reveal look ~500x
+cheaper than it was.
 
 ## SDK bundle size
 
