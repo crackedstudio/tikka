@@ -1,0 +1,13 @@
+{
+  "$comment": "Ratcheting cap on @typescript-eslint/no-explicit-any occurrences per src/ area. Regenerate with `pnpm lint:any-budget:update`; never raise an entry.",
+  "total": 245,
+  "areas": {
+    "fee-estimator": 12,
+    "light": 16,
+    "modules": 43,
+    "network": 37,
+    "test": 15,
+    "utils": 24,
+    "wallet": 98
+  }
+}

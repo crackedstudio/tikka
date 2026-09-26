@@ -198,6 +198,10 @@ jobs:
         run: pnpm run lint
         continue-on-error: false
 
+      - name: Check any-usage budget
+        run: pnpm run lint:any-budget
+        continue-on-error: false
+
       - name: Typecheck
         run: pnpm run typecheck
         continue-on-error: false

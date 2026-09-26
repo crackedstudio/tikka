@@ -56,6 +56,8 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
+    "lint:any-budget": "node scripts/check-any-budget.mjs",
+    "lint:any-budget:update": "node scripts/check-any-budget.mjs --update",
     "test": "jest --config jest.config.cjs",
     "test:testnet": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs",
     "test:integration": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs --testPathPattern=test/integration",

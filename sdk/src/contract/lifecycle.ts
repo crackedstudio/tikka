@@ -22,9 +22,11 @@ import {
   Address,
   nativeToScVal,
   rpc,
+  Transaction,
   xdr,
   scValToNative,
   Memo,
+  TransactionSource,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -109,6 +111,16 @@ export interface InvokeLifecycleOptions {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Narrows a caught `unknown` to a usable message, including `{ message }` throws. */
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message || String(error);
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const { message } = error as { message?: unknown };
+    if (typeof message === 'string' && message) return message;
+  }
+  return String(error);
+}
 
 /** Detects Soroban contract errors in error messages / XDR. */
 function isExternalContractFailure(msg: string): boolean {
@@ -227,7 +239,7 @@ export class TransactionLifecycle {
    */
   async simulate<T = unknown>(
     method: string,
-    params: any[],
+    params: unknown[],
     options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
     const sourceKey = options.sourcePublicKey ?? (await this.resolveSourceKey());
@@ -236,11 +248,10 @@ export class TransactionLifecycle {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? '';
-      const message = `Simulation failed for "${method}": ${errMsg}`;
+      const message = `Simulation failed for "${method}": ${simResponse.error}`;
       throw (
-        toTypedContractError(message, errMsg) ??
-        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, errMsg)
+        toTypedContractError(message, simResponse.error) ??
+        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, simResponse.error)
       );
     }
 
@@ -279,8 +290,8 @@ export class TransactionLifecycle {
         networkPassphrase: networkPassphrase ?? this.networkConfig.networkPassphrase,
       });
       signedXdr = result.signedXdr;
-    } catch (err: any) {
-      const msg: string = err?.message ?? String(err);
+    } catch (err) {
+      const msg = toErrorMessage(err);
       const isRejection =
         msg.toLowerCase().includes('reject') ||
         msg.toLowerCase().includes('denied') ||
@@ -311,7 +322,7 @@ export class TransactionLifecycle {
     const sendResp = await this.rpc.sendTransaction(signedTx);
 
     if (sendResp.status === 'ERROR') {
-      const detail = (sendResp as any).errorResultXdr ?? '';
+      const detail = (sendResp as rpc.Api.RawSendTransactionResponse).errorResultXdr ?? '';
       throw new TransactionRejectedError(`Transaction submission failed: ${detail}`);
     }
 
@@ -382,15 +393,16 @@ export class TransactionLifecycle {
       }
 
       if (resp.status === rpc.Api.GetTransactionStatus.FAILED) {
-        const resultXdr = (resp as any).resultXdr ?? '';
+        const resultXdr = (resp as rpc.Api.GetFailedTransactionResponse).resultXdr;
+        const rawResultXdr = String(resultXdr ?? '');
         const message = `Transaction ${txHash} failed on-chain (attempt ${attempts})`;
 
-        if (isExternalContractFailure(String(resultXdr))) {
+        if (isExternalContractFailure(rawResultXdr)) {
           throw new TikkaSdkError(TikkaSdkErrorCode.ExternalContractError, message, resultXdr);
         }
 
         throw (
-          toTypedContractError(message, resultXdr) ??
+          toTypedContractError(message, rawResultXdr) ??
           new TikkaSdkError(TikkaSdkErrorCode.ContractError, message, resultXdr)
         );
       }
@@ -417,7 +429,7 @@ export class TransactionLifecycle {
    */
   async invoke<T = unknown>(
     method: string,
-    params: any[],
+    params: unknown[],
     options: InvokeLifecycleOptions = {},
   ): Promise<SubmitResult<T>> {
     if (!this.wallet) {
@@ -445,19 +457,20 @@ export class TransactionLifecycle {
 
   private async buildTx(
     method: string,
-    params: any[],
+    params: unknown[],
     sourceKey: string,
     fee?: string,
     memo?: TxMemo,
-  ) {
-    const account = await this.horizon.loadAccount(sourceKey).catch(
-      () =>
-        ({
-          accountId: () => sourceKey,
-          sequenceNumber: () => '0',
-          incrementSequenceNumber: () => {},
-        }) as any,
-    );
+  ): Promise<Transaction> {
+    const fallback: TransactionSource = {
+      accountId: () => sourceKey,
+      sequenceNumber: () => '0',
+      incrementSequenceNumber: () => {},
+    };
+    const account = await this.horizon
+      .loadAccount(sourceKey)
+      .then((loaded) => loaded as unknown as TransactionSource)
+      .catch(() => fallback);
 
     let finalFee = fee;
     if (!finalFee) {
@@ -489,12 +502,12 @@ export class TransactionLifecycle {
     }
   }
 
-  private toScVal(val: any): xdr.ScVal {
+  private toScVal(val: unknown): xdr.ScVal {
     if (val instanceof xdr.ScVal) return val;
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
-    return nativeToScVal(val);
+    return nativeToScVal(val as Parameters<typeof nativeToScVal>[0]);
   }
 
   private sleep(ms: number): Promise<void> {

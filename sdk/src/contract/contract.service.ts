@@ -7,6 +7,7 @@ import {
   Contract,
   nativeToScVal,
   scValToNative,
+  TransactionSource,
   BASE_FEE,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
@@ -53,7 +54,7 @@ export interface InvokeOptions {
  *   2. Signer signs offline and returns `signedXdr`
  *   3. Call submitSigned(signedXdr) on the online machine to broadcast
  */
-export interface UnsignedTxResult<T = any> {
+export interface UnsignedTxResult<T = unknown> {
   /** Base64-encoded unsigned (but fee-bumped & auth-populated) transaction XDR */
   unsignedXdr: string;
   /** Simulated return value — lets the caller review the outcome before signing */
@@ -72,8 +73,18 @@ function isExternalSimulationError(errorMsg: string): boolean {
   return /external|token|sep-?41/i.test(errorMsg);
 }
 
+/** Narrows a caught `unknown` to a usable message, including `{ message }` throws. */
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message || String(error);
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const { message } = error as { message?: unknown };
+    if (typeof message === 'string' && message) return message;
+  }
+  return String(error);
+}
+
 /** @deprecated Use SubmitResult from lifecycle instead. Kept for batchBuyTickets compatibility. */
-export interface InvokeResult<T = any> {
+export interface InvokeResult<T = unknown> {
   result: T;
   txHash: string;
   ledger: number;
@@ -125,7 +136,7 @@ export class ContractService {
    */
   async simulate<T = unknown>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
     options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
     return this.lifecycle.simulate<T>(method, params, options);
@@ -159,15 +170,21 @@ export class ContractService {
 
   async simulateReadOnly<T>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
   ): Promise<TxResponse<T>> {
     const sourceKey = this.wallet
       ? await this.wallet.getPublicKey()
       : 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
-    const account = await this.horizon.loadAccount(sourceKey).catch(() => {
-      return { accountId: () => sourceKey, sequenceNumber: () => '0' } as any;
-    });
+    const fallback: TransactionSource = {
+      accountId: () => sourceKey,
+      sequenceNumber: () => '0',
+      incrementSequenceNumber: () => {},
+    };
+    const account = await this.horizon
+      .loadAccount(sourceKey)
+      .then((loaded) => loaded as unknown as TransactionSource)
+      .catch(() => fallback);
 
     const contract = new Contract(this.contractId);
     const tx = new TransactionBuilder(account, {
@@ -181,7 +198,7 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? '';
+      const errMsg = simResponse.error;
       const message = `Read-only simulation of ${method} failed: ${errMsg}`;
 
       if (isExternalSimulationError(errMsg)) {
@@ -215,9 +232,9 @@ export class ContractService {
 
   /* ---------------- FULL INVOKE ---------------- */
 
-  async invoke<T = any>(
+  async invoke<T = unknown>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
     options: InvokeOptions = {},
   ): Promise<TxResponse<T>> {
     try {
@@ -245,13 +262,13 @@ export class ContractService {
         transactionHash: polled.txHash,
         ledger: polled.ledger,
       };
-    } catch (error: any) {
+    } catch (error) {
       // Carry both response styles (`success` flag and `status`) so callers
       // written against either convention observe the failure.
       return {
         success: false,
         status: 'ERROR' as const,
-        error: error.message || String(error),
+        error: toErrorMessage(error),
       };
     }
   }
@@ -261,9 +278,9 @@ export class ContractService {
   /**
    * Builds a fully-prepared (simulated + auth-populated) unsigned transaction XDR.
    */
-  async buildUnsigned<T = any>(
+  async buildUnsigned<T = unknown>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
     sourcePublicKey: string,
     feeOverride?: number,
   ): Promise<UnsignedTxResult<T>> {
@@ -289,7 +306,7 @@ export class ContractService {
   /**
    * Submits a signed transaction XDR that was previously built with buildUnsigned().
    */
-  async submitSigned<T = any>(signedXdr: string): Promise<TxResponse<T>> {
+  async submitSigned<T = unknown>(signedXdr: string): Promise<TxResponse<T>> {
     if (!signedXdr) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
@@ -345,7 +362,7 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? '';
+      const errMsg = simResponse.error;
       const message = `Batch simulation failed${errMsg ? `: ${errMsg}` : ''}`;
       throw (
         toTypedContractError(message, errMsg) ??
@@ -357,14 +374,14 @@ export class ContractService {
     const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
-    const simResult: any[] = successSim.result?.retval
+    const simResult: number[] = successSim.result?.retval
       ? [scValToNative(successSim.result.retval)]
       : [];
 
     if (options.simulateOnly) {
       return {
         success: true,
-        value: simResult as any,
+        value: simResult,
         transactionHash: '',
         ledger: 0,
       };
@@ -385,10 +402,10 @@ export class ContractService {
     const txResp = await this.rpc.getTransaction(sendResp.hash);
 
     if (txResp.status === rpc.Api.GetTransactionStatus.FAILED) {
-      const resultXdr = (txResp as any).resultXdr ?? '';
+      const resultXdr = (txResp as rpc.Api.GetFailedTransactionResponse).resultXdr;
       const message = 'Batch transaction failed';
       throw (
-        toTypedContractError(message, resultXdr) ??
+        toTypedContractError(message, String(resultXdr ?? '')) ??
         new TikkaSdkError(TikkaSdkErrorCode.ContractError, message, resultXdr)
       );
     }
@@ -397,7 +414,7 @@ export class ContractService {
 
     return {
       success: true,
-      value: (successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult) as any,
+      value: successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult,
       transactionHash: sendResp.hash,
       ledger: successTx.ledger,
     };
@@ -405,11 +422,11 @@ export class ContractService {
 
   /* ---------------- HELPERS ---------------- */
 
-  private toScVal(val: any): xdr.ScVal {
+  private toScVal(val: unknown): xdr.ScVal {
     if (val instanceof xdr.ScVal) return val;
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
-    return nativeToScVal(val);
+    return nativeToScVal(val as Parameters<typeof nativeToScVal>[0]);
   }
 }
