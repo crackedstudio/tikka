@@ -44,6 +44,22 @@ interface ResolvedError {
   details?: unknown;
 }
 
+/**
+ * Safe 500 body used whenever an internal/infrastructure error occurs in production.
+ * Never includes raw error messages, SQL, constraint names, or SDK internals.
+ */
+const REDACTED_INTERNAL: Readonly<Pick<ResolvedError, 'statusCode' | 'error' | 'message'>> = {
+  statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  error: ErrorCode.INTERNAL_ERROR,
+  message: 'An unexpected error occurred. Please try again later.',
+};
+
+const REDACTED_DEPENDENCY: Readonly<Pick<ResolvedError, 'statusCode' | 'error' | 'message'>> = {
+  statusCode: HttpStatus.BAD_GATEWAY,
+  error: ErrorCode.INTERNAL_ERROR,
+  message: 'A downstream service is temporarily unavailable.',
+};
+
 @Catch()
 export class BaseExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(BaseExceptionFilter.name);
@@ -63,11 +79,14 @@ export class BaseExceptionFilter implements ExceptionFilter {
       }
     }
 
+    const requestId =
+      getRequestId() ?? (request.headers?.[REQUEST_ID_HEADER] as string | undefined);
+
     const body: ApiErrorResponse = {
       statusCode,
       error,
       message,
-      requestId: getRequestId() ?? (request.headers?.[REQUEST_ID_HEADER] as string | undefined),
+      requestId,
       timestamp: new Date().toISOString(),
       path: request.url,
     };
@@ -82,6 +101,22 @@ export class BaseExceptionFilter implements ExceptionFilter {
   private resolveError(exception: unknown): ResolvedError {
     if (exception instanceof HttpException) {
       return this.resolveHttpException(exception);
+    }
+
+    // Identify and log infrastructure errors before deciding what to expose.
+    if (this.isQueryFailedError(exception)) {
+      this.logger.error(
+        'Database query failed',
+        exception instanceof Error ? exception.stack : String(exception),
+      );
+      Sentry.captureException(exception);
+      return this.isProd
+        ? { ...REDACTED_INTERNAL }
+        : {
+            statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+            error: ErrorCode.INTERNAL_ERROR,
+            message: (exception as Error).message,
+          };
     }
 
     const supabase = this.tryResolveSupabaseError(exception);
@@ -114,11 +149,21 @@ export class BaseExceptionFilter implements ExceptionFilter {
         ? (response as Record<string, unknown>).errors
         : undefined;
 
-    const details: unknown[] | undefined = Array.isArray(rawErrors) && rawErrors.length > 0
-      ? rawErrors
-      : undefined;
+    const details: unknown[] | undefined =
+      Array.isArray(rawErrors) && rawErrors.length > 0 ? rawErrors : undefined;
 
     const error = this.mapHttpStatusToErrorCode(status, details);
+
+    // In production, redact the message on 5xx HttpExceptions so that any
+    // inadvertently thrown InternalServerErrorException carrying a raw
+    // infrastructure message (e.g. from storage.service.ts) cannot leak.
+    if (this.isProd && status >= 500) {
+      return {
+        statusCode: status,
+        error,
+        message: REDACTED_INTERNAL.message,
+      };
+    }
 
     return {
       statusCode: status,
@@ -154,6 +199,22 @@ export class BaseExceptionFilter implements ExceptionFilter {
     }
   }
 
+  /**
+   * Detects TypeORM QueryFailedError by duck-typing so we avoid a hard
+   * dependency on typeorm in this common module.
+   *
+   * QueryFailedError always has:
+   *   - name === 'QueryFailedError'
+   *   - string `query` property (the raw SQL)
+   *   - string `driverError` or `parameters` property
+   */
+  private isQueryFailedError(exception: unknown): boolean {
+    if (!(exception instanceof Error)) return false;
+    if (exception.constructor.name !== 'QueryFailedError') return false;
+    const e = exception as Record<string, unknown>;
+    return typeof e['query'] === 'string';
+  }
+
   private tryResolveSupabaseError(exception: unknown): ResolvedError | null {
     if (
       typeof exception !== 'object' ||
@@ -166,15 +227,24 @@ export class BaseExceptionFilter implements ExceptionFilter {
 
     const err = exception as unknown as Record<string, unknown>;
 
+    // Supabase PostgrestError shape: { code, message, details, hint }
     if (
       typeof err.code === 'string' &&
       typeof err.message === 'string' &&
       typeof err.details === 'string'
     ) {
-      this.logger.error('Supabase error', err);
+      // Always log the full error server-side (includes project ref, constraint, etc.).
+      this.logger.error('Supabase error', {
+        code: err.code,
+        message: err.message,
+        details: err.details,
+        hint: err.hint,
+        stack: (err as unknown as Error).stack,
+      });
+      Sentry.captureException(exception);
 
-      if (!this.isProd) {
-        Sentry.captureException(exception);
+      if (this.isProd) {
+        return { ...REDACTED_DEPENDENCY };
       }
 
       return {
@@ -205,19 +275,29 @@ export class BaseExceptionFilter implements ExceptionFilter {
 
     if (err.response !== undefined && typeof err.response === 'object' && err.response !== null) {
       const resp = err.response as Record<string, unknown>;
-      const status = typeof resp.status === 'number' ? resp.status : HttpStatus.BAD_GATEWAY;
-      const message = typeof resp.data === 'object' && resp.data !== null
-        ? ((resp.data as Record<string, unknown>).detail as string) ??
-          ((resp.data as Record<string, unknown>).message as string) ??
-          (err.message as string) ??
-          'Stellar request failed'
-        : (err.message as string) ?? 'Stellar request failed';
 
-      this.logger.error('Stellar error', err);
+      // Always log the full Stellar SDK error server-side.
+      this.logger.error('Stellar error', {
+        message: err.message,
+        responseData: resp.data,
+        responseStatus: resp.status,
+        stack: (err as unknown as Error).stack,
+      });
+      Sentry.captureException(exception);
 
-      if (!this.isProd) {
-        Sentry.captureException(exception);
+      if (this.isProd) {
+        return { ...REDACTED_DEPENDENCY };
       }
+
+      const status =
+        typeof resp.status === 'number' ? resp.status : HttpStatus.BAD_GATEWAY;
+      const message =
+        typeof resp.data === 'object' && resp.data !== null
+          ? ((resp.data as Record<string, unknown>).detail as string) ??
+            ((resp.data as Record<string, unknown>).message as string) ??
+            (err.message as string) ??
+            'Stellar request failed'
+          : (err.message as string) ?? 'Stellar request failed';
 
       return {
         statusCode: status,
@@ -237,11 +317,6 @@ export class BaseExceptionFilter implements ExceptionFilter {
     );
     Sentry.captureException(exception);
 
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      error: ErrorCode.INTERNAL_ERROR,
-      message: 'Internal server error',
-    };
+    return { ...REDACTED_INTERNAL };
   }
-
 }
