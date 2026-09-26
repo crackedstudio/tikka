@@ -325,6 +325,9 @@ grep "DUPLICATE_SUCCESS" logs.json | jq .raffleId | sort | uniq -c
 ## 📚 Related Documentation
 
 - [Comprehensive Guide](./TX_SUBMITTER_GUIDE.md) - Full implementation details
+- [Implementation](../src/submitter/tx-submitter.service.ts) - Source code
+- [Tests](../src/submitter/tx-submitter.service.spec.ts) - Test suite
+- [Fee Estimator](../src/submitter/fee-estimator.service.ts) - Fee estimation service
 - [Implementation](./tx-submitter.service.ts) - Source code
 - [Tests](./tx-submitter.service.spec.ts) - Test suite
 - [Fee Estimator](./fee-estimator.service.ts) - Fee estimation service

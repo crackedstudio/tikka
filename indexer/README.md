@@ -190,7 +190,7 @@ Full schema specification: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) § 
 
 Each entity includes raw chain state (source-of-truth from Stellar ledger) and derived query state (computed aggregates). Contributors need to understand which fields are safe to recalculate and which are immutable.
 
-**📖 [Entity Ownership Documentation](./src/database/entities/ENTITY_OWNERSHIP.md)**
+**📖 [Entity Ownership Documentation](../docs/database/ENTITY_OWNERSHIP.md)**
 
 This document describes:
 - Field ownership (raw chain state vs derived)

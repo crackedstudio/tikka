@@ -822,6 +822,42 @@ jobs:
       - name: Validate last commit on push
         if: github.event_name == 'push'
         run: pnpm exec commitlint --from HEAD~1 --to HEAD
+
+  # Documentation policy enforcement - rejects non-README markdown in src/ directories
+  docs-policy:
+    name: Documentation Policy Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check for non-README markdown files in src/ directories
+        run: |
+          echo "Checking for non-README markdown files in src/ directories..."
+          
+          # Find all markdown files in src/ directories, excluding node_modules
+          FOUND_FILES=$(find . -path '*/src/*.md' \
+            -not -path '*/node_modules/*' \
+            -not -name 'README.md' \
+            -type f || true)
+          
+          if [ -n "$FOUND_FILES" ]; then
+            echo "❌ Error: Found non-README markdown files in src/ directories:"
+            echo ""
+            echo "$FOUND_FILES"
+            echo ""
+            echo "Source directories (*/src/) should only contain code and README.md files."
+            echo "Please move documentation to the appropriate location:"
+            echo "  - Package guides: <package>/docs/ (e.g., oracle/docs/, indexer/docs/)"
+            echo "  - Cross-package docs: docs/ at repository root"
+            echo "  - Historical notes: docs/archive/ with date prefix"
+            echo ""
+            echo "See CONTRIBUTING.md § Documentation policy for details."
+            exit 1
+          fi
+          
+          echo "✅ No non-README markdown files found in src/ directories"
+
   # Format checking - ensures codebase adheres to Prettier config
   format:
     name: Prettier Format Check
@@ -886,6 +922,7 @@ jobs:
     needs:
       [
         commitlint,
+        docs-policy,
         turbo,
         sdk,
         backend,
@@ -975,7 +1012,9 @@ jobs:
             return 0
           }
 
-          if ! check_status "${{ needs.turbo.result }}" || \
+          if ! check_status "${{ needs.commitlint.result }}" || \
+             ! check_status "${{ needs.docs-policy.result }}" || \
+             ! check_status "${{ needs.turbo.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \
              ! check_status "${{ needs.backend.result }}" || \
              ! check_status "${{ needs.indexer.result }}" || \
