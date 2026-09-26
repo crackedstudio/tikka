@@ -14,6 +14,8 @@ import { xdr } from '@stellar/stellar-sdk';
 export class AlbedoAdapter extends WalletAdapter {
     constructor(options?: WalletAdapterOptions);
     // (undocumented)
+    checkAvailability(): WalletAvailability;
+    // (undocumented)
     getCapabilities(): WalletCapabilities;
     // (undocumented)
     getNetwork(): Promise<string | undefined>;
@@ -395,6 +397,8 @@ export function formatContractResponse(value: string | number, decimals?: number
 export class FreighterAdapter extends WalletAdapter {
     constructor(options?: WalletAdapterOptions);
     // (undocumented)
+    checkAvailability(): WalletAvailability;
+    // (undocumented)
     connect(): Promise<void>;
     // (undocumented)
     disconnect(): void;
@@ -497,6 +501,8 @@ export function isValidAddress(address: string): boolean;
 export class LobstrAdapter extends WalletAdapter {
     constructor(options?: WalletAdapterOptions);
     // (undocumented)
+    checkAvailability(): WalletAvailability;
+    // (undocumented)
     connect(): Promise<void>;
     // (undocumented)
     disconnect(): Promise<void>;
@@ -591,6 +597,8 @@ export interface PollConfig {
 // @public (undocumented)
 export class RabetAdapter extends WalletAdapter {
     constructor(options?: WalletAdapterOptions);
+    // (undocumented)
+    checkAvailability(): WalletAvailability;
     // (undocumented)
     getCapabilities(): WalletCapabilities;
     // (undocumented)
@@ -1166,6 +1174,8 @@ export interface VerifyResponseOptions {
 export abstract class WalletAdapter {
     constructor(options?: WalletAdapterOptions);
     // (undocumented)
+    checkAvailability(): WalletAvailability;
+    // (undocumented)
     connect?(): Promise<void>;
     // (undocumented)
     disconnect?(): void;
@@ -1194,6 +1204,26 @@ export abstract class WalletAdapter {
 export interface WalletAdapterOptions {
     // (undocumented)
     networkPassphrase?: string;
+}
+
+// @public (undocumented)
+export interface WalletAvailability {
+    // (undocumented)
+    available: boolean;
+    // (undocumented)
+    code: WalletAvailabilityCode;
+    // (undocumented)
+    message: string;
+}
+
+// @public (undocumented)
+export enum WalletAvailabilityCode {
+    // (undocumented)
+    Available = "available",
+    // (undocumented)
+    ExtensionNotInstalled = "extension-not-installed",
+    // (undocumented)
+    UnsupportedEnvironment = "unsupported-environment"
 }
 
 // @public (undocumented)
@@ -1232,6 +1262,8 @@ export function withRetry<T>(fn: () => Promise<T>, opts?: RetryOptions): Promise
 // @public (undocumented)
 export class XBullAdapter extends WalletAdapter {
     constructor(options?: WalletAdapterOptions);
+    // (undocumented)
+    checkAvailability(): WalletAvailability;
     // (undocumented)
     connect(): Promise<void>;
     // (undocumented)

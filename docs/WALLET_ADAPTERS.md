@@ -43,6 +43,7 @@ abstract class WalletAdapter {
   abstract readonly name: string;
 
   // Required
+  checkAvailability(): WalletAvailability;   // never throws; default derives from isAvailable()
   abstract isAvailable(): boolean;
   abstract getPublicKey(): Promise<string>;
   abstract signTransaction(
@@ -81,6 +82,47 @@ interface WalletCapabilities {
 Keep capability flags honest. The conformance suite checks that
 `supportsSignMessage: false` adapters actually throw when `signMessage` is called,
 and that `true` adapters actually return a string.
+
+### Runtime availability (Node, SSR, React Native)
+
+Adapters are shipped in the same module graph as the rest of the SDK, so an SSR
+pass, a Node script, or a React Native bundle can load them. Two rules make that
+safe:
+
+1. **No browser global is touched while a module is evaluated.** A read of
+   `window`, `document`, or an injected extension global happens *inside* a
+   method, and browser-only packages (Freighter's, LOBSTR's, Albedo's) are
+   loaded with a dynamic `import()` inside the method that needs them. Importing
+   `@tikka/sdk`, `@tikka/sdk/read`, `@tikka/sdk/write`, or `@tikka/sdk/light` in
+   Node throws nothing.
+2. **Availability is a value, not an exception.** `isAvailable()` stays as the
+   boolean browser UI already uses; `checkAvailability()` is the non-throwing
+   counterpart that also says *why*:
+
+```typescript
+import { FreighterAdapter, WalletAvailabilityCode } from '@tikka/sdk';
+
+const availability = new FreighterAdapter().checkAvailability();
+
+if (availability.available) {
+  // Render the wallet button.
+} else if (availability.code === WalletAvailabilityCode.ExtensionNotInstalled) {
+  // Real browser, extension missing — offer the install link.
+} else {
+  // WalletAvailabilityCode.UnsupportedEnvironment: Node, SSR, React Native.
+}
+```
+
+| `code` | Meaning |
+|--------|---------|
+| `available` | Usable in this runtime. |
+| `unsupported-environment` | Browser-only wallet, running outside a DOM (Node / SSR / React Native). |
+| `extension-not-installed` | Browser runtime, but the injected global / extension API is missing. |
+
+`checkAvailability()` and `isAvailable()` always agree on `available`. Calling a
+wallet method on an unavailable adapter still throws a typed `TikkaSdkError`
+(`WalletNotInstalled` / `WalletNotConnected`) — the check lets you avoid the
+error path, it does not replace handling it.
 
 ### Error codes
 
@@ -450,13 +492,19 @@ To integrate a wallet that is not in the built-in set:
    `getPublicKey()`, `signTransaction()`, `getCapabilities()`.
 3. Override `connect()`, `disconnect()`, `signMessage()`, `getNetwork()` as
    appropriate.
-4. Map every thrown error to a `TikkaSdkError` with the correct code.
-5. Register your adapter in the conformance suite (see next section).
+4. Override `checkAvailability()` if the default message is not specific enough
+   (it reports `unsupported-environment` for any unavailable adapter). Return
+   `extension-not-installed` when the runtime is a browser but the injected
+   global is missing, so SSR code can tell the two apart.
+5. Map every thrown error to a `TikkaSdkError` with the correct code.
+6. Register your adapter in the conformance suite (see next section).
 
 ```typescript
 import {
   WalletAdapter,
   WalletAdapterOptions,
+  WalletAvailability,
+  WalletAvailabilityCode,
   WalletName,
   SignTransactionResult,
   WalletCapabilities,
@@ -474,8 +522,29 @@ export class MyWalletAdapter extends WalletAdapter {
   }
 
   isAvailable(): boolean {
-    // Return true only when the wallet is actually usable
+    // Read the global inside the method, never at module scope, and never as a
+    // bare `window` identifier — `globalThis` exists in Node and SSR too.
     return typeof (globalThis as any).myWallet !== 'undefined';
+  }
+
+  checkAvailability(): WalletAvailability {
+    if (!this.isAvailable()) {
+      const isBrowser = typeof (globalThis as any).document !== 'undefined';
+      return {
+        available: false,
+        code: isBrowser
+          ? WalletAvailabilityCode.ExtensionNotInstalled
+          : WalletAvailabilityCode.UnsupportedEnvironment,
+        message: isBrowser
+          ? 'MyWallet extension is not installed'
+          : 'MyWallet is browser-only and this runtime has no DOM',
+      };
+    }
+    return {
+      available: true,
+      code: WalletAvailabilityCode.Available,
+      message: 'MyWallet is ready',
+    };
   }
 
   async connect(): Promise<void> {

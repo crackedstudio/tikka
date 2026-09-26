@@ -10,6 +10,8 @@
  *   1. Static contract  — `name` is a non-empty string
  *   2. Capabilities     — `getCapabilities()` returns a well-formed object
  *   3. isAvailable      — returns a boolean without throwing
+ *   3b. checkAvailability — returns a typed availability result without
+ *                         throwing, and agrees with isAvailable()
  *   4. connect/disconnect lifecycle (if the adapter exposes them)
  *   5. getPublicKey     — resolves to a non-empty string (happy path)
  *   6. signTransaction  — resolves to `{ signedXdr: string }` (happy path)
@@ -25,7 +27,7 @@
 
 import { Networks } from '@stellar/stellar-sdk';
 
-import { WalletAdapter, WalletName } from './wallet.interface';
+import { WalletAdapter, WalletAvailabilityCode, WalletName } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
 // Adapters under test
@@ -356,6 +358,33 @@ describe('Wallet Adapter Conformance Suite', () => {
 
         it('returns true in the configured test environment', () => {
           expect(adapter.isAvailable()).toBe(true);
+        });
+      });
+
+      // ── 3b. checkAvailability ─────────────────────────────────────────────
+
+      describe('checkAvailability()', () => {
+        it('returns a typed result instead of throwing', () => {
+          const availability = adapter.checkAvailability();
+
+          expect(typeof availability.available).toBe('boolean');
+          expect(typeof availability.message).toBe('string');
+          expect(availability.message.length).toBeGreaterThan(0);
+          expect(Object.values(WalletAvailabilityCode)).toContain(availability.code);
+        });
+
+        it('agrees with isAvailable()', () => {
+          expect(adapter.checkAvailability().available).toBe(adapter.isAvailable());
+        });
+
+        it('only reports the Available code for available adapters', () => {
+          const availability = adapter.checkAvailability();
+
+          if (availability.available) {
+            expect(availability.code).toBe(WalletAvailabilityCode.Available);
+          } else {
+            expect(availability.code).not.toBe(WalletAvailabilityCode.Available);
+          }
         });
       });
 
