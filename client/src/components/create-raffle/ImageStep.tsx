@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import type { StepComponentProps } from "../../types/types";
+import type { StepComponentProps } from "../../types/forms";
 import { X } from "lucide-react";
 
 const ImageStep: React.FC<StepComponentProps> = ({

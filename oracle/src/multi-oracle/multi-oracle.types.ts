@@ -19,6 +19,10 @@ export interface OracleSubmission {
   proof: string;
   timestamp: number;
   txHash?: string;
+  /** The SHA-256 hash of the seed the oracle committed to in the commit phase.
+   *  When set, recordSubmission will verify that hash(seed) === commitmentHash
+   *  and exclude the oracle if they do not match (equivocation detection). */
+  commitmentHash?: string;
 }
 
 export interface MultiOracleConfig {

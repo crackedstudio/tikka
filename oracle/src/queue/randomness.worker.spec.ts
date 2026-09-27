@@ -15,6 +15,8 @@ import { OracleRegistryService } from '../multi-oracle/oracle-registry.service';
 import { MultiOracleCoordinatorService } from '../multi-oracle/multi-oracle-coordinator.service';
 import { JobPriority } from './queue.types';
 import { ConfigService } from '@nestjs/config';
+import { getQueueToken } from '@nestjs/bull';
+import { RANDOMNESS_QUEUE } from './randomness.queue';
 
 describe('RandomnessWorker', () => {
   let worker: RandomnessWorker;
@@ -118,6 +120,10 @@ describe('RandomnessWorker', () => {
             }),
           },
         },
+        {
+          provide: getQueueToken(RANDOMNESS_QUEUE),
+          useValue: { close: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
@@ -188,6 +194,16 @@ describe('RandomnessWorker', () => {
     it('should handle negative prize amounts gracefully', () => {
       // Negative amounts should be treated as low stakes
       expect(worker.determinePriority(-100)).toBe(JobPriority.NORMAL);
+    });
+  });
+
+  describe('onApplicationShutdown', () => {
+    it('should call queue.close() to drain in-flight jobs', async () => {
+      const queue = (worker as any).queue as { close: jest.Mock };
+
+      await worker.onApplicationShutdown();
+
+      expect(queue.close).toHaveBeenCalledTimes(1);
     });
   });
 

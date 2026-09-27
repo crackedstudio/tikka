@@ -94,9 +94,6 @@ const Transparency = () => {
                 API_CONFIG.endpoints.transparencyStats
             );
             setStats(data);
-            if (data.oracle_public_key) {
-                setVerifyForm((f) => ({ ...f, oracle_public_key: data.oracle_public_key }));
-            }
         } catch {
             // non-fatal — keep showing stale data
         } finally {
@@ -200,6 +197,24 @@ const Transparency = () => {
                 <p className="text-gray-400 text-sm max-w-2xl">
                     Every oracle reveal is logged on-chain. Stats refresh every 30 seconds.
                     Use the verify form to independently confirm any draw result.
+                </p>
+                <p className="text-gray-400 text-sm max-w-2xl mt-3">
+                    Re-check a published draw locally with{" "}
+                    <a
+                        className="text-pink-600 dark:text-[#FF389C] hover:underline"
+                        href="https://github.com/crackedstudio/tikka/blob/master/oracle/src/randomness/verify-published-draw.ts"
+                    >
+                        verify-published-draw
+                    </a>
+                    . It uses only the proof, seed, oracle public key, and participant list.
+                    The steps are in{" "}
+                    <a
+                        className="text-pink-600 dark:text-[#FF389C] hover:underline"
+                        href="https://github.com/crackedstudio/tikka/blob/master/docs/RANDOMNESS_SCHEME.md"
+                    >
+                        the randomness scheme
+                    </a>
+                    .
                 </p>
             </div>
 

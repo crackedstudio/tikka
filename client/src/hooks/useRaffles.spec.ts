@@ -7,11 +7,13 @@ import type { ReactNode } from "react";
 import type {
     ApiUserProfile,
     ApiUserHistoryResponse,
+} from "../types/user";
+import type {
     ApiRaffleListItem,
     ApiRaffleListResponse,
     ApiRaffleDetail,
     FormattedRaffle,
-} from "../types/types";
+} from "../types/raffle";
 import { useRaffles, useRaffle, useUserProfile, useUserHistory } from "./useRaffles";
 import * as raffleService from "../services/raffleService";
 import { server } from "../test/server";

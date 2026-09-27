@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test';
 
-export type JsonValue = any;
+export type JsonValue = unknown;
 
 function asJson(body: JsonValue) {
     return JSON.stringify(body);
@@ -21,7 +21,7 @@ async function fulfillJson(route: Route, body: JsonValue, status = 200) {
  * NOTE: Route patterns are intentionally broad. If the app uses a different
  * endpoint string, update the pattern here (one place).
  */
-export async function mockCommonRafflesApi(page: Page, opts?: { raffles?: any[]; total?: number }) {
+export async function mockCommonRafflesApi(page: Page, opts?: { raffles?: unknown[]; total?: number }) {
     const raffles = opts?.raffles ?? [
         {
             id: 42,
@@ -56,7 +56,7 @@ export async function mockCommonRafflesApi(page: Page, opts?: { raffles?: any[];
     });
 }
 
-export async function mockRaffleDetails(page: Page, raffle: any) {
+export async function mockRaffleDetails(page: Page, raffle: JsonValue) {
     await page.route('**/api/raffles/*', async (route) => {
         await fulfillJson(route, raffle);
     });

@@ -280,4 +280,4 @@ To test the notification feature:
 - `client/src/components/NotificationPreferences.tsx`
 - `client/src/pages/Settings.tsx`
 - `client/src/config/api.ts`
-- `client/src/types/types.ts`
+- `client/src/types/notifications.ts`

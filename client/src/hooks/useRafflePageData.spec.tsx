@@ -4,12 +4,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { useRafflePageData } from "./useRafflePageData";
 import * as raffleService from "../services/raffleService";
-import * as contractService from "../services/contractService";
+import * as contractService from "../services/sdkClient";
 import { queryKeys } from "../utils/queryKeys";
 import type {
     ApiRaffleDetail,
     FormattedRaffle,
-} from "../types/types";
+} from "../types/raffle";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 

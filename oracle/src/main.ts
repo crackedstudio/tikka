@@ -11,21 +11,19 @@ async function bootstrap() {
   dotenv.config();
 
   // Fail-fast: refuse to start with an invalid configuration.
-  // Lists every invalid field and exits non-zero. Warnings (e.g. key age)
-  // are printed but do not block startup. Standalone pre-deploy check:
-  //   npm run config:verify
   assertOracleConfigOrExit();
 
   const app = await NestFactory.create(AppModule, {
     logger: WinstonModule.createLogger({ instance: createOracleLogger() }),
   });
 
+  // Enable NestJS lifecycle hooks so SIGTERM triggers onApplicationShutdown
+  // on all providers (workers drain in-flight jobs before exit).
   app.enableShutdownHooks();
 
-  // Bind any inbound `x-request-id` to the async context so HTTP-triggered
-  // oracle operations (health, admin, peer /vrf/compute, etc.) carry the same
-  // correlation id in their logs as the calling service.
-  app.use((req: any, _res: any, next: () => void) => {
+  // Bind any inbound x-request-id to the async context so HTTP-triggered
+  // oracle operations carry the same correlation id in their logs.
+  app.use((req, _res, next) => {
     const incoming = req.headers?.['x-request-id'];
     const requestId = Array.isArray(incoming) ? incoming[0] : incoming;
     if (requestId) {

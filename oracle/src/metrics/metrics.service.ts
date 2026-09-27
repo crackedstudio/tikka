@@ -30,6 +30,10 @@ export class MetricsService implements OnModuleInit {
   private eventListenerBackfillCounter: Counter;
   private gapDetectionCount = 0;
 
+  // Stuck draw metrics
+  private stuckDrawGauge: Gauge;
+  private stuckDrawMaxAgeGauge: Gauge;
+
   // Per-component last-activity heartbeats (unix seconds)
   private componentHeartbeatGauge: Gauge;
   private readonly lastHeartbeatMs: Record<OracleHeartbeatComponent, number> = {
@@ -110,6 +114,23 @@ export class MetricsService implements OnModuleInit {
     }).addCallback((result: ObservableResult) => {
       result.observe(process.memoryUsage().heapUsed);
     });
+
+    // Stuck draw metrics
+    this.stuckDrawGauge = this.meter.createGauge(
+      'tikka_oracle_stuck_draws_total',
+      {
+        description:
+          'Current number of stuck draws detected by the rescue detector',
+      },
+    );
+
+    this.stuckDrawMaxAgeGauge = this.meter.createGauge(
+      'tikka_oracle_stuck_draw_max_age_seconds',
+      {
+        description:
+          'Age in seconds of the oldest stuck draw, or 0 if none are stuck',
+      },
+    );
   }
 
   onModuleInit() {
@@ -191,6 +212,17 @@ export class MetricsService implements OnModuleInit {
   /** Process-local last heartbeat time in ms (useful for unit tests). */
   getComponentHeartbeatMs(component: OracleHeartbeatComponent): number {
     return this.lastHeartbeatMs[component];
+  }
+
+  /**
+   * Record the current stuck-draw state observed by the rescue detector.
+   *
+   * @param stuckCount  Number of draws currently classified as stuck.
+   * @param maxAgeMs    Age in milliseconds of the oldest stuck draw (0 if none).
+   */
+  recordStuckDrawState(stuckCount: number, maxAgeMs: number): void {
+    this.stuckDrawGauge.record(stuckCount);
+    this.stuckDrawMaxAgeGauge.record(Math.round(maxAgeMs / 1000));
   }
 
   /**

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import type { RaffleFormData, CreateRaffleStep } from "../types/types";
+import type { RaffleFormData, CreateRaffleStep } from "../types/forms";
 import ProgressStepper from "../components/create-raffle/ProgressStepper";
 import DetailsStep from "../components/create-raffle/DetailsStep";
 import ImageStep from "../components/create-raffle/ImageStep";

@@ -96,9 +96,7 @@ export class RpcService {
       if (!response.ok) {
         throw new Error(`Failed to fetch fee stats: ${response.statusText}`);
       }
-      const stats = (await response.json()) as {
-        fee_charged?: { min?: number; p90?: number };
-      };
+      const stats = (await response.json()) as { fee_charged?: { min?: number; p90?: number } };
       return {
         minFee: Number(stats.fee_charged?.min ?? 100),
         suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
@@ -155,10 +153,8 @@ export class RpcService {
       () => this.executeSingleRequest<T>(url, method, params),
       buildRetryConfig(this.rpcConfig, {
         onRetry: (info) => {
-          console.warn(
-            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(
-              info.delayMs,
-            )}ms (${url}): ${
+          this.logger.warn(
+            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(info.delayMs)}ms (${url}): ${
               info.error instanceof Error ? info.error.message : String(info.error)
             }`,
           );
@@ -198,8 +194,8 @@ export class RpcService {
       }
 
       const payload = (await response.json()) as {
+        result?: unknown;
         error?: { message?: string };
-        result?: T;
       };
       if (payload.error) {
         throw new TikkaSdkError(

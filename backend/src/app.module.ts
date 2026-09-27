@@ -28,6 +28,7 @@ import { IndexerBackfillModule } from "./services/indexer/indexer-backfill.modul
 import { MaintenanceModeGuard } from "./maintenance/maintenance-mode.guard";
 import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
 import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
+import { IdempotencyModule } from "./common/idempotency/idempotency.module";
 
 @Module({
   imports: [
@@ -118,6 +119,7 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
     IndexerBackfillModule,
     MaintenanceModeModule,
     WebhooksModule,
+    IdempotencyModule,
 
     BullModule.forRootAsync({
       imports: [ConfigModule],

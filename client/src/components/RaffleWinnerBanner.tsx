@@ -1,4 +1,4 @@
-import type { WinnerAnnouncementProps } from "../types/types";
+import type { WinnerAnnouncementProps } from "../types/ui";
 
 interface RaffleWinnerBannerProps
     extends Pick<

@@ -65,6 +65,10 @@ async function bootstrap() {
     }),
   );
 
+  // Enable NestJS lifecycle hooks so SIGTERM triggers onApplicationShutdown
+  // on all providers (workers drain in-flight jobs before exit).
+  app.enableShutdownHooks();
+
   await app.listen(env.server.port, "0.0.0.0");
   logger.log(`Application is running on: ${await app.getUrl()}`);
 }

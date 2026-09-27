@@ -30,22 +30,25 @@ import {
   type NetworkConfig as SdkNetworkConfig,
   type SignTransactionResult,
   type WalletCapabilities,
-} from '@tikka/sdk';
-import { TransactionBuilder } from '@stellar/stellar-sdk';
-import type { Transaction, FeeBumpTransaction } from '@stellar/stellar-sdk';
-import { STELLAR_CONFIG } from '../config/stellar';
-import { CONTRACT_CONFIG } from '../config/contract';
-import { logger } from '../utils/logger';
-import { getAccountAddress, signTransaction } from './walletService';
-import { runPipeline, sdkErrorToPipelineError } from './transactionPipeline';
-import type { PipelineOptions, PipelineResult } from './transactionPipeline';
+} from "@tikka/sdk";
+import { TransactionBuilder } from "@stellar/stellar-sdk";
+import type { Transaction, FeeBumpTransaction } from "@stellar/stellar-sdk";
+import { STELLAR_CONFIG } from "../config/stellar";
+import { CONTRACT_CONFIG } from "../config/contract";
+import { getAccountAddress, signTransaction } from "./walletService";
+import { logger } from "../utils/logger";
+import {
+  runPipeline,
+  sdkErrorToPipelineError,
+} from "./transactionPipeline";
+import type { PipelineOptions, PipelineResult } from "./transactionPipeline";
 import type {
   ContractRaffleData,
   ContractUserParticipation,
   CreateRaffleParams,
-  BuyTicketParams,
   ContractResponse,
-} from '../types/types';
+} from "../types/contract";
+import type { BuyTicketParams } from "../types/ticket";
 
 /** Pre-confirmation fee preview for raffle creation (simulation-based, no submit). */
 export interface CreateRaffleEstimate {
@@ -241,9 +244,12 @@ export async function createRaffle(
   params: CreateRaffleParams,
   options?: PipelineOptions,
 ): Promise<PipelineResult> {
-  if (import.meta.env.VITE_TEST_MODE === 'true') {
-    logger.log('✍️ sdkClient.createRaffle (test mode): Mocked success', params);
-    options?.onProgress?.({ stage: 'BUILD', status: 'done' });
+  if (import.meta.env.VITE_TEST_MODE === "true") {
+    logger.log(
+      "✍️ sdkClient.createRaffle (test mode): Mocked success",
+      params,
+    );
+    options?.onProgress?.({ stage: "BUILD", status: "done" });
     options?.onProgress?.({
       stage: 'ESTIMATE',
       status: 'done',

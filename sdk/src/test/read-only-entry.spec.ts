@@ -111,7 +111,7 @@ describe('ReadOnlyRaffleService', () => {
 
   it('getById returns ContractResponse with RaffleData on success', async () => {
     const mockRaw = {
-      creator: 'GBIQ4VH3TRO5A72SCCSHV5QZJVUHMFAZVD5K4PIWL3RBQFKBDLPHJ36',
+      creator: 'GA75VV4F2VQASYJV6F64NSQ5Z3HUYFPX252WIYX2OIZROVT4S63TGWFN',
       status: 0,
       ticket_price: '1000000',
       max_tickets: 100,
@@ -137,7 +137,7 @@ describe('ReadOnlyUserService', () => {
   let service: ReadOnlyUserService;
 
   const networkConfig = resolveNetworkConfig('testnet');
-  const TEST_ADDRESS = 'GBIQ4VH3TRO5A72SCCSHV5QZJVUHMFAZVD5K4PIWL3RBQFKBDLPHJ36';
+  const TEST_ADDRESS = 'GA75VV4F2VQASYJV6F64NSQ5Z3HUYFPX252WIYX2OIZROVT4S63TGWFN';
 
   beforeEach(() => {
     rpcService = {

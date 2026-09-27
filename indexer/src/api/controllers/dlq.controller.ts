@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  UseGuards,
-  Logger,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Logger, HttpStatus } from '@nestjs/common';
 import { DlqService } from '../../ingestor/dlq.service';
 import { ApiKeyGuard } from '../api-key.guard';
 import { DlqReplayRequestDto, DlqReplayResponseDto, DlqStatusResponseDto } from './dto/dlq.dto';
@@ -54,7 +46,7 @@ export class DlqController {
     );
 
     // Start async replay
-    this.executeReplay(jobId, ids).catch((err) => {
+    this.executeReplay(jobId, ids).catch((err: Error) => {
       this.logger.error(`DLQ replay job ${jobId} failed: ${err.message}`, err.stack);
     });
 
@@ -97,9 +89,9 @@ export class DlqController {
       if (ids && ids.length > 0) {
         // Replay specific entries by ID
         const entries = await this.dlqRepo.find({
-          where: ids.map(id => ({ id })),
+          where: ids.map((id) => ({ id })),
         });
-        
+
         for (const entry of entries) {
           try {
             // Manually replay each entry
@@ -111,7 +103,8 @@ export class DlqController {
             job.replayed += result.replayed;
             job.failed += result.failed;
           } catch (err) {
-            this.logger.error(`Failed to replay entry ${entry.id}: ${err.message}`);
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.error(`Failed to replay entry ${entry.id}: ${message}`);
             job.failed++;
           }
         }

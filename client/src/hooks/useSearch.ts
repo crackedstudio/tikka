@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { searchRaffles } from "../services/raffleService";
-import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/types";
+import type { ApiRaffleListItem, ApiRaffleListResponse } from "../types/raffle";
 
 export type SortOption = 'relevance' | 'ending_soon' | 'price_asc' | 'most_tickets';
 

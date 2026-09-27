@@ -1,13 +1,14 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
   Query,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { AuditLogService } from './audit-log.service';
-import { VrfAuditRecord, AuditStatus } from './audit.types';
+import { VrfAuditRecord, AuditStatus, AuditChainAnchor } from './audit.types';
 
 @Controller('oracle')
 export class AuditController {
@@ -84,5 +85,59 @@ export class AuditController {
   @Get('audit/summary')
   async getAuditSummary() {
     return this.auditLogService.getSummary();
+  }
+
+  @Get('audit/chain/verify')
+  async verifyChain(
+    @Query('fromId') fromId?: string,
+  ) {
+    const parsedFromId = fromId ? parseInt(fromId, 10) : undefined;
+    if (fromId && (!Number.isInteger(parsedFromId) || parsedFromId! <= 0)) {
+      throw new BadRequestException('Invalid fromId');
+    }
+    return this.auditLogService.verifyChain(parsedFromId);
+  }
+
+  @Post('audit/chain/anchor')
+  async anchorChain(
+    @Query('type') anchorType?: string,
+    @Query('externalRef') externalRef?: string,
+  ): Promise<AuditChainAnchor> {
+    return this.auditLogService.anchorChainHead(
+      anchorType || 'api',
+      externalRef,
+    );
+  }
+
+  @Get('audit/chain/anchor')
+  async getLatestAnchor() {
+    const anchor = await this.auditLogService.getLatestAnchor();
+    if (!anchor) {
+      throw new NotFoundException('No chain anchor found');
+    }
+    return anchor;
+  }
+
+  @Get('audit/chain/anchor/verify')
+  async verifyAnchor() {
+    const result = await this.auditLogService.verifyAnchor();
+    if (!result) {
+      throw new NotFoundException('No chain anchor found');
+    }
+    return result;
+  }
+
+  @Get('audit/chain/anchor/history')
+  async getAnchorHistory(
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    return this.auditLogService.getAnchorHistory(parsedLimit);
+  }
+
+  @Get('audit/chain/head')
+  async getChainHead() {
+    const head = await this.auditLogService.getChainHead();
+    return { chain_head_hash: head };
   }
 }

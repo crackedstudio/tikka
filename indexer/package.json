@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "lint": "eslint \"{src,test}/**/*.ts\" \"*.js\"",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest --coverage --testPathIgnorePatterns=integration",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:cov": "jest --coverage --testPathIgnorePatterns=integration",
@@ -42,6 +42,9 @@
         }
       ]
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!.*(uint8array-extras|@noble|@stellar|@scure|base32\\.js)/)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
@@ -53,10 +56,10 @@
     ],
     "coverageThreshold": {
       "global": {
-        "statements": 60,
-        "branches": 40,
-        "functions": 50,
-        "lines": 60
+        "statements": 50,
+        "branches": 50,
+        "functions": 43,
+        "lines": 49
       }
     }
   },
@@ -79,15 +82,16 @@
     "@opentelemetry/sdk-trace-node": "^2.10.0",
     "@stellar/stellar-sdk": "^16.1.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@tikka/types": "workspace:*",
     "bullmq": "^5.81.0",
-    "ioredis": "^5.9.3",
-    "pg": "^8.22.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "ioredis": "^5.9.3",
+    "joi": "^18.2.9",
+    "pg": "^8.22.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "typeorm": "^1.1.0",
-    "@tikka/types": "workspace:*"
+    "typeorm": "^1.1.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",

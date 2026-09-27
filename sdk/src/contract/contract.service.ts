@@ -1,4 +1,4 @@
-import { Injectable, Inject, Optional } from "@nestjs/common";
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   rpc,
@@ -8,31 +8,31 @@ import {
   nativeToScVal,
   scValToNative,
   BASE_FEE,
-} from "@stellar/stellar-sdk";
-import { RpcService } from "../network/rpc.service";
-import { HorizonService } from "../network/horizon.service";
-import { NetworkConfig } from "../network/network.config";
-import { WalletAdapter } from "../wallet/wallet.interface";
-import { getRaffleContractId } from "./constants";
-import { ContractFn, ContractFnName } from "./bindings";
+} from '@stellar/stellar-sdk';
+import { RpcService } from '../network/rpc.service';
+import { HorizonService } from '../network/horizon.service';
+import { NetworkConfig } from '../network/network.config';
+import { WalletAdapter } from '../wallet/wallet.interface';
+import { getRaffleContractId } from './constants';
+import { ContractFn, ContractFnName } from './bindings';
 import {
   TikkaSdkError,
   TikkaSdkErrorCode,
   toTypedContractError,
   toTypedSdkError,
-} from "../utils/errors";
-import { TransactionLifecycle } from "./lifecycle";
+} from '../utils/errors';
+import { TransactionLifecycle } from './lifecycle';
 import type {
   TxMemo,
   PollConfig,
   SimulateResult,
   SubmitResult,
   InvokeLifecycleOptions,
-} from "./lifecycle";
-export type { TxMemo } from "./lifecycle";
-export type { SimulateResult, SubmitResult, PollConfig } from "./lifecycle";
+} from './lifecycle';
+export type { TxMemo } from './lifecycle';
+export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
 
-import { ContractResponse, TxResponse } from "./response";
+import { ContractResponse, TxResponse } from './response';
 
 export interface InvokeOptions {
   sourcePublicKey?: string;
@@ -87,18 +87,12 @@ export class ContractService {
   constructor(
     private readonly rpc: RpcService,
     private readonly horizon: HorizonService,
-    @Inject("NETWORK_CONFIG") private readonly networkConfig: NetworkConfig,
-    @Optional() @Inject("WALLET_ADAPTER") private wallet?: WalletAdapter,
+    @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
+    @Optional() @Inject('WALLET_ADAPTER') private wallet?: WalletAdapter,
     contractId?: string,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
-    this.lifecycle = new TransactionLifecycle(
-      rpc,
-      horizon,
-      networkConfig,
-      wallet,
-      this.contractId,
-    );
+    this.lifecycle = new TransactionLifecycle(rpc, horizon, networkConfig, wallet, this.contractId);
   }
 
   setContractId(id: string): void {
@@ -117,10 +111,7 @@ export class ContractService {
    */
   async getPublicKey(): Promise<string> {
     if (!this.wallet) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.WalletNotConnected,
-        'No wallet connected',
-      );
+      throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotConnected, 'No wallet connected');
     }
     return this.wallet.getPublicKey();
   }
@@ -135,10 +126,7 @@ export class ContractService {
   async simulate<T = unknown>(
     method: ContractFnName | string,
     params: any[],
-    options: Pick<
-      InvokeLifecycleOptions,
-      "sourcePublicKey" | "fee" | "memo"
-    > = {},
+    options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
     return this.lifecycle.simulate<T>(method, params, options);
   }
@@ -147,10 +135,7 @@ export class ContractService {
    * Phase 2 — Sign an assembled transaction XDR via the connected wallet.
    * Returns the signed XDR string.
    */
-  async sign(
-    assembledXdr: string,
-    networkPassphrase?: string,
-  ): Promise<string> {
+  async sign(assembledXdr: string, networkPassphrase?: string): Promise<string> {
     return this.lifecycle.sign(assembledXdr, networkPassphrase);
   }
 
@@ -166,10 +151,7 @@ export class ContractService {
    * Phase 4 — Poll for transaction confirmation.
    * Returns the on-chain return value, tx hash, and ledger.
    */
-  async poll<T = unknown>(
-    txHash: string,
-    config?: PollConfig,
-  ): Promise<SubmitResult<T>> {
+  async poll<T = unknown>(txHash: string, config?: PollConfig): Promise<SubmitResult<T>> {
     return this.lifecycle.poll<T>(txHash, config);
   }
 
@@ -181,10 +163,10 @@ export class ContractService {
   ): Promise<TxResponse<T>> {
     const sourceKey = this.wallet
       ? await this.wallet.getPublicKey()
-      : "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+      : 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
     const account = await this.horizon.loadAccount(sourceKey).catch(() => {
-      return { accountId: () => sourceKey, sequenceNumber: () => "0" } as any;
+      return { accountId: () => sourceKey, sequenceNumber: () => '0' } as any;
     });
 
     const contract = new Contract(this.contractId);
@@ -192,24 +174,18 @@ export class ContractService {
       fee: BASE_FEE,
       networkPassphrase: this.networkConfig.networkPassphrase,
     })
-      .addOperation(
-        contract.call(method, ...params.map((p) => this.toScVal(p))),
-      )
+      .addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))))
       .setTimeout(30)
       .build();
 
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? "";
+      const errMsg = (simResponse as any).error ?? '';
       const message = `Read-only simulation of ${method} failed: ${errMsg}`;
 
       if (isExternalSimulationError(errMsg)) {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.ExternalContractError,
-          message,
-          errMsg,
-        );
+        throw new TikkaSdkError(TikkaSdkErrorCode.ExternalContractError, message, errMsg);
       }
 
       throw (
@@ -218,8 +194,7 @@ export class ContractService {
       );
     }
 
-    const successResp =
-      simResponse as rpc.Api.SimulateTransactionSuccessResponse;
+    const successResp = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
     const result = successResp.result?.retval;
 
     if (result === undefined) {
@@ -230,7 +205,10 @@ export class ContractService {
     }
 
     return {
+      // Carry both response styles (`success` flag and `status`) so callers
+      // written against either convention observe success.
       success: true,
+      status: 'SUCCESS' as const,
       value: scValToNative(result) as T,
     };
   }
@@ -244,10 +222,7 @@ export class ContractService {
   ): Promise<TxResponse<T>> {
     try {
       if (!this.wallet && !options.simulateOnly) {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.WalletNotInstalled,
-          "Wallet required",
-        );
+        throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required');
       }
 
       const sim = await this.lifecycle.simulate<T>(method, params, {
@@ -260,10 +235,7 @@ export class ContractService {
         return { success: true, value: sim.returnValue as T, transactionHash: '', ledger: 0 };
       }
 
-      const signedXdr = await this.lifecycle.sign(
-        sim.assembledXdr,
-        sim.networkPassphrase,
-      );
+      const signedXdr = await this.lifecycle.sign(sim.assembledXdr, sim.networkPassphrase);
       const txHash = await this.lifecycle.submit(signedXdr);
       const polled = await this.lifecycle.poll<T>(txHash, options.poll);
 
@@ -274,8 +246,11 @@ export class ContractService {
         ledger: polled.ledger,
       };
     } catch (error: any) {
+      // Carry both response styles (`success` flag and `status`) so callers
+      // written against either convention observe the failure.
       return {
         success: false,
+        status: 'ERROR' as const,
         error: error.message || String(error),
       };
     }
@@ -295,7 +270,7 @@ export class ContractService {
     if (!sourcePublicKey) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
-        "sourcePublicKey is required for buildUnsigned",
+        'sourcePublicKey is required for buildUnsigned',
       );
     }
 
@@ -304,9 +279,9 @@ export class ContractService {
       fee: feeOverride ? String(feeOverride) : undefined,
     });
     return {
-      unsignedXdr:      sim.assembledXdr,
-      simulatedResult:  { success: true, value: sim.returnValue as T },
-      fee:              sim.minResourceFee,
+      unsignedXdr: sim.assembledXdr,
+      simulatedResult: { success: true, status: 'SUCCESS' as const, value: sim.returnValue as T },
+      fee: sim.minResourceFee,
       networkPassphrase: sim.networkPassphrase,
     };
   }
@@ -318,13 +293,18 @@ export class ContractService {
     if (!signedXdr) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
-        "signedXdr is required for submitSigned",
+        'signedXdr is required for submitSigned',
       );
     }
 
     const txHash = await this.lifecycle.submit(signedXdr);
     const polled = await this.lifecycle.poll<T>(txHash);
-    return { success: true, value: polled.returnValue as T, transactionHash: polled.txHash, ledger: polled.ledger };
+    return {
+      success: true,
+      value: polled.returnValue as T,
+      transactionHash: polled.txHash,
+      ledger: polled.ledger,
+    };
   }
 
   /* ---------------- BATCH INVOKE ---------------- */
@@ -335,21 +315,14 @@ export class ContractService {
     options: InvokeOptions = {},
   ): Promise<TxResponse<number[]>> {
     if (!this.wallet && !options.simulateOnly) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.WalletNotInstalled,
-        "Wallet required",
-      );
+      throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required');
     }
 
     const sourceKey =
-      options.sourcePublicKey ??
-      (this.wallet ? await this.wallet.getPublicKey() : undefined);
+      options.sourcePublicKey ?? (this.wallet ? await this.wallet.getPublicKey() : undefined);
 
     if (!sourceKey) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.InvalidParams,
-        "Missing source public key",
-      );
+      throw new TikkaSdkError(TikkaSdkErrorCode.InvalidParams, 'Missing source public key');
     }
 
     const account = await this.horizon.loadAccount(sourceKey);
@@ -363,10 +336,7 @@ export class ContractService {
     const params = [raffleId];
     for (let i = 0; i < count; i++) {
       txBuilder = txBuilder.addOperation(
-        contract.call(
-          ContractFn.BUY_TICKET,
-          ...params.map((p) => this.toScVal(p)),
-        ),
+        contract.call(ContractFn.BUY_TICKET, ...params.map((p) => this.toScVal(p))),
       );
     }
 
@@ -375,16 +345,15 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? "";
-      const message = `Batch simulation failed${errMsg ? `: ${errMsg}` : ""}`;
+      const errMsg = (simResponse as any).error ?? '';
+      const message = `Batch simulation failed${errMsg ? `: ${errMsg}` : ''}`;
       throw (
         toTypedContractError(message, errMsg) ??
         new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, errMsg)
       );
     }
 
-    const successSim =
-      simResponse as rpc.Api.SimulateTransactionSuccessResponse;
+    const successSim = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
     const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
@@ -396,35 +365,28 @@ export class ContractService {
       return {
         success: true,
         value: simResult as any,
-        transactionHash: "",
+        transactionHash: '',
         ledger: 0,
       };
     }
 
-    const { signedXdr } = await this.wallet!.signTransaction(
-      preparedTx.toXDR(),
-      { networkPassphrase: this.networkConfig.networkPassphrase },
-    );
+    const { signedXdr } = await this.wallet!.signTransaction(preparedTx.toXDR(), {
+      networkPassphrase: this.networkConfig.networkPassphrase,
+    });
 
-    const signedTx = TransactionBuilder.fromXDR(
-      signedXdr,
-      this.networkConfig.networkPassphrase,
-    );
+    const signedTx = TransactionBuilder.fromXDR(signedXdr, this.networkConfig.networkPassphrase);
 
     const sendResp = await this.rpc.sendTransaction(signedTx);
 
-    if (sendResp.status === "ERROR") {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.SubmissionFailed,
-        "Batch submission failed",
-      );
+    if (sendResp.status === 'ERROR') {
+      throw new TikkaSdkError(TikkaSdkErrorCode.SubmissionFailed, 'Batch submission failed');
     }
 
     const txResp = await this.rpc.getTransaction(sendResp.hash);
 
     if (txResp.status === rpc.Api.GetTransactionStatus.FAILED) {
-      const resultXdr = (txResp as any).resultXdr ?? "";
-      const message = "Batch transaction failed";
+      const resultXdr = (txResp as any).resultXdr ?? '';
+      const message = 'Batch transaction failed';
       throw (
         toTypedContractError(message, resultXdr) ??
         new TikkaSdkError(TikkaSdkErrorCode.ContractError, message, resultXdr)
@@ -435,9 +397,7 @@ export class ContractService {
 
     return {
       success: true,
-      value: (successTx.returnValue
-        ? [scValToNative(successTx.returnValue)]
-        : simResult) as any,
+      value: (successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult) as any,
       transactionHash: sendResp.hash,
       ledger: successTx.ledger,
     };
@@ -447,7 +407,7 @@ export class ContractService {
 
   private toScVal(val: any): xdr.ScVal {
     if (val instanceof xdr.ScVal) return val;
-    if (typeof val === "string" && val.length === 56) {
+    if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
     return nativeToScVal(val);

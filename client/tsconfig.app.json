@@ -31,11 +31,12 @@
 
     /* @tikka/sdk is consumed straight from source — the SDK's dist is never
        built by the client CI, and its exports map points at dist only.
-       NOTE: `paths` substitutions resolve against `baseUrl` (the repo root,
-       inherited from ../tsconfig.base.json), NOT against this file's folder. */
+       @tikka/types is mapped the same way so typecheck never needs its dist. */
     "paths": {
-      "@tikka/sdk": ["sdk/src/index.light.ts"],
-      "@tikka/sdk/light": ["sdk/src/index.light.ts"]
+      "@tikka/sdk": ["../sdk/src/index.light.ts"],
+      "@tikka/sdk/light": ["../sdk/src/index.light.ts"],
+      "@tikka/types": ["../packages/types/src/index.ts"],
+      "@tikka/types/*": ["../packages/types/src/*"]
     }
   },
   "include": ["src"],

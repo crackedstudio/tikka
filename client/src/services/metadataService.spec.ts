@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MetadataService, RaffleMetadataSchema, SafeRaffleMetadataSchema } from './metadataService';
 import { supabase } from '../config/supabase';
-import type { RaffleMetadata } from '../types/types';
+import type { RaffleMetadata } from '../types/raffle';
 
 vi.mock('../config/supabase', () => ({
   supabase: {

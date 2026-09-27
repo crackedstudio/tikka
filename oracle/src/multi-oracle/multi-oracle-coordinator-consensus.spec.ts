@@ -3,6 +3,9 @@ import { RandomnessResult } from '../queue/queue.types';
 import { OracleLoggerService } from '../logger/oracle-logger';
 
 const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService;
+const mockAuditLog = { recordDivergence: jest.fn() };
+const mockMetrics = { recordDivergence: jest.fn() };
+const mockAlerting = { fire: jest.fn() };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,7 +53,14 @@ describe('MultiOracleCoordinatorService - Consensus Validation', () => {
       return defaultValue;
     });
 
-    service = new MultiOracleCoordinatorService(mockLogger, registry as any, config as any);
+    service = new MultiOracleCoordinatorService(
+      mockLogger,
+      registry as any,
+      config as any,
+      mockAuditLog as any,
+      mockMetrics as any,
+      mockAlerting as any,
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -101,7 +111,8 @@ describe('MultiOracleCoordinatorService - Consensus Validation', () => {
 
       expect(result.fellBack).toBe(true);
       expect(result.consensusReached).toBe(false);
-      expect(result.usedOracles).toEqual(['oracle-a']);
+      // All oracles are included in the fallback aggregation (no single one dominates)
+      expect(result.usedOracles.sort()).toEqual(['oracle-a', 'oracle-b', 'oracle-c']);
     });
 
     it('accepts submission when all 3 oracles agree (unanimous)', async () => {
@@ -193,7 +204,8 @@ describe('MultiOracleCoordinatorService - Consensus Validation', () => {
 
       expect(result.fellBack).toBe(true);
       expect(result.consensusReached).toBe(false);
-      expect(result.usedOracles).toEqual(['oracle-a']);
+      // Both agreeing oracles (a, b) included — never just a single node
+      expect(result.usedOracles.sort()).toEqual(['oracle-a', 'oracle-b', 'oracle-c']);
     });
 
     it('rejects submission when all 3 oracles provide different seeds', async () => {
@@ -209,7 +221,8 @@ describe('MultiOracleCoordinatorService - Consensus Validation', () => {
 
       expect(result.fellBack).toBe(true);
       expect(result.consensusReached).toBe(false);
-      expect(result.usedOracles).toEqual(['oracle-a']);
+      // All oracles are aggregated (no single node dominates) — still refuses to submit
+      expect(result.usedOracles.sort()).toEqual(['oracle-a', 'oracle-b', 'oracle-c']);
     });
   });
 

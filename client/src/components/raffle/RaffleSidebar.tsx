@@ -1,4 +1,4 @@
-import { Ticket, Users, Trophy, ShieldCheck, Bell } from "lucide-react";
+import { Ticket, Users, Trophy, ShieldCheck, Bell, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { ProgressBar } from "../ui/ProgressBar";
 import AddToCalendar from "../ui/AddToCalendar";
@@ -19,6 +19,7 @@ interface RaffleSidebarProps {
   endTime: number;
   isActive: boolean;
   isFinalized: boolean;
+  hasDelayedDraw: boolean;
   winner: string | null;
   ticketCount: number;
   onIncrement: () => void;
@@ -38,6 +39,7 @@ const RaffleSidebar = ({
   endTime,
   isActive,
   isFinalized,
+  hasDelayedDraw,
   winner,
   ticketCount,
   onIncrement,
@@ -128,6 +130,14 @@ const RaffleSidebar = ({
                 <p className="text-sm font-black text-gray-900 dark:text-white truncate px-2">{winner}</p>
                 <button className="text-xs text-yellow-500 hover:underline">{t("raffle.viewProof")}</button>
               </div>
+            ) : hasDelayedDraw ? (
+              <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl text-center space-y-2">
+                <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto" />
+                <p className="text-xs text-orange-400/80 font-bold uppercase">{t("raffle.drawDelayed")}</p>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  {t("raffle.drawDelayedDescription")}
+                </p>
+              </div>
             ) : (
               <div className="p-4 bg-gray-500/10 border border-gray-500/20 rounded-2xl text-center">
                 <p className="text-sm font-bold text-gray-400">{t("raffle.ended")}</p>
@@ -143,6 +153,13 @@ const RaffleSidebar = ({
           </div>
         )}
       </div>
+
+      {hasDelayedDraw && (
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-3xl p-4 text-center">
+          <p className="text-xs text-orange-400/80 font-bold uppercase">{t("raffle.drawDelayed")}</p>
+          <p className="text-sm text-gray-400 mt-1">{t("raffle.drawDelayedFooter")}</p>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-[#11172E]/50 border border-gray-200 dark:border-white/5 rounded-3xl p-6 flex items-start space-x-4">
         <div className="bg-blue-500/20 p-2 rounded-lg">

@@ -30,6 +30,7 @@ export class RpcService {
 
   private server: rpc.Server;
   private rpcConfig: RpcConfig;
+  private logger: TikkaLogger;
   /** Shared, standalone circuit breaker (single source of truth across the monorepo). */
   private circuitBreaker: CircuitBreaker;
 
@@ -74,9 +75,9 @@ export class RpcService {
       hooks: {
         onStateChange: (from, to) => {
           if (from === 'half-open' && to === 'open') {
-            console.warn('[RpcService] Circuit breaker probe failed. Re-entered OPEN state.');
+            this.logger.warn('[RpcService] Circuit breaker probe failed. Re-entered OPEN state.');
           } else if (from === 'half-open' && to === 'closed') {
-            console.log('[RpcService] Circuit breaker recovered. State set to CLOSED.');
+            this.logger.info('[RpcService] Circuit breaker recovered. State set to CLOSED.');
           }
         },
       },
@@ -151,9 +152,7 @@ export class RpcService {
       if (!response.ok) {
         throw new Error(`Failed to fetch fee stats: ${response.statusText}`);
       }
-      const stats = (await response.json()) as {
-        fee_charged?: { min?: number; p90?: number };
-      };
+      const stats = (await response.json()) as { fee_charged?: { min?: number; p90?: number } };
       return {
         minFee: Number(stats.fee_charged?.min ?? 100),
         suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
@@ -212,7 +211,7 @@ export class RpcService {
 
     this.circuitBreaker.recordFailure();
     if (this.circuitBreaker.getState() === 'open') {
-      console.warn(
+      this.logger.warn(
         `[RpcService] Circuit breaker tripped to OPEN after ${this.circuitBreaker.getFailureCount()} consecutive failures.`,
       );
     }
@@ -271,10 +270,8 @@ export class RpcService {
       () => this.executeSingleRequest<T>(url, method, params),
       buildRetryConfig(this.rpcConfig, {
         onRetry: (info) => {
-          console.warn(
-            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(
-              info.delayMs,
-            )}ms (${url}): ${
+          this.logger.warn(
+            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(info.delayMs)}ms (${url}): ${
               info.error instanceof Error ? info.error.message : String(info.error)
             }`,
           );

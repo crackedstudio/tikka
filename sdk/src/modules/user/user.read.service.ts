@@ -47,6 +47,7 @@ export class ReadOnlyUserService {
 
     return {
       success: true,
+      status: 'SUCCESS',
       value: {
         address,
         totalRafflesEntered: raw.total_raffles_entered,
@@ -86,7 +87,9 @@ export class ReadOnlyUserService {
       .addOperation(
         contract.call(
           method,
-          ...params.map((p) => (p instanceof Object && 'toScVal' in p ? p.toScVal() : nativeToScVal(p))),
+          ...params.map((p) =>
+            p instanceof Object && 'toScVal' in p ? p.toScVal() : nativeToScVal(p),
+          ),
         ),
       )
       .setTimeout(30)

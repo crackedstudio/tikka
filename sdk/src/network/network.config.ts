@@ -287,6 +287,9 @@ export interface RpcConfig {
   circuitBreakerResetTimeoutMs?: number;
 }
 
+// NOTE: the SOROBAN_RPC_* retry constants are declared once at the top of
+// this file and reused by both `DEFAULT_RETRY_CONFIG` and `DEFAULT_RPC_CONFIG`.
+
 export const DEFAULT_RPC_CONFIG: RpcConfig = {
   headers: {},
   failoverEndpoints: [],
@@ -425,9 +428,7 @@ function assertUrl(field: string, value: unknown): void {
  */
 export function resolveNetworkConfig(
   networkOrConfig:
-    | TikkaNetwork
-    | NetworkConfig
-    | (Partial<NetworkConfig> & { network: TikkaNetwork }),
+    TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork }),
 ): NetworkConfig {
   if (typeof networkOrConfig === 'string') {
     const cfg = NETWORK_CONFIGS[networkOrConfig];

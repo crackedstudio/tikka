@@ -24,9 +24,7 @@ import {
   WalletCapabilities,
 } from '../../wallet/wallet.interface';
 
-import { createRaffleFlow } from '../../../examples/create-raffle';
-import { buyTicketsFlow } from '../../../examples/buy-tickets';
-import { cancelRaffleFlow } from '../../../examples/cancel-raffle';
+import { createRaffleFlow, buyTicketsFlow, cancelRaffleFlow } from '../../testing/example-flows';
 
 const TESTNET_ENABLED = process.env.TIKKA_TESTNET_TESTS === '1';
 const describeTestnet = TESTNET_ENABLED ? describe : describe.skip;
@@ -167,7 +165,7 @@ describeTestnet('Stellar Testnet Integration Suite (TIKKA_TESTNET_TESTS=1)', () 
       expect(getStateRes.value).toBeDefined();
       expect(getStateRes.value!.raffleId).toBe(raffleId);
       expect(getStateRes.value!.ticketsSold).toBeGreaterThanOrEqual(1);
-      expect(getStateRes.value!.status).toBe(RaffleStatus.Open);
+      expect(getStateRes.value!.status).toBe(RaffleStatus.OPEN);
 
       const userTicketsRes = await ticketService.getUserTickets({
         raffleId,
@@ -185,7 +183,7 @@ describeTestnet('Stellar Testnet Integration Suite (TIKKA_TESTNET_TESTS=1)', () 
       // Verify state is Cancelled
       const postCancelState = await raffleService.get(raffleId);
       expect(postCancelState.success).toBe(true);
-      expect(postCancelState.value!.status).toBe(RaffleStatus.Cancelled);
+      expect(postCancelState.value!.status).toBe(RaffleStatus.CANCELLED);
     },
     NET_TIMEOUT_MS,
   );

@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import LivePreview from "./LivePreview";
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 
 describe("LivePreview", () => {
   beforeEach(() => {

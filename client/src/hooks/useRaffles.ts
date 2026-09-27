@@ -9,11 +9,13 @@ import {
 } from "../services/raffleService";
 import type {
     ApiRaffleListItem,
-    ApiUserProfile,
-    ApiUserHistoryItem,
     RaffleListFilters,
     FormattedRaffle,
-} from "../types/types";
+} from "../types/raffle";
+import type {
+    ApiUserProfile,
+    ApiUserHistoryItem,
+} from "../types/user";
 import { queryKeys } from "../utils/queryKeys";
 
 export interface RaffleQueryStatus {

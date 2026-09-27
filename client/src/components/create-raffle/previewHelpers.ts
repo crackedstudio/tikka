@@ -3,7 +3,7 @@
  * Provides consistent, placeholder-safe formatting for raffle preview fields
  */
 
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 
 /**
  * Format duration with placeholder-safe handling

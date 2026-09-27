@@ -14,7 +14,7 @@ import {
   isFormDataEmpty,
   isFormDataComplete,
 } from "./previewHelpers";
-import type { RaffleFormData } from "../../types/types";
+import type { RaffleFormData } from "../../types/forms";
 
 describe("previewHelpers", () => {
   describe("formatDuration", () => {

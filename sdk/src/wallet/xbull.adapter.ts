@@ -7,12 +7,13 @@ import {
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
+/** Minimal DOM event-listener types (the SDK builds without "dom" in `lib`). */
+type EventListenerOrEventListenerObject = EventListener | { handleEvent: EventListener };
 
 interface TrackedListener {
   type: string;
   handler: EventListenerOrEventListenerObject;
 }
-
 
 export class XBullAdapter extends WalletAdapter {
   readonly name = WalletName.XBull;
@@ -31,12 +32,8 @@ export class XBullAdapter extends WalletAdapter {
   }
 
   isAvailable(): boolean {
-    return (
-      typeof globalThis !== 'undefined' &&
-      typeof (globalThis as any).xbull !== 'undefined'
-    );
+    return typeof globalThis !== 'undefined' && typeof (globalThis as any).xbull !== 'undefined';
   }
-
 
   async connect(): Promise<void> {
     this.assertInstalled();
@@ -53,11 +50,7 @@ export class XBullAdapter extends WalletAdapter {
     } catch (err: any) {
       this.resetState();
       if (this.isUserRejection(err)) {
-        throw new TikkaSdkError(
-          TikkaSdkErrorCode.UserRejected,
-          'User rejected xBull request',
-          err,
-        );
+        throw new TikkaSdkError(TikkaSdkErrorCode.UserRejected, 'User rejected xBull request', err);
       }
       throw new TikkaSdkError(
         TikkaSdkErrorCode.Unknown,
@@ -67,7 +60,6 @@ export class XBullAdapter extends WalletAdapter {
     }
   }
 
-  
   async disconnect(): Promise<void> {
     this.removeAllListeners();
     this.resetState();
@@ -103,8 +95,7 @@ export class XBullAdapter extends WalletAdapter {
     this.assertInstalled();
     this.assertConnected();
 
-    const networkPassphrase =
-      opts?.networkPassphrase ?? this.options.networkPassphrase;
+    const networkPassphrase = opts?.networkPassphrase ?? this.options.networkPassphrase;
 
     try {
       const sdk = this.getSdk();
@@ -132,10 +123,7 @@ export class XBullAdapter extends WalletAdapter {
   }
 
   /* Helpers  */
-  private addTrackedListener(
-    type: string,
-    handler: EventListenerOrEventListenerObject,
-  ): void {
+  private addTrackedListener(type: string, handler: EventListenerOrEventListenerObject): void {
     const target = (globalThis as any).window;
     if (target?.addEventListener) {
       target.addEventListener(type, handler);
@@ -185,11 +173,7 @@ export class XBullAdapter extends WalletAdapter {
       return err;
     }
     if (this.isUserRejection(err)) {
-      return new TikkaSdkError(
-        TikkaSdkErrorCode.UserRejected,
-        rejectionMessage,
-        err,
-      );
+      return new TikkaSdkError(TikkaSdkErrorCode.UserRejected, rejectionMessage, err);
     }
     return new TikkaSdkError(
       TikkaSdkErrorCode.Unknown,
@@ -200,10 +184,6 @@ export class XBullAdapter extends WalletAdapter {
 
   private isUserRejection(err: any): boolean {
     const msg = String(err?.message ?? err).toLowerCase();
-    return (
-      msg.includes('cancel') ||
-      msg.includes('reject') ||
-      msg.includes('denied')
-    );
+    return msg.includes('cancel') || msg.includes('reject') || msg.includes('denied');
   }
 }

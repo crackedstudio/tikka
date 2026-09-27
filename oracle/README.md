@@ -109,8 +109,8 @@ Submits randomness to the contract with robust fault tolerance, explicit state m
 - ✅ RPC failover to backup endpoints
 - ✅ Comprehensive test suite with 95%+ coverage
 
-📖 **See [Transaction Submitter Guide](./src/submitter/TX_SUBMITTER_GUIDE.md) for complete documentation**  
-📋 **See [Transaction Submitter Quick Reference](./src/submitter/TX_SUBMITTER_QUICK_REF.md) for quick reference**
+📖 **See [Transaction Submitter Guide](./docs/TX_SUBMITTER_GUIDE.md) for complete documentation**  
+📋 **See [Transaction Submitter Quick Reference](./docs/TX_SUBMITTER_QUICK_REF.md) for quick reference**
 
 ## Error Handling & Retries
 

@@ -2,7 +2,13 @@ import { TicketService } from './ticket.service';
 import { TicketReadService } from './ticket.read.service';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
-import { BuyTicketParams, RefundTicketParams, BuyBatchParams, BuyTicketsParams, TICKET_CONSTRAINTS } from './ticket.types';
+import {
+  BuyTicketParams,
+  RefundTicketParams,
+  BuyBatchParams,
+  BuyTicketsParams,
+  TICKET_CONSTRAINTS,
+} from './ticket.types';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 import { RaffleStatus } from '../../contract/bindings';
 import { InvalidTicketPurchaseError } from './purchase-validation';
@@ -87,21 +93,30 @@ describe('TicketService', () => {
     it('should throw if quantity is zero', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: 0 };
       await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
-      await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+      await expect(service.buy(params)).rejects.toThrow(
+        `quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`,
+      );
       expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity is negative', async () => {
       const params: BuyTicketParams = { raffleId: 1, quantity: -5 };
       await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
-      await expect(service.buy(params)).rejects.toThrow(`quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`);
+      await expect(service.buy(params)).rejects.toThrow(
+        `quantity must be at least ${TICKET_CONSTRAINTS.MIN_QUANTITY}`,
+      );
       expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
     it('should throw if quantity exceeds maximum', async () => {
-      const params: BuyTicketParams = { raffleId: 1, quantity: TICKET_CONSTRAINTS.MAX_QUANTITY + 1 };
+      const params: BuyTicketParams = {
+        raffleId: 1,
+        quantity: TICKET_CONSTRAINTS.MAX_QUANTITY + 1,
+      };
       await expect(service.buy(params)).rejects.toThrow(InvalidTicketPurchaseError);
-      await expect(service.buy(params)).rejects.toThrow(`quantity must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`);
+      await expect(service.buy(params)).rejects.toThrow(
+        `quantity must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`,
+      );
       expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
@@ -161,7 +176,7 @@ describe('TicketService', () => {
       jest.advanceTimersByTime(31000);
 
       // This should succeed after timeout
-      const newService = new TicketService(contractService);
+      const newService = new TicketService(contractService, readService);
       contractService.invoke.mockResolvedValue({
         success: true,
         value: [106, 107, 108, 109, 110],
@@ -243,7 +258,9 @@ describe('TicketService', () => {
         maxPricePerTicket: '1000000',
       };
 
-      await expect(service.buyTickets(params)).rejects.toThrow(`count must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`);
+      await expect(service.buyTickets(params)).rejects.toThrow(
+        `count must not exceed ${TICKET_CONSTRAINTS.MAX_QUANTITY}`,
+      );
       expect(contractService.invoke).not.toHaveBeenCalled();
     });
 
@@ -335,7 +352,7 @@ describe('TicketService', () => {
       expect(mockWallet.getPublicKey).toHaveBeenCalled();
       expect(contractService.simulateReadOnly).toHaveBeenCalledTimes(2);
       expect(contractService.invoke).toHaveBeenCalledTimes(2);
-      
+
       expect(result.value?.results).toHaveLength(2);
       expect(result.value!.results[0]).toEqual({
         raffleId: 1,
@@ -382,10 +399,8 @@ describe('TicketService', () => {
 
     it('should throw if purchases array is empty', async () => {
       const params: BuyBatchParams = { purchases: [] };
-      
-      await expect(service.buyBatch(params)).rejects.toThrow(
-        TikkaSdkError
-      );
+
+      await expect(service.buyBatch(params)).rejects.toThrow(TikkaSdkError);
     });
 
     it('should validate each purchase in the batch', async () => {
@@ -396,9 +411,7 @@ describe('TicketService', () => {
         ],
       };
 
-      await expect(service.buyBatch(params)).rejects.toThrow(
-        'Invalid purchase at index 1'
-      );
+      await expect(service.buyBatch(params)).rejects.toThrow('Invalid purchase at index 1');
     });
 
     it('should throw if all purchases fail simulation', async () => {
@@ -409,12 +422,10 @@ describe('TicketService', () => {
         ],
       };
 
-      contractService.simulateReadOnly.mockRejectedValue(
-        new Error('All raffles closed')
-      );
+      contractService.simulateReadOnly.mockRejectedValue(new Error('All raffles closed'));
 
       await expect(service.buyBatch(params)).rejects.toThrow(
-        'All batch purchases failed simulation'
+        'All batch purchases failed simulation',
       );
     });
 

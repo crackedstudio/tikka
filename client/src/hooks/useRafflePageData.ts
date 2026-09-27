@@ -1,6 +1,6 @@
 import { useRaffle } from "./useRaffles";
 import { useBuyTicketsMutation } from "./useRaffleMutations";
-import type { FormattedRaffle } from "../types/types";
+import type { FormattedRaffle } from "../types/raffle";
 
 /**
  * Discriminated union describing the lifecycle of the RafflePage data.

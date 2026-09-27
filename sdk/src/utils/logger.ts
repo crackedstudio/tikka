@@ -25,6 +25,7 @@ export class NoOpLogger implements TikkaLogger {
  * Console-based logger that writes to stdout/stderr.
  * Useful for development and debugging.
  */
+/* eslint-disable no-console -- console output is this class's entire purpose */
 export class ConsoleLogger implements TikkaLogger {
   debug(message: string, ...args: any[]): void {
     console.debug(message, ...args);
@@ -42,6 +43,7 @@ export class ConsoleLogger implements TikkaLogger {
     console.error(message, ...args);
   }
 }
+/* eslint-enable no-console */
 
 /** Default logger instance (no-op). */
 export const defaultLogger: TikkaLogger = new NoOpLogger();

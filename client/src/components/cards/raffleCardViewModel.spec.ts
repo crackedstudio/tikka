@@ -5,7 +5,7 @@ import {
     buildCountdown,
     FALLBACK_IMAGE,
 } from "./raffleCardViewModel";
-import type { ApiRaffleListItem, ApiRaffleDetail, FormattedRaffle } from "../../types/types";
+import type { ApiRaffleListItem, ApiRaffleDetail, FormattedRaffle } from "../../types/raffle";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
