@@ -1,13 +1,3 @@
-import { RaffleStatus } from "@tikka/types";
-function mapContractStatus(status: number): RaffleStatus {
-  switch(status) {
-    case 0: return RaffleStatus.OPEN;
-    case 1: return RaffleStatus.DRAWING;
-    case 2: return RaffleStatus.FINALIZED;
-    case 3: return RaffleStatus.CANCELLED;
-    default: return RaffleStatus.OPEN;
-  }
-}
 import { Injectable } from "@nestjs/common";
 import { ContractService } from "../../contract/contract.service";
 import { ContractFn } from "../../contract/bindings";
@@ -23,6 +13,16 @@ import {
   CreateRaffleEstimate,
 } from "./raffle.types";
 import { RaffleStatus } from "../../contract/bindings";
+
+function mapContractStatus(status: number): RaffleStatus {
+  switch(status) {
+    case 0: return RaffleStatus.OPEN;
+    case 1: return RaffleStatus.DRAWING;
+    case 2: return RaffleStatus.FINALIZED;
+    case 3: return RaffleStatus.CANCELLED;
+    default: return RaffleStatus.OPEN;
+  }
+}
 import {
   ContractResponse,
   RaffleTxResponse,
@@ -316,13 +316,13 @@ export class RaffleService {
       ticketsSold: Number(raw.tickets_sold ?? raw.ticketsSold ?? 0),
       endTime: Number(raw.end_time ?? raw.endTime ?? 0) * 1000, // back to ms
       asset: raw.asset ?? "XLM",
-      assetIssuer: raw.asset_issuer || raw.assetIssuer || undefined,
+      assetIssuer: raw.asset_issuer || raw.assetIssuer || null,
       allowMultiple: Boolean(raw.allow_multiple ?? raw.allowMultiple),
       metadataCid: raw.metadata_cid ?? raw.metadataCid ?? "",
       winner: raw.winner,
       winningTicketId: raw.winning_ticket_id ?? raw.winningTicketId,
       prizeAmount:
-        raw.prize_amount != null ? String(raw.prize_amount) : undefined,
+        raw.prize_amount != null ? String(raw.prize_amount) : null,
     };
   }
 }

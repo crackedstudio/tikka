@@ -1,5 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
+
+// Resolve @tikka/sdk straight to its light source entry, mirroring vite.config.ts.
+// The SDK's package.json exports map points only at dist/, which is never built by
+// client CI, so without this alias Vitest falls back to the unresolved workspace
+// symlink and every spec importing `@tikka/sdk` (sdkClient.spec, the
+// transactionPipeline specs) fails with "Failed to resolve entry for package
+// \"@tikka/sdk\"".
+const sdkLightSource = fileURLToPath(new URL('../sdk/src/index.light.ts', import.meta.url));
 
 export default defineConfig({
   test: {
@@ -25,8 +34,17 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      'virtual:pregister/react': path.resolve(__dirname, 'src/test-utils/virtual-pwa-register.ts'),
-    },
+    alias: [
+      {
+        // Match @tikka/sdk and @tikka/sdk/<subpath>; both map to the light source
+        // entry since it is the browser-safe surface (same as vite.config.ts).
+        find: /^@tikka\/sdk(\/.*)?$/,
+        replacement: sdkLightSource,
+      },
+      {
+        find: 'virtual:pregister/react',
+        replacement: path.resolve(__dirname, 'src/test-utils/virtual-pwa-register.ts'),
+      },
+    ],
   },
 });

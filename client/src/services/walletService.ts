@@ -26,6 +26,10 @@ type WalletKitModule = {
   setWallet: (walletId: string) => void;
   getNetwork: () => Promise<{ network: string }>;
   signTransaction: (transaction: unknown) => Promise<unknown>;
+  signMessage: (
+    message: string,
+    options?: { address?: string },
+  ) => Promise<{ signedMessage: unknown }>;
   disconnect: () => void;
 };
 
@@ -191,33 +195,36 @@ function getProgrammaticNetworkSwitcher(walletType: string): ((network: string) 
   const g = window as WalletWindow;
 
   if (walletType === "freighter") {
-    if (typeof g.freighter?.switchNetwork === "function") {
+    const freighter = g.freighter;
+    if (typeof freighter?.switchNetwork === "function") {
       return async (network) => {
-        await g.freighter.switchNetwork(network);
+        await freighter.switchNetwork?.(network);
       };
     }
-    if (typeof g.freighter?.openWallet === "function") {
+    if (typeof freighter?.openWallet === "function") {
       return async () => {
-        await g.freighter.openWallet();
+        await freighter.openWallet?.();
       };
     }
     return undefined;
   }
 
   if (walletType === "xbull") {
-    if (typeof g.xBull?.switchNetwork === "function") {
+    const xBull = g.xBull;
+    const xbull = g.xbull;
+    if (typeof xBull?.switchNetwork === "function") {
       return async (network) => {
-        await g.xBull.switchNetwork(network);
+        await xBull.switchNetwork?.(network);
       };
     }
-    if (typeof g.xbull?.switchNetwork === "function") {
+    if (typeof xbull?.switchNetwork === "function") {
       return async (network) => {
-        await g.xbull.switchNetwork(network);
+        await xbull.switchNetwork?.(network);
       };
     }
-    if (typeof g.xBull?.request === "function") {
+    if (typeof xBull?.request === "function") {
       return async (network) => {
-        await g.xBull.request({ method: "xbull_switchNetwork", params: [network] });
+        await xBull.request?.({ method: "xbull_switchNetwork", params: [network] });
       };
     }
     return undefined;
@@ -267,14 +274,14 @@ function getNetworkPassphrase(): string {
 
 let kit: WalletKitModule | null = null;
 
-export async function getKit() {
+export async function getKit(): Promise<WalletKitModule> {
   if (!kit) {
     const { allowAllModules, FREIGHTER_ID, StellarWalletsKit } = await import("@creit.tech/stellar-wallets-kit");
     kit = new StellarWalletsKit({
       modules: allowAllModules(),
       network: getNetworkPassphrase() as WalletNetwork,
       selectedWalletId: getSelectedWalletId() ?? FREIGHTER_ID,
-    });
+    }) as unknown as WalletKitModule;
   }
   return kit;
 }
@@ -473,6 +480,7 @@ export async function attemptAutoReconnect(): Promise<{ success: boolean; addres
             // Set the wallet without showing modal
             const selectedWalletId = getSelectedWalletId();
             if (!selectedWalletId) {
+              const { FREIGHTER_ID } = await import("@creit.tech/stellar-wallets-kit");
               await setWallet(FREIGHTER_ID);
             }
 

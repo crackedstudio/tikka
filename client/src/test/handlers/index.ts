@@ -129,7 +129,9 @@ export const routeDefs: RouteDef[] = [
   {
     method: 'get',
     path: '/raffles',
-    resolver: async () => ({ status: 200, body: defaultListResponse }),
+    // Cast through Json: the route contract is intentionally loose so typed
+    // fixtures (ApiRaffleListResponse) can flow through without per-route casts.
+    resolver: async () => ({ status: 200, body: defaultListResponse as unknown as Json }),
   },
   {
     method: 'get',
@@ -158,7 +160,7 @@ export const routeDefs: RouteDef[] = [
   {
     method: 'get',
     path: '/users/:address/history',
-    resolver: async () => ({ status: 200, body: defaultHistory }),
+    resolver: async () => ({ status: 200, body: defaultHistory as unknown as Json }),
   },
 ];
 
@@ -166,7 +168,10 @@ export const routeDefs: RouteDef[] = [
 
 export const handlers = routeDefs.map((def) =>
   http[def.method](`${API_BASE_URL}${def.path}`, async ({ request, params }) => {
-    const { status, body } = await def.resolver({ request, params: params as Record<string, string> });
+    const { status, body } = await def.resolver({
+      request,
+      params: params as Record<string, string>,
+    });
     return HttpResponse.json(body as Record<string, unknown>, { status });
-  })
+  }),
 );

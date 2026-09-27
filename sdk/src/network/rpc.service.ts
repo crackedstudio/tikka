@@ -16,7 +16,6 @@ import {
 import { withRetry } from '../utils/retry';
 import { defaultLogger, type TikkaLogger } from '../utils/logger';
 
-
 interface RequestOptions {
   disableRetries?: boolean;
 }
@@ -24,9 +23,11 @@ interface RequestOptions {
 /**
  * RpcService
  * Combines Stellar RPC SDK with configurable transport (timeouts, headers, failover).
- */
-@Injectable()
+ */ @Injectable()
 export class RpcService {
+  /** Injected logger (defaults to {@link defaultLogger}); exposed for subclasses/tests. */
+  protected logger: TikkaLogger;
+
   private server: rpc.Server;
   private rpcConfig: RpcConfig;
   /** Shared, standalone circuit breaker (single source of truth across the monorepo). */
@@ -125,9 +126,7 @@ export class RpcService {
   }
 
   /** Fetch latest ledger from Soroban RPC */
-  async getLedger(
-    options: RequestOptions = {},
-  ): Promise<rpc.Api.GetLatestLedgerResponse> {
+  async getLedger(options: RequestOptions = {}): Promise<rpc.Api.GetLatestLedgerResponse> {
     // getLatestLedger takes no params — omit rather than send []
     // (empty array is rejected by current Soroban RPC).
     return this.request('getLatestLedger', undefined, options);
@@ -138,9 +137,7 @@ export class RpcService {
    * Returns NOT_FOUND if the tx is not yet indexed — caller owns the retry loop.
    * Transient transport errors (429, 5xx) are still retried by `executeRequest()`.
    */
-  async getTransaction(
-    hash: string,
-  ): Promise<rpc.Api.GetTransactionResponse> {
+  async getTransaction(hash: string): Promise<rpc.Api.GetTransactionResponse> {
     return this.request('getTransaction', { hash });
   }
 
@@ -154,13 +151,17 @@ export class RpcService {
       if (!response.ok) {
         throw new Error(`Failed to fetch fee stats: ${response.statusText}`);
       }
-      const stats = await response.json();
+      const stats = (await response.json()) as {
+        fee_charged?: { min?: number; p90?: number };
+      };
       return {
         minFee: Number(stats.fee_charged?.min ?? 100),
         suggestedFee: Number(stats.fee_charged?.p90 ?? 100),
       };
     } catch (err: any) {
-      this.logger.warn(`[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`);
+      this.logger.warn(
+        `[RpcService] estimateFee failed, falling back to 100 stroops: ${err.message}`,
+      );
       return { minFee: 100, suggestedFee: 100 };
     }
   }
@@ -189,7 +190,7 @@ export class RpcService {
     const remainingMs = this.circuitBreaker.getRemainingCooldownMs();
     throw new UnavailableError(
       `Circuit breaker is OPEN. Request blocked. Cooldown remaining: ${remainingMs}ms`,
-      { remainingMs }
+      { remainingMs },
     );
   }
 
@@ -212,7 +213,7 @@ export class RpcService {
     this.circuitBreaker.recordFailure();
     if (this.circuitBreaker.getState() === 'open') {
       console.warn(
-        `[RpcService] Circuit breaker tripped to OPEN after ${this.circuitBreaker.getFailureCount()} consecutive failures.`
+        `[RpcService] Circuit breaker tripped to OPEN after ${this.circuitBreaker.getFailureCount()} consecutive failures.`,
       );
     }
   }
@@ -250,7 +251,7 @@ export class RpcService {
     if (lastError instanceof TikkaSdkError) throw lastError;
     throw new NetworkError(
       `RPC request failed for all endpoints. Last error: ${lastError?.message ?? lastError}`,
-      lastError
+      lastError,
     );
   }
 
@@ -261,7 +262,7 @@ export class RpcService {
     options: RequestOptions = {},
   ): Promise<T> {
     const retriesEnabled = this.rpcConfig.enableRetries !== false && !options.disableRetries;
-    
+
     if (!retriesEnabled) {
       return this.executeSingleRequest<T>(url, method, params);
     }
@@ -271,7 +272,9 @@ export class RpcService {
       buildRetryConfig(this.rpcConfig, {
         onRetry: (info) => {
           console.warn(
-            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(info.delayMs)}ms (${url}): ${
+            `[RpcService] ${method} retry ${info.attempt} in ${Math.round(
+              info.delayMs,
+            )}ms (${url}): ${
               info.error instanceof Error ? info.error.message : String(info.error)
             }`,
           );
@@ -317,9 +320,13 @@ export class RpcService {
           throw new RateLimitError(`Rate limit exceeded: ${response.statusText}`, { status: 429 });
         }
         if ([502, 503, 504].includes(response.status)) {
-          throw new UnavailableError(`Service unavailable: ${response.statusText}`, { status: response.status });
+          throw new UnavailableError(`Service unavailable: ${response.statusText}`, {
+            status: response.status,
+          });
         }
-        throw new InvalidResponseError(`RPC request failed: ${response.statusText}`, { status: response.status });
+        throw new InvalidResponseError(`RPC request failed: ${response.statusText}`, {
+          status: response.status,
+        });
       }
 
       let responsePayload: any;
@@ -329,23 +336,42 @@ export class RpcService {
         throw new InvalidResponseError('Failed to parse RPC response as JSON', err);
       }
 
-      if (!responsePayload || (responsePayload.result === undefined && responsePayload.error === undefined)) {
-        throw new InvalidResponseError('Malformed RPC response: missing both result and error fields', responsePayload);
+      if (
+        !responsePayload ||
+        (responsePayload.result === undefined && responsePayload.error === undefined)
+      ) {
+        throw new InvalidResponseError(
+          'Malformed RPC response: missing both result and error fields',
+          responsePayload,
+        );
       }
 
       if (responsePayload.error) {
         const errorMsg = responsePayload.error.message || 'Unknown RPC error';
-        const isContractErr = errorMsg.includes('ContractError') || errorMsg.includes('HostValidationError') || responsePayload.error.code === -32603;
+        const isContractErr =
+          errorMsg.includes('ContractError') ||
+          errorMsg.includes('HostValidationError') ||
+          responsePayload.error.code === -32603;
         if (isContractErr) {
-          throw new ContractFailureError(`Contract execution failed: ${errorMsg}`, responsePayload.error);
+          throw new ContractFailureError(
+            `Contract execution failed: ${errorMsg}`,
+            responsePayload.error,
+          );
         } else {
-          throw new ContractFailureError(`RPC execution failed: ${errorMsg}`, responsePayload.error);
+          throw new ContractFailureError(
+            `RPC execution failed: ${errorMsg}`,
+            responsePayload.error,
+          );
         }
       }
 
       return responsePayload.result as T;
     } catch (error: any) {
-      if (error.name === 'AbortError' || error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
+      if (
+        error.name === 'AbortError' ||
+        error.message?.includes('timeout') ||
+        error.code === 'ETIMEDOUT'
+      ) {
         throw new RpcTimeoutError(`Request timed out after ${timeoutMs}ms`, error);
       }
 
@@ -359,7 +385,8 @@ export class RpcService {
         throw error;
       }
 
-      const isSystemNetworkError = ['ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EADDRINUSE'].includes(error.code) ||
+      const isSystemNetworkError =
+        ['ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EADDRINUSE'].includes(error.code) ||
         error.message?.includes('fetch failed') ||
         error.message?.includes('NetworkError');
 

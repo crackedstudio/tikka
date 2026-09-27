@@ -4,11 +4,7 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client", "node", "vitest/globals"],
     "module": "ESNext",
     "skipLibCheck": true,
@@ -34,19 +30,14 @@
     "experimentalDecorators": true,
 
     /* @tikka/sdk is consumed straight from source — the SDK's dist is never
-       built by the client CI, and its exports map points at dist only. */
+       built by the client CI, and its exports map points at dist only.
+       NOTE: `paths` substitutions resolve against `baseUrl` (the repo root,
+       inherited from ../tsconfig.base.json), NOT against this file's folder. */
     "paths": {
-      "@tikka/sdk": ["../sdk/src/index.light.ts"],
-      "@tikka/sdk/light": ["../sdk/src/index.light.ts"]
+      "@tikka/sdk": ["sdk/src/index.light.ts"],
+      "@tikka/sdk/light": ["sdk/src/index.light.ts"]
     }
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "src/**/*.spec.ts",
-    "src/**/*.spec.tsx",
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx"
-  ]
+  "include": ["src"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.test.ts", "src/**/*.test.tsx"]
 }

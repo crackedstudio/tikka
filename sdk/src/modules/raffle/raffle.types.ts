@@ -55,7 +55,6 @@ export interface CreateRaffleEstimate {
 }
 
 /** On-chain raffle data. */
-import { Pick } from "typescript";
 import { Raffle } from "@tikka/types";
 export type RaffleData = Pick<Raffle, "creator" | "status" | "ticketPrice" | "asset" | "maxTickets" | "ticketsSold" | "endTime" | "winner" | "winningTicketId" | "prizeAmount"> & { raffleId: number, allowMultiple: boolean, metadataCid: string, assetIssuer?: string };
 
@@ -103,7 +102,7 @@ export class RaffleStateError extends Error {
     public readonly attempted: RaffleTransition,
   ) {
     super(
-      `Raffle ${raffleId} is in state ${RaffleStatus[currentStatus]} — ` +
+      `Raffle ${raffleId} is in state ${currentStatus} — ` +
         `transition "${attempted}" is not allowed.`,
     );
     this.name = 'RaffleStateError';
