@@ -9,9 +9,16 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  * partially-applied environments are safe.
  *
  * See: docs/performance/indexer-index-audit.md
+ *
+ * Timestamp note: originally created with the same placeholder prefix as
+ * 1770000000000-CreateWebhookDeadLetterDeliveries.ts. Renumbered to
+ * 1770000000001 to resolve the duplicate (#1588). See
+ * docs/database/migration-timestamp-exceptions.md and
+ * docs/database/1588-duplicate-timestamp-remediation.md for the full
+ * remediation record.
  */
-export class AuditHotPathIndexes1770000000000 implements MigrationInterface {
-  name = "AuditHotPathIndexes1770000000000";
+export class AuditHotPathIndexes1770000000001 implements MigrationInterface {
+  name = "AuditHotPathIndexes1770000000001";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // --- Leaderboard (users) — previously unapplied orphan migration ---
