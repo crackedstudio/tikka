@@ -46,7 +46,7 @@ jobs:
           cat docs/performance/results/sse-soak-latest.txt >> docs/performance/results/latest-summary.md
 
       - name: Commit & Push Benchmark Results
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs(performance): publish automated benchmark results [skip ci]"
           file_pattern: "docs/performance/results/*"
