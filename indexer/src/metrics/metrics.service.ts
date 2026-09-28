@@ -35,6 +35,7 @@ export class MetricsService {
 
   private dlqDepthGauge: Gauge;
   private dlqEventsTotalCounter: Counter;
+  private reconciliationDiscrepanciesGauge: Gauge;
 
   // BullMQ queue metrics
   private queueWaitingGauge: Gauge;
@@ -102,19 +103,24 @@ export class MetricsService {
       description: 'Current DLQ depth (failed events not yet successfully replayed)',
     });
 
-    this.dlqEventsTotalCounter = this.meter.createCounter(
-      'indexer_dlq_events_total',
+    this.dlqEventsTotalCounter = this.meter.createCounter('indexer_dlq_events_total', {
+      description: 'Total number of DLQ events added and replay attempts',
+    });
+
+    this.reconciliationDiscrepanciesGauge = this.meter.createGauge(
+      'tikka_indexer_reconciliation_discrepancies',
       {
-        description:
-          'Total number of DLQ events added and replay attempts',
+        description: 'Current discrepancy count from the most recent reconciliation run',
       },
     );
 
-    this.meter.createObservableGauge('tikka_indexer_memory_usage_bytes', {
-      description: 'Current memory usage (heapUsed)',
-    }).addCallback((result: ObservableResult) => {
-      result.observe(process.memoryUsage().heapUsed);
-    });
+    this.meter
+      .createObservableGauge('tikka_indexer_memory_usage_bytes', {
+        description: 'Current memory usage (heapUsed)',
+      })
+      .addCallback((result: ObservableResult) => {
+        result.observe(process.memoryUsage().heapUsed);
+      });
 
     // Initialize BullMQ queue metrics gauges
     this.queueWaitingGauge = this.meter.createGauge('tikka_indexer_queue_waiting', {
@@ -141,10 +147,13 @@ export class MetricsService {
       description: 'Number of paused jobs',
     });
 
-    this.queueOldestJobAgeGauge = this.meter.createGauge('tikka_indexer_queue_oldest_job_age_seconds', {
-      description: 'Age of the oldest waiting job in seconds',
-      unit: 's',
-    });
+    this.queueOldestJobAgeGauge = this.meter.createGauge(
+      'tikka_indexer_queue_oldest_job_age_seconds',
+      {
+        description: 'Age of the oldest waiting job in seconds',
+        unit: 's',
+      },
+    );
 
     this.queueTotalGauge = this.meter.createGauge('tikka_indexer_queue_total', {
       description: 'Total number of jobs across all states',
@@ -194,9 +203,14 @@ export class MetricsService {
         this.queueDelayedGauge.record(delayed, labels);
         this.queuePausedGauge.record(paused, labels);
         this.queueOldestJobAgeGauge.record(oldestJobAge, labels);
-        this.queueTotalGauge.record(waiting + active + completed + failed + delayed + paused, labels);
+        this.queueTotalGauge.record(
+          waiting + active + completed + failed + delayed + paused,
+          labels,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to collect metrics for queue "${name}": ${(error as Error).message}`);
+        this.logger.warn(
+          `Failed to collect metrics for queue "${name}": ${(error as Error).message}`,
+        );
       }
     };
 
@@ -261,6 +275,10 @@ export class MetricsService {
     this.dlqEventsTotalCounter.add(amount, { reason, event_type: eventType });
   }
 
+  setReconciliationDiscrepancies(kind: 'raffle' | 'aggregate', count: number) {
+    this.reconciliationDiscrepanciesGauge.record(count, { kind });
+  }
+
   /**
    * Returns the metrics in Prometheus format.
    * Since PrometheusExporter uses a request/response pattern normally,
@@ -270,7 +288,7 @@ export class MetricsService {
     return new Promise((resolve) => {
       // Use a mock response object to capture the output from the exporter's handler
       const res = {
-        setHeader: () => { },
+        setHeader: () => {},
         end: (data: string) => resolve(data),
         statusCode: 200,
       };

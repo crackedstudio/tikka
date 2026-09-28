@@ -24,7 +24,8 @@
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate",
     "migration:rollback-check": "ts-node --transpile-only scripts/check-migration-rollback.ts",
-    "dlq:replay": "ts-node --transpile-only src/cli/dlq-replay.command.ts"
+    "dlq:replay": "ts-node --transpile-only src/cli/dlq-replay.command.ts",
+    "reconcile": "ts-node --transpile-only src/cli/reconcile.command.ts"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -82,6 +83,7 @@
     "@opentelemetry/sdk-trace-node": "^2.10.0",
     "@stellar/stellar-sdk": "^16.1.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@tikka/sdk": "workspace:*",
     "@tikka/types": "workspace:*",
     "bullmq": "^5.81.0",
     "class-transformer": "^0.5.1",

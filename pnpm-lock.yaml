@@ -470,6 +470,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.112.4(@opentelemetry/api@1.9.1)
+      '@tikka/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       '@tikka/types':
         specifier: workspace:*
         version: link:../packages/types

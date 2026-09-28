@@ -18,6 +18,9 @@
     "*": {
       "network": [
         "dist/network/circuit-breaker.d.ts"
+      ],
+      "read": [
+        "dist/read-cjs/index.read.d.ts"
       ]
     }
   },
@@ -37,6 +40,16 @@
       "require": "./dist/light/index.light.js",
       "types": "./dist/light/index.light.d.ts"
     },
+    "./read": {
+      "import": {
+        "types": "./dist/read/index.read.d.ts",
+        "default": "./dist/read/index.read.js"
+      },
+      "require": {
+        "types": "./dist/read-cjs/index.read.d.ts",
+        "default": "./dist/read-cjs/index.read.js"
+      }
+    },
     "./network": {
       "import": "./dist/network/circuit-breaker.js",
       "require": "./dist/network/circuit-breaker.js",
@@ -49,8 +62,8 @@
   "scripts": {
     "cli": "node bin/tikka.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build": "nest build",
-    "build:read": "tsc -p tsconfig.read.json",
+    "build": "nest build && pnpm run build:read",
+    "build:read": "tsc -p tsconfig.read.json && tsc -p tsconfig.read.cjs.json",
     "build:light": "tsc -p tsconfig.light.json",
     "start": "nest start",
     "start:dev": "nest start --watch",
