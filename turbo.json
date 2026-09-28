@@ -13,7 +13,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "test/**", "tests/**", "jest.config.*", "vitest.config.*", "package.json"],
+      "inputs": ["src/**", "test/**", "tests/**", "bin/**", "jest.config.*", "vitest.config.*", "package.json"],
       "outputs": ["coverage/**"],
       "env": ["NODE_ENV"]
     },
