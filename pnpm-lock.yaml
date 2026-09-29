@@ -603,6 +603,9 @@ importers:
       '@tikka/sdk':
         specifier: workspace:*
         version: link:../sdk
+      '@tikka/types':
+        specifier: workspace:*
+        version: link:../packages/types
       bull:
         specifier: ^4.16.5
         version: 4.16.5

@@ -31,12 +31,15 @@ jobs:
       database: ${{ steps.filter.outputs.database }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Check workspace tsconfig inheritance
+        run: node scripts/check-tsconfig-base.js
       - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
             source:
               - 'client/**'
+              - 'packages/types/**'
               - 'backend/openapi.json'
               - 'package.json'
               - 'pnpm-workspace.yaml'
