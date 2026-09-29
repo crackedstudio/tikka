@@ -33,6 +33,8 @@ export type { TxMemo } from './lifecycle';
 export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
 
 import { ContractResponse, TxResponse } from './response';
+import type { TikkaLogger } from '../utils/logger';
+import { defaultLogger } from '../utils/logger';
 
 export interface InvokeOptions {
   sourcePublicKey?: string;
@@ -83,6 +85,7 @@ export interface InvokeResult<T = any> {
 export class ContractService {
   private contractId: string;
   private lifecycle: TransactionLifecycle;
+  private logger: TikkaLogger;
 
   constructor(
     private readonly rpc: RpcService,
@@ -90,9 +93,11 @@ export class ContractService {
     @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
     @Optional() @Inject('WALLET_ADAPTER') private wallet?: WalletAdapter,
     contractId?: string,
+    @Optional() @Inject('TIKKA_LOGGER') logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
-    this.lifecycle = new TransactionLifecycle(rpc, horizon, networkConfig, wallet, this.contractId);
+    this.logger = logger ?? defaultLogger;
+    this.lifecycle = new TransactionLifecycle(rpc, horizon, networkConfig, wallet, this.contractId, this.logger);
   }
 
   setContractId(id: string): void {

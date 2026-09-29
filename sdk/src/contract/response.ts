@@ -14,10 +14,10 @@
  * if (response.success) {
  *   // Access the typed value
  *   const raffle = response.value;
- *   console.log(`Raffle title: ${raffle.title}`);
+ *   logger.info(`Raffle title: ${raffle.title}`);
  * } else {
  *   // Handle error
- *   console.error(`Failed: ${response.error}`);
+ *   logger.error(`Failed: ${response.error}`);
  * }
  * ```
  */

@@ -7,6 +7,8 @@ import {
   TikkaNetwork,
   RpcConfig,
 } from './network.config';
+import type { TikkaLogger } from '../utils/logger';
+import { defaultLogger } from '../utils/logger';
 
 @Global()
 @Module({})
@@ -14,6 +16,7 @@ export class NetworkModule {
   static forRoot(
     networkOrConfig: TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork }),
     rpcConfig?: RpcConfig,
+    logger?: TikkaLogger,
   ): DynamicModule {
     const networkConfig = resolveNetworkConfig(networkOrConfig);
     const resolvedRpcConfig: RpcConfig = {
@@ -26,17 +29,18 @@ export class NetworkModule {
       providers: [
         { provide: 'NETWORK_CONFIG', useValue: networkConfig },
         { provide: 'RPC_CONFIG', useValue: resolvedRpcConfig },
+        { provide: 'TIKKA_LOGGER', useValue: logger ?? defaultLogger },
 
         {
           provide: RpcService,
-          useFactory: () => new RpcService(networkConfig, resolvedRpcConfig),
+          useFactory: () => new RpcService(networkConfig, resolvedRpcConfig, logger ?? defaultLogger),
         },
         {
           provide: HorizonService,
           useFactory: () => new HorizonService(networkConfig),
         },
       ],
-      exports: [RpcService, HorizonService, 'NETWORK_CONFIG', 'RPC_CONFIG'],
+      exports: [RpcService, HorizonService, 'NETWORK_CONFIG', 'RPC_CONFIG', 'TIKKA_LOGGER'],
     };
   }
 }

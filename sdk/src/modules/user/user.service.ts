@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, Inject } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn, RaffleStatus } from '../../contract/bindings';
 import {
@@ -12,6 +12,8 @@ import {
 } from './user.types';
 import { assertValidPublicKey } from '../../utils/validation';
 import { ContractResponse } from '../../contract/response';
+import type { TikkaLogger } from '../../utils/logger';
+import { defaultLogger } from '../../utils/logger';
 
 /**
  * @category User
@@ -30,17 +32,24 @@ import { ContractResponse } from '../../contract/response';
  * });
  *
  * if (result.success && result.value) {
- *   console.log('User participation:');
- *   console.log(`  - Raffles entered: ${result.value.totalRafflesEntered}`);
- *   console.log(`  - Tickets bought: ${result.value.totalTicketsBought}`);
- *   console.log(`  - Raffles won: ${result.value.totalRafflesWon}`);
- *   console.log(`  - Raffle IDs: ${result.value.raffleIds.join(', ')}`);
+ *   logger.info('User participation:');
+ *   logger.info(`  - Raffles entered: ${result.value.totalRafflesEntered}`);
+ *   logger.info(`  - Tickets bought: ${result.value.totalTicketsBought}`);
+ *   logger.info(`  - Raffles won: ${result.value.totalRafflesWon}`);
+ *   logger.info(`  - Raffle IDs: ${result.value.raffleIds.join(', ')}`);
  * }
  * ```
  */
 @Injectable()
 export class UserService {
-  constructor(private readonly contractService: ContractService) {}
+  private logger: TikkaLogger;
+
+  constructor(
+    private readonly contractService: ContractService,
+    @Optional() @Inject('TIKKA_LOGGER') logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? defaultLogger;
+  }
 
   /**
    * Retrieves user participation data from the Soroban contract.
@@ -58,8 +67,8 @@ export class UserService {
    * });
    *
    * if (participation.success) {
-   *   console.log(`${participation.value?.totalTicketsBought} tickets purchased`);
-   *   console.log(`Participated in raffles: ${participation.value?.raffleIds}`);
+   *   logger.info(`${participation.value?.totalTicketsBought} tickets purchased`);
+   *   logger.info(`Participated in raffles: ${participation.value?.raffleIds}`);
    * }
    * ```
    * Retrieves core user participation data from the Soroban contract.

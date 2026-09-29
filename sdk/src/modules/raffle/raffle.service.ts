@@ -12,7 +12,7 @@ function mapContractStatus(status: number): RaffleStatus {
       return RaffleStatus.OPEN;
   }
 }
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, Inject } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import {
@@ -33,6 +33,8 @@ import { xlmToStroops } from '../../utils/formatting';
 import { nativeToScVal } from '@stellar/stellar-sdk';
 import { FeeEstimatorService } from '../../fee-estimator/fee-estimator.service';
 import { toTypedSdkError } from '../../utils/errors';
+import type { TikkaLogger } from '../../utils/logger';
+import { defaultLogger } from '../../utils/logger';
 
 /**
  * Normalises the `asset` field from `RaffleParams` into a plain `AssetDescriptor`.
@@ -51,10 +53,15 @@ function normaliseAsset(asset: string | AssetDescriptor): AssetDescriptor {
  */
 @Injectable()
 export class RaffleService {
+  private logger: TikkaLogger;
+
   constructor(
     private readonly contract: ContractService,
     private readonly feeEstimator: FeeEstimatorService,
-  ) {}
+    @Optional() @Inject('TIKKA_LOGGER') logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? defaultLogger;
+  }
 
   /* ------------------------------------------------------------------ */
   /*  create                                                             */
