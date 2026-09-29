@@ -8,6 +8,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { FeeEstimatorModule } from './fee-estimator/fee-estimator.module';
 import { TikkaNetwork, NetworkConfig, RpcConfig } from './network/network.config';
 import { WalletAdapter } from './wallet/wallet.interface';
+import { type TikkaLogger, defaultLogger } from './utils/logger';
 
 export interface TikkaSdkOptions {
   /** Network name or config (supports partial overrides with required network name) */
@@ -18,6 +19,8 @@ export interface TikkaSdkOptions {
   wallet?: WalletAdapter;
   /** Override the raffle contract ID */
   contractId?: string;
+  /** Optional logger for SDK internal output. Defaults to a no-op logger. */
+  logger?: TikkaLogger;
 }
 
 @Module({})
@@ -30,7 +33,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
-        NetworkModule.forRoot(options.network, options.rpcConfig),
+        NetworkModule.forRoot(options.network, options.rpcConfig, options.logger),
         RaffleModule,
         TicketModule,
         UserModule,

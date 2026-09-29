@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import { ContractService } from "../../contract/contract.service";
 import { ContractFn } from "../../contract/bindings";
 import {
@@ -27,6 +27,8 @@ import {
   validateBuyTicketsInputs,
 } from './purchase-validation';
 import { TicketReadService } from './ticket.read.service';
+import { TIKKA_LOGGER } from '../../network/network.module';
+import type { TikkaLogger } from '../../utils/logger';
 
 /**
  * TicketService — high-level API for ticket write operations.
@@ -39,11 +41,15 @@ import { TicketReadService } from './ticket.read.service';
 @Injectable()
 export class TicketService {
   private readonly submissionTracker = new Map<string, Set<string>>();
+  private logger: TikkaLogger;
 
   constructor(
     private readonly contractService: ContractService,
     private readonly readService: TicketReadService,
-  ) {}
+    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+  }
 
   /**
    * Checks for duplicate submission attempts.

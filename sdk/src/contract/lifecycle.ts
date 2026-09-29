@@ -37,6 +37,7 @@ import {
   NetworkError,
   toTypedContractError,
 } from '../utils/errors';
+import { type TikkaLogger, defaultLogger } from '../utils/logger';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -199,13 +200,18 @@ export function validateLifecycleTransition(
  * entry point for standard write operations.
  */
 export class TransactionLifecycle {
+  private logger: TikkaLogger;
+
   constructor(
     private readonly rpc: RpcService,
     private readonly horizon: HorizonService,
     private readonly networkConfig: NetworkConfig,
     private wallet: WalletAdapter | undefined,
     private contractId: string,
-  ) {}
+    logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? defaultLogger;
+  }
 
   setWallet(adapter: WalletAdapter | undefined): void {
     this.wallet = adapter;
