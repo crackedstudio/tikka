@@ -194,6 +194,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build shared SDK types
+        run: pnpm --filter @tikka/types build
+
       - name: Lint
         run: pnpm run lint
         continue-on-error: false
@@ -203,7 +206,7 @@ jobs:
         continue-on-error: false
 
       - name: Run tests
-        run: pnpm run test -- --coverage
+        run: pnpm run test --coverage
         continue-on-error: false
 
       - name: Upload coverage artifact
@@ -230,100 +233,38 @@ jobs:
           pnpm exec api-extractor run --config api-extractor.light.json
         continue-on-error: false
 
-      - name: Check bundle size budgets
-        run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
-          node -e '
-            const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
-            summary += "| Bundle | Size | Limit | Status |\n";
-            summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
-            }
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
-          '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
+      - name: Assert light bundle excludes NestJS
+        run: pnpm run analyze:light
         continue-on-error: false
 
       - name: Check bundle size budgets
         run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
+          pnpm exec size-limit --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
           node -e '
             const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
+            const data = JSON.parse(fs.readFileSync("size-summary.json", "utf8"));
+            if (!Array.isArray(data) || data.some((item) => typeof item.size !== "number")) {
+              throw new Error("size-limit returned an invalid JSON summary");
+            }
+            let summary = "### SDK Bundle Size Budgets\n\n";
+            summary += "Minified and gzipped bundle sizes.\n\n";
             summary += "| Bundle | Size | Limit | Status |\n";
             summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
+            for (const item of data) {
+              const limit = item.sizeLimit ?? "N/A";
+              const status = item.passed === false ? "Exceeded" : "Passed";
+              summary += `| ${item.name} | ${item.size.toLocaleString()} B | ${limit.toLocaleString()} B | ${status} |\n`;
+            }
+            const main = data.find((item) => item.name === "@tikka/sdk .");
+            const light = data.find((item) => item.name === "@tikka/sdk ./light");
+            if (!main || !light) throw new Error("Missing main or light SDK size result");
+            if (light.size >= main.size) {
+              summary += "\nThe light entry must remain smaller than the main entry.\n";
+              process.exitCode = 1;
             }
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
           '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
-        continue-on-error: false
-
-      - name: Check bundle size budgets
-        run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
-          node -e '
-            const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
-            summary += "| Bundle | Size | Limit | Status |\n";
-            summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
-            }
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
-          '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
+          exit "${SIZE_CHECK_EXIT_CODE:-0}"
         continue-on-error: false
 
       - name: Generate docs

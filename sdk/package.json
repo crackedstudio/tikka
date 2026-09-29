@@ -81,17 +81,36 @@
   },
   "size-limit": [
     {
-      "name": "@tikka/sdk light",
-      "path": "dist/cjs/light.js",
-      "limit": "25 Kb",
+      "name": "@tikka/sdk .",
+      "path": "src/index.ts",
+      "limit": "420000 B",
       "gzip": true,
       "ignore": [
-        "@nestjs/common",
-        "@nestjs/core",
-        "@stellar/stellar-sdk",
-        "rxjs",
-        "reflect-metadata",
-        "bignumber.js"
+        "crypto",
+        "stream",
+        "node:*"
+      ]
+    },
+    {
+      "name": "@tikka/sdk ./light",
+      "path": "src/index.light.ts",
+      "limit": "115000 B",
+      "gzip": true,
+      "ignore": [
+        "crypto",
+        "stream",
+        "node:*"
+      ]
+    },
+    {
+      "name": "@tikka/sdk ./network",
+      "path": "src/network/circuit-breaker.ts",
+      "limit": "750 B",
+      "gzip": true,
+      "ignore": [
+        "crypto",
+        "stream",
+        "node:*"
       ]
     }
   ],
