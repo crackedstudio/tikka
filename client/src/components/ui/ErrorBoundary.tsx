@@ -1,4 +1,3 @@
-import { logger } from '../../utils/logger';
 import React from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { logger } from "../../utils/logger";

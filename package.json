@@ -13,6 +13,8 @@
     "install:all": "pnpm install",
     "build": "turbo run build",
     "build:client": "turbo run build --filter=tikka",
+    "storybook": "pnpm --filter tikka storybook",
+    "build-storybook": "pnpm --filter tikka build-storybook",
     "build:sdk": "turbo run build --filter=@tikka/sdk",
     "build:backend": "turbo run build --filter=tikka-backend",
     "build:indexer": "turbo run build --filter=tikka-indexer",

@@ -167,6 +167,16 @@ jobs:
           path: client/dist
           retention-days: 7
 
+      - name: Build Storybook
+        run: pnpm --filter tikka run build-storybook
+
+      - name: Upload Storybook artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: storybook-static
+          path: client/storybook-static
+          retention-days: 7
+
   # SDK package
   sdk:
     name: SDK - Lint, Test, Build, Docs

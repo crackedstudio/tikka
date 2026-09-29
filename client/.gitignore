@@ -7,3 +7,7 @@ dist-ssr/
 
 # Lighthouse CI
 .lighthouseci/
+
+# Storybook static build output
+storybook-static/
+
