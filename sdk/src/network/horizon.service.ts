@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { Horizon } from '@stellar/stellar-sdk';
 import { NetworkConfig } from './network.config';
 
@@ -6,7 +5,6 @@ import { NetworkConfig } from './network.config';
  * HorizonService
  * Wrapper around Stellar Horizon SDK for account + network queries.
  */
-@Injectable()
 export class HorizonService {
   private server: Horizon.Server;
 

@@ -1,8 +1,8 @@
 # Tikka SDK
 
-NestJS library for Soroban contract interaction: transaction building, simulation, fee estimation, signing, and submission. The frontend and third-party integrators use this instead of calling Soroban directly.
+TypeScript SDK for Soroban contract interaction: transaction building, simulation, fee estimation, signing, and submission. The frontend and third-party integrators use this instead of calling Soroban directly.
 
-**Stack:** NestJS, TypeScript, Stellar SDK. Published as `@tikka/sdk`.
+**Stack:** TypeScript, Stellar SDK. Published as `@tikka/sdk`.
 
 **Consumers:** Frontend (client), third-party developers.
 

@@ -1,4 +1,3 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   Contract,
@@ -104,15 +103,14 @@ const ANONYMOUS_SOURCE_KEY = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
  * Re-call `estimateFee` with updated params whenever user inputs change —
  * the estimate refreshes because it re-runs `simulateTransaction`.
  */
-@Injectable()
 export class FeeEstimatorService {
   private contractId: string;
 
   constructor(
     private readonly rpcService: RpcService,
     private readonly horizon: HorizonService,
-    @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
-    @Optional() @Inject('WALLET_ADAPTER') private readonly wallet?: WalletAdapter,
+    private readonly networkConfig: NetworkConfig,
+    private readonly wallet?: WalletAdapter,
     contractId?: string,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);

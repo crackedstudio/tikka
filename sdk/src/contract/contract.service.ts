@@ -1,4 +1,3 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   rpc,
@@ -79,7 +78,6 @@ export interface InvokeResult<T = any> {
   ledger: number;
 }
 
-@Injectable()
 export class ContractService {
   private contractId: string;
   private lifecycle: TransactionLifecycle;
@@ -87,8 +85,8 @@ export class ContractService {
   constructor(
     private readonly rpc: RpcService,
     private readonly horizon: HorizonService,
-    @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
-    @Optional() @Inject('WALLET_ADAPTER') private wallet?: WalletAdapter,
+    private readonly networkConfig: NetworkConfig,
+    private wallet?: WalletAdapter,
     contractId?: string,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);

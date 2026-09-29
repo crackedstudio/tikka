@@ -1,4 +1,4 @@
-import { Module, DynamicModule } from '@nestjs/common';
+import { DynamicModule, Module } from '@nestjs/common';
 import { NetworkModule } from './network/network.module';
 import { ContractService } from './contract/contract.service';
 import { RaffleModule } from './modules/raffle/raffle.module';
@@ -8,6 +8,8 @@ import { AdminModule } from './modules/admin/admin.module';
 import { FeeEstimatorModule } from './fee-estimator/fee-estimator.module';
 import { TikkaNetwork, NetworkConfig, RpcConfig } from './network/network.config';
 import { WalletAdapter } from './wallet/wallet.interface';
+import { RpcService } from './network/rpc.service';
+import { HorizonService } from './network/horizon.service';
 
 export interface TikkaSdkOptions {
   /** Network name or config (supports partial overrides with required network name) */
@@ -23,10 +25,6 @@ export interface TikkaSdkOptions {
 @Module({})
 export class AppModule {
   static forRoot(options: TikkaSdkOptions): DynamicModule {
-    const walletProviders = options.wallet
-      ? [{ provide: 'WALLET_ADAPTER', useValue: options.wallet }]
-      : [];
-
     return {
       module: AppModule,
       imports: [
@@ -38,8 +36,15 @@ export class AppModule {
         FeeEstimatorModule,
       ],
       providers: [
-        ContractService,
-        ...walletProviders,
+        {
+          provide: ContractService,
+          useFactory: (
+            rpc: RpcService,
+            horizon: HorizonService,
+            networkConfig: NetworkConfig,
+          ) => new ContractService(rpc, horizon, networkConfig, options.wallet, options.contractId),
+          inject: [RpcService, HorizonService, 'NETWORK_CONFIG'],
+        },
       ],
       exports: [
         ContractService,

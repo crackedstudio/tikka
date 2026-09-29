@@ -1,4 +1,4 @@
-import { Module, DynamicModule, Global } from '@nestjs/common';
+import { DynamicModule } from '@nestjs/common';
 import { RpcService } from './rpc.service';
 import { HorizonService } from './horizon.service';
 import {
@@ -8,8 +8,6 @@ import {
   RpcConfig,
 } from './network.config';
 
-@Global()
-@Module({})
 export class NetworkModule {
   static forRoot(
     networkOrConfig: TikkaNetwork | NetworkConfig | (Partial<NetworkConfig> & { network: TikkaNetwork }),
