@@ -10,7 +10,8 @@
  *
  * Quick start:
  *   TEST_INTEGRATION=true pnpm --filter sdk test
- *   TEST_INTEGRATION=true BACKEND_URL=http://localhost:3000 pnpm --filter sdk test
+ *   TEST_INTEGRATION=true BACKEND_URL=http://localhost:3001 pnpm --filter sdk test
+ *   pnpm --dir sdk test:sep10                          # shorthand (sets the flag for you)
  */
 
 import { Keypair, Networks, Transaction } from '@stellar/stellar-sdk';
@@ -26,7 +27,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const INTEGRATION = process.env.TEST_INTEGRATION === 'true';
-const BACKEND_URL = (process.env.BACKEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+const BACKEND_URL = (process.env.BACKEND_URL ?? 'http://localhost:3001').replace(/\/$/, '');
 const ANCHOR_DOMAIN = process.env.SEP10_ANCHOR_DOMAIN ?? 'tikka.io';
 const FRIENDBOT_URL = 'https://friendbot.stellar.org';
 

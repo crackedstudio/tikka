@@ -1,13 +1,17 @@
 #!/usr/bin/env ts-node
 /**
- * Tikka Indexer — DLQ replay CLI
+ * Tikka Indexer — DLQ replay CLI (issue #1597)
  *
  * Usage:
- *   pnpm run dlq:replay
- *   pnpm run dlq:replay -- --dry-run
+ *   pnpm run dlq:replay -- --all
+ *   pnpm run dlq:replay -- --dry-run --all
+ *   pnpm run dlq:replay -- --type TicketPurchased --since 2026-07-01
  *   pnpm run dlq:replay -- --dry-run --type TicketPurchased --since 2026-07-01
  *
  * Options:
+ *   --all              Replay every eligible entry. Required when no other
+ *                      filter is provided, so the entire DLQ cannot be
+ *                      triggered by a mistyped flag.
  *   --dry-run          Summarise what would be replayed. Performs no writes.
  *   --type <a,b>       Restrict to these event types (repeatable, or comma-separated).
  *   --since <date>     Only entries created at or after this ISO date.
@@ -39,15 +43,22 @@ loadEnvFile('.env');
 
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
+import { IngestionDispatcherService } from '../ingestor/ingestion-dispatcher.service';
 import { MAX_RETRIES } from '../ingestor/dlq.service';
 
 import {
   parseArgs,
   applyFilters,
+  requireFilterOrAll,
   summarise,
   formatSummary,
   ArgumentError,
 } from './dlq-replay.filters';
+import { DlqReplayService } from './dlq-replay.service';
+
+// ---------------------------------------------------------------------------
+// Argument parsing (runs synchronously before any I/O)
+// ---------------------------------------------------------------------------
 
 let parsedArgs;
 try {
@@ -67,7 +78,24 @@ if (parsedArgs.unknown.length > 0) {
   process.exit(2);
 }
 
-const { dryRun, filters } = parsedArgs;
+// Safety guard: refuse to run without a filter or --all.
+// Checked here (before opening a DB connection) so the error message is
+// immediate and no teardown is needed.
+try {
+  requireFilterOrAll(parsedArgs);
+} catch (err) {
+  if (err instanceof ArgumentError) {
+    console.error(`Error: ${err.message}`);
+    process.exit(2);
+  }
+  throw err;
+}
+
+const { dryRun, all, filters } = parsedArgs;
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   const ssl =
@@ -90,54 +118,58 @@ async function main(): Promise<void> {
   const ds = new DataSource(options);
   await ds.initialize();
 
-  const repo = ds.getRepository(DeadLetterEventEntity);
-  const allEntries = await repo.find({ order: { createdAt: 'ASC' } });
+  try {
+    const repo = ds.getRepository(DeadLetterEventEntity);
 
-  // Filters are applied once, to the set both modes operate on, so a dry-run
-  // can never report a different population than a real replay would touch.
-  const entries = applyFilters(allEntries, filters);
+    // Dry-run path: read-only — print the summary and exit without dispatching.
+    // We keep this branch in the command rather than delegating to the service
+    // so we can print the per-entry detail list that operators rely on.
+    if (dryRun) {
+      const allEntries = await repo.find({ order: { createdAt: 'ASC' } });
+      const entries = applyFilters(allEntries, filters);
 
-  if (dryRun) {
-    // Returns before anything that could mutate state. The connection is
-    // opened read-only in practice: the only query issued above is a find().
-    console.log(formatSummary(summarise(entries, MAX_RETRIES), filters));
+      console.log(formatSummary(summarise(entries, MAX_RETRIES), filters));
 
-    if (entries.length > 0) {
-      console.log('\nEntries:');
-      for (const e of entries) {
-        const exhausted = e.retryCount >= MAX_RETRIES;
-        console.log(
-          `  [${exhausted ? 'EXHAUSTED' : 'PENDING '}] id=${e.id} type=${e.eventType} ledger=${e.ledger} retries=${e.retryCount}/${MAX_RETRIES} error="${e.errorMessage}"`,
-        );
+      if (entries.length > 0) {
+        console.log('\nEntries:');
+        for (const e of entries) {
+          const exhausted = e.retryCount >= MAX_RETRIES;
+          console.log(
+            `  [${exhausted ? 'EXHAUSTED' : 'PENDING '}] id=${e.id} type=${e.eventType} ledger=${e.ledger} retries=${e.retryCount}/${MAX_RETRIES} error="${e.errorMessage}"`,
+          );
+        }
       }
+
+      console.log('\n--dry-run: nothing was replayed and no rows were modified.');
+      return;
     }
 
-    console.log('\n--dry-run: nothing was replayed and no rows were modified.');
-    await ds.destroy();
-    return;
-  }
-
-  if (entries.length === 0) {
-    console.log('No DLQ entries match the given filters.');
-    await ds.destroy();
-    return;
-  }
-
-  console.log(`${entries.length} matching DLQ entries:\n`);
-  for (const e of entries) {
-    const exhausted = e.retryCount >= MAX_RETRIES;
-    console.log(
-      `  [${exhausted ? 'EXHAUSTED' : 'PENDING '}] id=${e.id} type=${e.eventType} ledger=${e.ledger} retries=${e.retryCount}/${MAX_RETRIES} error="${e.errorMessage}"`,
+    // Real replay: delegate to DlqReplayService which owns the dispatch loop.
+    // The dispatcher service is constructed with null optional deps because the
+    // CLI does not need the pipeline state machine or tracing.
+    const dispatcher = new IngestionDispatcherService(
+      ds,
+      null as any, // RaffleProcessor — unused during raw dispatch from DLQ payload
+      null as any, // TicketProcessor
+      null as any, // AdminProcessor
     );
+    const service = new DlqReplayService(repo, dispatcher);
+
+    const result = await service.replay({ filters, all, dryRun: false });
+
+    console.log(result.summary);
+    console.log(
+      `\nReplay complete: replayed=${result.replayed} failed=${result.failed}` +
+        ` skipped_already_replayed=${result.skippedAlreadyReplayed}` +
+        ` skipped_exhausted=${result.skippedExhausted}`,
+    );
+
+    if (result.failed > 0) {
+      process.exitCode = 1;
+    }
+  } finally {
+    await ds.destroy();
   }
-
-  console.log(
-    '\nReplay requires the full NestJS application context. ' +
-    'Start the indexer and use the scheduled retry job, or remove --dry-run to see this message.\n' +
-    'To trigger a replay programmatically, call DlqService.replayAll() from within the app.',
-  );
-
-  await ds.destroy();
 }
 
 main().catch((err) => {
