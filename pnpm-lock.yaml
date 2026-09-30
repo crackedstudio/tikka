@@ -341,6 +341,9 @@ importers:
       '@playwright/test':
         specifier: ^1.43.0
         version: 1.62.1
+      '@size-limit/file':
+        specifier: ^11.0.0
+        version: 11.2.0(size-limit@11.2.0)
       '@testing-library/jest-dom':
         specifier: ^5.16.5
         version: 5.17.0

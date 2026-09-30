@@ -137,6 +137,15 @@ jobs:
         run: pnpm run build
         continue-on-error: false
 
+      - name: Self-test client entry chunk guard
+        run: pnpm --dir client run test:bundle-check
+        continue-on-error: false
+
+      - name: Report client bundle budgets and check entry graph
+        run: pnpm --dir client run report:bundle-budget
+        if: always()
+        continue-on-error: false
+
       - name: Generate OpenAPI and ensure committed spec is up-to-date
         run: |
           pnpm run generate:openapi

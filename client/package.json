@@ -20,6 +20,8 @@
         "generate:types": "openapi-typescript ../backend/openapi.json -o src/types/api.generated.ts",
         "preview": "vite preview",
         "validate-env": "node scripts/validate-env.js",
+        "test:bundle-check": "node --test scripts/check-entry-chunk.test.mjs",
+        "report:bundle-budget": "node scripts/report-bundle-budget.mjs",
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed",
         "lighthouse": "lhci autorun",
@@ -57,6 +59,7 @@
     },
     "devDependencies": {
         "@axe-core/playwright": "^4.10.1",
+        "@size-limit/file": "^11.0.0",
         "@eslint/js": "^9.33.0",
         "@lhci/cli": "^0.14.0",
         "@playwright/test": "^1.43.0",
@@ -89,27 +92,32 @@
         {
             "name": "Main (landing)",
             "path": "dist/assets/index-*.js",
-            "limit": "80 kB"
+            "limit": "80 kB",
+            "gzip": true
         },
         {
             "name": "React Vendor",
             "path": "dist/assets/react-vendor-*.js",
-            "limit": "100 kB"
+            "limit": "100 kB",
+            "gzip": true
         },
         {
             "name": "Vendor",
             "path": "dist/assets/vendor-*.js",
-            "limit": "180 kB"
+            "limit": "180 kB",
+            "gzip": true
         },
         {
             "name": "Stellar SDK",
             "path": "dist/assets/stellar-sdk-*.js",
-            "limit": "150 kB"
+            "limit": "150 kB",
+            "gzip": true
         },
         {
             "name": "Wallet Kit",
             "path": "dist/assets/stellar-wallets-kit-*.js",
-            "limit": "60 kB"
+            "limit": "60 kB",
+            "gzip": true
         }
     ],
     "engines": {
