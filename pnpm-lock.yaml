@@ -108,9 +108,6 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.112.4(@opentelemetry/api@1.9.1)
-      '@tikka/types':
-        specifier: workspace:*
-        version: link:../packages/types
       bullmq:
         specifier: ^5.81.2
         version: 5.81.4

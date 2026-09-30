@@ -4,20 +4,9 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from '../storage/supabase.provider';
 import { MetadataRedisService } from './metadata-redis.service';
 import { MetadataCacheMetricsService } from './metadata-cache-metrics.service';
+import type { RaffleMetadata } from './metadata.types';
 
-/** Raffle metadata stored off-chain in Supabase (title, description, image, category, metadata_cid) */
-export interface RaffleMetadata {
-  raffle_id: number;
-  title: string;
-  description: string;
-  image_url: string | null;
-  image_urls: string[] | null;
-  category: string | null;
-  metadata_cid: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
+export type { RaffleMetadata } from './metadata.types';
 
 export interface SearchMetadataResult {
   matches: RaffleMetadata[];
