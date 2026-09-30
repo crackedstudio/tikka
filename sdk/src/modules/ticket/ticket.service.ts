@@ -114,7 +114,17 @@ export class TicketService {
    * are surfaced as `ExternalContractError` so callers can handle them
    * separately from generic network/contract errors.
    *
-   * @throws TikkaSdkError if validation fails, raffle is not OPEN, or submission is duplicate
+   * @throws {InvalidTicketPurchaseError} code `ValidationError` if inputs are invalid
+   * @throws {TikkaSdkError} code `RaffleEnded` if the raffle is not OPEN
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet is connected
+   * @throws {TikkaSdkError} code `InvalidParams` if a duplicate submission is detected
+   * @throws {TikkaSdkError} code `ExternalContractError` if a token contract rejected the call
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `InsufficientFunds` if the caller lacks balance
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async buy(
     params: BuyTicketParams,
@@ -179,7 +189,17 @@ export class TicketService {
    * Validates the raffle is in OPEN state before simulating/submitting —
    * see issue #929.
    *
-   * @throws TikkaSdkError if validation fails, raffle is not OPEN, or submission is duplicate
+   * @throws {InvalidTicketPurchaseError} code `ValidationError` if inputs are invalid
+   * @throws {TikkaSdkError} code `RaffleEnded` if the raffle is not OPEN
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet is connected
+   * @throws {TikkaSdkError} code `InvalidParams` if a duplicate submission is detected
+   * @throws {TikkaSdkError} code `ExternalContractError` if a token contract rejected the call
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `InsufficientFunds` if the caller lacks balance
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async buyTickets(params: BuyTicketsParams): Promise<ContractResponse<BuyTicketResult>> {
     const { raffleId, count, maxPricePerTicket } = params;
@@ -240,7 +260,14 @@ export class TicketService {
    *
    * Token transfer failures during refund are surfaced as `ExternalContractError`.
    *
-   * @throws TikkaSdkError if validation fails or refund fails
+   * @throws {TikkaSdkError} code `ValidationError` if inputs are invalid
+   * @throws {TikkaSdkError} code `ExternalContractError` if a token contract rejected the refund
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `InsufficientFunds` if the caller lacks balance
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async refund(
     params: RefundTicketParams,
@@ -287,7 +314,13 @@ export class TicketService {
    * Claims the prize for a finalized raffle.
    * Requires wallet signature and submission.
    *
-   * @throws TikkaSdkError if validation fails or prize claim fails
+   * @throws {TikkaSdkError} code `ValidationError` if inputs are invalid
+   * @throws {TikkaSdkError} code `RaffleEnded` if the raffle is not finalized
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `InsufficientFunds` if the caller lacks balance
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async claimPrize(
     params: ClaimPrizeParams,
@@ -321,7 +354,10 @@ export class TicketService {
    * @deprecated Use TicketReadService.getUserTickets() for read-only operations.
    * This method delegates to the read service for backward compatibility.
    * 
-   * @throws TikkaSdkError if validation fails or query fails
+   * @throws {TikkaSdkError} code `ValidationError` if inputs are invalid
+   * @throws {TikkaSdkError} code `InvalidParams` if userAddress is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async getUserTickets(
     params: GetUserTicketsParams,
@@ -343,7 +379,16 @@ export class TicketService {
    * @param params - Batch purchase parameters containing array of raffle purchases
    * @returns Individual results for each raffle purchase attempt
    *
-   * @throws {TikkaSdkError} If validation fails or all purchases fail
+   * @throws {InvalidTicketPurchaseError} code `ValidationError` if inputs are invalid
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet is connected
+   * @throws {TikkaSdkError} code `SimulationFailed` if all batch purchases fail simulation
+   * @throws {TikkaSdkError} code `InvalidParams` if no valid purchases remain
+   * @throws {TikkaSdkError} code `ExternalContractError` if a token contract rejected the call
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects the transaction
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `InsufficientFunds` if the caller lacks balance
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```typescript

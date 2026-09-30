@@ -60,6 +60,10 @@ export class UserService {
    * @param params - Parameters containing the user's Stellar public key
    * @returns Promise containing user participation statistics
    * @throws Will reject if address is invalid
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```ts
@@ -118,6 +122,9 @@ export class UserService {
    * eligibility checks.
    *
    * @source contract
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async getTickets(address: string): Promise<ContractResponse<UserTicket[]>> {
     assertValidPublicKey(address);
@@ -161,6 +168,9 @@ export class UserService {
    *   → indexer/backend (undefined until indexer integration is wired)
    *
    * @source contract (indexer fields are undefined until wired)
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async getActivitySummary(
     params: GetUserActivityParams,
@@ -251,6 +261,9 @@ export class UserService {
    *
    * @param address - The winner's Stellar public key
    * @returns Array of WinningEntry objects, one per won raffle
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async getWinnings(address: string): Promise<ContractResponse<WinningEntry[]>> {
     assertValidPublicKey(address);

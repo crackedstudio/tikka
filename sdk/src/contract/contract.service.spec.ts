@@ -406,4 +406,48 @@ describe('ContractService.poll()', () => {
       code: TikkaSdkErrorCode.ContractError,
     });
   });
+
+  it('simulateReadOnly throws SimulationFailed when RPC returns simulation error', async () => {
+    const { service } = buildService();
+    jest.spyOn((service as any).rpc, 'simulateTransaction').mockResolvedValue({
+      error: 'HostError: contract panicked',
+      _parsed: true,
+      latestLedger: 100,
+      events: [],
+      id: '1',
+    } as any);
+
+    await expect(service.simulateReadOnly(ContractFn.IS_PAUSED, [])).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.SimulationFailed,
+    });
+  });
+
+  it('simulateReadOnly throws ExternalContractError for external contract failures', async () => {
+    const { service } = buildService();
+    jest.spyOn((service as any).rpc, 'simulateTransaction').mockResolvedValue({
+      error: 'Token contract rejected the call',
+      _parsed: true,
+      latestLedger: 100,
+      events: [],
+      id: '1',
+    } as any);
+
+    await expect(service.simulateReadOnly(ContractFn.BUY_TICKET, [])).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ExternalContractError,
+    });
+  });
+
+  it('buildUnsigned throws InvalidParams when sourcePublicKey is empty', async () => {
+    const { service } = buildService();
+    await expect(service.buildUnsigned(ContractFn.BUY_TICKET, [], '')).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.InvalidParams,
+    });
+  });
+
+  it('submitSigned throws InvalidParams when signedXdr is empty', async () => {
+    const { service } = buildService();
+    await expect(service.submitSigned('')).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.InvalidParams,
+    });
+  });
 });
