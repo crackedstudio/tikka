@@ -16,6 +16,25 @@ permissions:
   contents: read
 
 jobs:
+  # Guard: verify the packageManager field carries a valid 128-char SHA-512 hex
+  # digest so corepack strict mode cannot be silently broken by a hand-edit.
+  # Runs on every push/PR, needs no Node setup beyond the runner's built-in node.
+  check-package-manager-hash:
+    name: Verify packageManager hash length
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Assert SHA-512 digest is 128 hex characters
+        run: |
+          HASH=$(node -e "console.log(require('./package.json').packageManager.split('+sha512.')[1])")
+          LEN=${#HASH}
+          if [ "$LEN" -ne 128 ]; then
+            echo "❌ packageManager hash is $LEN characters — expected 128."
+            echo "   Run: corepack use pnpm@9.15.9   and commit the result."
+            exit 1
+          fi
+          echo "✅ packageManager hash length is $LEN — OK"
+
   # Detect whether any source files changed.
   # Docs-only PRs (changes only inside docs/) skip the turbo job entirely.
   changes:
