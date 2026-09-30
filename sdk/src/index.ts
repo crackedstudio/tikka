@@ -1,6 +1,6 @@
 /**
  * @packageDocumentation
- * **@tikka/sdk** — NestJS SDK for interacting with the Tikka Soroban raffle contract on Stellar.
+ * **@tikka/sdk** — SDK for interacting with the Tikka Soroban raffle contract on Stellar.
  *
  * ## Modules
  * - **Raffle** — create, fetch, list, and cancel raffles

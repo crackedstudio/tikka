@@ -1,4 +1,3 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   Contract,
@@ -17,7 +16,6 @@ import { WalletAdapter } from '../wallet/wallet.interface';
 import { getRaffleContractId } from '../contract/constants';
 import { stroopsToXlm } from '../utils/formatting';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
-import { TIKKA_LOGGER } from '../network/network.module';
 import {
   EstimateFeeParams,
   FeeEstimateResult,
@@ -105,7 +103,6 @@ const ANONYMOUS_SOURCE_KEY = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
  * Re-call `estimateFee` with updated params whenever user inputs change —
  * the estimate refreshes because it re-runs `simulateTransaction`.
  */
-@Injectable()
 export class FeeEstimatorService {
   private contractId: string;
   private logger: TikkaLogger;
@@ -113,10 +110,10 @@ export class FeeEstimatorService {
   constructor(
     private readonly rpcService: RpcService,
     private readonly horizon: HorizonService,
-    @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
-    @Optional() @Inject('WALLET_ADAPTER') private readonly wallet?: WalletAdapter,
+    private readonly networkConfig: NetworkConfig,
+    private readonly wallet?: WalletAdapter,
     contractId?: string,
-    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+    logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
     this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };

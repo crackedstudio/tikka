@@ -1,4 +1,3 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   rpc,
@@ -22,13 +21,13 @@ import {
   toTypedSdkError,
 } from '../utils/errors';
 import { TransactionLifecycle } from './lifecycle';
-import { TIKKA_LOGGER } from '../network/network.module';
 import type {
   TxMemo,
   PollConfig,
   SimulateResult,
   SubmitResult,
   InvokeLifecycleOptions,
+  TikkaLogger,
 } from './lifecycle';
 export type { TxMemo } from './lifecycle';
 export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
@@ -80,7 +79,6 @@ export interface InvokeResult<T = any> {
   ledger: number;
 }
 
-@Injectable()
 export class ContractService {
   private contractId: string;
   private lifecycle: TransactionLifecycle;
@@ -89,10 +87,10 @@ export class ContractService {
   constructor(
     private readonly rpc: RpcService,
     private readonly horizon: HorizonService,
-    @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
-    @Optional() @Inject('WALLET_ADAPTER') private wallet?: WalletAdapter,
+    private readonly networkConfig: NetworkConfig,
+    private wallet?: WalletAdapter,
     contractId?: string,
-    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+    logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
     this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };

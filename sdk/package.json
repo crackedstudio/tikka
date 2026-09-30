@@ -1,7 +1,7 @@
 {
   "name": "@tikka/sdk",
   "version": "0.1.0",
-  "description": "NestJS SDK for Tikka Soroban contract interaction",
+  "description": "SDK for Tikka Soroban contract interaction",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
@@ -86,28 +86,29 @@
       "limit": "25 Kb",
       "gzip": true,
       "ignore": [
-        "@nestjs/common",
-        "@nestjs/core",
         "@stellar/stellar-sdk",
-        "rxjs",
-        "reflect-metadata",
         "bignumber.js"
       ]
     }
   ],
+  "peerDependencies": {
+    "@nestjs/common": "^10.4.0",
+    "@nestjs/core": "^10.4.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": { "optional": true },
+    "@nestjs/core": { "optional": true },
+    "reflect-metadata": { "optional": true },
+    "rxjs": { "optional": true }
+  },
   "dependencies": {
     "@albedo-link/intent": "^0.13.0",
     "@lobstrco/signer-extension-api": "^2.0.0",
-    "@nestjs/common": "^10.4.0",
-    "@nestjs/core": "^10.4.0",
     "@stellar/freighter-api": "^3.1.0",
     "@stellar/stellar-sdk": "^16.1.0",
     "bignumber.js": "^11.1.4",
-    "chalk": "^5.3.0",
-    "commander": "^12.1.0",
-    "inquirer": "^14.0.2",
-    "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0",
     "zod": "^4.4.3",
     "@tikka/types": "workspace:*"
   },
@@ -120,9 +121,12 @@
     "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
     "esbuild": "^0.25.0",
     "eslint": "^10.0.2",
     "fast-check": "^4.7.0",
+    "inquirer": "^14.0.2",
     "jest": "^30.4.2",
     "size-limit": "^11.1.6",
     "ts-jest": "^29.4.11",
