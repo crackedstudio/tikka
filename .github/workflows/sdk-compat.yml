@@ -1,0 +1,132 @@
+name: SDK Stellar Compatibility Matrix
+
+on:
+  # Run weekly on Monday at 03:00 UTC so regressions are caught promptly.
+  schedule:
+    - cron: '0 3 * * 1'
+  # Allow manual execution from the Actions tab.
+  workflow_dispatch:
+  # Also run when the SDK itself or this workflow file changes.
+  push:
+    branches:
+      - master
+    paths:
+      - 'sdk/**'
+      - 'packages/types/**'
+      - '.github/workflows/sdk-compat.yml'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'sdk/**'
+      - 'packages/types/**'
+      - '.github/workflows/sdk-compat.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: SDK compat — stellar-sdk ${{ matrix.stellar-sdk-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Run all matrix legs even if one fails so we get a full picture.
+      fail-fast: false
+      matrix:
+        # Each entry is the *exact* version installed for the matrix leg.
+        # When a new stellar-sdk major is released, add it here and update
+        # the peerDependencies range in sdk/package.json accordingly.
+        # See docs/STELLAR_SDK_COMPATIBILITY.md for the support policy.
+        stellar-sdk-version:
+          - '14.3.0' # oldest tested minor of v14
+          - '16.1.0' # pinned v16 (matches workspace pnpm.overrides baseline)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
+        with:
+          node-version-file: .nvmrc
+          # No pnpm cache here — we modify package.json before install.
+
+      # Patch the root pnpm.overrides in-memory so pnpm resolves the exact
+      # stellar-sdk version we want across the whole workspace.  We do NOT
+      # commit this change; it only lives for the duration of this job.
+      - name: Pin @stellar/stellar-sdk to ${{ matrix.stellar-sdk-version }}
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.pnpm = pkg.pnpm ?? {};
+          pkg.pnpm.overrides = pkg.pnpm.overrides ?? {};
+          pkg.pnpm.overrides['@stellar/stellar-sdk'] = '${{ matrix.stellar-sdk-version }}';
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          console.log('pnpm.overrides now:', pkg.pnpm.overrides);
+          EOF
+
+      # Install from the workspace root so workspace: links (e.g. @tikka/types)
+      # resolve correctly.  --no-frozen-lockfile is required because we just
+      # mutated package.json.
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Verify installed stellar-sdk version
+        run: |
+          INSTALLED=$(node -e "console.log(require('./sdk/node_modules/@stellar/stellar-sdk/package.json').version)")
+          echo "Installed: $INSTALLED"
+          if [ "$INSTALLED" != "${{ matrix.stellar-sdk-version }}" ]; then
+            echo "❌ Version mismatch: expected ${{ matrix.stellar-sdk-version }}, got $INSTALLED"
+            exit 1
+          fi
+          echo "✅ Version matches"
+
+      # @tikka/types is a workspace package with no pre-built dist.
+      # Build it before running the SDK tests so TypeScript can resolve its types.
+      - name: Build @tikka/types
+        working-directory: ./packages/types
+        run: pnpm run build
+
+      - name: Typecheck SDK against stellar-sdk ${{ matrix.stellar-sdk-version }}
+        working-directory: ./sdk
+        run: pnpm run typecheck
+
+      - name: Run SDK tests against stellar-sdk ${{ matrix.stellar-sdk-version }}
+        working-directory: ./sdk
+        run: |
+          pnpm exec jest --config jest.config.compat.cjs --coverage \
+            --coverageDirectory ../coverage-compat-${{ matrix.stellar-sdk-version }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: coverage-compat-${{ matrix.stellar-sdk-version }}
+          path: coverage-compat-${{ matrix.stellar-sdk-version }}/lcov.info
+          if-no-files-found: warn
+          retention-days: 7
+
+  # Summary gate: fail the overall check if any matrix leg failed.
+  compat-summary:
+    name: SDK Compat Summary
+    runs-on: ubuntu-latest
+    needs: compat
+    if: always()
+    steps:
+      - name: Check matrix results
+        run: |
+          if [[ "${{ needs.compat.result }}" == "failure" ]]; then
+            echo "❌ One or more stellar-sdk compatibility legs failed."
+            exit 1
+          fi
+          echo "✅ All stellar-sdk compatibility legs passed."
