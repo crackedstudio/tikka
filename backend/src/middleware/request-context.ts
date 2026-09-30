@@ -25,6 +25,12 @@ export function getRequestId(): string | undefined {
   return storage.getStore()?.requestId;
 }
 
+/** Fields for structured log records emitted inside the active request scope. */
+export function getRequestLogContext(): { requestId?: string } {
+  const requestId = getRequestId();
+  return requestId ? { requestId } : {};
+}
+
 /**
  * Returns a headers object carrying the current request id, or an empty object
  * when no request scope is active. Spread into outgoing `fetch`/`RequestInit`

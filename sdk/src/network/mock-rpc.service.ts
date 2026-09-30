@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
 
 export interface MockRpcBehavior {
@@ -9,7 +8,6 @@ export interface MockRpcBehavior {
   errorMessage?: string;
 }
 
-@Injectable()
 export class MockRpcService {
   private behavior: MockRpcBehavior = {};
 

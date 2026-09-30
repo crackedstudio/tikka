@@ -1,0 +1,18 @@
+{
+  "default_branch": "master",
+  "branches": [
+    "feat/sdk-sequence-safety",
+    "feat/vrf-comprehensive-test-suite",
+    "master"
+  ],
+  "parent": {
+    "feat/sdk-sequence-safety": "master",
+    "feat/vrf-comprehensive-test-suite": "master",
+    "master": null
+  },
+  "order": [
+    "master",
+    "feat/sdk-sequence-safety",
+    "feat/vrf-comprehensive-test-suite"
+  ]
+}

@@ -1,3 +1,8 @@
+> **⚠ ARCHIVED** — This document is historical and no longer maintained.
+> For current documentation see the [docs/ index](../README.md) or the superseded-by link in [archive/README.md](./README.md).
+
+---
+
 # Release Policy Verification — Issue #627
 
 ## Status: ✅ COMPLETE

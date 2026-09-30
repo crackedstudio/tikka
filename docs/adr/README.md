@@ -9,9 +9,10 @@ of re-litigating the same question in a PR thread.
 
 ## Index
 
-| ADR | Title | Status |
-|---|---|---|
-| [0001](0001-api-versioning-policy.md) | API versioning policy | Proposed |
+| ADR                                       | Title                     | Status   |
+| ----------------------------------------- | ------------------------- | -------- |
+| [0001](0001-api-versioning-policy.md)     | API versioning policy     | Proposed |
+| [0002](0002-low-stakes-prng-threshold.md) | Low-stakes PRNG threshold | Accepted |
 
 ## Status values
 

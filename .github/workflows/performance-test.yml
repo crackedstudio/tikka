@@ -19,7 +19,7 @@ jobs:
           node-version: '22'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v3
+        uses: pnpm/action-setup@v6
         with:
           version: 9.15.9
 
@@ -46,7 +46,7 @@ jobs:
           cat docs/performance/results/sse-soak-latest.txt >> docs/performance/results/latest-summary.md
 
       - name: Commit & Push Benchmark Results
-        uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb # v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs(performance): publish automated benchmark results [skip ci]"
           file_pattern: "docs/performance/results/*"
