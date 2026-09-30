@@ -22,6 +22,7 @@ import {
   toTypedSdkError,
 } from '../utils/errors';
 import { TransactionLifecycle } from './lifecycle';
+import { TIKKA_LOGGER } from '../network/network.module';
 import type {
   TxMemo,
   PollConfig,
@@ -83,6 +84,7 @@ export interface InvokeResult<T = any> {
 export class ContractService {
   private contractId: string;
   private lifecycle: TransactionLifecycle;
+  private logger: TikkaLogger;
 
   constructor(
     private readonly rpc: RpcService,
@@ -90,9 +92,11 @@ export class ContractService {
     @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
     @Optional() @Inject('WALLET_ADAPTER') private wallet?: WalletAdapter,
     contractId?: string,
+    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
-    this.lifecycle = new TransactionLifecycle(rpc, horizon, networkConfig, wallet, this.contractId);
+    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+    this.lifecycle = new TransactionLifecycle(rpc, horizon, networkConfig, wallet, this.contractId, logger);
   }
 
   setContractId(id: string): void {

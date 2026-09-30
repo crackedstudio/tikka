@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn, RaffleStatus } from '../../contract/bindings';
 import { validateLifecycleTransition } from '../../contract/lifecycle';
@@ -6,6 +6,8 @@ import { assertNonEmpty } from '../../utils/validation';
 import { AdminWriteOptions } from './admin.types';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 import { AdminTxResponse, TxResponse, ContractResponse } from '../../contract/response';
+import { TIKKA_LOGGER } from '../../network/network.module';
+import type { TikkaLogger } from '../../utils/logger';
 
 /**
  * @category Admin
@@ -41,11 +43,18 @@ import { AdminTxResponse, TxResponse, ContractResponse } from '../../contract/re
  */
 @Injectable()
 export class AdminService {
+  private logger: TikkaLogger;
+
   /**
    * Creates an instance of AdminService.
    * @param contract - The contract service used to invoke and simulate contract functions
    */
-  constructor(private readonly contract: ContractService) {}
+  constructor(
+    private readonly contract: ContractService,
+    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+  }
 
   /**
    * Pauses the raffle contract, preventing new raffle creation and ticket purchases.

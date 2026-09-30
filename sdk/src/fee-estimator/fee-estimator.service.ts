@@ -17,6 +17,7 @@ import { WalletAdapter } from '../wallet/wallet.interface';
 import { getRaffleContractId } from '../contract/constants';
 import { stroopsToXlm } from '../utils/formatting';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { TIKKA_LOGGER } from '../network/network.module';
 import {
   EstimateFeeParams,
   FeeEstimateResult,
@@ -107,6 +108,7 @@ const ANONYMOUS_SOURCE_KEY = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 @Injectable()
 export class FeeEstimatorService {
   private contractId: string;
+  private logger: TikkaLogger;
 
   constructor(
     private readonly rpcService: RpcService,
@@ -114,8 +116,10 @@ export class FeeEstimatorService {
     @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
     @Optional() @Inject('WALLET_ADAPTER') private readonly wallet?: WalletAdapter,
     contractId?: string,
+    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
+    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
   }
 
   /**

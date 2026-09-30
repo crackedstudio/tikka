@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn, RaffleStatus } from '../../contract/bindings';
 import {
@@ -12,6 +12,8 @@ import {
 } from './user.types';
 import { assertValidPublicKey } from '../../utils/validation';
 import { ContractResponse } from '../../contract/response';
+import { TIKKA_LOGGER } from '../../network/network.module';
+import type { TikkaLogger } from '../../utils/logger';
 
 /**
  * @category User
@@ -40,7 +42,14 @@ import { ContractResponse } from '../../contract/response';
  */
 @Injectable()
 export class UserService {
-  constructor(private readonly contractService: ContractService) {}
+  private logger: TikkaLogger;
+
+  constructor(
+    private readonly contractService: ContractService,
+    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+  }
 
   /**
    * Retrieves user participation data from the Soroban contract.
