@@ -91,13 +91,7 @@ describe('RaffleProcessor', () => {
         .mockReturnValueOnce(mockInsertChain())
         .mockReturnValueOnce(mockInsertChain());
 
-      await processor.handleRaffleCreated(
-        1,
-        'GAAAA',
-        500,
-        'tx-1',
-        defaultParams,
-      );
+      await processor.handleRaffleCreated(1, 'GAAAA', 500, 'tx-1', defaultParams);
 
       expect(cacheService.invalidateActiveRaffles).toHaveBeenCalledTimes(1);
     });
@@ -111,13 +105,7 @@ describe('RaffleProcessor', () => {
       const creator = 'GAAAA';
       const ledger = 500;
 
-      await processor.handleRaffleCreated(
-        raffleId,
-        creator,
-        ledger,
-        'tx-1',
-        defaultParams,
-      );
+      await processor.handleRaffleCreated(raffleId, creator, ledger, 'tx-1', defaultParams);
 
       expect(userProcessor.handleRaffleCreated).toHaveBeenCalledWith(
         creator,
@@ -137,9 +125,7 @@ describe('RaffleProcessor', () => {
         .mockReturnValueOnce(mockInsertChain());
 
       const error = new Error('Database error');
-      (userProcessor.handleRaffleCreated as jest.Mock).mockRejectedValueOnce(
-        error,
-      );
+      (userProcessor.handleRaffleCreated as jest.Mock).mockRejectedValueOnce(error);
 
       await expect(
         processor.handleRaffleCreated(1, 'GAAAA', 500, 'tx-1', defaultParams),
@@ -149,20 +135,91 @@ describe('RaffleProcessor', () => {
     });
   });
 
+  describe('handleDrawTriggered', () => {
+    it('should move an open raffle to drawing and audit the event', async () => {
+      const updateChain = mockInsertChain();
+      const insertChain = mockInsertChain();
+      mockManager.createQueryBuilder
+        .mockReturnValueOnce(updateChain)
+        .mockReturnValueOnce(insertChain);
+
+      await processor.handleDrawTriggered(1, 550, 'tx-draw');
+
+      expect(updateChain.update).toHaveBeenCalledWith(RaffleEntity);
+      expect(updateChain.set).toHaveBeenCalledWith({
+        status: RaffleStatus.DRAWING,
+      });
+      expect(insertChain.into).toHaveBeenCalledWith(RaffleEventEntity);
+      expect(insertChain.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          raffleId: 1,
+          eventType: 'DrawTriggered',
+          ledger: 550,
+          txHash: 'tx-draw',
+        }),
+      );
+    });
+
+    it('should only transition a raffle that is still open', async () => {
+      const updateChain = mockInsertChain();
+      const insertChain = mockInsertChain();
+      mockManager.createQueryBuilder
+        .mockReturnValueOnce(updateChain)
+        .mockReturnValueOnce(insertChain);
+
+      await processor.handleDrawTriggered(1, 550, 'tx-draw');
+
+      expect(updateChain.where).toHaveBeenCalledWith('id = :raffleId AND status = :open', {
+        raffleId: 1,
+        open: RaffleStatus.OPEN,
+      });
+    });
+
+    it('should invalidate raffle detail and active raffle caches', async () => {
+      mockManager.createQueryBuilder
+        .mockReturnValueOnce(mockInsertChain())
+        .mockReturnValueOnce(mockInsertChain());
+
+      await processor.handleDrawTriggered(9, 550, 'tx-draw');
+
+      expect(cacheService.invalidateRaffleDetail).toHaveBeenCalledWith('9');
+      expect(cacheService.invalidateActiveRaffles).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return the runner without committing it', async () => {
+      mockManager.createQueryBuilder
+        .mockReturnValueOnce(mockInsertChain())
+        .mockReturnValueOnce(mockInsertChain());
+
+      const runner = await processor.handleDrawTriggered(1, 550, 'tx-draw');
+
+      expect(runner).toBe(mockQueryRunner);
+      expect(mockQueryRunner.startTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled();
+    });
+
+    it('should roll back and propagate errors', async () => {
+      const error = new Error('draw failed');
+      mockManager.createQueryBuilder
+        .mockReturnValueOnce(mockInsertChain())
+        .mockImplementationOnce(() => {
+          throw error;
+        });
+
+      await expect(processor.handleDrawTriggered(1, 550, 'tx-draw')).rejects.toThrow('draw failed');
+      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.release).toHaveBeenCalled();
+      expect(cacheService.invalidateActiveRaffles).not.toHaveBeenCalled();
+    });
+  });
+
   describe('handleRaffleFinalized', () => {
     it('should invalidate caches and dispatch webhook', async () => {
       mockManager.createQueryBuilder
         .mockReturnValueOnce(mockInsertChain())
         .mockReturnValueOnce(mockInsertChain());
 
-      await processor.handleRaffleFinalized(
-        1,
-        'GWINNER',
-        42,
-        '1000',
-        600,
-        'tx-final',
-      );
+      await processor.handleRaffleFinalized(1, 'GWINNER', 42, '1000', 600, 'tx-final');
 
       expect(userProcessor.handleRaffleFinalized).toHaveBeenCalled();
       expect(webhookService.dispatch).toHaveBeenCalledWith(

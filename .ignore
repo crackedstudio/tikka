@@ -1,0 +1,4 @@
+# Paths excluded from ripgrep / fd / similar search tools by default.
+# This prevents stale archived docs from polluting grep results for current code.
+docs/archive/
+sdk/docs/

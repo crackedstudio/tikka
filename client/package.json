@@ -12,24 +12,31 @@
         "lint": "eslint .",
         "typecheck": "tsc --noEmit -p tsconfig.app.json",
         "check:locales": "node scripts/check-locales.js",
-        "pretest": "pnpm run check:locales",
-        "prebuild": "pnpm run check:locales",
+        "check:strings": "node scripts/check-hardcoded-strings.js",
+        "pretest": "pnpm run check:locales && pnpm run check:strings",
+        "prebuild": "pnpm run check:locales && pnpm run check:strings",
         "test": "vitest --run",
         "test:unit": "vitest --run",
         "test:e2e": "playwright test",
         "generate:types": "openapi-typescript ../backend/openapi.json -o src/types/api.generated.ts",
         "preview": "vite preview",
+        "preview:lhci": "vite preview --mode lhci",
         "validate-env": "node scripts/validate-env.js",
+        "test:bundle-check": "node --test scripts/check-entry-chunk.test.mjs",
+        "report:bundle-budget": "node scripts/report-bundle-budget.mjs",
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed",
-        "lighthouse": "lhci autorun",
-        "lighthouse:local": "pnpm run build && lhci autorun"
+        "lighthouse:seed": "node scripts/seed-preview-raffle.js",
+        "lighthouse:desktop": "lhci autorun --config=lighthouserc.desktop.json",
+        "lighthouse:mobile": "lhci autorun --config=lighthouserc.mobile.json",
+        "lighthouse": "pnpm run lighthouse:seed && pnpm run lighthouse:desktop && pnpm run lighthouse:mobile",
+        "lighthouse:local": "pnpm run build && pnpm run lighthouse"
     },
     "dependencies": {
         "@creit.tech/stellar-wallets-kit": "^1.7.3",
         "@sentry/react": "^10.62.0",
-        "@stellar/freighter-api": "^3.1.0",
-        "@stellar/stellar-sdk": "^16.1.0",
+        "@stellar/freighter-api": "^6.0.1",
+        "@stellar/stellar-sdk": "^16.3.0",
         "@supabase/supabase-js": "^2.76.1",
         "@tailwindcss/vite": "^4.1.13",
         "@tanstack/react-query": "^5.101.1",
@@ -58,6 +65,7 @@
     },
     "devDependencies": {
         "@axe-core/playwright": "^4.10.1",
+        "@size-limit/file": "^11.0.0",
         "@eslint/js": "^9.33.0",
         "@lhci/cli": "^0.14.0",
         "@playwright/test": "^1.43.0",
@@ -71,7 +79,7 @@
         "axe-core": "^4.10.1",
         "cross-env": "^10.1.0",
         "eslint": "^9.33.0",
-        "eslint-plugin-react-hooks": "^5.2.0",
+        "eslint-plugin-react-hooks": "^7.1.1",
         "eslint-plugin-react-refresh": "^0.4.20",
         "fast-check": "^4.7.0",
         "globals": "^16.3.0",
@@ -84,33 +92,39 @@
         "typescript-eslint": "^8.39.1",
         "vite": "^7.1.2",
         "vite-plugin-pwa": "^1.3.0",
-        "vitest": "^1.4.1"
+        "vitest": "^5.0.2",
+        "axe-core": "^4.10.1"
     },
     "size-limit": [
         {
             "name": "Main (landing)",
             "path": "dist/assets/index-*.js",
-            "limit": "80 kB"
+            "limit": "80 kB",
+            "gzip": true
         },
         {
             "name": "React Vendor",
             "path": "dist/assets/react-vendor-*.js",
-            "limit": "100 kB"
+            "limit": "100 kB",
+            "gzip": true
         },
         {
             "name": "Vendor",
             "path": "dist/assets/vendor-*.js",
-            "limit": "180 kB"
+            "limit": "180 kB",
+            "gzip": true
         },
         {
             "name": "Stellar SDK",
             "path": "dist/assets/stellar-sdk-*.js",
-            "limit": "150 kB"
+            "limit": "150 kB",
+            "gzip": true
         },
         {
             "name": "Wallet Kit",
             "path": "dist/assets/stellar-wallets-kit-*.js",
-            "limit": "60 kB"
+            "limit": "60 kB",
+            "gzip": true
         }
     ],
     "engines": {

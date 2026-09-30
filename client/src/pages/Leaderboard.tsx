@@ -21,8 +21,31 @@ const Leaderboard: React.FC = () => {
 
   const formatVolume = (volume?: string) => {
     if (!volume) return "0";
-    const num = parseFloat(volume);
-    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+    const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(volume);
+    if (!match) return volume;
+
+    const [, sign, wholePart, fractionPart = ""] = match;
+    let whole = BigInt(wholePart);
+    let fraction = Number(fractionPart.padEnd(3, "0").slice(0, 2));
+    if (Number(fractionPart[2] ?? "0") >= 5) fraction += 1;
+    if (fraction === 100) {
+      whole += 1n;
+      fraction = 0;
+    }
+
+    const formattedWhole = new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 0,
+    }).format(whole);
+    const formattedFraction = String(fraction).padStart(2, "0").replace(/0+$/, "");
+    const decimalSeparator = new Intl.NumberFormat()
+      .formatToParts(1.1)
+      .find((part) => part.type === "decimal")?.value;
+    const isZero = whole === 0n && fraction === 0;
+
+    return `${sign === "-" && !isZero ? "-" : ""}${formattedWhole}${
+      formattedFraction ? `${decimalSeparator}${formattedFraction}` : ""
+    }`;
   };
 
   return (

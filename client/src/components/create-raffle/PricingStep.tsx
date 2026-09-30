@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { StepComponentProps } from "../../types/forms";
 import { CreateRaffleFormSchema } from "../../utils/raffleValidation";
 
@@ -8,6 +9,8 @@ const PricingStep: React.FC<StepComponentProps> = ({
     onNext,
     onBack,
 }) => {
+    const { t } = useTranslation("create");
+
     const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseFloat(e.target.value) || 0;
         updateFormData({ pricePerTicket: value });
@@ -48,18 +51,18 @@ const PricingStep: React.FC<StepComponentProps> = ({
                     />
                 </svg>
                 <h3 className="text-gray-900 dark:text-white text-xl font-bold">
-                    $ Ticket Pricing
+                    {t("pricing.heading")}
                 </h3>
             </div>
             <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
-                Set your ticket price and quantity
+                {t("pricing.subtitle")}
             </p>
 
             <div className="space-y-6">
                 {/* Price Per Ticket */}
                 <div>
                     <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                        Price Per Ticket ($)
+                        {t("pricing.priceLabel")}
                     </label>
                     <input
                         type="number"
@@ -67,7 +70,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                         min="0"
                         value={formData.pricePerTicket}
                         onChange={handlePriceChange}
-                        placeholder="0.0"
+                        placeholder={t("pricing.pricePlaceholder")}
                         className="w-full px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
                     />
                 </div>
@@ -75,7 +78,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                 {/* Total Tickets */}
                 <div>
                     <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                        Total Tickets Available
+                        {t("pricing.ticketsLabel")}
                     </label>
                     <div className="relative">
                         <input
@@ -83,13 +86,13 @@ const PricingStep: React.FC<StepComponentProps> = ({
                             min="0"
                             value={formData.totalTickets}
                             onChange={handleTicketsChange}
-                            placeholder="0"
+                            placeholder={t("pricing.ticketsPlaceholder")}
                             className="w-full px-4 py-3 pr-16 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
                         />
                         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col">
                             <button
                                 onClick={incrementTickets}
-                                aria-label="Increase total tickets"
+                                aria-label={t("pricing.increaseTickets")}
                                 className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] rounded p-1"
                             >
                                 <svg
@@ -107,7 +110,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                             </button>
                             <button
                                 onClick={decrementTickets}
-                                aria-label="Decrease total tickets"
+                                aria-label={t("pricing.decreaseTickets")}
                                 className="text-gray-400 hover:text-gray-900 dark:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] rounded p-1"
                             >
                                 <svg
@@ -130,7 +133,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                 {/* Potential Revenue */}
                 <div>
                     <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                        Potential Revenue
+                        {t("pricing.revenueLabel")}
                     </label>
                     <div className="px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg">
                         <span className="text-gray-900 dark:text-white text-lg font-semibold">
@@ -146,7 +149,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                     onClick={onBack}
                     className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-[#3A365A] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
                 >
-                    Back
+                    {t("nav.back")}
                 </button>
                 <button
                     onClick={onNext}
@@ -157,7 +160,7 @@ const PricingStep: React.FC<StepComponentProps> = ({
                             : "bg-gray-300 dark:bg-gray-600 text-gray-400 cursor-not-allowed"
                     }`}
                 >
-                    Continue
+                    {t("nav.continue")}
                 </button>
             </div>
         </div>

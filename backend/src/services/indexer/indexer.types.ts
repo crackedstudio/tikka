@@ -88,19 +88,8 @@ export interface RaffleFreshness {
   warning?: string;
 }
 
-/** Supabase raffle metadata (off-chain). */
-export interface RaffleMetadata {
-  raffle_id: number;
-  title: string;
-  description: string;
-  image_url: string | null;
-  image_urls: string[] | null;
-  category: string | null;
-  metadata_cid: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
+/** Backend Supabase row type is defined once in the metadata service boundary. */
+export type { RaffleMetadata } from '../metadata/metadata.types';
 
 /** Combined raffle response with freshness context. */
 export interface RaffleWithFreshness extends IndexerRaffleData {
