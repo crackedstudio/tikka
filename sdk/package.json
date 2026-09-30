@@ -129,8 +129,8 @@
   "dependencies": {
     "@albedo-link/intent": "^0.13.0",
     "@lobstrco/signer-extension-api": "^2.0.0",
-    "@stellar/freighter-api": "^3.1.0",
-    "@stellar/stellar-sdk": "^16.1.0",
+    "@stellar/freighter-api": "^6.0.1",
+    "@stellar/stellar-sdk": "^16.3.0",
     "bignumber.js": "^11.1.4",
     "zod": "^4.4.3",
     "@tikka/types": "workspace:*"
