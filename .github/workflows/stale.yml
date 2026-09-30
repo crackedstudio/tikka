@@ -1,0 +1,55 @@
+name: Stale Issues and PRs Handler
+
+on:
+  schedule:
+    # Run once daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark and close stale issues and PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stale Action
+        uses: actions/stale@28ca1036281aeb5870e1b66ac042e64530707313 # v9.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # Conservative timeout policy for curated open issues
+          days-before-issue-stale: 90
+          days-before-issue-close: 14
+          days-before-pr-stale: 60
+          days-before-pr-close: 14
+          
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had
+            recent activity in the last 90 days. It will be closed in 14 days if no further
+            activity occurs. Thank you for your contributions!
+          close-issue-message: >
+            This issue was closed because it has been inactive for 14 days since being marked as stale.
+            If this issue is still relevant, please feel free to reopen it or file a new issue.
+          
+          stale-pr-message: >
+            This pull request has been automatically marked as stale because it has not had
+            recent activity in the last 60 days. It will be closed in 14 days if no further
+            activity occurs.
+          close-pr-message: >
+            This pull request was closed because it has been inactive for 14 days since being marked as stale.
+          
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          
+          # Exemptions
+          exempt-milestones: true
+          exempt-all-issue-milestones: true
+          exempt-all-pr-milestones: true
+          exempt-issue-labels: 'pinned,security,roadmap,epic,help wanted,good first issue'
+          exempt-pr-labels: 'pinned,security,work in progress,wip'
+          
+          # Only mark/close up to 30 per run to avoid spamming
+          operations-per-run: 30
