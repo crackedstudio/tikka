@@ -35,12 +35,6 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
     super();
   }
 
-  /**
-   * Called by NestJS on SIGTERM (requires app.enableShutdownHooks()).
-   * Delegates to BullMQ Worker.close() which:
-   *  1. Stops picking up new jobs
-  }
-
   async process(job: Job<WebhookDeliveryJobData>): Promise<void> {
     if (this.shuttingDown) {
       throw new Error('Backend shutting down — rejecting webhook delivery');
@@ -49,16 +43,14 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
     const execute = async (): Promise<void> => {
       const { targetUrl, secret, eventType, payload } = job.data;
 
+      const timestamp = new Date().toISOString();
       const payloadString = JSON.stringify({
         event: eventType,
-        timestamp: new Date().toISOString(),
+        timestamp,
         data: payload,
       });
 
-      const signature = crypto
-        .createHmac('sha256', secret)
-        .update(payloadString)
-        .digest('hex');
+      const signature = crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
 
       let statusCode: number | null = null;
       let responseBody: string | null = null;
@@ -71,6 +63,8 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
           headers: {
             'Content-Type': 'application/json',
             'X-Tikka-Signature': signature,
+            'X-Tikka-Signature-Algorithm': 'sha256',
+            'X-Tikka-Timestamp': timestamp,
             'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
           },
           body: payloadString,
@@ -160,10 +154,7 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
         last_attempt_at: new Date().toISOString(),
       });
     } catch (err) {
-      this.logger.error(
-        `Failed to record dead letter for webhook ${job.data.webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to record dead letter for webhook ${job.data.webhookId}`, err);
     }
   }
 
@@ -185,36 +176,24 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
         success,
       });
     } catch (err) {
-      this.logger.error(
-        `Failed to log delivery for webhook ${job.data.webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to log delivery for webhook ${job.data.webhookId}`, err);
     }
   }
 
   private async resetFailureCount(webhookId: string): Promise<void> {
     try {
-      await this.client
-        .from(WEBHOOKS_TABLE)
-        .update({ failure_count: 0 })
-        .eq('id', webhookId);
+      await this.client.from(WEBHOOKS_TABLE).update({ failure_count: 0 }).eq('id', webhookId);
     } catch (err) {
-      this.logger.error(
-        `Failed to reset failure count for webhook ${webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to reset failure count for webhook ${webhookId}`, err);
     }
   }
 
   private async incrementFailureCount(webhookId: string): Promise<void> {
     try {
-      const { error } = await this.client.rpc(
-        'increment_webhook_failure_count',
-        {
-          p_webhook_id: webhookId,
-          p_max_failures: MAX_FAILURES,
-        },
-      );
+      const { error } = await this.client.rpc('increment_webhook_failure_count', {
+        p_webhook_id: webhookId,
+        p_max_failures: MAX_FAILURES,
+      });
 
       if (error) {
         this.logger.error(
@@ -223,10 +202,7 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
         );
       }
     } catch (err) {
-      this.logger.error(
-        `Failed to increment failure count for webhook ${webhookId}`,
-        err,
-      );
+      this.logger.error(`Failed to increment failure count for webhook ${webhookId}`, err);
     }
   }
 }

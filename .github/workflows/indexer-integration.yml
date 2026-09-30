@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   integration-tests:
-    name: Reorg / Snapshot / Migration Integration
+    name: Reorg / Snapshot / Migration / Outage Chaos Integration
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -60,6 +60,17 @@ jobs:
       # test suite (via Docker).  No CI-level Postgres/Redis service
       # containers are needed — each suite starts a disposable container
       # that is torn down in afterAll, guaranteeing full isolation.
+
+      # Dependency-outage chaos coverage. Outages are injected in-process
+      # (see src/test/integration/helpers/fault-injection.ts), so this suite
+      # needs no containers and fails fast before the heavier suites run.
+      - name: Dependency outage chaos tests
+        run: |
+          pnpm exec jest --config jest.integration.config.js --runInBand --forceExit \
+            src/test/integration/dependency-outage-chaos.integration.spec.ts
+        env:
+          NODE_ENV: test
+        timeout-minutes: 5
 
       - name: Run integration tests
         run: pnpm run test:integration

@@ -60,8 +60,7 @@
     "rxjs": "^7.8.0",
     "sharp": "0.35.3",
     "typeorm": "^0.3.28",
-    "zod": "^4.4.3",
-    "@tikka/types": "workspace:*"
+    "zod": "^4.4.3"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -73,8 +72,12 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
+      "^.+\\.tsx?$": "ts-jest"
       "^.+\\.(t|j)sx?$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!.*(uint8array-extras|@noble|@stellar|@scure|base32\\.js)/)"
+    ],
     "testEnvironment": "node",
     "collectCoverageFrom": [
       "**/*.ts"
@@ -92,7 +95,9 @@
         "lines": 60
       }
     },
-    "setupFiles": ["../test/jest-setup.ts"]
+    "setupFiles": [
+      "../test/jest-setup.ts"
+    ]
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",

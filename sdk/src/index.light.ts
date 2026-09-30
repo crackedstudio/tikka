@@ -21,14 +21,7 @@
  * - NestJS `*.module.ts` classes (DI container rooms) and the admin / auth /
  *   event-subscription modules — they drag in server concerns.
  * - The offline signing bundle helpers from the main entry.
- *
- * ## Decorators
- *
- * The services use NestJS `@Injectable`/`@Inject` metadata decorators which rely
- * on `reflect-metadata`. We import it here so consumers never need to remember
- * that step; the light build compiles with `emitDecoratorMetadata: false`.
  */
-import 'reflect-metadata';
 
 /* Network layer */
 export { RpcService } from './light/rpc.service';

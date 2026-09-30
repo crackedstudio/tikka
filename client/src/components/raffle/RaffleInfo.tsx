@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
-import { Info, User, Wallet, Calendar, ExternalLink } from "lucide-react";
-import Line from "../../assets/svg/Line";
-import { useTranslation } from "react-i18next";
+import { Link } from 'react-router-dom';
+import { Info, User, Wallet, Calendar, ExternalLink } from 'lucide-react';
+import Line from '../../assets/svg/Line';
+import { useTranslation } from 'react-i18next';
 
 interface RaffleInfoProps {
   title: string;
@@ -9,6 +9,20 @@ interface RaffleInfoProps {
   creator: string;
   prizeValue: string;
   prizeCurrency: string;
+}
+
+export const VRF_PRIZE_THRESHOLD_XLM = 500;
+
+export function drawSchemeLabel(prizeValue: string, prizeCurrency: string): string {
+  const amount = Number(prizeValue);
+  const known = prizeCurrency === 'XLM' && Number.isFinite(amount);
+  if (known && amount >= VRF_PRIZE_THRESHOLD_XLM) {
+    return `Draw scheme: VRF. This ${amount} XLM prize is at or above the ${VRF_PRIZE_THRESHOLD_XLM} XLM line, so the draw is secured by a public-key proof.`;
+  }
+  if (known) {
+    return `Draw scheme: PRNG. This ${amount} XLM prize is under the ${VRF_PRIZE_THRESHOLD_XLM} XLM line. Anyone can recompute the seed, but it is not signed by the oracle key.`;
+  }
+  return `Draw scheme: prizes under ${VRF_PRIZE_THRESHOLD_XLM} XLM use PRNG; prizes of ${VRF_PRIZE_THRESHOLD_XLM} XLM or more use VRF.`;
 }
 
 const RaffleInfo = ({
@@ -29,7 +43,7 @@ const RaffleInfo = ({
         <div className="flex items-center space-x-3 text-gray-400">
           <User className="w-4 h-4" />
           <span className="text-sm">
-            {t("raffle.createdBy")}{" "}
+            {t('raffle.createdBy')}{' '}
             <Link
               to={`/creators/${creator}`}
               className="text-gray-900 dark:text-white font-medium hover:text-[#FE3796] dark:hover:text-[#FE3796] transition-colors"
@@ -46,11 +60,9 @@ const RaffleInfo = ({
       <div className="space-y-4">
         <div className="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
           <Info className="w-5 h-5 text-pink-600 dark:text-[#FE3796]" />
-          <h3 className="text-lg font-bold">{t("raffle.about")}</h3>
+          <h3 className="text-lg font-bold">{t('raffle.about')}</h3>
         </div>
-        <p className="text-gray-400 leading-relaxed">
-          {description || t("raffle.noDescription")}
-        </p>
+        <p className="text-gray-400 leading-relaxed">{description || t('raffle.noDescription')}</p>
       </div>
 
       <Line />
@@ -58,7 +70,7 @@ const RaffleInfo = ({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
         <div className="space-y-1">
           <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">
-            {t("raffle.prize")}
+            {t('raffle.prize')}
           </p>
           <p className="text-xl font-black text-yellow-600 dark:text-[#FFD700]">
             {prizeValue} {prizeCurrency}
@@ -66,7 +78,7 @@ const RaffleInfo = ({
         </div>
         <div className="space-y-1">
           <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">
-            {t("raffle.started")}
+            {t('raffle.started')}
           </p>
           <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
             <Calendar className="w-4 h-4 text-gray-400" />
@@ -75,7 +87,7 @@ const RaffleInfo = ({
         </div>
         <div className="space-y-1">
           <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">
-            {t("raffle.network")}
+            {t('raffle.network')}
           </p>
           <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
             <Wallet className="w-4 h-4 text-gray-400" />
@@ -83,6 +95,10 @@ const RaffleInfo = ({
           </p>
         </div>
       </div>
+
+      <p className="text-sm text-gray-500 leading-relaxed">
+        {drawSchemeLabel(prizeValue, prizeCurrency)}
+      </p>
     </div>
   );
 };

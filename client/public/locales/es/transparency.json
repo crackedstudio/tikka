@@ -1,0 +1,60 @@
+{
+  "page": {
+    "title": "Transparencia",
+    "subtitle": "Cada revelación del oráculo se registra en la cadena. Las estadísticas se actualizan cada 30 segundos. Usa el formulario de verificación para confirmar independientemente cualquier resultado de sorteo."
+  },
+  "stats": {
+    "totalRaffles": "Total de Sorteos",
+    "xlmDistributed": "XLM Distribuido",
+    "platformUptime": "Disponibilidad de la Plataforma",
+    "mostRecentProof": "Prueba Más Reciente",
+    "viewOnExplorer": "Ver en Stellar Expert"
+  },
+  "oracleKey": {
+    "label": "Clave Pública del Oráculo",
+    "notConfigured": "No configurado",
+    "copy": "Copiar",
+    "copied": "¡Copiado!"
+  },
+  "verify": {
+    "heading": "Verificar un Sorteo",
+    "viewAuditLog": "Ver Registro de Auditoría del Oráculo →",
+    "placeholder": "Pega el ID del sorteo para verificar...",
+    "button": "Verificar",
+    "verifying": "Verificando…",
+    "valid": "✓ Válido — el resultado del sorteo es auténtico",
+    "invalid": "✗ Inválido — {{reason}}",
+    "invalidDefault": "verificación fallida",
+    "proofLabel": "Prueba:"
+  },
+  "filter": {
+    "placeholder": "Filtrar por ID de Sorteo",
+    "clear": "Limpiar",
+    "totalEntries": "{{count}} entradas en total"
+  },
+  "table": {
+    "timestamp": "Marca de Tiempo",
+    "raffle": "Sorteo",
+    "method": "Método",
+    "requestId": "ID de Solicitud",
+    "txHash": "Hash de Tx",
+    "details": "Detalles",
+    "hide": "Ocultar",
+    "verifyThisDraw": "↑ Verificar este sorteo",
+    "loading": "Cargando…",
+    "empty": "No se encontraron entradas de auditoría.",
+    "oracleId": "ID del Oráculo",
+    "requestIdFull": "ID de Solicitud",
+    "seedHex": "Semilla (hex)",
+    "proofHex": "Prueba (hex)",
+    "txHashFull": "Hash de Tx"
+  },
+  "pagination": {
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page": "{{current}} / {{total}}"
+  },
+  "error": {
+    "loadFailed": "Error al cargar el registro de auditoría"
+  }
+}

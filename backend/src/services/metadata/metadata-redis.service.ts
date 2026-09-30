@@ -56,6 +56,30 @@ export class MetadataRedisService implements OnModuleInit, OnModuleDestroy {
     return this.client !== null;
   }
 
+  async ping(timeoutMs = 1000): Promise<boolean> {
+    if (!this.client) {
+      return false;
+    }
+
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+      const response = await Promise.race([
+        this.client.ping(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Redis ping timed out')), timeoutMs);
+          timeout.unref();
+        }),
+      ]);
+      return response === 'PONG';
+    } catch {
+      return false;
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
   async get(key: string): Promise<string | null> {
     if (!this.client) {
       return null;

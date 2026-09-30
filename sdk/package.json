@@ -1,7 +1,7 @@
 {
   "name": "@tikka/sdk",
   "version": "0.1.0",
-  "description": "NestJS SDK for Tikka Soroban contract interaction",
+  "description": "SDK for Tikka Soroban contract interaction",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
@@ -14,10 +14,20 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "DEPRECATION.md",
+    "OPERATIONAL.md"
+  ],
   "typesVersions": {
     "*": {
       "network": [
         "dist/network/circuit-breaker.d.ts"
+      ],
+      "testing": [
+        "dist/testing/index.d.ts"
       ]
     }
   },
@@ -41,6 +51,11 @@
       "import": "./dist/network/circuit-breaker.js",
       "require": "./dist/network/circuit-breaker.js",
       "types": "./dist/network/circuit-breaker.d.ts"
+    },
+    "./testing": {
+      "import": "./dist/testing/index.js",
+      "require": "./dist/testing/index.js",
+      "types": "./dist/testing/index.d.ts"
     }
   },
   "bin": {
@@ -50,17 +65,17 @@
     "cli": "node bin/tikka.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "nest build",
-    "build:read": "tsc -p tsconfig.read.json",
     "build:light": "tsc -p tsconfig.light.json",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "jest --config jest.config.cjs",
+    "test": "pnpm run build && jest --config jest.config.cjs",
     "test:testnet": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs",
-    "test:integration": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs --testPathPattern=test/integration",
+    "test:integration": "TIKKA_TESTNET_TESTS=1 jest --config jest.config.cjs --testPathPatterns=test/integration",
     "tikka": "node bin/tikka.mjs",
     "examples:check": "tsc --project examples/tsconfig.json",
+    "pack:check": "node scripts/check-pack.mjs",
     "example:cli": "node bin/tikka.mjs",
     "example:quickstart": "ts-node examples/quickstart.ts",
     "example:create-raffle": "ts-node examples/create-raffle.ts",
@@ -70,10 +85,8 @@
     "example:offline-signing": "ts-node examples/offline-signing.ts",
     "example:custom-wallet": "ts-node examples/custom-wallet.ts",
     "api-extractor": "api-extractor run --local --verbose",
-    "api-extractor:read": "api-extractor run --config api-extractor.read.json --local --verbose",
-    "api-extractor:write": "api-extractor run --config api-extractor.write.json --local --verbose",
     "api-extractor:light": "api-extractor run --config api-extractor.light.json --local --verbose",
-    "api-extractor:all": "pnpm run api-extractor && pnpm run api-extractor:read && pnpm run api-extractor:write && pnpm run api-extractor:light",
+    "api-extractor:all": "pnpm run api-extractor && pnpm run api-extractor:light",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
@@ -81,33 +94,69 @@
   },
   "size-limit": [
     {
-      "name": "@tikka/sdk light",
-      "path": "dist/cjs/light.js",
-      "limit": "25 Kb",
+      "name": "@tikka/sdk .",
+      "path": "src/index.ts",
+      "limit": "420000 B",
       "gzip": true,
       "ignore": [
-        "@nestjs/common",
-        "@nestjs/core",
-        "@stellar/stellar-sdk",
-        "rxjs",
-        "reflect-metadata",
-        "bignumber.js"
+        "crypto",
+        "stream",
+        "node:*"
+      ]
+    },
+    {
+      "name": "@tikka/sdk ./light",
+      "path": "src/index.light.ts",
+      "limit": "115000 B",
+      "gzip": true,
+      "ignore": [
+        "crypto",
+        "stream",
+        "node:*"
+      ]
+    },
+    {
+      "name": "@tikka/sdk ./network",
+      "path": "src/network/circuit-breaker.ts",
+      "limit": "750 B",
+      "gzip": true,
+      "ignore": [
+        "crypto",
+        "stream",
+        "node:*"
       ]
     }
   ],
+  "peerDependencies": {
+    "@nestjs/common": "^10.4.0",
+    "@nestjs/core": "^10.4.0",
+    "@stellar/stellar-sdk": ">=14.0.0 <17.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
+    "@nestjs/core": {
+      "optional": true
+    },
+    "@stellar/stellar-sdk": {
+      "optional": false
+    },
+    "reflect-metadata": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@albedo-link/intent": "^0.13.0",
     "@lobstrco/signer-extension-api": "^2.0.0",
-    "@nestjs/common": "^10.4.0",
-    "@nestjs/core": "^10.4.0",
     "@stellar/freighter-api": "^3.1.0",
     "@stellar/stellar-sdk": "^16.1.0",
     "bignumber.js": "^11.1.4",
-    "chalk": "^5.3.0",
-    "commander": "^12.1.0",
-    "inquirer": "^14.0.2",
-    "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0",
     "zod": "^4.4.3",
     "@tikka/types": "workspace:*"
   },
@@ -120,9 +169,12 @@
     "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
     "esbuild": "^0.25.0",
     "eslint": "^10.0.2",
     "fast-check": "^4.7.0",
+    "inquirer": "^14.0.2",
     "jest": "^30.4.2",
     "size-limit": "^11.1.6",
     "ts-jest": "^29.4.11",

@@ -1,6 +1,6 @@
 /**
  * @packageDocumentation
- * **@tikka/sdk** — NestJS SDK for interacting with the Tikka Soroban raffle contract on Stellar.
+ * **@tikka/sdk** — SDK for interacting with the Tikka Soroban raffle contract on Stellar.
  *
  * ## Modules
  * - **Raffle** — create, fetch, list, and cancel raffles
@@ -35,6 +35,19 @@ export type {
   PollConfig,
   InvokeLifecycleOptions,
 } from './contract/lifecycle';
+export {
+  FIRST_RAFFLE_ID,
+  MAX_RAFFLE_ID,
+  RAFFLE_ID_SPACE_SIZE,
+  RAFFLE_ID_EXHAUSTED_CONTRACT_ERROR_CODE,
+  TERMINAL_RAFFLE_STATUSES,
+  RaffleIdAllocator,
+  allocateRaffleId,
+  isAllowedTransition,
+  isTerminalRaffleStatus,
+  nextRaffleId,
+} from './contract/raffle-id-allocation';
+export type { RaffleIdCounterState, RaffleIdStorageState } from './contract/raffle-id-allocation';
 
 // ── Raffle ──────────────────────────────────────────────────────────────────
 export * from './modules/raffle';
