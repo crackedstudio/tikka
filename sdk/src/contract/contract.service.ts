@@ -35,6 +35,15 @@ export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
 import { ContractResponse, TxResponse } from './response';
 import type { TikkaLogger } from '../utils/logger';
 import { defaultLogger } from '../utils/logger';
+import {
+  parseNumber,
+  parseNumberArray,
+  parseString,
+  parseBoolean,
+  parseRaffleData,
+  parseUserParticipation,
+  parseVoid,
+} from './parsers';
 
 export interface InvokeOptions {
   sourcePublicKey?: string;
@@ -55,7 +64,7 @@ export interface InvokeOptions {
  *   2. Signer signs offline and returns `signedXdr`
  *   3. Call submitSigned(signedXdr) on the online machine to broadcast
  */
-export interface UnsignedTxResult<T = any> {
+export interface UnsignedTxResult<T = unknown> {
   /** Base64-encoded unsigned (but fee-bumped & auth-populated) transaction XDR */
   unsignedXdr: string;
   /** Simulated return value — lets the caller review the outcome before signing */
@@ -75,7 +84,7 @@ function isExternalSimulationError(errorMsg: string): boolean {
 }
 
 /** @deprecated Use SubmitResult from lifecycle instead. Kept for batchBuyTickets compatibility. */
-export interface InvokeResult<T = any> {
+export interface InvokeResult<T = unknown> {
   result: T;
   txHash: string;
   ledger: number;
@@ -142,7 +151,7 @@ export class ContractService {
    */
   async simulate<T = unknown>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
     options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
     return this.lifecycle.simulate<T>(method, params, options);
@@ -193,14 +202,14 @@ export class ContractService {
    */
   async simulateReadOnly<T>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
   ): Promise<TxResponse<T>> {
     const sourceKey = this.wallet
       ? await this.wallet.getPublicKey()
       : 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
     const account = await this.horizon.loadAccount(sourceKey).catch(() => {
-      return { accountId: () => sourceKey, sequenceNumber: () => '0' } as any;
+      return { accountId: () => sourceKey, sequenceNumber: () => '0' } as unknown as xdr.Account;
     });
 
     const contract = new Contract(this.contractId);
@@ -215,7 +224,7 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? '';
+      const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Read-only simulation of ${method} failed: ${errMsg}`;
 
       if (isExternalSimulationError(errMsg)) {
@@ -260,9 +269,9 @@ export class ContractService {
    * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
    * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
-  async invoke<T = any>(
+  async invoke<T = unknown>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
     options: InvokeOptions = {},
   ): Promise<TxResponse<T>> {
     try {
@@ -290,13 +299,14 @@ export class ContractService {
         transactionHash: polled.txHash,
         ledger: polled.ledger,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       // Carry both response styles (`success` flag and `status`) so callers
       // written against either convention observe the failure.
       return {
         success: false,
         status: 'ERROR' as const,
-        error: error.message || String(error),
+        error: message,
       };
     }
   }
@@ -310,9 +320,9 @@ export class ContractService {
    * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
-  async buildUnsigned<T = any>(
+  async buildUnsigned<T = unknown>(
     method: ContractFnName | string,
-    params: any[],
+    params: unknown[],
     sourcePublicKey: string,
     feeOverride?: number,
   ): Promise<UnsignedTxResult<T>> {
@@ -343,7 +353,7 @@ export class ContractService {
    * @throws {TikkaSdkError} code `ContractError` if the transaction fails on-chain
    * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
-  async submitSigned<T = any>(signedXdr: string): Promise<TxResponse<T>> {
+  async submitSigned<T = unknown>(signedXdr: string): Promise<TxResponse<T>> {
     if (!signedXdr) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
@@ -409,7 +419,7 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? '';
+      const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Batch simulation failed${errMsg ? `: ${errMsg}` : ''}`;
       throw (
         toTypedContractError(message, errMsg) ??
@@ -421,14 +431,14 @@ export class ContractService {
     const preparedTx = rpc.assembleTransaction(tx, successSim).build();
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
-    const simResult: any[] = successSim.result?.retval
-      ? [scValToNative(successSim.result.retval)]
+    const simResult: number[] = successSim.result?.retval
+      ? parseNumberArray(successSim.result.retval, 'batchBuyTickets.simResult')
       : [];
 
     if (options.simulateOnly) {
       return {
         success: true,
-        value: simResult as any,
+        value: simResult as number[],
         transactionHash: '',
         ledger: 0,
       };
@@ -449,7 +459,7 @@ export class ContractService {
     const txResp = await this.rpc.getTransaction(sendResp.hash);
 
     if (txResp.status === rpc.Api.GetTransactionStatus.FAILED) {
-      const resultXdr = (txResp as any).resultXdr ?? '';
+      const resultXdr = (txResp as Record<string, unknown>).resultXdr ?? '';
       const message = 'Batch transaction failed';
       throw (
         toTypedContractError(message, resultXdr) ??
@@ -461,7 +471,9 @@ export class ContractService {
 
     return {
       success: true,
-      value: (successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult) as any,
+      value: successTx.returnValue
+        ? parseNumberArray(successTx.returnValue, 'batchBuyTickets.returnValue')
+        : simResult,
       transactionHash: sendResp.hash,
       ledger: successTx.ledger,
     };
@@ -469,7 +481,7 @@ export class ContractService {
 
   /* ---------------- HELPERS ---------------- */
 
-  private toScVal(val: any): xdr.ScVal {
+  private toScVal(val: unknown): xdr.ScVal {
     if (val instanceof xdr.ScVal) return val;
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
