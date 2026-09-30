@@ -277,6 +277,45 @@ pnpm --filter sdk run build:light
 pnpm --filter sdk run size-check
 ```
 
+## Documentation policy
+
+Documentation must be kept separate from source code to maintain clear boundaries and make it easier to find and maintain.
+
+### Source directories
+
+Source directories (`*/src/`) hold **code only** with one exception:
+
+- ✅ **Allowed**: `README.md` files that explain the module/component they sit next to
+- ❌ **Not allowed**: Guides, design docs, verification notes, or any other markdown files
+
+### Where documentation belongs
+
+| Type of documentation | Location |
+|----------------------|----------|
+| Package-level guides | `<package>/docs/` (e.g., `oracle/docs/`, `indexer/docs/`) |
+| Cross-package docs | `docs/` at repository root |
+| Historical notes | `docs/archive/` with date prefix (e.g., `2026-08-28-backend-*`) |
+| API documentation | `docs/api/` |
+| Architecture decisions | `docs/adr/` |
+| Database schemas | `docs/database/` |
+
+### Examples
+
+**✅ Good**:
+- `backend/src/middleware/README.md` — explains the middleware module
+- `oracle/docs/TX_SUBMITTER_GUIDE.md` — comprehensive guide for transaction submission
+- `docs/backend/ENV_VARS.md` — environment variable reference
+- `docs/archive/2026-08-28-backend-raffles-VERIFICATION.md` — historical cleanup note
+
+**❌ Bad**:
+- `backend/src/config/ENV_VARS.md` — should be in `docs/backend/`
+- `oracle/src/submitter/TX_SUBMITTER_GUIDE.md` — should be in `oracle/docs/`
+- `indexer/src/database/entities/ENTITY_OWNERSHIP.md` — should be in `docs/database/`
+
+### Enforcement
+
+CI automatically rejects PRs that add non-README markdown files under any `src/` directory. See `.github/workflows/ci.yml` for the implementation.
+
 ## Code formatting
 
 This repository uses Prettier for code formatting. A one-time formatting sweep was performed and its commit hash is listed in `.git-blame-ignore-revs` so that it doesn't pollute `git blame`.
