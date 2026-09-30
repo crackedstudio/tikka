@@ -1,3 +1,4 @@
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   rpc,
@@ -27,12 +28,13 @@ import type {
   SimulateResult,
   SubmitResult,
   InvokeLifecycleOptions,
-  TikkaLogger,
 } from './lifecycle';
 export type { TxMemo } from './lifecycle';
 export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
 
 import { ContractResponse, TxResponse } from './response';
+import type { TikkaLogger } from '../utils/logger';
+import { defaultLogger } from '../utils/logger';
 
 export interface InvokeOptions {
   sourcePublicKey?: string;
@@ -79,6 +81,7 @@ export interface InvokeResult<T = any> {
   ledger: number;
 }
 
+@Injectable()
 export class ContractService {
   private contractId: string;
   private lifecycle: TransactionLifecycle;
@@ -87,14 +90,21 @@ export class ContractService {
   constructor(
     private readonly rpc: RpcService,
     private readonly horizon: HorizonService,
-    private readonly networkConfig: NetworkConfig,
-    private wallet?: WalletAdapter,
+    @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
+    @Optional() @Inject('WALLET_ADAPTER') private wallet?: WalletAdapter,
     contractId?: string,
-    logger?: TikkaLogger,
+    @Optional() @Inject('TIKKA_LOGGER') logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
-    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
-    this.lifecycle = new TransactionLifecycle(rpc, horizon, networkConfig, wallet, this.contractId, logger);
+    this.logger = logger ?? defaultLogger;
+    this.lifecycle = new TransactionLifecycle(
+      rpc,
+      horizon,
+      networkConfig,
+      wallet,
+      this.contractId,
+      this.logger,
+    );
   }
 
   setContractId(id: string): void {

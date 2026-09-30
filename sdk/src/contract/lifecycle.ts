@@ -37,7 +37,8 @@ import {
   NetworkError,
   toTypedContractError,
 } from '../utils/errors';
-import { type TikkaLogger, defaultLogger } from '../utils/logger';
+import type { TikkaLogger } from '../utils/logger';
+import { defaultLogger } from '../utils/logger';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,9 @@ import { type TikkaLogger, defaultLogger } from '../utils/logger';
  * Mirrors the three Stellar memo types the protocol supports.
  */
 export type TxMemo =
-  { type: 'text'; value: string } | { type: 'id'; value: string } | { type: 'hash'; value: Buffer };
+  | { type: 'text'; value: string }
+  | { type: 'id'; value: string }
+  | { type: 'hash'; value: Buffer };
 
 /** Successful simulation result — everything needed to decide whether to sign. */
 export interface SimulateResult<T = unknown> {

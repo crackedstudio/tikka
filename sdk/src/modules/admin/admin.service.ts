@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Optional, Inject } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn, RaffleStatus } from '../../contract/bindings';
 import { validateLifecycleTransition } from '../../contract/lifecycle';
@@ -8,6 +8,7 @@ import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 import { AdminTxResponse, TxResponse, ContractResponse } from '../../contract/response';
 import { TIKKA_LOGGER } from '../../network/network.module';
 import type { TikkaLogger } from '../../utils/logger';
+import { defaultLogger } from '../../utils/logger';
 
 /**
  * @category Admin
@@ -25,12 +26,12 @@ import type { TikkaLogger } from '../../utils/logger';
  *   memo: 'Maintenance window - pausing raffles'
  * });
  * if (pauseResult.success) {
- *   console.log('Contract paused at ledger:', pauseResult.ledger);
+ *   logger.info('Contract paused at ledger:', pauseResult.ledger);
  * }
  *
  * // Check if contract is paused
  * const isPausedResult = await adminService.isPaused();
- * console.log('Contract paused:', isPausedResult.value);
+ * logger.info('Contract paused:', isPausedResult.value);
  *
  * // Transfer admin to new address
  * const transferResult = await adminService.transferAdmin(newAdminAddress, {
@@ -48,12 +49,13 @@ export class AdminService {
   /**
    * Creates an instance of AdminService.
    * @param contract - The contract service used to invoke and simulate contract functions
+   * @param logger - Optional logger for SDK internal logging
    */
   constructor(
     private readonly contract: ContractService,
-    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+    @Optional() @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
   ) {
-    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+    this.logger = logger ?? defaultLogger;
   }
 
   /**
@@ -70,7 +72,7 @@ export class AdminService {
    *   memo: 'Emergency pause'
    * });
    * if (result.success) {
-   *   console.log('Paused at block:', result.ledger);
+   *   logger.info('Paused at block:', result.ledger);
    * }
    * ```
    */
@@ -107,7 +109,7 @@ export class AdminService {
    * ```ts
    * const result = await adminService.isPaused();
    * if (result.success) {
-   *   console.log('Contract is paused:', result.value);
+   *   logger.info('Contract is paused:', result.value);
    * }
    * ```
    */
@@ -125,7 +127,7 @@ export class AdminService {
    * ```ts
    * const result = await adminService.getAdmin();
    * if (result.success) {
-   *   console.log('Current admin:', result.value);
+   *   logger.info('Current admin:', result.value);
    * }
    * ```
    */
@@ -175,7 +177,7 @@ export class AdminService {
    * // The new admin account calls:
    * const result = await adminService.acceptAdmin();
    * if (result.success) {
-   *   console.log('Admin rights accepted at block:', result.ledger);
+   *   logger.info('Admin rights accepted at block:', result.ledger);
    * }
    * ```
    */
@@ -196,7 +198,7 @@ export class AdminService {
     * ```ts
     * const result = await adminService.finalizeRaffle(1);
     * if (result.success) {
-    *   console.log('Raffle finalized at block:', result.ledger);
+    *   logger.info('Raffle finalized at block:', result.ledger);
     * }
     * ```
     */
@@ -227,11 +229,11 @@ export class AdminService {
     * ```ts
     * const result = await adminService.cancelRaffle(1);
     * if (result.success) {
-    *   console.log('Raffle cancelled at block:', result.ledger);
+    *   logger.info('Raffle cancelled at block:', result.ledger);
     * }
     * ```
     */
-  async cancelRaffle(raffleId: number, options: AdminWriteOptions = {}): Promise<ContractResponse<void>> {
+  async cancelRaffle(raffleId: number, options:AdminWriteOptions = {}): Promise<ContractResponse<void>> {
     const stateResp = await this.contract.simulateReadOnly<any>(
       ContractFn.GET_RAFFLE_DATA,
       [raffleId],

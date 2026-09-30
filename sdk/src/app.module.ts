@@ -21,7 +21,7 @@ export interface TikkaSdkOptions {
   wallet?: WalletAdapter;
   /** Override the raffle contract ID */
   contractId?: string;
-  /** Optional logger for SDK internal output. Defaults to a no-op logger. */
+  /** Optional logger for SDK internal logging. Defaults to a no-op logger. */
   logger?: TikkaLogger;
 }
 

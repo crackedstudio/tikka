@@ -1,4 +1,4 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Optional, Inject } from "@nestjs/common";
 import { ContractService } from "../../contract/contract.service";
 import { ContractFn } from "../../contract/bindings";
 import {
@@ -29,6 +29,7 @@ import {
 import { TicketReadService } from './ticket.read.service';
 import { TIKKA_LOGGER } from '../../network/network.module';
 import type { TikkaLogger } from '../../utils/logger';
+import { defaultLogger } from '../../utils/logger';
 
 /**
  * TicketService — high-level API for ticket write operations.
@@ -46,9 +47,9 @@ export class TicketService {
   constructor(
     private readonly contractService: ContractService,
     private readonly readService: TicketReadService,
-    @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+    @Optional() @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
   ) {
-    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+    this.logger = logger ?? defaultLogger;
   }
 
   /**

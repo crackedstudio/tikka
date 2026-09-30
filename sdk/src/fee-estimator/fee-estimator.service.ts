@@ -1,3 +1,4 @@
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   Contract,
@@ -16,6 +17,8 @@ import { WalletAdapter } from '../wallet/wallet.interface';
 import { getRaffleContractId } from '../contract/constants';
 import { stroopsToXlm } from '../utils/formatting';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import type { TikkaLogger } from '../utils/logger';
+import { defaultLogger } from '../utils/logger';
 import {
   EstimateFeeParams,
   FeeEstimateResult,
@@ -103,6 +106,7 @@ const ANONYMOUS_SOURCE_KEY = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
  * Re-call `estimateFee` with updated params whenever user inputs change —
  * the estimate refreshes because it re-runs `simulateTransaction`.
  */
+@Injectable()
 export class FeeEstimatorService {
   private contractId: string;
   private logger: TikkaLogger;
@@ -110,13 +114,13 @@ export class FeeEstimatorService {
   constructor(
     private readonly rpcService: RpcService,
     private readonly horizon: HorizonService,
-    private readonly networkConfig: NetworkConfig,
-    private readonly wallet?: WalletAdapter,
+    @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
+    @Optional() @Inject('WALLET_ADAPTER') private readonly wallet?: WalletAdapter,
     contractId?: string,
-    logger?: TikkaLogger,
+    @Optional() @Inject('TIKKA_LOGGER') logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
-    this.logger = logger ?? { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+    this.logger = logger ?? defaultLogger;
   }
 
   /**
@@ -305,7 +309,7 @@ export class FeeEstimatorService {
    *   params: [raffleId, buyerKey, quantity],
    *   maxFeeStroops: '100000',
    * });
-   * if (quote.warnings.length) console.warn(quote.warnings.map(w => w.message));
+   * if (quote.warnings.length) logger.warn(quote.warnings.map(w => w.message));
    * // Pass quote.stroops as the fee ceiling when building the real transaction.
    * await wallet.signTransaction(tx, { fee: quote.stroops });
    * ```
