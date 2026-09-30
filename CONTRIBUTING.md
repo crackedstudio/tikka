@@ -93,6 +93,10 @@ Use pnpm for every package root in this repository so each package has a single 
 
 Use the package manager that matches the package root you are working in. Do not add or commit npm lockfiles such as package-lock.json in these directories.
 
+### Adding a new package
+
+Register new packages in `pnpm-workspace.yaml` only. The root `package.json` does **not** carry a `workspaces` field — `pnpm-workspace.yaml` is the single source of truth for workspace membership. Do not add a `workspaces` array to `package.json`; pnpm ignores it in favour of the YAML file, and the redundant entry will disagree with it.
+
 - The client uses Vite and expects the backend at `http://localhost:3001` by default.
 - Run tests with:
 
