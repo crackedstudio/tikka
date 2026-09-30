@@ -139,12 +139,12 @@
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.1.1",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
-    "@typescript-eslint/parser": "^8.56.1",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
+    "@typescript-eslint/parser": "^8.70.1",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "esbuild": "^0.25.0",
-    "eslint": "^10.0.2",
+    "eslint": "^10.11.0",
     "fast-check": "^4.7.0",
     "inquirer": "^14.0.2",
     "jest": "^30.4.2",
@@ -154,7 +154,7 @@
     "@microsoft/api-extractor": "7.59.0",
     "typedoc": "^0.28.18",
     "typedoc-plugin-markdown": "4.12",
-    "typescript": "^5.6.0"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": "22",
