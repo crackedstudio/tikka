@@ -1,19 +1,20 @@
-import { Injectable } from '@nestjs/common';
 import { Horizon } from '@stellar/stellar-sdk';
 import { NetworkConfig } from './network.config';
+import { type TikkaLogger, defaultLogger } from '../utils/logger';
 
 /**
  * HorizonService
  * Wrapper around Stellar Horizon SDK for account + network queries.
  */
-@Injectable()
 export class HorizonService {
   private server: Horizon.Server;
+  private logger: TikkaLogger;
 
-  constructor(private readonly config: NetworkConfig) {
+  constructor(private readonly config: NetworkConfig, logger?: TikkaLogger) {
     this.server = new Horizon.Server(config.horizonUrl, {
       allowHttp: config.horizonUrl.startsWith('http://'),
     });
+    this.logger = logger ?? defaultLogger;
   }
 
   /** Get raw Horizon server instance (advanced use cases) */

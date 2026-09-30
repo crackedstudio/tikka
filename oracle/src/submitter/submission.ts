@@ -4,6 +4,22 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { TelemetryContext, TransactionOutcome, TransactionState } from './tx-submitter.service';
 import { ErrorClassifier } from './error-classifier';
 
+/**
+ * Reads the inclusion fee the RPC actually reported.
+ * Returns null when the response has no positive fee so callers do not
+ * persist the historical hardcoded 0.
+ */
+export function readObservedFeeStroops(response: unknown): number | null {
+  if (!response || typeof response !== 'object') return null;
+  const record = response as Record<string, unknown>;
+  for (const candidate of [record.feeCharged, record.fee_charged]) {
+    const value =
+      typeof candidate === 'string' || typeof candidate === 'number' ? Number(candidate) : NaN;
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
+}
+
 @Injectable()
 export class SubmissionService {
   private readonly POLL_TIMEOUT_MS = 30000;
@@ -46,8 +62,16 @@ export class SubmissionService {
 
       if (errorClassifier.isDuplicateError(sendRes)) {
         telemetry.txHash = txHash || 'unknown';
-        logTelemetry({ ...telemetry, currentState: TransactionState.DUPLICATE_SUCCESS }, 'Transaction already submitted, querying existing result');
-        const existingResult = await this.queryExistingTransaction(rpcServer, txHash, telemetry, logTelemetry);
+        logTelemetry(
+          { ...telemetry, currentState: TransactionState.DUPLICATE_SUCCESS },
+          'Transaction already submitted, querying existing result',
+        );
+        const existingResult = await this.queryExistingTransaction(
+          rpcServer,
+          txHash,
+          telemetry,
+          logTelemetry,
+        );
         return { outcome: existingResult, shouldRetry: false, bumpFee: false };
       }
 
@@ -57,8 +81,17 @@ export class SubmissionService {
           return { shouldRetry: true, bumpFee: true };
         }
         if (errorClassifier.isTimeoutError(responseStr)) {
-          logTelemetry(telemetry, 'Submission timeout, attempting hash recovery');
-          return { shouldRetry: true, bumpFee: true };
+          logTelemetry(telemetry, 'Submission timeout with no hash; not retrying because the transaction may have landed');
+          return {
+            outcome: {
+              status: 'TIMEOUT',
+              error: responseStr,
+              retriable: false,
+              pollAttempts: 0,
+            },
+            shouldRetry: false,
+            bumpFee: false,
+          };
         }
         return { shouldRetry: true, bumpFee: false };
       }
@@ -67,18 +100,45 @@ export class SubmissionService {
       telemetry.currentState = TransactionState.POLLING;
       logTelemetry(telemetry, `Polling for confirmation: ${txHash}`);
 
-      const outcome = await this.pollForConfirmationTyped(rpcServer, txHash, telemetry, errorClassifier, logTelemetry);
+      const outcome = await this.pollForConfirmationTyped(
+        rpcServer,
+        txHash,
+        telemetry,
+        errorClassifier,
+        logTelemetry,
+      );
       return { outcome, shouldRetry: outcome.retriable, bumpFee: outcome.status === 'TIMEOUT' };
     } catch (error: any) {
       const errorMessage = errorClassifier.errorToString(error);
 
-      if (errorClassifier.isDuplicateError(error) || errorMessage.toLowerCase().includes('duplicate')) {
+      if (
+        errorClassifier.isDuplicateError(error) ||
+        errorMessage.toLowerCase().includes('duplicate')
+      ) {
         const txHash = errorClassifier.extractTxHashFromError(error);
         if (txHash) {
           telemetry.txHash = txHash;
-          const existingResult = await this.queryExistingTransaction(rpcServer, txHash, telemetry, logTelemetry);
+          const existingResult = await this.queryExistingTransaction(
+            rpcServer,
+            txHash,
+            telemetry,
+            logTelemetry,
+          );
           return { outcome: existingResult, shouldRetry: false, bumpFee: false };
         }
+      }
+
+      if (errorClassifier.isTimeoutError(errorMessage)) {
+        return {
+          outcome: {
+            status: 'TIMEOUT',
+            error: errorMessage,
+            retriable: false,
+            pollAttempts: 0,
+          },
+          shouldRetry: false,
+          bumpFee: false,
+        };
       }
 
       if (errorClassifier.isInsufficientFeeError(errorMessage)) {
@@ -116,14 +176,32 @@ export class SubmissionService {
 
         if (status === 'SUCCESS') {
           const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
-          logTelemetry({ ...telemetry, finalOutcome: TransactionState.SUCCESS }, `Transaction confirmed at ledger ${ledger}`);
-          return { status: 'SUCCESS', txHash, ledger, feePaid: 0, retriable: false };
+          logTelemetry(
+            { ...telemetry, finalOutcome: TransactionState.SUCCESS },
+            `Transaction confirmed at ledger ${ledger}`,
+          );
+          return {
+            status: 'SUCCESS',
+            txHash,
+            ledger,
+            feePaid: readObservedFeeStroops(res),
+            retriable: false,
+          };
         }
 
         if (status === 'FAILED') {
           const failureReason = errorClassifier.extractFailureReason(res);
-          logTelemetry({ ...telemetry, finalOutcome: TransactionState.FAILED }, `Transaction failed: ${failureReason}`);
-          return { status: 'FAILED', txHash, error: `Transaction failed on-chain: ${failureReason}`, retriable: false, failureReason };
+          logTelemetry(
+            { ...telemetry, finalOutcome: TransactionState.FAILED },
+            `Transaction failed: ${failureReason}`,
+          );
+          return {
+            status: 'FAILED',
+            txHash,
+            error: `Transaction failed on-chain: ${failureReason}`,
+            retriable: false,
+            failureReason,
+          };
         }
 
         if (status === 'NOT_FOUND') {
@@ -144,8 +222,17 @@ export class SubmissionService {
       }
     }
 
-    logTelemetry({ ...telemetry, finalOutcome: TransactionState.TIMEOUT }, `Polling timeout after ${pollAttempts} attempts`);
-    return { status: 'TIMEOUT', txHash, error: `Transaction confirmation timeout after ${this.POLL_TIMEOUT_MS}ms`, retriable: true, pollAttempts };
+    logTelemetry(
+      { ...telemetry, finalOutcome: TransactionState.TIMEOUT },
+      `Polling timeout after ${pollAttempts} attempts`,
+    );
+    return {
+      status: 'TIMEOUT',
+      txHash,
+      error: `Transaction confirmation timeout after ${this.POLL_TIMEOUT_MS}ms`,
+      retriable: true,
+      pollAttempts,
+    };
   }
 
   public async pollForConfirmation(rpcServer: any, hash: string) {
@@ -167,7 +254,13 @@ export class SubmissionService {
   ): Promise<TransactionOutcome> {
     try {
       if (!txHash || txHash === 'unknown') {
-        return { status: 'DUPLICATE_SUCCESS', txHash: 'unknown', ledger: 0, message: 'Transaction was duplicate but hash unavailable', retriable: false };
+        return {
+          status: 'DUPLICATE_SUCCESS',
+          txHash: 'unknown',
+          ledger: 0,
+          message: 'Transaction was duplicate but hash unavailable',
+          retriable: false,
+        };
       }
 
       const res = await rpcServer.getTransaction(txHash);
@@ -175,13 +268,34 @@ export class SubmissionService {
 
       if (status === 'SUCCESS') {
         const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
-        logTelemetry({ ...telemetry, finalOutcome: TransactionState.DUPLICATE_SUCCESS }, `Duplicate transaction confirmed at ledger ${ledger}`);
-        return { status: 'DUPLICATE_SUCCESS', txHash, ledger, message: 'Transaction was already submitted and confirmed', retriable: false };
+        logTelemetry(
+          { ...telemetry, finalOutcome: TransactionState.DUPLICATE_SUCCESS },
+          `Duplicate transaction confirmed at ledger ${ledger}`,
+        );
+        return {
+          status: 'DUPLICATE_SUCCESS',
+          txHash,
+          ledger,
+          message: 'Transaction was already submitted and confirmed',
+          retriable: false,
+        };
       }
 
-      return { status: 'DUPLICATE_SUCCESS', txHash, ledger: 0, message: 'Transaction was already submitted, pending confirmation', retriable: false };
+      return {
+        status: 'DUPLICATE_SUCCESS',
+        txHash,
+        ledger: 0,
+        message: 'Transaction was already submitted, pending confirmation',
+        retriable: false,
+      };
     } catch (error: any) {
-      return { status: 'DUPLICATE_SUCCESS', txHash, ledger: 0, message: 'Transaction was duplicate, query failed but assuming success', retriable: false };
+      return {
+        status: 'DUPLICATE_SUCCESS',
+        txHash,
+        ledger: 0,
+        message: 'Transaction was duplicate, query failed but assuming success',
+        retriable: false,
+      };
     }
   }
 

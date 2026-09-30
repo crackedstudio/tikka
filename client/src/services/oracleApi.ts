@@ -25,11 +25,12 @@ export type {
   RescueResponse,
 };
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
-const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN as string;
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:3001';
+const ADMIN_TOKEN = (import.meta.env.VITE_ADMIN_TOKEN as string) || '';
 
 function adminHeaders(): HeadersInit {
-  return { 'X-Admin-Token': ADMIN_TOKEN };
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('admin_token') || ADMIN_TOKEN : ADMIN_TOKEN;
+  return { 'X-Admin-Token': token || '' };
 }
 
 async function get<T>(path: string, params?: Record<string, string>): Promise<T> {

@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { rpc, xdr } from '@stellar/stellar-sdk';
 import { DEFAULT_RPC_CONFIG, buildRetryConfig } from './network.config';
 import type { NetworkConfig, RpcConfig } from './network.config';
@@ -24,7 +23,6 @@ interface RequestOptions {
  * RpcService
  * Combines Stellar RPC SDK with configurable transport (timeouts, headers, failover).
  */
-@Injectable()
 export class RpcService {
   private server: rpc.Server;
   private rpcConfig: RpcConfig;

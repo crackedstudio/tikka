@@ -1,11 +1,14 @@
 import {
   WalletAdapter,
   WalletAdapterOptions,
+  WalletAvailability,
+  WalletAvailabilityCode,
   WalletName,
   SignTransactionResult,
   WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { getGlobalProperty, hasGlobalProperty, isBrowserEnvironment } from '../utils/environment';
 
 /**
  * Rabet wallet adapter.
@@ -29,6 +32,34 @@ export class RabetAdapter extends WalletAdapter {
 
   isAvailable(): boolean {
     return this.hasRabetGlobal();
+  }
+
+  /**
+   * Rabet is an extension wallet reached through the injected `window.rabet`
+   * bridge. Reported as a value so SSR/Node callers can branch on it.
+   */
+  checkAvailability(): WalletAvailability {
+    if (this.isAvailable()) {
+      return {
+        available: true,
+        code: WalletAvailabilityCode.Available,
+        message: 'Rabet is available in this browser environment',
+      };
+    }
+
+    if (!isBrowserEnvironment()) {
+      return {
+        available: false,
+        code: WalletAvailabilityCode.UnsupportedEnvironment,
+        message: 'Rabet requires a browser environment (window/document are not defined)',
+      };
+    }
+
+    return {
+      available: false,
+      code: WalletAvailabilityCode.ExtensionNotInstalled,
+      message: 'Rabet wallet extension is not installed. Get it at https://rabet.io',
+    };
   }
 
   /* ------------------------------------------------------------------ */
@@ -134,10 +165,7 @@ export class RabetAdapter extends WalletAdapter {
   /* ------------------------------------------------------------------ */
 
   private hasRabetGlobal(): boolean {
-    return (
-      typeof globalThis !== 'undefined' &&
-      typeof (globalThis as any).rabet !== 'undefined'
-    );
+    return hasGlobalProperty('rabet');
   }
 
   private assertInstalled(): void {
@@ -150,14 +178,14 @@ export class RabetAdapter extends WalletAdapter {
   }
 
   private getRabetApi(): any {
-    const g = globalThis as any;
-    if (!g.rabet) {
+    const rabet = getGlobalProperty<any>('rabet');
+    if (!rabet) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
         'window.rabet is not available',
       );
     }
-    return g.rabet;
+    return rabet;
   }
 
   private isUserRejection(err: any): boolean {

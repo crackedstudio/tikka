@@ -1,58 +1,97 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, UnauthorizedException, UseInterceptors } from '@nestjs/common';
-import { Controller, Post, Headers, Body } from '@nestjs/common';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import * as request from 'supertest';
-import { WebhookSignatureVerificationInterceptor } from '../src/api/rest/webhooks/webhook-signature-verification.interceptor';
+import { Body, Controller, Post, UseInterceptors } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { Test, TestingModule } from '@nestjs/testing';
+import { createHmac } from 'crypto';
+import { WebhookSignatureVerificationInterceptor } from '../src/api/rest/webhooks/webhook-signature-verification.interceptor';
+
+const SECRET = 'test_secret_test_secret_test_secret';
+const SECRET_ENV_KEY = 'INDEXER_WEBHOOK_SECRET';
 
 @Controller('test-webhook')
 class TestWebhookController {
-    @Post('callback')
-    @UseInterceptors(WebhookSignatureVerificationInterceptor)
-    async callback(@Body() _body: any, @Headers() _headers: any) {
-        return { ok: true };
-    }
+  @Post('callback')
+  @UseInterceptors(WebhookSignatureVerificationInterceptor)
+  callback(@Body() _body: unknown) {
+    return { ok: true };
+  }
 }
 
 describe('Webhook signature verification (e2e)', () => {
-    let app: NestFastifyApplication;
+  let app: NestFastifyApplication;
+  const originalSecret = process.env[SECRET_ENV_KEY];
 
-    beforeAll(async () => {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [
-                ConfigModule.forRoot({ isGlobal: true }),
-            ],
-            controllers: [TestWebhookController],
-            providers: [WebhookSignatureVerificationInterceptor],
-        }).compile();
+  beforeAll(async () => {
+    process.env[SECRET_ENV_KEY] = SECRET;
 
-        // NOTE: This test assumes Fastify has rawBody populated.
-        // If your app doesn\'t currently provide req.rawBody, this test will fail until rawBody is enabled.
-        app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter() as any);
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot({ isGlobal: true })],
+      controllers: [TestWebhookController],
+      providers: [WebhookSignatureVerificationInterceptor],
+    }).compile();
 
-        // Set env secret for interceptor
-        process.env.INDEXER_WEBHOOK_SECRET = 'test_secret_test_secret_test_secret';
+    app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
+      rawBody: true,
+    });
+    await app.init();
+    await app.getHttpAdapter().getInstance().ready();
+  });
 
-        await app.init();
-        await app.getHttpAdapter().getInstance().ready();
+  afterAll(async () => {
+    if (originalSecret === undefined) {
+      delete process.env[SECRET_ENV_KEY];
+    } else {
+      process.env[SECRET_ENV_KEY] = originalSecret;
+    }
+    await app.close();
+  });
+
+  it('accepts a valid signature over the exact raw JSON body', async () => {
+    const timestamp = new Date().toISOString();
+    const rawBody = JSON.stringify({
+      event: 'raffle.finalized',
+      timestamp,
+      data: { raffleId: 'raffle-1' },
+    });
+    const signature = createHmac('sha256', SECRET).update(rawBody).digest('hex');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/test-webhook/callback',
+      headers: {
+        'content-type': 'application/json',
+        'x-tikka-webhook-source': 'indexer',
+        'x-tikka-signature': signature,
+        'x-tikka-signature-algorithm': 'sha256',
+        'x-tikka-timestamp': timestamp,
+      },
+      payload: rawBody,
     });
 
-    afterAll(async () => {
-        await app.close();
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({ ok: true });
+  });
+
+  it('rejects a signature when the raw body is modified', async () => {
+    const timestamp = new Date().toISOString();
+    const signedBody = JSON.stringify({
+      event: 'raffle.finalized',
+      timestamp,
+      data: { raffleId: 'raffle-1' },
+    });
+    const modifiedBody = signedBody.replace('raffle-1', 'raffle-2');
+    const signature = createHmac('sha256', SECRET).update(signedBody).digest('hex');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/test-webhook/callback',
+      headers: {
+        'content-type': 'application/json',
+        'x-webhook-signature': signature,
+      },
+      payload: modifiedBody,
     });
 
-    it('returns 401 for invalid signature', async () => {
-        const body = { hello: 'world' };
-
-        // Provide an invalid hex signature
-        const res = await request(app.getHttpServer())
-            .post('/test-webhook/callback')
-            .set('x-webhook-signature', 'deadbeef')
-            .set('x-tikka-webhook-source', 'indexer')
-            .send(body);
-
-        expect(res.status).toBe(401);
-    });
+    expect(response.statusCode).toBe(401);
+  });
 });
-

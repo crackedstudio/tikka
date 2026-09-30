@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, Inject } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn, RaffleStatus } from '../../contract/bindings';
 import {
@@ -12,6 +12,9 @@ import {
 } from './user.types';
 import { assertValidPublicKey } from '../../utils/validation';
 import { ContractResponse } from '../../contract/response';
+import { TIKKA_LOGGER } from '../../network/network.module';
+import type { TikkaLogger } from '../../utils/logger';
+import { defaultLogger } from '../../utils/logger';
 
 /**
  * @category User
@@ -30,17 +33,24 @@ import { ContractResponse } from '../../contract/response';
  * });
  *
  * if (result.success && result.value) {
- *   console.log('User participation:');
- *   console.log(`  - Raffles entered: ${result.value.totalRafflesEntered}`);
- *   console.log(`  - Tickets bought: ${result.value.totalTicketsBought}`);
- *   console.log(`  - Raffles won: ${result.value.totalRafflesWon}`);
- *   console.log(`  - Raffle IDs: ${result.value.raffleIds.join(', ')}`);
+ *   logger.info('User participation:');
+ *   logger.info(`  - Raffles entered: ${result.value.totalRafflesEntered}`);
+ *   logger.info(`  - Tickets bought: ${result.value.totalTicketsBought}`);
+ *   logger.info(`  - Raffles won: ${result.value.totalRafflesWon}`);
+ *   logger.info(`  - Raffle IDs: ${result.value.raffleIds.join(', ')}`);
  * }
  * ```
  */
 @Injectable()
 export class UserService {
-  constructor(private readonly contractService: ContractService) {}
+  private logger: TikkaLogger;
+
+  constructor(
+    private readonly contractService: ContractService,
+    @Optional() @Inject(TIKKA_LOGGER) logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? defaultLogger;
+  }
 
   /**
    * Retrieves user participation data from the Soroban contract.
@@ -50,6 +60,10 @@ export class UserService {
    * @param params - Parameters containing the user's Stellar public key
    * @returns Promise containing user participation statistics
    * @throws Will reject if address is invalid
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    *
    * @example
    * ```ts
@@ -58,8 +72,8 @@ export class UserService {
    * });
    *
    * if (participation.success) {
-   *   console.log(`${participation.value?.totalTicketsBought} tickets purchased`);
-   *   console.log(`Participated in raffles: ${participation.value?.raffleIds}`);
+   *   logger.info(`${participation.value?.totalTicketsBought} tickets purchased`);
+   *   logger.info(`Participated in raffles: ${participation.value?.raffleIds}`);
    * }
    * ```
    * Retrieves core user participation data from the Soroban contract.
@@ -108,6 +122,9 @@ export class UserService {
    * eligibility checks.
    *
    * @source contract
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async getTickets(address: string): Promise<ContractResponse<UserTicket[]>> {
     assertValidPublicKey(address);
@@ -151,6 +168,9 @@ export class UserService {
    *   → indexer/backend (undefined until indexer integration is wired)
    *
    * @source contract (indexer fields are undefined until wired)
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async getActivitySummary(
     params: GetUserActivityParams,
@@ -241,6 +261,9 @@ export class UserService {
    *
    * @param address - The winner's Stellar public key
    * @returns Array of WinningEntry objects, one per won raffle
+   * @throws {TikkaSdkError} code `ValidationError` if the address is invalid
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
    */
   async getWinnings(address: string): Promise<ContractResponse<WinningEntry[]>> {
     assertValidPublicKey(address);
