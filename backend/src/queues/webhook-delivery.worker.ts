@@ -35,17 +35,6 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
     super();
   }
 
-  /**
-   * Called by NestJS on SIGTERM (requires app.enableShutdownHooks()).
-   * Delegates to BullMQ Worker.close() which:
-   *  1. Stops picking up new jobs
-   */
-  async onApplicationShutdown(): Promise<void> {
-    this.shuttingDown = true;
-    await Promise.all(this.activeJobPromises.values());
-    await this.worker.close();
-  }
-
   async process(job: Job<WebhookDeliveryJobData>): Promise<void> {
     if (this.shuttingDown) {
       throw new Error('Backend shutting down — rejecting webhook delivery');
@@ -54,9 +43,10 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
     const execute = async (): Promise<void> => {
       const { targetUrl, secret, eventType, payload } = job.data;
 
+      const timestamp = new Date().toISOString();
       const payloadString = JSON.stringify({
         event: eventType,
-        timestamp: new Date().toISOString(),
+        timestamp,
         data: payload,
       });
 
@@ -73,6 +63,8 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
           headers: {
             'Content-Type': 'application/json',
             'X-Tikka-Signature': signature,
+            'X-Tikka-Signature-Algorithm': 'sha256',
+            'X-Tikka-Timestamp': timestamp,
             'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
           },
           body: payloadString,

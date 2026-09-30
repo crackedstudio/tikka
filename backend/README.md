@@ -6,6 +6,7 @@ API layer that merges indexer data with Supabase metadata; handles auth (Sign In
 
 ## Documentation
 
+- **[Environment variables](../docs/env/backend.md)** — backend settings, required values, and defaults
 - **[Request validation](../docs/backend/validation.md)** — global `ValidationPipe`, Zod schemas, DTO inventory, and endpoint checklist
 
 > **Note:** Package roots must contain only `README.md` and, if needed, `OPERATIONAL.md`; all other package-root docs have been moved to `docs/` or archived in `docs/archive/`.

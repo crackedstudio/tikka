@@ -40,6 +40,22 @@ The oracle computes:
 
 This is deterministic and reproducible, but it does not rely on a public-key proof. The contract only checks that the payload has the expected shape and size.
 
+Once a draw request is committed, the PRNG function mixes in only `request_id` and `raffle_id`. The clock, environment, and other operator-controlled inputs do not change the derived seed. That does not mean a third party can prove the oracle used this function: a malicious operator can still submit a different payload, because the contract does not check a public-key signature on this path.
+
+#### What a third party can verify on the PRNG path
+
+- Recompute `seed` and `proof` from the public `request_id` and `raffle_id` using the formulas above.
+- Given the ordered public ticket list, recompute the winner index as the first 4 bytes of the seed interpreted as a big-endian `u32`, modulo the number of tickets.
+- See that the derivation does not require the oracle private key.
+
+#### What a third party cannot verify on the PRNG path
+
+- That the submitted payload was produced by this derivation. The public key does not authenticate it.
+- That the oracle operator did not choose a different seed after the request was committed. Recomputing the expected value only shows what the honest derivation would have been.
+- Any fact that would require the oracle private key. If a check needs that key, it is not a public verification, and this document does not claim it.
+
+The 500 XLM cutoff is a policy choice, not a cryptographic boundary. Prizes under 500 XLM use this weaker path. Prizes of 500 XLM or more use VRF. See [ADR 0002](adr/0002-low-stakes-prng-threshold.md).
+
 ### Commit/reveal helper
 
 The oracle also supports a helper that:
@@ -88,14 +104,14 @@ A round succeeds when at least K out of the responding nodes produce identical s
 
 ### Byzantine failure modes handled
 
-| Failure mode | Behaviour |
-|---|---|
-| **Honest minority (unanimous)** | All nodes agree, consensus succeeds, submission proceeds. |
-| **Threshold met with dissent** | Enough nodes agree (≥K) despite some dissenters. Those who agreed form the consensus group; the dissenting nodes are excluded. The submission uses only the consensus group's values. |
-| **Threshold not met** | Fewer than K nodes agree on the same seed. Consensus fails; the system **refuses to submit** the randomness. No fallback to a single node's value ever occurs — the draw is simply not finalized in this round. |
-| **Non-revealing node** | A node that committed to participate but never reveals its seed. If the remaining nodes still meet the threshold and consensus threshold, the round proceeds without the non-revealing node. If not, the round fails (refuses to submit, no single-node fallback). |
-| **Equivocating node (commit-reveal mismatch)** | A node that reveals a seed whose hash does not match its earlier commitment. The node is excluded from the round, and its operator is alerted at severity critical. |
-| **Insufficient quorum** | Fewer than N nodes respond at all (data-availability failure). The system falls back to the local node's value so the raffle can still be drawn, but this path offers no Byzantine protection. |
+| Failure mode                                   | Behaviour                                                                                                                                                                                                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Honest minority (unanimous)**                | All nodes agree, consensus succeeds, submission proceeds.                                                                                                                                                                                                          |
+| **Threshold met with dissent**                 | Enough nodes agree (≥K) despite some dissenters. Those who agreed form the consensus group; the dissenting nodes are excluded. The submission uses only the consensus group's values.                                                                              |
+| **Threshold not met**                          | Fewer than K nodes agree on the same seed. Consensus fails; the system **refuses to submit** the randomness. No fallback to a single node's value ever occurs — the draw is simply not finalized in this round.                                                    |
+| **Non-revealing node**                         | A node that committed to participate but never reveals its seed. If the remaining nodes still meet the threshold and consensus threshold, the round proceeds without the non-revealing node. If not, the round fails (refuses to submit, no single-node fallback). |
+| **Equivocating node (commit-reveal mismatch)** | A node that reveals a seed whose hash does not match its earlier commitment. The node is excluded from the round, and its operator is alerted at severity critical.                                                                                                |
+| **Insufficient quorum**                        | Fewer than N nodes respond at all (data-availability failure). The system falls back to the local node's value so the raffle can still be drawn, but this path offers no Byzantine protection.                                                                     |
 
 ### What this guarantees
 
@@ -176,7 +192,7 @@ GET /oracle/audit/chain/verify?fromId=100
 
 ### 6.3 External anchoring
 
-The hash chain alone prevents *internal* tampering (modifying individual records), but an attacker with full database access could rewrite the entire chain — including all `chain_hash` values. To defend against this, the operator periodically anchors the chain head to an external location.
+The hash chain alone prevents _internal_ tampering (modifying individual records), but an attacker with full database access could rewrite the entire chain — including all `chain_hash` values. To defend against this, the operator periodically anchors the chain head to an external location.
 
 Anchoring works by recording a point-in-time snapshot of the current chain head hash into a separate `audit_chain_anchors` table:
 
@@ -225,12 +241,12 @@ An attacker who can simultaneously:
 
 ### 6.5 Recommended operational practices
 
-| Practice | Why |
-|---|---|
-| Run `verify-chain` after every restart | Detects drift from interrupted operations. |
-| Anchor the chain head at least once per day | Limits the window for undetected rewriting. |
+| Practice                                             | Why                                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| Run `verify-chain` after every restart               | Detects drift from interrupted operations.                   |
+| Anchor the chain head at least once per day          | Limits the window for undetected rewriting.                  |
 | Publish the anchor hash to two independent locations | Prevents a single external compromise from hiding a rewrite. |
-| Monitor verification results via the health endpoint | Surfaces silent failures before they compound. |
+| Monitor verification results via the health endpoint | Surfaces silent failures before they compound.               |
 
 ## 7. Operational notes
 
