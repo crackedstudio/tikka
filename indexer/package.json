@@ -109,10 +109,10 @@
     "eslint-plugin-prettier": "^5.5.6",
     "fast-check": "^3.23.2",
     "ioredis-mock": "^8.13.1",
-    "jest": "^30.2.0",
+    "jest": "^30.5.2",
     "prettier": "^3.9.6",
     "testcontainers": "^11.13.0",
-    "ts-jest": "^29.4.6",
+    "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.0"
   },
