@@ -120,10 +120,11 @@ export class StorageService {
       });
 
     if (error) {
+      // Log the full Supabase error server-side; do NOT embed error.message in
+      // the exception — BaseExceptionFilter redacts 5xx messages in production,
+      // but we avoid carrying sensitive storage detail into the exception at all.
       this.logger.error(`Upload failed for path=${path}: ${error.message}`);
-      throw new InternalServerErrorException(
-        `Failed to upload image to storage: ${error.message}`,
-      );
+      throw new InternalServerErrorException('Failed to upload image to storage');
     }
 
     const { data } = this.client.storage
@@ -149,9 +150,7 @@ export class StorageService {
 
     if (error) {
       this.logger.error(`Delete failed for path=${path}: ${error.message}`);
-      throw new InternalServerErrorException(
-        `Failed to delete image from storage: ${error.message}`,
-      );
+      throw new InternalServerErrorException('Failed to delete image from storage');
     }
   }
 

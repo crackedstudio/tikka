@@ -1,0 +1,15 @@
+{
+  "page": {
+    "title": "Settings",
+    "subtitle": "Manage your account and preferences"
+  },
+  "unauthenticated": {
+    "heading": "Settings",
+    "message": "Please sign in to access your settings and preferences."
+  },
+  "tabs": {
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "language": "Language"
+  }
+}

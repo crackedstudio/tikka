@@ -1,18 +1,8 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { EventEmitter } from 'events';
-
-export interface TicketCountUpdatedPayload {
-  raffleId: number;
-  ticketsSold: number;
-  updatedAt: number;
-}
+import type { TicketCountUpdatedPayload } from '@tikka/types';
 
 const RAFFLE_TICKET_COUNT_CHANNEL = 'raffle:ticket_count_updated';
 
