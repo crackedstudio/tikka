@@ -1,0 +1,101 @@
+name: Mirror Issue Labels to PR
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+jobs:
+  mirror-labels:
+    name: Mirror area and type labels from closing issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract closing issues and mirror labels
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull request context found.');
+              return;
+            }
+
+            const body = pr.body || '';
+            // Match standard GitHub closing keywords: (close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved) #123
+            const closingRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+(?:https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/|#)(\d+)/gi;
+            const issueNumbers = new Set();
+
+            let match;
+            while ((match = closingRegex.exec(body)) !== null) {
+              const num = parseInt(match[1], 10);
+              if (!isNaN(num)) {
+                issueNumbers.add(num);
+              }
+            }
+
+            if (issueNumbers.size === 0) {
+              core.info('No closing issue references found in PR body.');
+              return;
+            }
+
+            core.info(`Found closing issue reference(s): ${Array.from(issueNumbers).join(', ')}`);
+
+            const labelsToAdd = new Set();
+
+            for (const issueNumber of issueNumbers) {
+              try {
+                const { data: issue } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                });
+
+                if (issue.labels && Array.isArray(issue.labels)) {
+                  for (const labelObj of issue.labels) {
+                    const labelName = typeof labelObj === 'string' ? labelObj : labelObj.name;
+                    if (labelName && (labelName.startsWith('area:') || labelName.startsWith('type:') || labelName.startsWith('package:'))) {
+                      labelsToAdd.add(labelName);
+                    }
+                  }
+                }
+              } catch (err) {
+                core.warning(`Failed to fetch issue #${issueNumber}: ${err.message}`);
+              }
+            }
+
+            if (labelsToAdd.size === 0) {
+              core.info('No area/type labels found on linked issue(s).');
+              return;
+            }
+
+            const existingLabels = new Set(
+              (pr.labels || []).map((l) => (typeof l === 'string' ? l : l.name))
+            );
+
+            const newLabels = Array.from(labelsToAdd).filter((l) => !existingLabels.has(l));
+
+            if (newLabels.length === 0) {
+              core.info('All relevant issue labels are already present on the PR.');
+              return;
+            }
+
+            core.info(`Adding labels to PR #${pr.number}: ${newLabels.join(', ')}`);
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: newLabels,
+            });

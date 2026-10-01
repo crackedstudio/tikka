@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Leaderboard from "./Leaderboard";
 import * as leaderboardService from "../services/leaderboardService";
@@ -84,7 +84,7 @@ describe("Leaderboard Component", () => {
       // Verify skeleton has proper styling
       const firstSkeleton = skeletons[0];
       expect(firstSkeleton.className).toContain("animate-pulse");
-      expect(firstSkeleton.className).toContain("bg-gray-700");
+      expect(firstSkeleton.className).toContain("bg-gray-200");
     });
 
     it("should not render table while loading", () => {
@@ -155,7 +155,7 @@ describe("Leaderboard Component", () => {
       renderComponent();
 
       // Should show retry button
-      const retryButton = screen.getByRole("button", { name: /retry/i });
+      const retryButton = screen.getByRole("button", { name: /try again|retry/i });
       expect(retryButton).toBeInTheDocument();
     });
   });
@@ -250,12 +250,36 @@ describe("Leaderboard Component", () => {
       renderComponent();
 
       // Should show shortened addresses
-      expect(screen.getByText(/GBDS45...YQMXF/)).toBeInTheDocument();
-      expect(screen.getByText(/GDZST3...N3S3OY/)).toBeInTheDocument();
+      expect(screen.getByText(/GBDS45\.\.\.QMXF/)).toBeInTheDocument();
+      expect(screen.getByText(/GDZST3\.\.\.S3OY/)).toBeInTheDocument();
 
       // Should show ranks
       expect(screen.getByText("1")).toBeInTheDocument();
       expect(screen.getByText("2")).toBeInTheDocument();
+    });
+
+    it("formats large volume strings without losing integer precision", () => {
+      vi.mocked(useLeaderboard).mockReturnValue({
+        data: {
+          entries: [
+            {
+              address: "GBDS45Y7JYFZ73RFGBVHQKW3L6K7WQBHXMZFXEZH6ZP54CNXVD3YQMXF",
+              total_wins: 5,
+              total_volume_xlm: "9007199254740993",
+              total_tickets: 50,
+              rank: 1,
+            },
+          ],
+        },
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch,
+      });
+
+      renderComponent();
+      fireEvent.click(screen.getByRole("button", { name: /by volume/i }));
+
+      expect(screen.getByText("9,007,199,254,740,993")).toBeInTheDocument();
     });
 
     it("should render sort buttons and update sort", () => {
@@ -289,8 +313,92 @@ describe("Leaderboard Component", () => {
       renderComponent();
 
       // By default, should show "Wins" column (sorted by wins)
-      const winsHeader = screen.getByText(/wins/i);
+      const winsHeader = screen.getByRole("columnheader", { name: /^wins$/i });
       expect(winsHeader).toBeInTheDocument();
+    });
+
+    it("preserves deterministic tie-breaking contract matching backend leaderboard service", () => {
+      // Backend deterministic tie-breaking cascade:
+      // 1. Primary metric (wins) DESC
+      // 2. totalPrizeXlm DESC
+      // 3. totalTicketsBought DESC
+      // 4. totalRafflesWon DESC
+      // 5. firstSeenLedger ASC
+      // 6. address ASC
+      const tiedEntries = [
+        {
+          address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          total_wins: 5,
+          total_volume_xlm: "100",
+          total_tickets: 10,
+          rank: 1,
+        },
+        {
+          address: "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+          total_wins: 5,
+          total_volume_xlm: "100",
+          total_tickets: 10,
+          rank: 2,
+        },
+        {
+          address: "GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+          total_wins: 5,
+          total_volume_xlm: "100",
+          total_tickets: 10,
+          rank: 3,
+        },
+      ];
+
+      vi.mocked(useLeaderboard).mockReturnValue({
+        data: { entries: tiedEntries },
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch,
+      });
+
+      renderComponent();
+
+      const renderedRows = screen.getAllByRole("row").slice(1);
+      expect(renderedRows).toHaveLength(3);
+
+      const renderedAddresses = renderedRows.map((row) =>
+        row.querySelector("a")?.getAttribute("title")
+      );
+      expect(renderedAddresses).toEqual([
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      ]);
+
+      const renderedRanks = renderedRows.map(
+        (row) => row.querySelectorAll("td")[0]?.textContent?.trim()
+      );
+      expect(renderedRanks).toEqual(["1", "2", "3"]);
+    });
+
+    it("formats fractional stroop amounts correctly for large numbers", () => {
+      vi.mocked(useLeaderboard).mockReturnValue({
+        data: {
+          entries: [
+            {
+              address: "GBDS45Y7JYFZ73RFGBVHQKW3L6K7WQBHXMZFXEZH6ZP54CNXVD3YQMXF",
+              total_wins: 5,
+              total_volume_xlm: "9007199254740993.456",
+              total_tickets: 50,
+              rank: 1,
+            },
+          ],
+        },
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch,
+      });
+
+      renderComponent();
+      fireEvent.click(screen.getByRole("button", { name: /by volume/i }));
+
+      // 9007199254740993.456 -> fraction is 46 (rounded from 45.6)
+      expect(screen.getByText("9,007,199,254,740,993.46")).toBeInTheDocument();
     });
 
     it("should link to Stellar Expert explorer", () => {

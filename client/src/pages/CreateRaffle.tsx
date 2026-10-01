@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { RaffleFormData, CreateRaffleStep } from "../types/forms";
 import ProgressStepper from "../components/create-raffle/ProgressStepper";
 import DetailsStep from "../components/create-raffle/DetailsStep";
@@ -12,6 +13,7 @@ import { useRaffleDraft } from "../components/create-raffle/useRaffleDraft";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 
 const CreateRaffle: React.FC = () => {
+    const { t } = useTranslation("create");
     const [currentStep, setCurrentStep] = useState(0);
     const stepPanelRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState<RaffleFormData>({
@@ -30,35 +32,35 @@ const CreateRaffle: React.FC = () => {
     const steps: CreateRaffleStep[] = [
         {
             id: "details",
-            title: "Details",
+            title: t("steps.details"),
             icon: "document",
             completed: currentStep > 0,
             active: currentStep === 0,
         },
         {
             id: "image",
-            title: "Image",
+            title: t("steps.image"),
             icon: "image",
             completed: currentStep > 1,
             active: currentStep === 1,
         },
         {
             id: "pricing",
-            title: "Pricing",
+            title: t("steps.pricing"),
             icon: "dollar",
             completed: currentStep > 2,
             active: currentStep === 2,
         },
         {
             id: "duration",
-            title: "Duration",
+            title: t("steps.duration"),
             icon: "clock",
             completed: currentStep > 3,
             active: currentStep === 3,
         },
         {
             id: "review",
-            title: "Review",
+            title: t("steps.review"),
             icon: "check",
             completed: currentStep > 4,
             active: currentStep === 4,
@@ -168,10 +170,10 @@ const CreateRaffle: React.FC = () => {
                 {/* Page Title */}
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                        Create New Raffle
+                        {t("page.title")}
                     </h1>
                     <p className="text-gray-700 dark:text-gray-300">
-                        Setup your raffle in a few simple steps
+                        {t("page.subtitle")}
                     </p>
                 </div>
 
@@ -183,7 +185,7 @@ const CreateRaffle: React.FC = () => {
                 {/* Main Content */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
                     {/* Left Panel - Form */}
-                    <div className="space-y-6" ref={stepPanelRef} role="region" aria-label={`Step ${currentStep + 1}: ${steps[currentStep].title}`}>
+                    <div className="space-y-6" ref={stepPanelRef} role="region" aria-label={t("aria.stepRegion", { number: currentStep + 1, title: steps[currentStep].title })}>
                         {renderCurrentStep()}
                     </div>
 

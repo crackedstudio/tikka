@@ -97,11 +97,14 @@ export async function stopDb(ctx: DbContainerContext): Promise<void> {
  * Useful for simulating crash-recovery: destroy and re-create without restarting
  * the container.
  */
-export function buildDataSource(container: StartedPostgreSqlContainer): DataSource {
+export function buildDataSource(
+  container: StartedPostgreSqlContainer,
+  mappedPort = container.getMappedPort(5432),
+): DataSource {
   const opts: DataSourceOptions = {
     type: 'postgres',
     host: container.getHost(),
-    port: container.getMappedPort(5432),
+    port: mappedPort,
     username: container.getUsername(),
     password: container.getPassword(),
     database: container.getDatabase(),

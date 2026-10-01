@@ -1,0 +1,65 @@
+name: Workflow Validation (actionlint + yamllint)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.yamllint.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/**'
+      - '.yamllint.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint + shellcheck + yamllint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # ── yamllint: duplicate-key detection ────────────────────────────────────
+      # Runs first because it catches malformed YAML before actionlint even
+      # parses the files.  The .yamllint.yml config enables key-duplicates which
+      # is the exact failure mode that silently disabled half a workflow here.
+      - name: Install yamllint
+        run: pip install --quiet yamllint==1.37.0
+
+      - name: Run yamllint on workflow files
+        run: |
+          yamllint --config-file .yamllint.yml .github/workflows/
+
+      # ── actionlint: workflow syntax + expression + action input validation ───
+      # shellcheck integration is enabled by default when shellcheck is present
+      # on PATH; the --shellcheck flag below makes this explicit.
+      - name: Install shellcheck
+        run: |
+          SHELLCHECK_VERSION=0.10.0
+          curl -fsSL \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJ --strip-components=1 -C /usr/local/bin \
+              "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          shellcheck --version
+
+      - name: Install actionlint
+        run: |
+          ACTIONLINT_VERSION=1.7.7
+          curl -fsSL \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /usr/local/bin actionlint
+          actionlint --version
+
+      - name: Run actionlint
+        # -shellcheck enables shellcheck for every run: block
+        # -color produces highlighted output in the Actions log
+        run: |
+          actionlint \
+            -shellcheck shellcheck \
+            -color \
+            .github/workflows/*.yml
