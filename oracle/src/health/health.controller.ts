@@ -18,6 +18,53 @@ export class HealthController {
     private readonly metricsService: MetricsService,
   ) {}
 
+  @Get('health/live')
+  getLiveness() {
+    return {
+      status: 'alive',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('health/ready')
+  getReadiness(@Res({ passthrough: true }) res: Response) {
+    const metrics = this.healthService.getMetrics();
+    const circuitOpen = metrics.circuit_breaker.state === 'OPEN';
+    const queue = {
+      status: metrics.components.queue.status,
+      message: metrics.components.queue.message,
+    };
+    const dependencies = {
+      rpc: circuitOpen
+        ? { status: 'unhealthy' as const, message: 'RPC circuit breaker is open' }
+        : { status: metrics.components.network.status, message: metrics.components.network.message },
+      redis: queue,
+      keyProvider: {
+        status: metrics.components.keyProvider.status,
+        message: metrics.components.keyProvider.message,
+      },
+      queue,
+    };
+    const degraded = (Object.entries(dependencies) as Array<[string, { status: string }]> )
+      .filter(([, dependency]) => dependency.status !== 'healthy')
+      .map(([name]) => name);
+    const ready = degraded.length === 0;
+
+    if (!ready) {
+      res.status(503);
+    }
+
+    const unhealthy = (Object.values(dependencies) as Array<{ status: string }>).some((dependency) => dependency.status === 'unhealthy');
+
+    return {
+      status: unhealthy ? 'unhealthy' : ready ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      dependencies,
+      degraded,
+      circuit_breaker: metrics.circuit_breaker,
+    };
+  }
+
   @Get('health')
   getHealth(@Res({ passthrough: true }) res: Response) {
     const isHealthy = this.healthService.isHealthy();

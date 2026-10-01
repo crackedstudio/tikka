@@ -16,6 +16,15 @@ Before considering an upgrade, the contract must be ready.
 - [ ] Contract source code is committed to `tikka-contracts` repo
 - [ ] Deployment script (`deploy.sh`) is up-to-date
 - [ ] Contract ID documented and tested
+- [ ] **Raffle ID allocation counter preserved** — the upgrade does not reset,
+      reseed, re-key, or re-type the `storage::next_raffle_id` counter. See
+      [Phase 6.4: Raffle ID Allocation Invariance](#64-raffle-id-allocation-invariance).
+
+> **This is an in-place upgrade.** A redeploy that starts a _new_ contract
+> instance necessarily begins a fresh ID sequence at `1` — that is a new
+> namespace, not a violation of the never-reuse guarantee, but it invalidates
+> every cached `raffle_id`, so it must be treated as a breaking change for
+> integrators.
 
 ---
 
@@ -26,6 +35,7 @@ The SDK is the first system to integrate with the contract.
 ### 1.1: Bindings
 
 - [ ] **Regenerate TypeScript bindings** from new contract:
+
   ```bash
   cd sdk
   stellar contract bindings typescript \
@@ -49,6 +59,7 @@ The SDK is the first system to integrate with the contract.
 ### 1.2: Constants
 
 - [ ] **Update contract ID** in [`sdk/src/contract/constants.ts`](../../sdk/src/contract/constants.ts):
+
   ```typescript
   testnet: {
     raffle: process.env.TIKKA_CONTRACT_TESTNET ?? '<NEW_CONTRACT_ID>',
@@ -75,6 +86,7 @@ The SDK is the first system to integrate with the contract.
 ### 1.4: SDK Validation
 
 - [ ] **Run SDK tests:**
+
   ```bash
   cd sdk
   npm run test
@@ -83,6 +95,7 @@ The SDK is the first system to integrate with the contract.
   - [ ] No type errors
 
 - [ ] **Run SDK linter:**
+
   ```bash
   npm run lint
   ```
@@ -138,6 +151,7 @@ The indexer parses contract events and stores them.
   - [ ] New raffle states? → Update enum
 
 - [ ] **Create migration if needed:**
+
   ```bash
   cd indexer
   npm run typeorm migration:create src/database/migrations/NNN_contract_upgrade
@@ -154,6 +168,7 @@ The indexer parses contract events and stores them.
 ### 2.4: Indexer Validation
 
 - [ ] **Run indexer tests:**
+
   ```bash
   cd indexer
   npm run test
@@ -162,6 +177,7 @@ The indexer parses contract events and stores them.
   - [ ] Event parser tests use new event schemas
 
 - [ ] **Run indexer linter:**
+
   ```bash
   npm run lint
   ```
@@ -197,7 +213,7 @@ The oracle listens for randomness requests and submits randomness.
   ```typescript
   // Old
   await sdk.contract.invoke('receive_randomness', [raffleId, seed, proof]);
-  
+
   // New (if method signature changed)
   await sdk.contract.invoke('receive_randomness_v2', [raffleId, seed, proof]);
   ```
@@ -205,6 +221,7 @@ The oracle listens for randomness requests and submits randomness.
 ### 3.3: Oracle Validation
 
 - [ ] **Run oracle tests:**
+
   ```bash
   cd oracle
   npm run test
@@ -213,6 +230,7 @@ The oracle listens for randomness requests and submits randomness.
   - [ ] Listener and submitter tests still work
 
 - [ ] **Run oracle linter:**
+
   ```bash
   npm run lint
   ```
@@ -260,6 +278,7 @@ The backend provides REST API and handles metadata.
 ### 4.4: Backend Validation
 
 - [ ] **Run backend tests:**
+
   ```bash
   cd backend
   npm run test
@@ -268,6 +287,7 @@ The backend provides REST API and handles metadata.
   - [ ] Contract integration tests work
 
 - [ ] **Run backend linter:**
+
   ```bash
   npm run lint
   ```
@@ -319,6 +339,7 @@ The frontend displays raffle data from the contract.
 ### 5.4: Client Validation
 
 - [ ] **Run client tests:**
+
   ```bash
   cd client
   npm run test
@@ -327,12 +348,14 @@ The frontend displays raffle data from the contract.
   - [ ] Contract integration tests work
 
 - [ ] **Run client linter:**
+
   ```bash
   npm run lint
   ```
   - [ ] All linting issues resolved
 
 - [ ] **Run client build:**
+
   ```bash
   npm run build
   ```
@@ -381,7 +404,7 @@ All packages must work together.
   # Deploy contract
   cd ../tikka-contracts
   ./scripts/deploy.sh testnet <NEW_CONTRACT_ID>
-  
+
   # Run E2E tests
   cd ../tikka
   npm run test:e2e
@@ -390,6 +413,45 @@ All packages must work together.
   - [ ] Buy ticket works end-to-end
   - [ ] List raffles returns correct data
   - [ ] Oracle can submit randomness
+
+### 6.4: Raffle ID Allocation Invariance
+
+Raffle IDs are allocated from a single monotonic `u32` counter and are **never
+reused** — not after a raffle reaches a terminal state (`FINALIZED` /
+`CANCELLED`), and not across an upgrade. The guarantee and its rationale are
+documented in
+[INTEGRATION_BOUNDARY.md → Raffle ID Allocation](./INTEGRATION_BOUNDARY.md#raffle-id-allocation).
+Every upgrade must leave it intact.
+
+- [ ] **Counter schema unchanged** — the allocation counter keeps its `u32`
+      type, key, and initial value. Widening it, renaming the key, or changing
+      the initial value breaks the guarantee.
+- [ ] **No lifecycle path touches the counter** — `cancel_raffle`,
+      `receive_randomness` (→ `FINALIZED`), `refund_ticket`, and `claim_prize`
+      leave the counter untouched. No code path decrements, resets, or reuses a
+      slot.
+- [ ] **No re-seeding on upgrade** — the new code reads the persisted counter
+      and continues from it; it does not initialise it.
+- [ ] **Exhaustion still errors, never wraps** — the counter reaching `u32::MAX`
+      makes `create_raffle` fail with `RaffleIdExhausted` (panic code `6`).
+      Assert this; do not "fix" it by wrapping.
+- [ ] **Contract error codes not renumbered** — `CONTRACT_ERROR_CODE` in
+      [`sdk/src/utils/errors.ts`](../../sdk/src/utils/errors.ts) must still
+      match the contract's `Error` enum discriminants (`RAFFLE_ID_EXHAUSTED`
+      included). A renumbered variant is a breaking ABI change.
+- [ ] **Allocation model tests pass** — the executable model in
+      [`sdk/src/contract/raffle-id-allocation.ts`](../../sdk/src/contract/raffle-id-allocation.ts)
+      is the checked-in statement of these rules. If the contract's behaviour
+      changes, update the model and its spec in the same PR, and say so in the
+      PR description:
+      `bash
+    cd sdk && pnpm test -- raffle-id-allocation
+    `
+- [ ] **Terminated IDs still visible in `get_all_raffle_ids`** and still absent
+      from `get_active_raffle_ids`.
+- [ ] **Post-upgrade chain check** — after deploying the upgrade, record
+      `get_all_raffle_ids` before and after and confirm the set only grew (no ID
+      disappeared and none was reissued).
 
 ---
 
@@ -418,6 +480,7 @@ Once all validation passes, deploy the upgrade.
 ### 7.2: Mainnet Deployment (if applicable)
 
 - [ ] **Deploy contract to mainnet:**
+
   ```bash
   cd ../tikka-contracts
   ./scripts/deploy.sh mainnet

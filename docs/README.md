@@ -23,6 +23,11 @@ Each package has a README.md as its entry point:
 - [indexer/README.md](../indexer/README.md)
 - [oracle/README.md](../oracle/README.md)
 
+SDK consumer guides:
+
+- [sdk/migration.md](./sdk/migration.md) - migrating from direct `@stellar/stellar-sdk` use to `@tikka/sdk`.
+- [WALLET_ADAPTERS.md](./WALLET_ADAPTERS.md) - the `WalletAdapter` contract and per-wallet setup.
+
 ## Operational runbooks
 
 See [docs/runbooks/](./runbooks/) for operational documentation.
