@@ -8,16 +8,16 @@
 
 A raffle's lifecycle in Tikka spans **8 components** and **6 key stages**:
 
-| Component | Role | Repository |
-|---|---|---|
-| **Client** | User interface for raffle creation and participation | [client/](../client/) |
-| **SDK** | Contract interaction abstraction layer | [sdk/](../sdk/) |
-| **Smart Contract** | Onchain raffle state machine and enforcement | tikka-contracts |
-| **Backend** | API, authentication, metadata, notifications | [backend/](../backend/) |
-| **Indexer** | Blockchain event ingestion and query layer | [indexer/](../indexer/) |
-| **Oracle** | Randomness computation and submission | [oracle/](../oracle/) |
-| **Database** | Persistent raffle and leaderboard data (Supabase PostgreSQL) | [backend/database/](../backend/database/) |
-| **Cache** | Redis for real-time data and queue management | External (Redis) |
+| Component          | Role                                                         | Repository                                |
+| ------------------ | ------------------------------------------------------------ | ----------------------------------------- |
+| **Client**         | User interface for raffle creation and participation         | [client/](../client/)                     |
+| **SDK**            | Contract interaction abstraction layer                       | [sdk/](../sdk/)                           |
+| **Smart Contract** | Onchain raffle state machine and enforcement                 | tikka-contracts                           |
+| **Backend**        | API, authentication, metadata, notifications                 | [backend/](../backend/)                   |
+| **Indexer**        | Blockchain event ingestion and query layer                   | [indexer/](../indexer/)                   |
+| **Oracle**         | Randomness computation and submission                        | [oracle/](../oracle/)                     |
+| **Database**       | Persistent raffle and leaderboard data (Supabase PostgreSQL) | [backend/database/](../backend/database/) |
+| **Cache**          | Redis for real-time data and queue management                | External (Redis)                          |
 
 ---
 
@@ -33,13 +33,13 @@ A raffle's lifecycle in Tikka spans **8 components** and **6 key stages**:
 
 ### Ownership & Locations
 
-| Step | Owned By | Working Directory |
-|---|---|---|
-| UI/UX | **Client** | [client/src/pages/CreateRaffle.tsx](../client/src/pages/) |
-| Transaction building | **SDK** | [sdk/src/modules/raffle/](../sdk/src/modules/) |
-| Onchain execution | **Contract** | `tikka-contracts/contracts/raffle/src/lib.rs` |
-| Metadata validation | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
-| Event emission | **Contract** | `tikka-contracts/contracts/raffle/src/events.rs` |
+| Step                 | Owned By     | Working Directory                                                 |
+| -------------------- | ------------ | ----------------------------------------------------------------- |
+| UI/UX                | **Client**   | [client/src/pages/CreateRaffle.tsx](../client/src/pages/)         |
+| Transaction building | **SDK**      | [sdk/src/modules/raffle/](../sdk/src/modules/)                    |
+| Onchain execution    | **Contract** | `tikka-contracts/contracts/raffle/src/lib.rs`                     |
+| Metadata validation  | **Backend**  | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
+| Event emission       | **Contract** | `tikka-contracts/contracts/raffle/src/events.rs`                  |
 
 ### Event Emitted
 
@@ -55,6 +55,23 @@ RaffleCreated {
   }
 }
 ```
+
+### Raffle ID Allocation
+
+`create_raffle` returns the `raffle_id`. IDs come from a single monotonic `u32`
+counter in the contract's instance storage, and **an issued ID is never issued
+again** — cancelling or finalizing a raffle retires its ID, it does not release
+it, and the guarantee holds across contract upgrades. Caching against a
+`raffle_id` is therefore safe; no cached entry can be read back against a
+different raffle.
+
+IDs run from `1` to `u32::MAX`. When the space is spent, `create_raffle` fails
+with the named `RaffleIdExhausted` error (panic code `6`; SDK
+`RaffleIdExhaustedError` / `RAFFLE_ID_EXHAUSTED`) rather than wrapping.
+
+Full rules, including the effect on `get_all_raffle_ids` vs
+`get_active_raffle_ids`: [`docs/contracts/INTEGRATION_BOUNDARY.md` → Raffle ID
+Allocation](contracts/INTEGRATION_BOUNDARY.md#raffle-id-allocation).
 
 ### Database Tables Involved
 
@@ -96,14 +113,14 @@ User                 Client              SDK              Contract          Back
 
 ### Ownership & Locations
 
-| Step | Owned By | Working Directory |
-|---|---|---|
-| UI purchase flow | **Client** | [client/src/pages/RafflePage.tsx](../client/src/pages/) |
-| Transaction building | **SDK** | [sdk/src/modules/raffle/](../sdk/src/modules/) |
-| Onchain logic | **Contract** | `tikka-contracts/contracts/raffle/src/ticket.rs` |
-| Event listening | **Indexer** | [indexer/src/ingestor/](../indexer/src/ingestor/) |
-| Event processing | **Indexer** | [indexer/src/processors/ticket.processor.ts](../indexer/src/processors/) |
-| API response | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
+| Step                 | Owned By     | Working Directory                                                        |
+| -------------------- | ------------ | ------------------------------------------------------------------------ |
+| UI purchase flow     | **Client**   | [client/src/pages/RafflePage.tsx](../client/src/pages/)                  |
+| Transaction building | **SDK**      | [sdk/src/modules/raffle/](../sdk/src/modules/)                           |
+| Onchain logic        | **Contract** | `tikka-contracts/contracts/raffle/src/ticket.rs`                         |
+| Event listening      | **Indexer**  | [indexer/src/ingestor/](../indexer/src/ingestor/)                        |
+| Event processing     | **Indexer**  | [indexer/src/processors/ticket.processor.ts](../indexer/src/processors/) |
+| API response         | **Backend**  | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/)        |
 
 ### Event Emitted
 
@@ -162,13 +179,13 @@ User              Client           SDK          Contract        Indexer        B
 
 ### Ownership & Locations
 
-| Step | Owned By | Working Directory |
-|---|---|---|
-| Manual trigger UI | **Client** | [client/src/pages/RafflePage.tsx](../client/src/pages/) |
-| Transaction building | **SDK** | [sdk/src/modules/raffle/](../sdk/src/modules/) |
-| State transition | **Contract** | `tikka-contracts/contracts/raffle/src/raffle.rs` |
-| Event processing | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
-| Status update | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
+| Step                 | Owned By     | Working Directory                                                        |
+| -------------------- | ------------ | ------------------------------------------------------------------------ |
+| Manual trigger UI    | **Client**   | [client/src/pages/RafflePage.tsx](../client/src/pages/)                  |
+| Transaction building | **SDK**      | [sdk/src/modules/raffle/](../sdk/src/modules/)                           |
+| State transition     | **Contract** | `tikka-contracts/contracts/raffle/src/raffle.rs`                         |
+| Event processing     | **Indexer**  | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
+| Status update        | **Backend**  | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/)        |
 
 ### Event Emitted
 
@@ -221,16 +238,16 @@ User/Host             Client               SDK             Contract        Index
 
 ### Ownership & Locations
 
-| Step | Owned By | Working Directory |
-|---|---|---|
-| Event listening | **Oracle** | [oracle/src/listener/](../oracle/src/listener/) |
-| Queue management | **Oracle** | [oracle/src/queue/](../oracle/src/queue/) |
-| Job enqueuing | **Oracle** | [oracle/src/queue/](../oracle/src/queue/) |
-| Cost estimation | **Oracle** | [oracle/src/randomness/](../oracle/src/randomness/) |
-| Randomness computation (VRF) | **Oracle** | [oracle/src/randomness/](../oracle/src/randomness/) |
-| Randomness computation (PRNG) | **Oracle** | [oracle/src/randomness/](../oracle/src/randomness/) |
-| Transaction submission | **Oracle** | [oracle/src/submitter/](../oracle/src/submitter/) |
-| Contract interaction | **Contract** | `tikka-contracts/contracts/raffle/src/randomness.rs` |
+| Step                          | Owned By     | Working Directory                                    |
+| ----------------------------- | ------------ | ---------------------------------------------------- |
+| Event listening               | **Oracle**   | [oracle/src/listener/](../oracle/src/listener/)      |
+| Queue management              | **Oracle**   | [oracle/src/queue/](../oracle/src/queue/)            |
+| Job enqueuing                 | **Oracle**   | [oracle/src/queue/](../oracle/src/queue/)            |
+| Cost estimation               | **Oracle**   | [oracle/src/randomness/](../oracle/src/randomness/)  |
+| Randomness computation (VRF)  | **Oracle**   | [oracle/src/randomness/](../oracle/src/randomness/)  |
+| Randomness computation (PRNG) | **Oracle**   | [oracle/src/randomness/](../oracle/src/randomness/)  |
+| Transaction submission        | **Oracle**   | [oracle/src/submitter/](../oracle/src/submitter/)    |
+| Contract interaction          | **Contract** | `tikka-contracts/contracts/raffle/src/randomness.rs` |
 
 ### Events Emitted
 
@@ -251,10 +268,10 @@ RandomnessReceived {
 
 ### Randomness Method Selection
 
-| Prize Amount | Method | Processing Time | Cost | Verifiable |
-|---|---|---|---|---|
-| **< 500 XLM** | PRNG (SHA-256) | Instant | ~0 XLM | Yes (deterministic) |
-| **≥ 500 XLM** | VRF (Ed25519) | ~2–5s | Standard tx fee | Yes (cryptographic proof) |
+| Prize Amount  | Method         | Processing Time | Cost            | Verifiable                |
+| ------------- | -------------- | --------------- | --------------- | ------------------------- |
+| **< 500 XLM** | PRNG (SHA-256) | Instant         | ~0 XLM          | Yes (deterministic)       |
+| **≥ 500 XLM** | VRF (Ed25519)  | ~2–5s           | Standard tx fee | Yes (cryptographic proof) |
 
 - **PRNG**: `seed = SHA256(requestId || raffleId || timestamp)`
 - **VRF**: Uses oracle's Ed25519 keypair to generate cryptographic proof
@@ -336,13 +353,13 @@ Stellar Ledger      Oracle Listener    Queue (Redis)    Randomness Service    Co
 
 ### Ownership & Locations
 
-| Step | Owned By | Working Directory |
-|---|---|---|
-| Winner selection logic | **Contract** | `tikka-contracts/contracts/raffle/src/payout.rs` |
-| Event emission | **Contract** | `tikka-contracts/contracts/raffle/src/events.rs` |
-| Event processing | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
-| Leaderboard trigger | **Indexer** → **Backend** | [backend/src/services/](../backend/src/services/) |
-| API response | **Backend** | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/) |
+| Step                   | Owned By                  | Working Directory                                                        |
+| ---------------------- | ------------------------- | ------------------------------------------------------------------------ |
+| Winner selection logic | **Contract**              | `tikka-contracts/contracts/raffle/src/payout.rs`                         |
+| Event emission         | **Contract**              | `tikka-contracts/contracts/raffle/src/events.rs`                         |
+| Event processing       | **Indexer**               | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
+| Leaderboard trigger    | **Indexer** → **Backend** | [backend/src/services/](../backend/src/services/)                        |
+| API response           | **Backend**               | [backend/src/api/rest/raffles/](../backend/src/api/rest/raffles/)        |
 
 ### Event Emitted
 
@@ -413,13 +430,13 @@ Oracle              Contract           Indexer          Backend          User
 
 ### Ownership & Locations
 
-| Step | Owned By | Working Directory |
-|---|---|---|
-| Event processing | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/) |
-| Leaderboard service | **Backend** | [backend/src/api/rest/leaderboard/](../backend/src/api/rest/leaderboard/) |
+| Step                   | Owned By    | Working Directory                                                         |
+| ---------------------- | ----------- | ------------------------------------------------------------------------- |
+| Event processing       | **Indexer** | [indexer/src/processors/raffle.processor.ts](../indexer/src/processors/)  |
+| Leaderboard service    | **Backend** | [backend/src/api/rest/leaderboard/](../backend/src/api/rest/leaderboard/) |
 | Leaderboard controller | **Backend** | [backend/src/api/rest/leaderboard/](../backend/src/api/rest/leaderboard/) |
-| Real-time updates | **Backend** | [backend/src/api/rest/](../backend/src/api/rest/) |
-| Statistics | **Backend** | [backend/src/api/rest/stats/](../backend/src/api/rest/stats/) |
+| Real-time updates      | **Backend** | [backend/src/api/rest/](../backend/src/api/rest/)                         |
+| Statistics             | **Backend** | [backend/src/api/rest/stats/](../backend/src/api/rest/stats/)             |
 
 ### Statistics Calculated
 
@@ -535,27 +552,27 @@ Indexer            Backend (Leaderboard Service)    Supabase DB    WebSocket/API
 
 ## Data Flow Summary Table
 
-| Stage | Event | Source | Processor | Destination | Table Updated |
-|---|---|---|---|---|---|
-| 1 | `RaffleCreated` | Contract | — | Backend | `raffle_metadata` |
-| 2 | `TicketPurchased` | Contract | `ticket.processor.ts` | Indexer → DB | `tickets`, `raffles.tickets_sold` |
-| 3 | `DrawTriggered` | Contract | `raffle.processor.ts` | Indexer → DB | `raffles.status = 'DRAWING'` |
-| 4a | `RandomnessRequested` | Contract | Oracle Listener | Oracle Queue | `randomness_requests` |
-| 4b | `RandomnessReceived` | Contract | `raffle.processor.ts` | Indexer → DB | `randomness_responses` |
-| 5 | `RaffleFinalized` | Contract | `raffle.processor.ts` | Indexer → DB | `raffles`, `tickets` (winner marked) |
-| 6 | (Event trigger) | Indexer | Leaderboard Service | Backend → DB | `leaderboard_entries`, `user_statistics` |
+| Stage | Event                 | Source   | Processor             | Destination  | Table Updated                            |
+| ----- | --------------------- | -------- | --------------------- | ------------ | ---------------------------------------- |
+| 1     | `RaffleCreated`       | Contract | —                     | Backend      | `raffle_metadata`                        |
+| 2     | `TicketPurchased`     | Contract | `ticket.processor.ts` | Indexer → DB | `tickets`, `raffles.tickets_sold`        |
+| 3     | `DrawTriggered`       | Contract | `raffle.processor.ts` | Indexer → DB | `raffles.status = 'DRAWING'`             |
+| 4a    | `RandomnessRequested` | Contract | Oracle Listener       | Oracle Queue | `randomness_requests`                    |
+| 4b    | `RandomnessReceived`  | Contract | `raffle.processor.ts` | Indexer → DB | `randomness_responses`                   |
+| 5     | `RaffleFinalized`     | Contract | `raffle.processor.ts` | Indexer → DB | `raffles`, `tickets` (winner marked)     |
+| 6     | (Event trigger)       | Indexer  | Leaderboard Service   | Backend → DB | `leaderboard_entries`, `user_statistics` |
 
 ---
 
 ## API Status Code Semantics (`GET /raffles/:id`)
 
-| Lifecycle State | On-Chain / DB Status | HTTP Status Code | Response Details |
-|---|---|---|---|
-| **Active** | `open`, `drawing` | `200 OK` | Detail response with `status: "open"` or `"drawing"` |
-| **Ended** | `ended`, `finalized` | `200 OK` | Detail response with `status: "ended"` or `"finalized"`, winner, and stats (viewable) |
-| **Cancelled** | `cancelled` | `200 OK` | Detail response with `status: "cancelled"` (viewable) |
-| **Deleted** | `deleted`, `removed`, or soft-deleted metadata | `410 Gone` | `Raffle {id} has been deleted` |
-| **Unknown** | Never existed | `404 Not Found` | `Raffle {id} not found` |
+| Lifecycle State | On-Chain / DB Status                           | HTTP Status Code | Response Details                                                                      |
+| --------------- | ---------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------- |
+| **Active**      | `open`, `drawing`                              | `200 OK`         | Detail response with `status: "open"` or `"drawing"`                                  |
+| **Ended**       | `ended`, `finalized`                           | `200 OK`         | Detail response with `status: "ended"` or `"finalized"`, winner, and stats (viewable) |
+| **Cancelled**   | `cancelled`                                    | `200 OK`         | Detail response with `status: "cancelled"` (viewable)                                 |
+| **Deleted**     | `deleted`, `removed`, or soft-deleted metadata | `410 Gone`       | `Raffle {id} has been deleted`                                                        |
+| **Unknown**     | Never existed                                  | `404 Not Found`  | `Raffle {id} not found`                                                               |
 
 ---
 
@@ -596,22 +613,26 @@ Indexer            Backend (Leaderboard Service)    Supabase DB    WebSocket/API
 ## Environment Variables & Configuration
 
 ### Client
+
 - `VITE_RAFFLE_CONTRACT_ADDRESS` — Deployed contract address
 - `VITE_SUPABASE_URL` — Backend API endpoint
 - `VITE_SUPABASE_KEY` — Anonymous key for auth
 
 ### Backend
+
 - `DATABASE_URL` — Supabase PostgreSQL connection
 - `SUPABASE_URL`, `SUPABASE_KEY` — Admin keys for metadata
 - `REDIS_URL` — Queue and cache support
 - `ORACLE_ADDRESS` — Authorized oracle address on contract
 
 ### Indexer
+
 - `DATABASE_URL` — Local PostgreSQL for indexer state
 - `HORIZON_URL` — Stellar Horizon endpoint for event streaming
 - `CONTRACT_ID` — Soroban contract ID to watch
 
 ### Oracle
+
 - `STELLAR_NETWORK_PASSPHRASE` — Network (public or test)
 - `ORACLE_KEYPAIR` — Ed25519 keypair for signing randomness
 - `CONTRACT_ID` — Contract to receive randomness
@@ -648,17 +669,20 @@ Indexer            Backend (Leaderboard Service)    Supabase DB    WebSocket/API
 ## Troubleshooting
 
 ### Raffle Creation Fails
+
 - Check `backend/src/api/rest/raffles/` — metadata validation
 - Verify SIWS token valid in `Authorization` header
 - Check Supabase connection string
 
 ### Tickets Not Showing Up
+
 - Verify indexer is running and connected to Horizon
 - Check `indexer/src/processors/ticket.processor.ts` — event parsing
 - Query `tickets` table directly in Supabase
 - Check Redis cache invalidation
 
 ### Oracle Not Processing
+
 - Verify Oracle keypair in env vars
 - Check `oracle/src/listener/` — is event listener active?
 - Check Redis queue with `redis-cli` — any queued jobs?
@@ -666,6 +690,7 @@ Indexer            Backend (Leaderboard Service)    Supabase DB    WebSocket/API
 - Verify `ORACLE_ADDRESS` env var matches contract's authorized oracle
 
 ### Leaderboard Not Updating
+
 - Verify raffle finalized (check `raffles.winner IS NOT NULL`)
 - Check `backend/src/services/leaderboard/` — service running?
 - Verify leaderboard tables created in Supabase

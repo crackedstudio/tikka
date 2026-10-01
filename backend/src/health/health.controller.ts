@@ -11,6 +11,26 @@ export class HealthController {
   @Public()
   @SkipThrottle()
   @SkipMaintenance()
+  @Get('health/live')
+  getLive(): { status: 'ok'; timestamp: string } {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
+  @Public()
+  @SkipThrottle()
+  @SkipMaintenance()
+  @Get('health/ready')
+  async getReady(): Promise<HealthResult> {
+    const result = await this.healthService.getHealth();
+    if (result.status === 'degraded') {
+      throw new ServiceUnavailableException(result);
+    }
+    return result;
+  }
+
+  @Public()
+  @SkipThrottle()
+  @SkipMaintenance()
   @Get('health')
   async getHealth(): Promise<HealthResult> {
     const result = await this.healthService.getHealth();

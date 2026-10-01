@@ -78,11 +78,36 @@ export class EventHandlerRegistry {
   }
 
   /**
-   * Register a default handler (used when no contract-specific handler exists)
+   * Register a default handler (used when no contract-specific handler exists).
+   *
+   * Every topic has exactly **one** default handler: registering a *different*
+   * handler for a topic that is already claimed throws, so which handler wins
+   * can never depend on module-init order (a silent `Map.set` would let a
+   * later registration shadow an earlier one). Re-registering the *same*
+   * instance is a no-op, which keeps `onModuleInit` idempotent.
    */
   public registerDefaultHandler(handler: IEventHandler): void {
+    const existing = this.defaultHandlers.get(handler.eventName);
+
+    if (existing && existing !== handler) {
+      throw new Error(
+        `Duplicate default handler for event "${handler.eventName}": ` +
+          `${existing.constructor.name} already claims it, ` +
+          `${handler.constructor.name} cannot also claim it.`,
+      );
+    }
+
     this.defaultHandlers.set(handler.eventName, handler);
     this.logger.debug(`Registered default handler: ${handler.eventName}`);
+  }
+
+  /**
+   * Topics that currently have a default handler, in registration order.
+   * Used by tests and health checks to assert the registered set is exactly
+   * the expected set of contract event topics.
+   */
+  public getDefaultHandlerTopics(): string[] {
+    return Array.from(this.defaultHandlers.keys());
   }
 
   /**

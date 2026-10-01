@@ -34,6 +34,8 @@ export class MetricsService {
   private queryDurationHistogram: Histogram;
 
   private dlqDepthGauge: Gauge;
+  private dlqUnreplayedEventsGauge: Gauge;
+  private dlqOldestUnreplayedEventTimestampGauge: Gauge;
   private dlqEventsTotalCounter: Counter;
 
   // BullMQ queue metrics
@@ -102,19 +104,26 @@ export class MetricsService {
       description: 'Current DLQ depth (failed events not yet successfully replayed)',
     });
 
-    this.dlqEventsTotalCounter = this.meter.createCounter(
-      'indexer_dlq_events_total',
-      {
-        description:
-          'Total number of DLQ events added and replay attempts',
-      },
+    this.dlqUnreplayedEventsGauge = this.meter.createGauge('indexer_dlq_unreplayed_events', {
+      description: 'Total number of unreplayed DLQ events across all contracts',
+    });
+
+    this.dlqOldestUnreplayedEventTimestampGauge = this.meter.createGauge(
+      'indexer_dlq_oldest_unreplayed_event_timestamp_seconds',
+      { description: 'Unix timestamp of the oldest unreplayed DLQ event' },
     );
 
-    this.meter.createObservableGauge('tikka_indexer_memory_usage_bytes', {
-      description: 'Current memory usage (heapUsed)',
-    }).addCallback((result: ObservableResult) => {
-      result.observe(process.memoryUsage().heapUsed);
+    this.dlqEventsTotalCounter = this.meter.createCounter('indexer_dlq_events_total', {
+      description: 'Total number of DLQ events added and replay attempts',
     });
+
+    this.meter
+      .createObservableGauge('tikka_indexer_memory_usage_bytes', {
+        description: 'Current memory usage (heapUsed)',
+      })
+      .addCallback((result: ObservableResult) => {
+        result.observe(process.memoryUsage().heapUsed);
+      });
 
     // Initialize BullMQ queue metrics gauges
     this.queueWaitingGauge = this.meter.createGauge('tikka_indexer_queue_waiting', {
@@ -141,10 +150,13 @@ export class MetricsService {
       description: 'Number of paused jobs',
     });
 
-    this.queueOldestJobAgeGauge = this.meter.createGauge('tikka_indexer_queue_oldest_job_age_seconds', {
-      description: 'Age of the oldest waiting job in seconds',
-      unit: 's',
-    });
+    this.queueOldestJobAgeGauge = this.meter.createGauge(
+      'tikka_indexer_queue_oldest_job_age_seconds',
+      {
+        description: 'Age of the oldest waiting job in seconds',
+        unit: 's',
+      },
+    );
 
     this.queueTotalGauge = this.meter.createGauge('tikka_indexer_queue_total', {
       description: 'Total number of jobs across all states',
@@ -194,9 +206,14 @@ export class MetricsService {
         this.queueDelayedGauge.record(delayed, labels);
         this.queuePausedGauge.record(paused, labels);
         this.queueOldestJobAgeGauge.record(oldestJobAge, labels);
-        this.queueTotalGauge.record(waiting + active + completed + failed + delayed + paused, labels);
+        this.queueTotalGauge.record(
+          waiting + active + completed + failed + delayed + paused,
+          labels,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to collect metrics for queue "${name}": ${(error as Error).message}`);
+        this.logger.warn(
+          `Failed to collect metrics for queue "${name}": ${(error as Error).message}`,
+        );
       }
     };
 
@@ -257,6 +274,14 @@ export class MetricsService {
     this.dlqDepthGauge.record(depth, { contract_address: contractAddress });
   }
 
+  setDlqUnreplayedEvents(count: number) {
+    this.dlqUnreplayedEventsGauge.record(count);
+  }
+
+  setDlqOldestUnreplayedEventTimestampSeconds(timestampSeconds: number) {
+    this.dlqOldestUnreplayedEventTimestampGauge.record(timestampSeconds);
+  }
+
   incrementDlqEventsTotal(reason: DlqReason, eventType: string, amount: number = 1) {
     this.dlqEventsTotalCounter.add(amount, { reason, event_type: eventType });
   }
@@ -270,7 +295,7 @@ export class MetricsService {
     return new Promise((resolve) => {
       // Use a mock response object to capture the output from the exporter's handler
       const res = {
-        setHeader: () => { },
+        setHeader: () => {},
         end: (data: string) => resolve(data),
         statusCode: 200,
       };

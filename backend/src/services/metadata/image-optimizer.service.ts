@@ -50,16 +50,23 @@ export class ImageOptimizerService {
     }
     this.logger.debug(`ImageCache miss for key ${cacheKey}`);
 
-    // WebP inputs are passed through without re-encoding
+    // WebP inputs: strip EXIF without re-encoding
     if (mimeType === 'image/webp') {
       const metadata = await sharp(fileBuffer).metadata();
       const originalWidth = metadata.width ?? 0;
+
+      // Strip EXIF by auto-rotating and re-encoding
+      // rotate() with no args reads EXIF orientation, applies rotation, and strips metadata
+      const cleanBuffer = await sharp(fileBuffer)
+        .rotate()
+        .webp({ quality: WEBP_QUALITY })
+        .toBuffer();
 
       const variants = await this.generateVariants(fileBuffer, originalWidth);
 
       const result = {
         primary: {
-          buffer: fileBuffer,
+          buffer: cleanBuffer,
           width: originalWidth,
           mimeType: 'image/webp' as const,
         },
@@ -70,12 +77,14 @@ export class ImageOptimizerService {
       return result;
     }
 
-    // JPEG/PNG: convert to WebP at quality 80
+    // JPEG/PNG: convert to WebP at quality 80 (automatically strips EXIF)
     const image = sharp(fileBuffer);
     const metadata = await image.metadata();
     const originalWidth = metadata.width ?? 0;
 
+    // rotate() ensures EXIF orientation is respected before stripping
     const primaryBuffer = await sharp(fileBuffer)
+      .rotate()
       .webp({ quality: WEBP_QUALITY })
       .toBuffer();
 
@@ -108,6 +117,7 @@ export class ImageOptimizerService {
 
       try {
         const variantBuffer = await sharp(sourceBuffer)
+          .rotate() // Auto-rotate based on EXIF orientation and strip metadata
           .resize({ width: targetWidth, withoutEnlargement: true })
           .webp({ quality: WEBP_QUALITY })
           .toBuffer();

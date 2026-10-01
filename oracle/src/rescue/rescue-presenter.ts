@@ -111,4 +111,12 @@ COMMANDS:
 
     console.log(`Summary: stuck=${report.summary.stuck} failed=${report.summary.failed} pending=${report.summary.pending} confirmed=${report.summary.confirmed} total=${report.summary.total}`);
   }
+
+  static write(...args: any[]): void {
+    console.log(...args);
+  }
+
+  static fail(...args: any[]): void {
+    console.error(...args);
+  }
 }
