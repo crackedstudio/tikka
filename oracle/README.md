@@ -1,5 +1,9 @@
 # Oracle Randomness Worker
 
+Environment settings are documented in the [central oracle environment
+reference](../docs/env/oracle.md); copy this workspace's `.env.example` to
+`.env.local` before running locally.
+
 ## Overview
 
 The randomness worker processes pending randomness requests from the queue. It determines whether to use VRF (high-stakes) or PRNG (low-stakes), computes the seed and proof, and submits the result to the Soroban contract.
@@ -109,8 +113,8 @@ Submits randomness to the contract with robust fault tolerance, explicit state m
 - ✅ RPC failover to backup endpoints
 - ✅ Comprehensive test suite with 95%+ coverage
 
-📖 **See [Transaction Submitter Guide](./src/submitter/TX_SUBMITTER_GUIDE.md) for complete documentation**  
-📋 **See [Transaction Submitter Quick Reference](./src/submitter/TX_SUBMITTER_QUICK_REF.md) for quick reference**
+📖 **See [Transaction Submitter Guide](./docs/TX_SUBMITTER_GUIDE.md) for complete documentation**  
+📋 **See [Transaction Submitter Quick Reference](./docs/TX_SUBMITTER_QUICK_REF.md) for quick reference**
 
 ## Error Handling & Retries
 

@@ -1,11 +1,14 @@
 import {
   WalletAdapter,
   WalletAdapterOptions,
+  WalletAvailability,
+  WalletAvailabilityCode,
   WalletName,
   SignTransactionResult,
   WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { getGlobalProperty, hasGlobalProperty, isBrowserEnvironment } from '../utils/environment';
 
 /**
  * Freighter wallet adapter.
@@ -30,6 +33,35 @@ export class FreighterAdapter extends WalletAdapter {
 
   isAvailable(): boolean {
     return this.hasFreighterGlobal();
+  }
+
+  /**
+   * Freighter needs the extension's injected `window.freighter` bridge. The
+   * difference between "not a browser at all" (SSR/Node) and "browser without
+   * the extension installed" is what makes this a useful runtime check.
+   */
+  checkAvailability(): WalletAvailability {
+    if (this.isAvailable()) {
+      return {
+        available: true,
+        code: WalletAvailabilityCode.Available,
+        message: 'Freighter is available in this browser environment',
+      };
+    }
+
+    if (!isBrowserEnvironment()) {
+      return {
+        available: false,
+        code: WalletAvailabilityCode.UnsupportedEnvironment,
+        message: 'Freighter requires a browser environment (window/document are not defined)',
+      };
+    }
+
+    return {
+      available: false,
+      code: WalletAvailabilityCode.ExtensionNotInstalled,
+      message: 'Freighter wallet extension is not installed. Get it at https://freighter.app',
+    };
   }
 
   /* ------------------------------------------------------------------ */
@@ -188,10 +220,7 @@ export class FreighterAdapter extends WalletAdapter {
   /* ------------------------------------------------------------------ */
 
   private hasFreighterGlobal(): boolean {
-    return (
-      typeof globalThis !== 'undefined' &&
-      typeof (globalThis as any).freighter !== 'undefined'
-    );
+    return hasGlobalProperty('freighter');
   }
 
   private assertInstalled(): void {
@@ -213,8 +242,8 @@ export class FreighterAdapter extends WalletAdapter {
       return await import('@stellar/freighter-api');
     } catch {
       // If the npm package isn't installed, fall back to the global
-      const g = globalThis as any;
-      if (g.freighter) return g.freighter;
+      const freighterGlobal = getGlobalProperty<any>('freighter');
+      if (freighterGlobal) return freighterGlobal;
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
         '@stellar/freighter-api is not installed and window.freighter is not available',
