@@ -9,7 +9,6 @@ CLAUDE.md
 
 # Docs
 sdk/docs/
-node_modules/
 dist/
 .env
 *.log
@@ -24,6 +23,7 @@ build*.txt
 *-output.txt
 *_output.txt
 *.tsbuildinfo
+/*.py
 debug_*.py
 fix_*.py
 PUSH_TO_BRANCH.sh
@@ -40,7 +40,6 @@ coverage/
 # Tool scratch directories
 .kiro/
 .antigravitycli/
-
 .turbo/
 branch_structure.json
 temp_auto_push.bat
