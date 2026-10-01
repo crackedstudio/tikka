@@ -25,3 +25,11 @@ export interface RaffleEndedEvent {
 export interface RaffleCancelledEvent {
   raffleId: number;
 }
+
+export const TICKET_COUNT_UPDATED_EVENT = 'ticket_count_updated';
+
+export interface TicketCountUpdatedPayload {
+  raffleId: number;
+  ticketsSold: number;
+  updatedAt: number;
+}

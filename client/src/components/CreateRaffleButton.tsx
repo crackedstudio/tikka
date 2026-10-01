@@ -1,18 +1,11 @@
-import { logger } from '../utils/logger';
-import React, { useState } from "react";
+import React from "react";
 import Modal from "./modals/Modal";
 import ProcessingRaffleCreation from "./modals/ProcessingRaffleCreation";
 import RaffleCreatedSuccess from "./modals/RaffleCreatedSuccess";
-import { useWalletContext } from "../providers";
 import { STELLAR_CONFIG } from "../config/stellar";
-import { MetadataService } from "../services/metadataService";
-import { createRaffle } from "../services/sdkClient";
-import { useAuthContext } from "../providers";
-import type { PipelineProgressEvent } from "../services/transactionPipeline";
-import { CreateRaffleFormSchema } from "../utils/raffleValidation";
+import { useCreateRaffle } from "../hooks/useCreateRaffle";
 
 interface CreateRaffleButtonProps {
-  // Form data for metadata
   title: string;
   description: string;
   image: string;
@@ -22,14 +15,11 @@ interface CreateRaffleButtonProps {
   prizeCurrency: string;
   category: string;
   tags: string[];
-
-  // Contract parameters
-  endTime: number; // Unix timestamp
+  endTime: number;
   maxTickets: number;
   allowMultipleTickets: boolean;
-  ticketPrice: string; // In wei
-  ticketToken?: string; // Token address, undefined for ETH
-
+  ticketPrice: string;
+  ticketToken?: string;
   onSuccess?: (raffleId: number) => void;
   onError?: (error: string) => void;
   className?: string;
@@ -53,213 +43,75 @@ const CreateRaffleButton = ({
   className = "bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200",
   children = "Publish Raffle",
 }: CreateRaffleButtonProps) => {
-  const { isConnected, isWrongNetwork, connect, switchNetwork } =
-    useWalletContext();
-  const { isAuthenticated } = useAuthContext();
-  const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
-  const effectiveIsAuthenticated = isTestMode || isAuthenticated;
-  const [isLoading, setIsLoading] = useState(false);
-  const [showProcessingModal, setShowProcessingModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [currentStep, setCurrentStep] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [createdRaffleId, setCreatedRaffleId] = useState<number | undefined>(
-    undefined,
-  );
-  const [txHash, setTxHash] = useState<string | undefined>(undefined);
+  const {
+    buttonState,
+    targetNetwork,
+    isLoading,
+    showProcessingModal,
+    showSuccessModal,
+    currentStep,
+    progress,
+    createdRaffleId,
+    txHash,
+    handleButtonClick,
+    closeProcessingModal,
+    closeSuccessModal,
+  } = useCreateRaffle({
+    title,
+    description,
+    prizeName,
+    prizeValue,
+    prizeCurrency,
+    category,
+    tags,
+    endTime,
+    maxTickets,
+    ticketPrice,
+    imageFile,
+    onSuccess,
+    onError,
+  });
 
-  const targetNetwork =
-    STELLAR_CONFIG.network.charAt(0).toUpperCase() +
-    STELLAR_CONFIG.network.slice(1);
+  const buttonText = {
+    loading: "Creating...",
+    "connect-wallet": "Connect Wallet to Publish",
+    "wrong-network": `Switch to ${targetNetwork}`,
+    "sign-in": "Sign in to Publish",
+    ready: children,
+  }[buttonState];
 
-  const handleButtonClick = async () => {
-    if (!isConnected) {
-      await connect();
-      return;
-    }
-
-    if (isWrongNetwork) {
-      await switchNetwork();
-      return;
-    }
-
-    if (!effectiveIsAuthenticated) {
-      onError?.("Please sign in before creating a raffle.");
-      return;
-    }
-
-    handleCreateRaffle();
-  };
-
-  const handleCreateRaffle = async () => {
-    setIsLoading(true);
-    setShowProcessingModal(true);
-    setProgress(0);
-    setCurrentStep("Preparing raffle data...");
-
-    try {
-      if (!imageFile) {
-        throw new Error("Prize image is required");
-      }
-
-      setCurrentStep("Uploading metadata and image...");
-      setProgress(20);
-
-      const metadataCid = await MetadataService.uploadMetadataWithImage(
-        {
-          title,
-          description,
-          prizeName,
-          prizeValue,
-          prizeCurrency,
-          category,
-          tags,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        },
-        imageFile,
-      );
-
-      const durationInSeconds = endTime - Math.floor(Date.now() / 1000);
-
-      const formValidation = CreateRaffleFormSchema.safeParse({
-        ticketPrice: ticketPrice,
-        totalTickets: maxTickets,
-        durationInSeconds: Math.max(0, durationInSeconds),
-      });
-
-      if (!formValidation.success) {
-        const errorMessage = formValidation.error.issues
-          .map((e) => e.message)
-          .join("; ");
-        throw new Error(errorMessage);
-      }
-
-      // Stage → progress mapping for the modal
-      const stageProgress: Record<string, number> = {
-        BUILD: 40,
-        ESTIMATE: 55,
-        SIGN: 70,
-        SUBMIT: 85,
-        POLL: 92,
-        DONE: 100,
-      };
-
-      const stageLabel: Record<string, string> = {
-        BUILD: "Building transaction...",
-        ESTIMATE: "Estimating fees...",
-        SIGN: "Waiting for wallet signature...",
-        SUBMIT: "Submitting to network...",
-        POLL: "Waiting for confirmation...",
-        DONE: "Raffle created successfully!",
-      };
-
-      const handleProgress = (event: PipelineProgressEvent) => {
-        if (event.status === "error") return; // error state handled by result union
-        setCurrentStep(stageLabel[event.stage] ?? event.stage);
-        setProgress(stageProgress[event.stage] ?? progress);
-      };
-
-      const result = await createRaffle(
-        {
-          metadataId: metadataCid,
-          ticketPrice: ticketPrice,
-          totalTickets: maxTickets,
-          durationInSeconds: Math.max(0, durationInSeconds),
-        },
-        { onProgress: handleProgress },
-      );
-
-      if (!result.ok) {
-        const errorMessages: Record<string, string> = {
-          USER_REJECTED: "Transaction was cancelled.",
-          INSUFFICIENT_FEES: "Insufficient funds to cover fees.",
-          TIMEOUT: "Transaction timed out. Check your wallet for status.",
-        };
-        throw new Error(errorMessages[result.error.code] ?? result.error.message);
-      }
-
-      const raffleId = Math.floor(1000 + Math.random() * 9000);
-      setCreatedRaffleId(raffleId);
-      setTxHash(result.data.txHash);
-      onSuccess?.(raffleId);
-
-      setTimeout(() => {
-        setShowProcessingModal(false);
-        setShowSuccessModal(true);
-        setIsLoading(false);
-      }, 1200);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create raffle";
-      logger.error("Error creating raffle:", err);
-      setCurrentStep(message);
-      setProgress(0);
-      onError?.(message);
-      setTimeout(() => {
-        setShowProcessingModal(false);
-        setIsLoading(false);
-      }, 2500);
-    }
-  };
-
-  const getButtonText = () => {
-    if (isLoading) return "Creating...";
-    if (!isConnected) return "Connect Wallet to Publish";
-    if (isWrongNetwork) return `Switch to ${targetNetwork}`;
-    if (!effectiveIsAuthenticated) return "Sign in to Publish";
-    return children;
-  };
+  const needsAttentionStyle = buttonState === "connect-wallet" || buttonState === "wrong-network";
 
   return (
     <>
       <button
         onClick={handleButtonClick}
         disabled={isLoading}
-        className={`${className} ${
-          isLoading ? "opacity-50 cursor-not-allowed" : ""
-        } ${(!isConnected || isWrongNetwork) && !isLoading ? "bg-indigo-600! hover:bg-indigo-700!" : ""}`}
+        className={`${className} ${isLoading ? "opacity-50 cursor-not-allowed" : ""} ${
+          needsAttentionStyle && !isLoading ? "bg-indigo-600! hover:bg-indigo-700!" : ""
+        }`}
       >
-        {getButtonText()}
+        {buttonText}
       </button>
 
-      {/* Processing Modal */}
-      <Modal
-        open={showProcessingModal}
-        onClose={() => {
-          if (!isLoading) {
-            setShowProcessingModal(false);
-          }
-        }}
-      >
+      <Modal open={showProcessingModal} onClose={closeProcessingModal}>
         <ProcessingRaffleCreation
           isVisible={showProcessingModal}
           currentStep={currentStep}
           progress={progress}
           network={STELLAR_CONFIG.network}
-          onClose={() => {
-            if (!isLoading) {
-              setShowProcessingModal(false);
-            }
-          }}
+          onClose={closeProcessingModal}
         />
       </Modal>
 
-      {/* Success Modal */}
-      <Modal
-        open={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false);
-        }}
-      >
+      <Modal open={showSuccessModal} onClose={closeSuccessModal}>
         <RaffleCreatedSuccess
           isVisible={showSuccessModal}
           raffleId={createdRaffleId}
           transactionHash={txHash}
           network={STELLAR_CONFIG.network}
-          onClose={() => {
-            setShowSuccessModal(false);
-          }}
-        />{" "}
+          onClose={closeSuccessModal}
+        />
       </Modal>
     </>
   );
