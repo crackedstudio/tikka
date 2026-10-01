@@ -34,6 +34,8 @@ export class MetricsService {
   private queryDurationHistogram: Histogram;
 
   private dlqDepthGauge: Gauge;
+  private dlqUnreplayedEventsGauge: Gauge;
+  private dlqOldestUnreplayedEventTimestampGauge: Gauge;
   private dlqEventsTotalCounter: Counter;
   private reconciliationDiscrepanciesGauge: Gauge;
 
@@ -103,16 +105,18 @@ export class MetricsService {
       description: 'Current DLQ depth (failed events not yet successfully replayed)',
     });
 
+    this.dlqUnreplayedEventsGauge = this.meter.createGauge('indexer_dlq_unreplayed_events', {
+      description: 'Total number of unreplayed DLQ events across all contracts',
+    });
+
+    this.dlqOldestUnreplayedEventTimestampGauge = this.meter.createGauge(
+      'indexer_dlq_oldest_unreplayed_event_timestamp_seconds',
+      { description: 'Unix timestamp of the oldest unreplayed DLQ event' },
+    );
+
     this.dlqEventsTotalCounter = this.meter.createCounter('indexer_dlq_events_total', {
       description: 'Total number of DLQ events added and replay attempts',
     });
-
-    this.reconciliationDiscrepanciesGauge = this.meter.createGauge(
-      'tikka_indexer_reconciliation_discrepancies',
-      {
-        description: 'Current discrepancy count from the most recent reconciliation run',
-      },
-    );
 
     this.meter
       .createObservableGauge('tikka_indexer_memory_usage_bytes', {
@@ -269,6 +273,14 @@ export class MetricsService {
 
   setDlqDepth(contractAddress: string, depth: number) {
     this.dlqDepthGauge.record(depth, { contract_address: contractAddress });
+  }
+
+  setDlqUnreplayedEvents(count: number) {
+    this.dlqUnreplayedEventsGauge.record(count);
+  }
+
+  setDlqOldestUnreplayedEventTimestampSeconds(timestampSeconds: number) {
+    this.dlqOldestUnreplayedEventTimestampGauge.record(timestampSeconds);
   }
 
   incrementDlqEventsTotal(reason: DlqReason, eventType: string, amount: number = 1) {

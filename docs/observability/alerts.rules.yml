@@ -35,15 +35,33 @@ groups:
         annotations:
           summary: 'Indexer encountering errors'
           description: 'The indexer is encountering errors at a rate of {{ $value }} per second.'
-
-      - alert: IndexerReconciliationDiscrepancies
-        expr: tikka_indexer_reconciliation_discrepancies > 0
-        for: 0m
+      - alert: IndexerDlqDepthHigh
+        expr: indexer_dlq_unreplayed_events >= 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Indexer DLQ depth is high'
+          description: '{{ $value }} unreplayed events are in the indexer DLQ. Inspect and classify them before replaying.'
+          runbook_url: 'https://github.com/Kingsilva36/tikka/blob/main/docs/runbooks/indexer-dlq.md'
+      - alert: IndexerDlqGrowthRateHigh
+        expr: deriv(indexer_dlq_unreplayed_events[15m]) > 0.0037
+        for: 5m
         labels:
           severity: critical
         annotations:
-          summary: 'Indexer state differs from Stellar mainnet'
-          description: 'The latest reconciliation found {{ $value }} {{ $labels.kind }} discrepancy(ies). Review the scheduled Indexer Mainnet Reconciliation workflow; indexed data was not modified.'
+          summary: 'Indexer DLQ is growing quickly'
+          description: 'The unreplayed DLQ is growing by more than 3 events per 15 minutes. Net growth rate: {{ $value }} events/second.'
+          runbook_url: 'https://github.com/Kingsilva36/tikka/blob/main/docs/runbooks/indexer-dlq.md'
+      - alert: IndexerDlqOldestEventStale
+        expr: (time() - indexer_dlq_oldest_unreplayed_event_timestamp_seconds > 3600) and (indexer_dlq_oldest_unreplayed_event_timestamp_seconds > 0)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Indexer DLQ contains an event older than one hour'
+          description: 'The oldest unreplayed DLQ entry has been waiting for {{ $value | humanizeDuration }}. Inspect its failure and replay only after the cause is resolved.'
+          runbook_url: 'https://github.com/Kingsilva36/tikka/blob/main/docs/runbooks/indexer-dlq.md'
 
   - name: tikka-oracle-alerts
     rules:

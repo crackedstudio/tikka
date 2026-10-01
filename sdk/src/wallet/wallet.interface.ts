@@ -64,9 +64,41 @@ export interface WalletCapabilities {
 }
 
 /**
+ * Machine-readable reason behind a {@link WalletAvailability} result.
+ */
+export enum WalletAvailabilityCode {
+  /** The adapter can be used in this runtime. */
+  Available = 'available',
+  /** The wallet is browser-only and this runtime is not a browser (Node/SSR). */
+  UnsupportedEnvironment = 'unsupported-environment',
+  /** Browser runtime, but the extension / injected API the wallet needs is missing. */
+  ExtensionNotInstalled = 'extension-not-installed',
+}
+
+/**
+ * Runtime availability of a wallet adapter, as returned by
+ * {@link WalletAdapter.checkAvailability}.
+ *
+ * This is the non-throwing counterpart of {@link WalletAdapter.isAvailable}:
+ * an SSR pass, a Node service, or a React Native bundle can call it while
+ * rendering and branch on the result instead of catching a load-time or
+ * call-time throw. Calling a wallet method on an unavailable adapter still
+ * throws a typed {@link TikkaSdkError}.
+ */
+export interface WalletAvailability {
+  /** Whether the adapter can be used right now. */
+  available: boolean;
+  /** Machine-readable reason; always {@link WalletAvailabilityCode.Available} when `available` is true. */
+  code: WalletAvailabilityCode;
+  /** Human-readable explanation, safe to surface in the UI as-is. */
+  message: string;
+}
+
+/**
  * Common interface every wallet adapter must implement.
  *
  * ### Required methods
+ * - {@link checkAvailability} — non-throwing runtime availability result
  * - {@link isAvailable} — environment / extension detection
  * - {@link getPublicKey} — return the active `G…` account
  * - {@link signTransaction} — sign a base64 transaction envelope XDR
@@ -97,6 +129,30 @@ export abstract class WalletAdapter {
   abstract readonly name: string;
 
   constructor(protected readonly options: WalletAdapterOptions = {}) {}
+
+  /**
+   * Reports whether this adapter can be used in the current runtime.
+   *
+   * Never throws — the default implementation derives the result from
+   * {@link isAvailable}, and adapters override it to distinguish a missing
+   * browser environment from a missing extension. Safe to call during SSR, in
+   * a Node script, or while rendering.
+   */
+  checkAvailability(): WalletAvailability {
+    if (this.isAvailable()) {
+      return {
+        available: true,
+        code: WalletAvailabilityCode.Available,
+        message: `${this.name} is available`,
+      };
+    }
+
+    return {
+      available: false,
+      code: WalletAvailabilityCode.UnsupportedEnvironment,
+      message: `${this.name} is not available in this environment`,
+    };
+  }
 
   /**
    * Returns true if the wallet is available in the current environment
