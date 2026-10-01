@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Apply labels based on file paths
-        uses: actions/labeler@v5
+        uses: actions/labeler@8558be74a3ed87e671580aa821de007147f15db8 # v5.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
