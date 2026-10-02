@@ -8,7 +8,6 @@ import {
   Transaction,
   TransactionBuilder,
 } from '@stellar/stellar-sdk';
-import { AuthError, TikkaSdkErrorCode } from '../utils/errors';
 
 export interface BuildChallengeOptions {
   serverSecret: string;
@@ -33,6 +32,16 @@ export interface VerifyResponseOptions {
 export type ChallengeCreationOptions = BuildChallengeOptions;
 export type ChallengeVerificationOptions = VerifyResponseOptions;
 
+/**
+ * High-level steps in the SEP-10 authentication flow.
+ * Included in error messages so consumers know where to look.
+ */
+export enum Sep10Step {
+  BuildChallenge = 'build',
+  ParseChallenge = 'parse',
+  VerifyChallenge = 'verify',
+}
+
 export enum Sep10VerificationErrorCode {
   InvalidXdr = 'INVALID_XDR',
   WrongServerAccount = 'WRONG_SERVER_ACCOUNT',
@@ -52,14 +61,23 @@ export enum Sep10VerificationErrorCode {
 }
 
 export class Sep10VerificationError extends Error {
-  constructor(public code: Sep10VerificationErrorCode, message: string) {
+  constructor(
+    public code: Sep10VerificationErrorCode,
+    message: string,
+    public step: Sep10Step = Sep10Step.VerifyChallenge,
+  ) {
     super(message);
     this.name = 'Sep10VerificationError';
+    Object.setPrototypeOf(this, Sep10VerificationError.prototype);
   }
 }
 
-function createVerificationError(code: Sep10VerificationErrorCode, message: string): never {
-  throw new Sep10VerificationError(code, message);
+function createVerificationError(
+  code: Sep10VerificationErrorCode,
+  message: string,
+  step: Sep10Step = Sep10Step.VerifyChallenge,
+): never {
+  throw new Sep10VerificationError(code, message, step);
 }
 
 /**
@@ -144,14 +162,41 @@ export function buildChallenge(options: BuildChallengeOptions): string {
     networkPassphrase = DEFAULT_NETWORK,
   } = options;
 
-  assert(typeof serverSecret === 'string' && serverSecret.length > 0, 'serverSecret is required');
-  assert(StrKey.isValidEd25519SecretSeed(serverSecret), 'serverSecret must be a valid Stellar secret key');
-  assert(
-    typeof clientAccount === 'string' && StrKey.isValidEd25519PublicKey(clientAccount),
-    'clientAccount must be a valid Stellar public key',
-  );
-  assert(typeof anchorDomain === 'string' && anchorDomain.trim().length > 0, 'anchorDomain is required');
-  assert(Number.isInteger(timeout) && timeout > 0, 'timeout should be positive integer');
+  if (typeof serverSecret !== 'string' || serverSecret.length === 0) {
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidXdr,
+      'serverSecret is required — provide a valid Stellar secret key for the server account',
+      Sep10Step.BuildChallenge,
+    );
+  }
+  if (!StrKey.isValidEd25519SecretSeed(serverSecret)) {
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidXdr,
+      'serverSecret must be a valid Stellar secret key — ensure it is a valid ed25519 secret seed',
+      Sep10Step.BuildChallenge,
+    );
+  }
+  if (typeof clientAccount !== 'string' || !StrKey.isValidEd25519PublicKey(clientAccount)) {
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidXdr,
+      'clientAccount must be a valid Stellar public key — ensure it is a valid ed25519 public key',
+      Sep10Step.BuildChallenge,
+    );
+  }
+  if (typeof anchorDomain !== 'string' || anchorDomain.trim().length === 0) {
+    createVerificationError(
+      Sep10VerificationErrorCode.MissingAnchorChallengeData,
+      'anchorDomain is required — provide the domain that issued the challenge',
+      Sep10Step.BuildChallenge,
+    );
+  }
+  if (!Number.isInteger(timeout) || timeout <= 0) {
+    createVerificationError(
+      Sep10VerificationErrorCode.InvalidTimebounds,
+      'timeout should be a positive integer — the challenge validity duration in seconds',
+      Sep10Step.BuildChallenge,
+    );
+  }
 
   const serverKeypair = Keypair.fromSecret(serverSecret);
   // SEP-10 requires a challenge transaction sequence number of 0.
@@ -228,20 +273,26 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   try {
     transaction = new Transaction(signedChallenge, networkPassphrase);
   } catch {
-    throw new AuthError(TikkaSdkErrorCode.AuthError, 'Invalid signedChallenge xdr or network passphrase');
+    throw new Sep10VerificationError(
+      Sep10VerificationErrorCode.InvalidXdr,
+      'Invalid signedChallenge XDR or network passphrase — ensure the XDR is well-formed and the network passphrase matches the Stellar network (e.g. Testnet vs Public)',
+      Sep10Step.ParseChallenge,
+    );
   }
 
   if (transaction.source !== serverAccount) {
     createVerificationError(
       Sep10VerificationErrorCode.WrongServerAccount,
-      'Transaction source must match server account',
+      'Transaction source does not match the server account — verify the server account public key',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (transaction.sequence !== '0') {
     createVerificationError(
       Sep10VerificationErrorCode.WrongSequenceNumber,
-      'Transaction sequence number must be 0',
+      'Transaction sequence number must be 0 — SEP-10 challenges must use sequence 0',
+      Sep10Step.VerifyChallenge,
     );
   }
 
@@ -249,7 +300,8 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   if (!timeBounds || timeBounds.minTime == null || timeBounds.maxTime == null) {
     createVerificationError(
       Sep10VerificationErrorCode.MissingTimebounds,
-      'Transaction must include timebounds',
+      'Transaction is missing timebounds — the challenge transaction must include valid timebounds',
+      Sep10Step.VerifyChallenge,
     );
   }
 
@@ -259,14 +311,16 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   if (Number.isNaN(minTime) || Number.isNaN(maxTime)) {
     createVerificationError(
       Sep10VerificationErrorCode.InvalidTimebounds,
-      'Timebounds must be numbers',
+      'Timebounds values are invalid — ensure minTime and maxTime are valid numbers',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (maxTime <= minTime) {
     createVerificationError(
       Sep10VerificationErrorCode.InvalidTimebounds,
-      'Timebounds maxTime must be greater than minTime',
+      'Timebounds maxTime must be greater than minTime — check that the challenge has a valid validity window',
+      Sep10Step.VerifyChallenge,
     );
   }
 
@@ -278,7 +332,8 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
     if (maxTime - minTime > maxChallengeAge) {
       createVerificationError(
         Sep10VerificationErrorCode.ChallengeTtlExceeded,
-        'Challenge TTL exceeds maxChallengeAge',
+        'Challenge TTL exceeds maxChallengeAge — reduce the challenge timeout or increase maxChallengeAge',
+        Sep10Step.VerifyChallenge,
       );
     }
   }
@@ -286,19 +341,25 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   if (now < minTime) {
     createVerificationError(
       Sep10VerificationErrorCode.ChallengeNotYetValid,
-      'Challenge not yet valid',
+      'Challenge is not yet valid — check that your system clock is synchronized (NTP) and is ahead of the challenge minTime',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (now > maxTime) {
     createVerificationError(
       Sep10VerificationErrorCode.ChallengeExpired,
-      'Challenge has expired',
+      'Challenge has expired — check that your system clock is synchronized (NTP) and is within the challenge validity window',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (transaction.operations.length === 0) {
-    throw new AuthError(TikkaSdkErrorCode.AuthError, 'Transaction must include at least one operation');
+    throw new Sep10VerificationError(
+      Sep10VerificationErrorCode.InvalidSignature,
+      'Transaction must include at least one operation — the challenge must contain a manageData operation',
+      Sep10Step.VerifyChallenge,
+    );
   }
 
   let hasAnchorChallengeData = false;
@@ -308,7 +369,8 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
     if (operation.type !== 'manageData') {
       createVerificationError(
         Sep10VerificationErrorCode.InvalidSignature,
-        'Only manageData operations are allowed in a SEP-10 challenge',
+        'Only manageData operations are allowed in a SEP-10 challenge — remove or replace non-manageData operations',
+        Sep10Step.VerifyChallenge,
       );
     }
 
@@ -326,7 +388,8 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
     } else {
       createVerificationError(
         Sep10VerificationErrorCode.UnexpectedManageDataKey,
-        `Unexpected manageData key: ${operation.name}`,
+        `Unexpected manageData key "${operation.name}" — ensure the anchorDomain matches the one used to build the challenge`,
+        Sep10Step.VerifyChallenge,
       );
     }
   }
@@ -334,14 +397,16 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   if (!hasAnchorChallengeData) {
     createVerificationError(
       Sep10VerificationErrorCode.MissingAnchorChallengeData,
-      'Challenge must contain anchorDomain auth manageData',
+      'Challenge is missing the anchor domain auth manageData operation — ensure the anchorDomain matches the one used to build the challenge',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (!nonceValue) {
     createVerificationError(
       Sep10VerificationErrorCode.InvalidNonce,
-      'Nonce buffer is required',
+      'Challenge nonce is required — ensure the challenge was built with a valid nonce value',
+      Sep10Step.VerifyChallenge,
     );
   }
 
@@ -351,7 +416,8 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   if (valid !== true) {
     createVerificationError(
       Sep10VerificationErrorCode.NonceRejected,
-      'Nonce validation rejected (possible replay attack)',
+      'Nonce was rejected (possible replay attack) — ensure this challenge has not been used before and the nonce is fresh',
+      Sep10Step.VerifyChallenge,
     );
   }
 
@@ -366,14 +432,16 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
   if (!transaction.signatures || transaction.signatures.length === 0) {
     createVerificationError(
       Sep10VerificationErrorCode.InvalidSignature,
-      'Challenge response transaction must include signatures',
+      'Challenge response transaction must include signatures — ensure both the server and client wallets have signed the challenge',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (transaction.signatures.length !== 2) {
     createVerificationError(
       Sep10VerificationErrorCode.InvalidSignature,
-      'Challenge response must contain exactly two signatures: server and client',
+      'Challenge response must contain exactly two signatures (server and client) — ensure both the server and client wallets have signed the challenge',
+      Sep10Step.VerifyChallenge,
     );
   }
 
@@ -391,21 +459,24 @@ export async function verifyResponse(options: VerifyResponseOptions): Promise<st
 
     createVerificationError(
       Sep10VerificationErrorCode.InvalidSignature,
-      'Found invalid signature in challenge response',
+      'Found invalid signature in challenge response — ensure the correct keys are signing the challenge and the network passphrase matches',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (!hasServerSignature) {
     createVerificationError(
       Sep10VerificationErrorCode.MissingServerSignature,
-      'Server signature is missing from response',
+      'Server signature is missing from the response — ensure the server account signed the challenge with the correct secret key',
+      Sep10Step.VerifyChallenge,
     );
   }
 
   if (!hasClientSignature) {
     createVerificationError(
       Sep10VerificationErrorCode.MissingClientSignature,
-      'Client signature is missing from response',
+      'Client signature is missing from the response — ensure the client wallet signed the challenge',
+      Sep10Step.VerifyChallenge,
     );
   }
 

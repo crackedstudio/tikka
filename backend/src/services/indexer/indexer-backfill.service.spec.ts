@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import * as fc from 'fast-check';
 import { BackfillLock, BackfillLockError } from './backfill-lock';
-import { HorizonClientService } from '../horizon-client.service';
+import { HorizonClientService } from './horizon-client.service';
 import { IndexerBackfillService } from './indexer-backfill.service';
 import { HorizonLedgerData } from './indexer-backfill.types';
 import { IndexerService } from './indexer.service';
@@ -21,11 +21,13 @@ function makeLedgerData(sequence: number): HorizonLedgerData {
   };
 }
 
-function makeService(opts: {
-  maxRange?: number;
-  retryCount?: number;
-  retryDelayMs?: number;
-} = {}): {
+function makeService(
+  opts: {
+    maxRange?: number;
+    retryCount?: number;
+    retryDelayMs?: number;
+  } = {},
+): {
   service: IndexerBackfillService;
   lock: BackfillLock;
   horizonClient: jest.Mocked<HorizonClientService>;
@@ -55,12 +57,7 @@ function makeService(opts: {
     submitLedger: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<IndexerService>;
 
-  const service = new IndexerBackfillService(
-    config,
-    lock,
-    horizonClient,
-    indexer,
-  );
+  const service = new IndexerBackfillService(config, lock, horizonClient, indexer);
 
   // Capture log messages for property tests
   const logMessages: { level: string; message: string }[] = [];
@@ -100,9 +97,9 @@ describe('Property 3: Invalid inputs are rejected before any Horizon call', () =
         fc.integer({ min: 1, max: 10000 }),
         async (badStart, validEnd) => {
           const { service, horizonClient } = makeService();
-          await expect(
-            service.backfill(badStart as number, validEnd),
-          ).rejects.toThrow(/startLedger must be a positive integer/);
+          await expect(service.backfill(badStart as number, validEnd)).rejects.toThrow(
+            /startLedger must be a positive integer/,
+          );
           expect(horizonClient.fetchLedger).not.toHaveBeenCalled();
         },
       ),
@@ -122,9 +119,9 @@ describe('Property 3: Invalid inputs are rejected before any Horizon call', () =
         ),
         async (validStart, badEnd) => {
           const { service, horizonClient } = makeService();
-          await expect(
-            service.backfill(validStart, badEnd as number),
-          ).rejects.toThrow(/endLedger must be a positive integer/);
+          await expect(service.backfill(validStart, badEnd as number)).rejects.toThrow(
+            /endLedger must be a positive integer/,
+          );
           expect(horizonClient.fetchLedger).not.toHaveBeenCalled();
         },
       ),
@@ -213,8 +210,9 @@ describe('Property 4: Lock is always released after backfill completes', () => {
           const endLedger = startLedger + rangeOffset;
           const { service, lock } = makeService();
 
-          (service as unknown as Record<string, unknown>)['runBackfill'] =
-            jest.fn().mockRejectedValue(new Error('Simulated failure'));
+          (service as unknown as Record<string, unknown>)['runBackfill'] = jest
+            .fn()
+            .mockRejectedValue(new Error('Simulated failure'));
 
           await expect(service.backfill(startLedger, endLedger)).rejects.toThrow(
             'Simulated failure',
@@ -237,9 +235,7 @@ describe('Property 4: Lock is always released after backfill completes', () => {
           lock.tryAcquire();
           expect(lock.isLocked()).toBe(true);
 
-          await expect(service.backfill(startLedger, endLedger)).rejects.toThrow(
-            BackfillLockError,
-          );
+          await expect(service.backfill(startLedger, endLedger)).rejects.toThrow(BackfillLockError);
           expect(lock.isLocked()).toBe(true);
           lock.release();
         },
@@ -335,18 +331,15 @@ describe('Property 2: Summary accurately reflects processing outcomes', () => {
 describe('Property 5: Transient errors trigger retries up to the configured limit', () => {
   it('calls Horizon exactly retryCount+1 times for a ledger that always fails', async () => {
     await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 0, max: 4 }),
-        async (retryCount) => {
-          const { service, horizonClient } = makeService({ retryCount });
-          horizonClient.fetchLedger.mockRejectedValue(new Error('5xx'));
+      fc.asyncProperty(fc.integer({ min: 0, max: 4 }), async (retryCount) => {
+        const { service, horizonClient } = makeService({ retryCount });
+        horizonClient.fetchLedger.mockRejectedValue(new Error('5xx'));
 
-          await service.backfill(1, 1);
+        await service.backfill(1, 1);
 
-          expect(horizonClient.fetchLedger).toHaveBeenCalledTimes(retryCount + 1);
-          jest.clearAllMocks();
-        },
-      ),
+        expect(horizonClient.fetchLedger).toHaveBeenCalledTimes(retryCount + 1);
+        jest.clearAllMocks();
+      }),
     );
   });
 });
@@ -375,7 +368,9 @@ describe('Property 6: Missing ledgers are logged with sequence number and reason
             const matchingLog = warnLogs.find((m) => m.message.includes(`seq=${seq}`));
             expect(matchingLog).toBeDefined();
             // Reason must be non-empty (message contains more than just the seq)
-            expect(matchingLog!.message.length).toBeGreaterThan(`Missing ledger seq=${seq}: `.length);
+            expect(matchingLog!.message.length).toBeGreaterThan(
+              `Missing ledger seq=${seq}: `.length,
+            );
           }
         },
       ),

@@ -19,21 +19,24 @@ export class ErrorClassifier {
       };
     }
 
+    // A submission timeout is ambiguous: the transaction may already have
+    // landed. Classify it before generic RPC errors (which also match the
+    // word "timeout") and do not mark it safe to retry.
+    if (this.isTimeoutError(normalized)) {
+      return {
+        status: 'TIMEOUT',
+        error: errorMessage,
+        retriable: false,
+        pollAttempts: 0,
+      };
+    }
+
     if (this.isRpcError(normalized)) {
       return {
         status: 'NETWORK_ERROR',
         error: errorMessage,
         retriable: true,
         rpcUrl: this.rpcUrls[this.currentRpcIndex],
-      };
-    }
-
-    if (this.isTimeoutError(normalized)) {
-      return {
-        status: 'TIMEOUT',
-        error: errorMessage,
-        retriable: true,
-        pollAttempts: 0,
       };
     }
 
@@ -55,7 +58,7 @@ export class ErrorClassifier {
   }
 
   public isDuplicateError(errorOrResponse: any): boolean {
-    const str = JSON.stringify(errorOrResponse).toLowerCase();
+    const str = `${this.errorToString(errorOrResponse)} ${this.safeJson(errorOrResponse)}`.toLowerCase();
     return (
       str.includes('duplicate') ||
       str.includes('tx_duplicate') ||
@@ -81,7 +84,7 @@ export class ErrorClassifier {
 
   public extractTxHashFromError(error: any): string | null {
     try {
-      const str = JSON.stringify(error);
+      const str = `${this.errorToString(error)} ${this.safeJson(error)}`;
       const hashMatch = str.match(/[0-9a-f]{64}/i);
       return hashMatch ? hashMatch[0] : null;
     } catch {
@@ -92,7 +95,7 @@ export class ErrorClassifier {
   public extractFailureReason(result: any): string {
     try {
       if (result.resultXdr) {
-        return `XDR: ${result.resultXdr}`;
+        return 'transaction rejected (result XDR omitted)';
       }
       if (result.error) {
         return result.error;
@@ -110,6 +113,10 @@ export class ErrorClassifier {
 
   public isRetriableError(error: unknown, message?: string): boolean {
     const normalized = (message || (error as any)?.message || String(error)).toLowerCase();
+
+    if (this.isTimeoutError(normalized)) {
+      return false;
+    }
 
     if (this.isInsufficientFeeError(normalized) || this.isRpcError(normalized)) {
       return true;
@@ -142,7 +149,6 @@ export class ErrorClassifier {
   public isRpcError(message: string): boolean {
     const m = message.toLowerCase();
     return (
-      m.includes('timeout') ||
       m.includes('econnrefused') ||
       m.includes('enotfound') ||
       m.includes('503') ||
@@ -158,6 +164,10 @@ export class ErrorClassifier {
     if (typeof error === 'string') {
       return error;
     }
+    return this.safeJson(error);
+  }
+
+  private safeJson(error: unknown): string {
     try {
       return JSON.stringify(error);
     } catch {

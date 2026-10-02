@@ -8,10 +8,11 @@ This folder contains Playwright smoke tests for core client happy paths.
 - Wallet unavailable sign-in state
 - Create raffle happy path
 - Ticket purchase validation
+- Mobile navbar: Escape / backdrop close the menu and restore focus to the trigger
 
 ## Mocking guidance
 
-All tests in this folder use deterministic mocks and local browser state.
+All tests in this folder use deterministic mocks and local browser state. Raffle list, detail, and participant responses derive from the shared demo scenarios in `@tikka/types`, which also drive the indexer demo seed and Lighthouse raffle-detail audit.
 
 Fixtures in `fixtures.ts` provide reusable helpers:
 

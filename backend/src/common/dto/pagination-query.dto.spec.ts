@@ -1,4 +1,4 @@
-import { PaginationQuerySchema, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from './pagination-query.dto';
+import { PaginationQuerySchema, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, validatePaginationLimitsNotOverridden } from './pagination-query.dto';
 
 describe('PaginationQuerySchema', () => {
   it('defaults limit to 20 and offset to 0 when omitted', () => {
@@ -55,5 +55,29 @@ describe('PaginationQuerySchema', () => {
   it('rejects non-numeric strings', () => {
     const result = PaginationQuerySchema.safeParse({ limit: 'invalid' });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('validatePaginationLimitsNotOverridden', () => {
+  it('accepts valid pagination with limit <= MAX_PAGE_LIMIT', () => {
+    const validation = validatePaginationLimitsNotOverridden({ limit: 50, offset: 0 });
+    expect(validation.valid).toBe(true);
+    expect(validation.error).toBeUndefined();
+  });
+
+  it('accepts limit equal to MAX_PAGE_LIMIT', () => {
+    const validation = validatePaginationLimitsNotOverridden({ limit: MAX_PAGE_LIMIT, offset: 0 });
+    expect(validation.valid).toBe(true);
+  });
+
+  it('rejects limit exceeding MAX_PAGE_LIMIT', () => {
+    const validation = validatePaginationLimitsNotOverridden({ limit: MAX_PAGE_LIMIT + 1, offset: 0 });
+    expect(validation.valid).toBe(false);
+    expect(validation.error).toContain(`exceeds MAX_PAGE_LIMIT ${MAX_PAGE_LIMIT}`);
+  });
+
+  it('accepts undefined limit (uses default)', () => {
+    const validation = validatePaginationLimitsNotOverridden({ offset: 0 });
+    expect(validation.valid).toBe(true);
   });
 });

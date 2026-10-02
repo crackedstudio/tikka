@@ -501,45 +501,8 @@
     },
     "/raffles/{id}/og": {
       "get": {
-        "operationId": "RafflesController_getRaffleOgImage",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Raffles"
-        ]
-      }
-    },
-    "/og/default.png": {
-      "get": {
-        "operationId": "OgRenderController_getDefaultOgImage",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OG Pre-Render"
-        ]
-      }
-    },
-    "/og/raffles/{id}": {
-      "get": {
-        "operationId": "OgRenderController_renderRaffleOg",
-        "summary": "Pre-render OG meta tags for a raffle (for social media crawlers)",
+        "operationId": "RaffleOgController_getRaffleOgImage",
+        "summary": "Dynamic Open Graph image for a raffle",
         "parameters": [
           {
             "name": "id",
@@ -553,7 +516,55 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "PNG Open Graph image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Raffles"
+        ]
+      }
+    },
+    "/og/default.png": {
+      "get": {
+        "operationId": "OgRenderController_getDefaultOgImage",
+        "summary": "Generic fallback Open Graph image",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "PNG image"
+          }
+        },
+        "tags": [
+          "OG Pre-Render"
+        ]
+      }
+    },
+    "/og/raffles/{id}": {
+      "get": {
+        "operationId": "OgRenderController_redirectLegacyRaffleOg",
+        "summary": "Redirect legacy raffle OG URL to the canonical image",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Raffle ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "301": {
+            "description": "Permanent redirect to /raffles/:id/og"
           }
         },
         "tags": [

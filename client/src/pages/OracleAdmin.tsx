@@ -57,11 +57,12 @@ function Dashboard({
     });
   };
 
-const handleRescueSubmit = useCallback(async () => {
+  const handleRescueSubmit = useCallback(async () => {
     if (!isAdmin) {
       toast.error(tErrors('adminSessionRequired'));
       return;
     }
+
     if (!operatorName.trim()) {
       toast.error(tErrors('enterOperatorName'));
       return;
@@ -120,7 +121,7 @@ const handleRescueSubmit = useCallback(async () => {
     } finally {
       setRescueModal((prev) => ({ ...prev, isSubmitting: false }));
     }
-}, [isAdmin, operatorName, rescueModal, reEnqueue, forceSubmit, forceFail, tErrors]);
+  }, [isAdmin, operatorName, rescueModal, reEnqueue, forceSubmit, forceFail, tErrors]);
 
   const allJobs = jobs
     ? [

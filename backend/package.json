@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "build": "nest build",
+    "dev": "nest start --watch",
     "start": "nest start",
     "start:dev": "nest start -watch",
     "start:debug": "nest start --debug --watch",
@@ -72,7 +73,7 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-"^.+\\.tsx?$": "ts-jest"
+      "^.+\\.tsx?$": "ts-jest"
       "^.+\\.(t|j)sx?$": "ts-jest"
     },
     "transformIgnorePatterns": [

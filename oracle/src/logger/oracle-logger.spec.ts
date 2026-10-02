@@ -39,6 +39,10 @@ describe('redact()', () => {
     expect(result.nonce).toBe('[REDACTED]');
     expect(result.seed).toBe('[REDACTED]');
     expect(result.proof).toBe('[REDACTED]');
+    expect(redact({ resultXdr: 'AAAA' + 'B'.repeat(80), envelopeXdr: 'envelope' })).toEqual({
+      resultXdr: '[REDACTED]',
+      envelopeXdr: '[REDACTED]',
+    });
     expect(result.password).toBe('[REDACTED]');
     expect(result.token).toBe('[REDACTED]');
   });

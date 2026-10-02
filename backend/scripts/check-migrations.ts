@@ -172,6 +172,11 @@ function validateMigrations(migrationsDir: string): ValidationResult {
  * are rejected — this allow-list is intentionally frozen.
  *
  * See docs/database/migration-timestamp-exceptions.md.
+ *
+ * Note: 1770000000000 was previously on this list because two migrations shared
+ * that timestamp. The duplicate was resolved in #1588 by renumbering
+ * AuditHotPathIndexes to 1770000000001. The allow-list entry has been removed
+ * accordingly. Only a single file now uses 1770000000000.
  */
 const INDEXER_LEGACY_PLACEHOLDER_TIMESTAMPS = new Set<number>([
   1700000000000,
@@ -237,7 +242,10 @@ function validateIndexerMigrations(
   // Sort by timestamp (mirrors TypeORM execution order)
   migrations.sort((a, b) => a.sequence - b.sequence);
 
-  // Warn on duplicate timestamps (legacy duplicates are allow-listed)
+  // Fail on duplicate timestamps — two files sharing a timestamp produce
+  // non-deterministic TypeORM execution order. Legacy duplicates were
+  // allow-listed while they existed, but that list is now empty: all known
+  // duplicates have been resolved. Any remaining or new duplicate is an error.
   const timestampMap = new Map<number, string[]>();
   for (const migration of migrations) {
     if (!timestampMap.has(migration.sequence)) {
@@ -246,9 +254,13 @@ function validateIndexerMigrations(
     timestampMap.get(migration.sequence)!.push(migration.filename);
   }
   for (const [timestamp, filenames] of timestampMap) {
-    if (filenames.length > 1 && !INDEXER_LEGACY_PLACEHOLDER_TIMESTAMPS.has(timestamp)) {
-      result.warnings.push(
-        `DUPLICATE INDEXER TIMESTAMP: ${timestamp} used by: ${filenames.join(', ')}`,
+    if (filenames.length > 1) {
+      result.valid = false;
+      result.errors.push(
+        `DUPLICATE INDEXER TIMESTAMP: ${timestamp} used by: ${filenames.join(', ')}. ` +
+          `Renumber the later migration to a unique timestamp from ` +
+          `\`pnpm --filter indexer migration:generate\`. ` +
+          `See docs/database/migration-conventions.md §2.3.`,
       );
     }
   }

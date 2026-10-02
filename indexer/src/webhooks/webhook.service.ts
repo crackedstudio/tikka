@@ -1,19 +1,30 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { InjectQueue } from "@nestjs/bullmq";
-import { Queue } from "bullmq";
+import { randomUUID } from "crypto";
 import { WebhookEntity } from "../database/entities/webhook.entity";
 import { WebhookDeliveryEntity } from "../database/entities/webhook-delivery.entity";
+import { WebhookDeadLetterEntity } from "../database/entities/webhook-dead-letter.entity";
 import { TracingService } from "../tracing/tracing.service";
 import { getRequestIdHeaders } from "../common/request-context";
+import {
+  DELIVERY_TIMEOUT_MS,
+  MAX_DELIVERY_ATTEMPTS,
+  backoffDelayMs,
+  classifyDeliveryFailure,
+  type DeliveryFailure,
+} from "./webhook-delivery-policy";
+import {
+  WEBHOOK_SIGNATURE_HEADER,
+  WEBHOOK_SIGNATURE_SECRET_ENV,
+  buildWebhookHeaders,
+  resolveWebhookSignatureSecret,
+} from "./webhook-signature";
 
 export interface WebhookPayload {
   eventType: string;
   data: Record<string, any>;
 }
-
-const WEBHOOK_QUEUE = "webhook";
 
 @Injectable()
 export class WebhookService {
@@ -24,6 +35,8 @@ export class WebhookService {
     private readonly webhookRepo: Repository<WebhookEntity>,
     @InjectRepository(WebhookDeliveryEntity)
     private readonly deliveryRepo: Repository<WebhookDeliveryEntity>,
+    @InjectRepository(WebhookDeadLetterEntity)
+    private readonly deadLetterRepo: Repository<WebhookDeadLetterEntity>,
     @Optional() private readonly tracing?: TracingService,
   ) {}
 
@@ -77,64 +90,93 @@ export class WebhookService {
     );
   }
 
+  /**
+   * Deliver one payload to one subscriber, retrying per the delivery policy.
+   *
+   * Never throws: a delivery failure is a recorded outcome, not an error for
+   * the dispatching pipeline to handle — one subscriber being down must not
+   * take down the event that fanned out to it.
+   */
   private async deliverWithRetry(
     url: string,
     payload: WebhookPayload,
-    maxAttempts = 3,
+    maxAttempts = MAX_DELIVERY_ATTEMPTS,
   ): Promise<void> {
     const deliver = async () => {
+      // One id per logical delivery, reused across every attempt. A subscriber
+      // may have processed an attempt whose response we never saw, so the
+      // retry has to be recognisable as the same delivery — that is what makes
+      // at-least-once safe to consume. A fresh id per attempt would leave the
+      // subscriber unable to tell a retry from a new event.
+      const deliveryId = randomUUID();
+
+      // Serialize once and sign these exact bytes: the consumer verifies the
+      // raw body, so signing a second serialization would not match.
+      const rawBody = JSON.stringify(payload);
+
+      const secret = resolveWebhookSignatureSecret();
+      if (!secret) {
+        this.logger.warn(
+          `${WEBHOOK_SIGNATURE_SECRET_ENV} is not set — delivering to ${url} unsigned. ` +
+            `Any consumer that verifies ${WEBHOOK_SIGNATURE_HEADER} will reject it.`,
+        );
+      }
+
+      const headers = {
+        ...buildWebhookHeaders({ secret, rawBody, deliveryId }),
+        ...getRequestIdHeaders(),
+      };
+
       let attempt = 0;
       let success = false;
-      let errorResponse: string | null = null;
+      let failure: DeliveryFailure | null = null;
 
       while (attempt < maxAttempts && !success) {
         attempt++;
         try {
           const response = await fetch(url, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              // Propagate the request id to downstream webhook consumers.
-              ...getRequestIdHeaders(),
-            },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(5000),
+            headers,
+            body: rawBody,
+            signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
           });
 
           if (response.ok) {
             success = true;
-          } else {
-            errorResponse = `HTTP Error: ${response.status} ${response.statusText}`;
-            if (attempt < maxAttempts) {
-              await this.sleep(Math.pow(2, attempt) * 1000);
-            }
+            break;
+          }
+
+          failure = classifyDeliveryFailure({
+            status: response.status,
+            statusText: response.statusText,
+          });
+
+          // A permanent rejection will not become a success by asking again.
+          if (!failure.retryable) break;
+
+          if (attempt < maxAttempts) {
+            await this.sleep(backoffDelayMs(attempt));
           }
         } catch (error: any) {
-          errorResponse = error.message || "Network Error";
+          failure = classifyDeliveryFailure({ error });
           if (attempt < maxAttempts) {
-            await this.sleep(Math.pow(2, attempt) * 1000);
+            await this.sleep(backoffDelayMs(attempt));
           }
         }
       }
 
-      try {
-        const delivery = this.deliveryRepo.create({
-          webhookUrl: url,
-          eventType: payload.eventType,
-          payload,
-          status: success ? "success" : "failed",
-          attempts: attempt,
-          errorResponse: success ? null : errorResponse,
-        });
-        await this.deliveryRepo.save(delivery);
+      await this.recordDelivery(
+        url,
+        payload,
+        success ? null : failure,
+        attempt,
+      );
 
-        if (!success) {
-          this.logger.warn(
-            `Failed to deliver webhook to ${url} after ${attempt} attempts. Error: ${errorResponse}`,
-          );
-        }
-      } catch (dbError) {
-        this.logger.error(`Failed to record webhook delivery to ${url}:`, dbError);
+      if (!success && failure) {
+        this.logger.warn(
+          `Failed to deliver webhook to ${url} after ${attempt} attempt(s). Error: ${failure.message}`,
+        );
+        await this.deadLetter(url, payload, failure, attempt);
       }
     };
 
@@ -151,6 +193,71 @@ export class WebhookService {
       },
       async () => deliver(),
     );
+  }
+
+  /**
+   * Persist the delivery attempt outcome.
+   *
+   * Best-effort: the payload has already been sent (or not), and losing the
+   * audit row must not turn a successful delivery into a failed dispatch.
+   */
+  private async recordDelivery(
+    url: string,
+    payload: WebhookPayload,
+    failure: DeliveryFailure | null,
+    attempts: number,
+  ): Promise<void> {
+    try {
+      const delivery = this.deliveryRepo.create({
+        webhookUrl: url,
+        eventType: payload.eventType,
+        payload,
+        status: failure ? "failed" : "success",
+        attempts,
+        errorResponse: failure ? failure.message : null,
+      });
+      await this.deliveryRepo.save(delivery);
+    } catch (dbError) {
+      this.logger.error(`Failed to record webhook delivery to ${url}:`, dbError);
+    }
+  }
+
+  /**
+   * Record an exhausted delivery for operator replay.
+   *
+   * `retryable` carries the policy verdict rather than being hardcoded: a
+   * subscriber that answered 400 will answer 400 again, so replaying it would
+   * only produce a second dead letter, while a 5xx or a timeout is worth
+   * retrying once the subscriber recovers.
+   */
+  private async deadLetter(
+    url: string,
+    payload: WebhookPayload,
+    failure: DeliveryFailure,
+    attempts: number,
+  ): Promise<void> {
+    try {
+      const entry = this.deadLetterRepo.create({
+        webhookUrl: url,
+        eventType: payload.eventType,
+        payload,
+        errorResponse: failure.message,
+        reason: failure.reason,
+        retryCount: attempts,
+        retryable: failure.retryable,
+        status: "pending",
+      });
+      await this.deadLetterRepo.save(entry);
+
+      this.logger.warn(
+        `Webhook DLQ: stored ${payload.eventType} -> ${url} (reason=${failure.reason}, retryable=${failure.retryable})`,
+      );
+    } catch (dbError) {
+      this.logger.error(
+        `Failed to record webhook dead letter for ${url}:`,
+        dbError,
+      );
+    }
   }
 
   private sleep(ms: number): Promise<void> {

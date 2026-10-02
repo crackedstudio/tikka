@@ -219,7 +219,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["RafflesController_getRaffleOgImage"];
+        /** Dynamic Open Graph image for a raffle */
+        get: operations["RaffleOgController_getRaffleOgImage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -235,6 +236,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Generic fallback Open Graph image */
         get: operations["OgRenderController_getDefaultOgImage"];
         put?: never;
         post?: never;
@@ -251,8 +253,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Pre-render OG meta tags for a raffle (for social media crawlers) */
-        get: operations["OgRenderController_renderRaffleOg"];
+        /** Redirect legacy raffle OG URL to the canonical image */
+        get: operations["OgRenderController_redirectLegacyRaffleOg"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1382,22 +1384,26 @@ export interface operations {
             };
         };
     };
-    RafflesController_getRaffleOgImage: {
+    RaffleOgController_getRaffleOgImage: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Raffle ID */
                 id: number;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
+            /** @description PNG Open Graph image */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "image/png": string;
+                };
             };
         };
     };
@@ -1410,6 +1416,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description PNG image */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1418,19 +1425,20 @@ export interface operations {
             };
         };
     };
-    OgRenderController_renderRaffleOg: {
+    OgRenderController_redirectLegacyRaffleOg: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description Raffle ID */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: {
+            /** @description Permanent redirect to /raffles/:id/og */
+            301: {
                 headers: {
                     [name: string]: unknown;
                 };

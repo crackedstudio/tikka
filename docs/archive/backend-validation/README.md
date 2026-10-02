@@ -1,3 +1,8 @@
+> **⚠ ARCHIVED** — This document is historical and no longer maintained.
+> For current documentation see the [docs/ index](../../README.md) or [`docs/backend/validation.md`](../../backend/validation.md).
+
+---
+
 # Archived Backend Validation Docs
 
 These seven files were consolidated into [`docs/backend/validation.md`](../../backend/validation.md) as part of issue #1346.
