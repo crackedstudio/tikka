@@ -1,3 +1,8 @@
+> **⚠ ARCHIVED** — This document is historical and no longer maintained.
+> For current documentation see the [docs/ index](../README.md) or the superseded-by link in [archive/README.md](./README.md).
+
+---
+
 # GitHub Issue #834 — Implementation Verification Checklist
 
 ## PART 3 COMPLETE: All Tests Written ✅

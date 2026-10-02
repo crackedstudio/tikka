@@ -5,7 +5,7 @@
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.spec.json",
     "build": "nest build",
     "openapi:generate": "ts-node --transpile-only scripts/generate-openapi.ts",
     "start": "nest start",
@@ -24,6 +24,7 @@
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate",
     "migration:rollback-check": "ts-node --transpile-only scripts/check-migration-rollback.ts",
+    "check:hotpath-seqscan": "node scripts/check-hot-path-indexes.js",
     "dlq:replay": "ts-node --transpile-only src/cli/dlq-replay.command.ts"
   },
   "jest": {
@@ -38,7 +39,8 @@
       "^.+\\.(t|j)s$": [
         "ts-jest",
         {
-          "diagnostics": true
+          "diagnostics": true,
+          "tsconfig": "tsconfig.spec.json"
         }
       ]
     },
@@ -80,8 +82,9 @@
     "@opentelemetry/sdk-metrics": "^2.9.0",
     "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@opentelemetry/sdk-trace-node": "^2.10.0",
-    "@stellar/stellar-sdk": "^16.1.0",
+    "@stellar/stellar-sdk": "^16.3.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@tikka/sdk": "workspace:*",
     "@tikka/types": "workspace:*",
     "bullmq": "^5.81.0",
     "class-transformer": "^0.5.1",
@@ -107,12 +110,13 @@
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-security": "^3.0.1",
     "fast-check": "^3.23.2",
     "ioredis-mock": "^8.13.1",
-    "jest": "^30.2.0",
+    "jest": "^30.5.2",
     "prettier": "^3.9.6",
     "testcontainers": "^11.13.0",
-    "ts-jest": "^29.4.6",
+    "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.0"
   },

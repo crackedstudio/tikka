@@ -1,34 +1,49 @@
-# Indexer Environment Variables
+# Indexer Environment
 
-The indexer validates its environment at startup using `indexer/src/config/env.schema.ts`. If any required variable is missing or malformed, the process exits with an error naming the offending variable(s).
+Source: `indexer/src/config/env.schema.ts`, `database.config.ts`, and runtime
+modules that read `process.env` directly.
 
-## Variables
+| Name | Required | Default | Description |
+| --- | --- | --- | --- |
+| `NODE_ENV` | No | `development` | Runtime environment. |
+| `PORT` | No | `3002` | HTTP port. |
+| `INTERNAL_API_KEY` | Conditional | None | Required to expose Swagger UI in production. Secret. |
+| `DATABASE_URL` | Conditional | None | PostgreSQL URL; use this or all `DB_*` connection fields. Secret. |
+| `DATABASE_REPLICA_URL` | No | None | Comma-separated PostgreSQL read-replica URLs. |
+| `DB_HOST` | Conditional | `localhost` | PostgreSQL host when `DATABASE_URL` is unset. |
+| `DB_PORT` | Conditional | `5432` | PostgreSQL port when using individual fields. |
+| `DB_USERNAME` | Conditional | `postgres` | PostgreSQL user when using individual fields. |
+| `DB_PASSWORD` | Conditional | `postgres` | PostgreSQL password when using individual fields. Secret. |
+| `DB_DATABASE` | Conditional | `tikka_indexer` | Database name when using individual fields. |
+| `DB_SSL` | No | `false` | Set `true` to enable TLS with managed PostgreSQL. |
+| `SOROBAN_RPC_URL` | Yes | None | Soroban RPC endpoint. |
+| `TIKKA_CONTRACT_ID` | Yes | None | Tikka contract StrKey (`C...`). |
+| `REDIS_URL` | No | None | Redis URL for queue/cache connections. Secret if credentials are embedded. |
+| `REDIS_HOST` | No | `localhost` | Redis hostname when configuring Redis by fields. |
+| `REDIS_PORT` | No | `6379` | Redis port. |
+| `REDIS_PASSWORD` | No | None | Redis password. Secret. |
+| `REDIS_DB` | No | `0` | Redis database number. |
+| `HORIZON_URL` | No | `https://horizon.stellar.org` | Horizon endpoint used for health checks. |
+| `LAG_THRESHOLD` | No | `100` | Ledger lag before health is degraded. |
+| `INDEXER_LAG_ALERT_THRESHOLD_LEDGERS` | No | `50` | Ledger lag before critical alerts. |
+| `INDEXER_BATCH_SIZE` | No | `100` | Soroban events processed per database transaction. |
+| `SLOW_QUERY_THRESHOLD_MS` | No | `200` | Slow query logging threshold in milliseconds. |
+| `MAX_DISPATCH_RETRIES` | No | `3` | Maximum dispatch retry attempts. |
+| `BASE_RETRY_DELAY_MS` | No | `500` | Initial delay between dispatch retries. |
+| `SHUTDOWN_TIMEOUT_MS` | No | `15000` | Graceful shutdown timeout. |
+| `OTEL_SERVICE_NAME` | No | `tikka-indexer` | OpenTelemetry service name. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | None | OTLP traces exporter endpoint. |
+| `OTEL_TRACES_CONSOLE` | No | `false` | Also emit traces to the console. |
 
-| Variable | Required | Default | Description |
-| --- | ------- | ------ | ------------ |
-| `NODE_ENV` | No | `development` | Application environment (`development`, `production`, `test`). |
-| `PORT` | No | `3002` | HTTP port for the indexer API. |
-| `INTERNAL_API_KEY@ | No | – | API key required to serve Swagger UI in production. |
-| `DATABASE_URL` | See note | – | PostgreSQL connection URL. Required unless the individual `DB_*` variables below are provided. |
-| `DATABASE_REPLACA_URL` | No | – | Comma-separated list of read-replica PostgreSQL URLs. |
-| `DB_SSL` | No | `false` | Set to `"true"` to enable SSL for PostgreSQL connections. |
-| `SLOW_QUERY_TRESHOLD_MS` | No | `200` | Query duration threshold for slow-query logging. |
-| `DB_HOST` | No* | `localhost` | PostgreSQL host. Required if `DATABASE_URL` is not set. |
-| `DB_PORT` | No* | `5432` | PostgreSQL port. Required if `DATABASE_URL` is not set. |
-| `DB_USERNAME` | No* | `postgres` | PostgreSQL user. Required if `DATABASE_URL` is not set. |
-| `DB_PASSWORD` | No* | `postgres` | PostgreSQL password. Required if `DATABASE_URL` is not set. |
-| `DB_DATABASE` | No* | `tikka_indexer` | PostgreSQL database name. Required if `DATABASE_URL` is not set. |
-| `SOROBAN_RPC_URL` | **Yes** | – | Soroban RPC endpoint URL. Must be a valid `http(s)` URL. |
-| `TIKKA_CONTRACT_ID` | **Yes** | – | Tikka contract ID as a Stellar `C...` StrKey (56 chars). |
-| `REDIS_URL` | No | – | Redis connection URL ((redis://` or `rediss://`). |
-| `HORIZON_URL` | No | `https://cap.stellar.org` | HORIZON URL used for health/liveness checks. |
-| `LAG_THRESHOLD` | No | `100` | Ledger lag that marks health as degraded. |
-| `INDEXER_LAG_ALERT_TRESHOLD_LEDGERS` | No | `50`| Ledger lag that triggers critical alerts. |
-| `INDEXER_BATCH_SIZE` | No | `100`| Max Soroban events processed per DB Transaction. |
-| `DRY_RUN` | No | `false` | When `"true"`, DB Operations are logged but not committed. |
+| `DRY_RUN` | No | `false` for ingestion; `true` for archive CLI | Simulate operations. The archive command is destructive only when explicitly set to `false`. |
+| `RAFFLE_EVENTS_RETENTION_DAYS` | No | Archive default | Retention period for the archive CLI. |
+| `BATCH_SIZE` | No | Archive default | Rows processed per archive batch. |
+| `MAX_BATCH` | No | Unlimited | Maximum archive batches per run. |
+| `RESUME` | No | `true` | Resume archive from its checkpoint; literal `false` disables resume. |
+| `CONFIRM_DELETE` | Conditional | None | Must be `yes` for destructive archive runs. |
 
-*Required when `DATABAIE_URL` is not specified.
-
-## Example
-
-See [indexer/.env.example](../../indexer/.env.example).
+`DATABASE_URL` is preferred. Startup validation requires it or the complete
+`DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_DATABASE` set. Test
+only: `RUN_DOCKER_INTEGRATION=1` enables Docker-backed integration tests.
+`DRY_RUN` is read by runtime modules and allowed through Joi's unknown-variable
+pass-through, even though it is not listed in the startup schema.
