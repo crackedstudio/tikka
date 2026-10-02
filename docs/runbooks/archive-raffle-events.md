@@ -15,8 +15,8 @@ recovering from checkpoint integrity failures.
 | **Entry point** | [`archive-raffle-events.ts`](../../indexer/src/maintenance/archive-raffle-events.ts) |
 | **Default retention** | 30 days (`RAFFLE_EVENTS_RETENTION_DAYS`) |
 | **Default mode** | Dry run — `DRY_RUN=false` is required to delete |
-| **Output** | `indexer/archives/raffle_events_<cutoff>_batch<NNNN>.csv` |
-| **Restore procedure** | [`docs/database/raffle-events-retention.md`](../database/raffle-events-retention.md) |
+| **Output** | `indexer/archives/raffle_events_<cutoff>_batch<NNNN>.csv` + `.sha256` |
+| **Restore procedure** | [`restore-raffle-events.md`](./restore-raffle-events.md) (`npm run restore:raffle-events`) |
 
 Nothing runs automatically: rows are only deleted when an operator or a cron job
 invokes the script.
@@ -35,14 +35,29 @@ The archiver is split by responsibility under
 | `integrity.ts` | Pure checkpoint hashing and verification |
 | `checkpoint.service.ts` | `archive_checkpoints` row lifecycle |
 | `batch-selector.ts` | Cursor-based row selection and deletion |
-| `writer.ts` | CSV output |
+| `writer.ts` | CSV output + per-file checksum sidecar |
+| `checksum.ts` | Archive file SHA-256 write/verify (restore gate) |
 | `confirmation.ts` | `CONFIRM_DELETE` gate for destructive runs |
 | `runner.ts` | `archiveOldRaffleEvents` orchestration |
 | `cli.ts` | Env parsing and process wiring |
+| `restore.ts` | Archive import: verify → parse → insert |
+| `restore-cli.ts` | Env parsing and process wiring for restores |
 
-`archive-raffle-events.ts` is a thin entry point: it re-exports the modules above
-and invokes the CLI when executed directly, so the npm script path and any
-programmatic imports are unchanged.
+`archive-raffle-events.ts` and `restore-raffle-events.ts` are thin entry points:
+they re-export the modules above and invoke their CLI when executed directly, so
+the npm script paths and any programmatic imports are unchanged.
+
+### Archive output contract
+
+Each batch writes a CSV plus a `<file>.csv.sha256` sidecar of the exact bytes
+written (`sha256sum` format). The restore path refuses to import a file whose
+bytes no longer match that hash, so a truncated or half-synced archive can never
+be read back as if it were complete.
+
+| Column order | Notes |
+|---|---|
+| `id,raffle_id,event_type,schema_version,ledger,tx_hash,payload_json,indexed_at,contract_address` | Current header |
+| `id,…,indexed_at` | Archives written before `contract_address` was recorded; restore accepts them and restores a NULL contract address |
 
 ### Checkpoint state management
 
@@ -87,6 +102,8 @@ container restarts, and stay inspectable via SQL.
 - **No duplicate processing** — cursor pagination on `(indexed_at, id)`.
 - **Atomic batches** — deletions and the cursor update share one transaction.
 - **CSV before delete** — a crash mid-batch leaves rows in the database.
+- **Checksum before delete** — the batch is written together with its `.sha256`
+  sidecar, and a restore verifies it before importing a single row.
 - **Confirmation gate** — destructive runs need a TTY `yes` or `CONFIRM_DELETE=yes`.
 - **Integrity verification** — a tampered checkpoint halts the run instead of
   overwriting corrupt state.
@@ -221,10 +238,26 @@ disk writes, and indexed reads; the job is I/O bound.
 
 ### Archived data must be restored
 
-Follow the restore procedure in
-[`docs/database/raffle-events-retention.md`](../database/raffle-events-retention.md):
-locate the CSVs, `\copy` into a staging table, then
-`INSERT … ON CONFLICT (tx_hash) DO NOTHING`.
+Run the restore CLI — do not hand-roll SQL under pressure:
+
+```bash
+# Dry run first: verifies every checksum and reports what would be inserted
+npm run restore:raffle-events
+
+# Then restore everything in ./archives
+DRY_RUN=false npm run restore:raffle-events
+
+# Or exactly one batch
+ARCHIVE_FILES=archives/raffle_events_2026-01-15_batch0003.csv \
+  DRY_RUN=false npm run restore:raffle-events
+```
+
+The full procedure — including what to do about a tampered archive, a missing
+sidecar, and how to verify the result — is in
+[`restore-raffle-events.md`](./restore-raffle-events.md). Restoring is idempotent
+and never deletes anything; a manual `\copy` fallback for staging into another
+database lives in
+[`docs/database/raffle-events-retention.md`](../database/raffle-events-retention.md).
 
 ## Verification
 
@@ -234,8 +267,13 @@ locate the CSVs, `\copy` into a staging table, then
    `totalArchived` and the number of CSV rows written.
 3. **Rows removed**: the archivable-count query above returns 0 (or only rows
    left over from a `MAX_BATCH` cap).
-4. **Health is green**: `archive_integrity` is `ok` on `GET /health`.
-5. **Archives are durable**: CSVs are backed up off the node (S3 or equivalent)
+4. **Checksums written**: every created CSV has a `.sha256` beside it and
+   `sha256sum -c *.csv.sha256` passes.
+5. **Restore proven**: `archive-restore.integration.spec.ts` archives a range,
+   deletes it, restores it, and asserts the rows come back byte-identical — the
+   claim "this archive is restorable" is tested, not assumed.
+6. **Health is green**: `archive_integrity` is `ok` on `GET /health`.
+7. **Archives are durable**: CSVs are backed up off the node (S3 or equivalent)
    before the volume is recycled.
 
 ## Operational checklist
@@ -246,15 +284,18 @@ the current checkpoint, and schedule during low traffic.
 **During**: watch the JSON logs and database load; confirm CSVs and checkpoint
 updates are appearing.
 
-**After**: verify counts, validate the CSVs, confirm the checkpoint status,
-test a restore, and back the archives up.
+**After**: verify counts, validate the CSVs and their checksums, confirm the
+checkpoint status, run the restore dry run, and back the archives up.
 
 ## Package Mapping
 
 - **Entry point**: [archive-raffle-events.ts](../../indexer/src/maintenance/archive-raffle-events.ts)
+- **Restore entry point**: [restore-raffle-events.ts](../../indexer/src/maintenance/restore-raffle-events.ts)
 - **Modules**: [archive/](../../indexer/src/maintenance/archive)
+- **Restore runbook**: [restore-raffle-events.md](./restore-raffle-events.md)
 - **Operator guide**: [ARCHIVE_RAFFLE_EVENTS_GUIDE.md](../../indexer/src/maintenance/ARCHIVE_RAFFLE_EVENTS_GUIDE.md)
 - **Quick reference**: [ARCHIVE_QUICK_REF.md](../../indexer/src/maintenance/ARCHIVE_QUICK_REF.md)
 - **Retention policy & restore**: [raffle-events-retention.md](../database/raffle-events-retention.md)
+- **Round-trip test**: [archive-restore.integration.spec.ts](../../indexer/src/test/integration/archive-restore.integration.spec.ts)
 - **Checkpoint entity**: [archive-checkpoint.entity.ts](../../indexer/src/database/entities/archive-checkpoint.entity.ts)
 - **Health indicator**: [archive-integrity-status.service.ts](../../indexer/src/health/archive-integrity-status.service.ts)

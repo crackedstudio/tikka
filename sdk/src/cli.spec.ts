@@ -16,9 +16,8 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// The CLI executable loads the compiled SDK from `dist/`. Unit-test runs happen
-// before `pnpm build` in CI, so skip these spawn-based tests when the bundle
-// has not been built yet (they are exercised by the build/test CI ordering).
+// The CLI executable loads the compiled SDK from `dist/`; the SDK test script
+// builds first so these subprocess tests run instead of silently skipping.
 const distAvailable = fs.existsSync(path.join(__dirname, '../dist/index.js'));
 const describeCLI = distAvailable ? describe : describe.skip;
 
@@ -28,12 +27,14 @@ const describeCLI = distAvailable ? describe : describe.skip;
 const runCLI = (
   args: string[],
   timeout = 5000,
+  stdin = '',
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
   return new Promise((resolve, reject) => {
     const cliPath = path.join(__dirname, '../bin/tikka.cjs');
     const child = spawn('node', [cliPath, ...args], {
       cwd: path.join(__dirname, '..'),
     });
+    child.stdin?.end(stdin);
 
     let stdout = '';
     let stderr = '';
@@ -56,7 +57,7 @@ const runCLI = (
       resolve({
         stdout,
         stderr,
-        exitCode: code || 0,
+        exitCode: code ?? 1,
       });
     });
 
@@ -263,6 +264,59 @@ describeCLI('Tikka CLI', () => {
       const result = await runCLI(['help-all']);
       expect(result.stdout).toContain('EXAMPLES:');
     });
+
+    it.each([
+      ['config-check', 'config-check', '--unexpected'],
+      ['fee-quote', 'fee-quote'],
+      ['read', 'read'],
+      ['list', 'list', '--limit', '0'],
+      ['info', 'info', '--unexpected'],
+      ['create', 'create', '--unexpected'],
+      ['buy', 'buy', '--unexpected'],
+    ])('rejects invalid arguments for %s with a non-zero exit code', async (_name, ...args) => {
+      const result = await runCLI(args);
+      expect(result.exitCode).not.toBe(0);
+    });
+
+    it.each([
+      ['config-check'],
+      ['fee-quote', 'CONTRACT_ID_123'],
+      ['read', 'CONTRACT_ID_123'],
+      ['list'],
+      ['info'],
+      ['create'],
+      ['buy'],
+    ])('rejects a Stellar secret seed passed to %s', async (...args) => {
+      const secretSeed = `S${'A'.repeat(55)}`;
+      const result = await runCLI([...args, secretSeed]);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain('Secret keys are not accepted');
+      expect(`${result.stdout}${result.stderr}`).not.toContain(secretSeed);
+    });
+  });
+
+  describe('transaction commands', () => {
+    it.each(['create', 'buy'])('%s supports a non-interactive dry run', async (command) => {
+      const result = await runCLI([command, '--dry-run', '--json']);
+      expect(result.exitCode).toBe(0);
+      const output = JSON.parse(result.stdout);
+      expect(output.data.dryRun).toBe(true);
+      expect(result.stderr).not.toContain('Ready to');
+    });
+
+    it('requires confirmation before creating a raffle', async () => {
+      const result = await runCLI(['create'], 10000, 'Test raffle\nTIK\n1\nn\n');
+      expect(`${result.stdout}${result.stderr}`).toContain('Ready to deploy to contract?');
+      expect(result.stdout).toContain('Deployment cancelled');
+      expect(result.exitCode).not.toBe(0);
+    }, 15000);
+
+    it('requires confirmation before purchasing tickets', async () => {
+      const result = await runCLI(['buy'], 10000, '1\n2\nn\n');
+      expect(`${result.stdout}${result.stderr}`).toContain('Ready to purchase these tickets?');
+      expect(result.stdout).toContain('Purchase cancelled');
+      expect(result.exitCode).not.toBe(0);
+    }, 15000);
   });
 
   describe('global options', () => {

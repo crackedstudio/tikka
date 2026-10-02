@@ -1,0 +1,28 @@
+{
+  "notFound": {
+    "heading": "المنشئ غير موجود",
+    "unknownAddress": "عنوان غير معروف"
+  },
+  "stats": {
+    "rafflesCreated": "السحوبات المنشأة",
+    "ticketsSold": "التذاكر المباعة",
+    "xlmRaised": "XLM المجمعة",
+    "participantWinRate": "معدل فوز المشاركين"
+  },
+  "follow": "متابعة المنشئ",
+  "following": "متابَع",
+  "rafflesSection": {
+    "heading": "سحوبات هذا المنشئ",
+    "empty": "لم ينشر هذا المنشئ أي سحوبات بعد."
+  },
+  "error": {
+    "profileFailed": "فشل تحميل ملف المنشئ",
+    "rafflesFailed": "فشل تحميل السحوبات",
+    "retry": "إعادة المحاولة"
+  },
+  "pagination": {
+    "previous": "→ السابق",
+    "next": "التالي ←",
+    "page": "الصفحة {{current}} من {{total}}"
+  }
+}

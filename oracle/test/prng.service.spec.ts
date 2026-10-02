@@ -6,7 +6,12 @@ describe('PrngService', () => {
   let service: PrngService;
 
   beforeEach(() => {
-    service = new PrngService({ log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as OracleLoggerService);
+    service = new PrngService({
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    } as unknown as OracleLoggerService);
   });
 
   describe('output format', () => {
@@ -106,6 +111,30 @@ describe('PrngService', () => {
     });
   });
 
+  describe('committed request inputs', () => {
+    it('does not change the seed when operator-controlled inputs change after commit', () => {
+      const committed = { requestId: 'req-committed', raffleId: 7 };
+      const before = service.compute(committed.requestId, committed.raffleId);
+
+      const random = jest.spyOn(Math, 'random').mockReturnValue(0.01);
+      const now = jest.spyOn(Date, 'now').mockReturnValue(1);
+      process.env.ORACLE_OPERATOR_BIAS = 'tamper';
+
+      const after = service.compute(committed.requestId, committed.raffleId);
+
+      expect(after).toEqual(before);
+      random.mockRestore();
+      now.mockRestore();
+      delete process.env.ORACLE_OPERATOR_BIAS;
+    });
+
+    it('changes the seed only when a committed field changes', () => {
+      const base = service.compute('req-committed', 7);
+      expect(service.compute('req-committed', 8).seed).not.toBe(base.seed);
+      expect(service.compute('req-other', 7).seed).not.toBe(base.seed);
+    });
+  });
+
   describe('no ambient randomness', () => {
     it('should not be affected by time', () => {
       const results = Array.from({ length: 10 }, () => service.compute('req-time-invariant'));
@@ -173,8 +202,18 @@ describe('PrngService', () => {
       const prefix1 = Buffer.from('PRNG:v1:1:', 'ascii');
       const prefix2 = Buffer.from('PRNG:v1:2:', 'ascii');
 
-      const half1 = crypto.createHash('sha256').update(prefix1).update(reqBuf).digest().toString('hex');
-      const half2 = crypto.createHash('sha256').update(prefix2).update(reqBuf).digest().toString('hex');
+      const half1 = crypto
+        .createHash('sha256')
+        .update(prefix1)
+        .update(reqBuf)
+        .digest()
+        .toString('hex');
+      const half2 = crypto
+        .createHash('sha256')
+        .update(prefix2)
+        .update(reqBuf)
+        .digest()
+        .toString('hex');
 
       expect(proof).toBe(half1 + half2);
     });
