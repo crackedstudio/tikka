@@ -26,7 +26,7 @@ import {
   RaffleStateError,
   CreateRaffleEstimate,
 } from './raffle.types';
-import { RaffleStatus } from '../../contract/bindings';
+import { RaffleStatus, mapContractStatus } from '../../contract/bindings';
 import { ContractResponse, RaffleTxResponse, TxResponse } from '../../contract/response';
 import { assertPositiveInt, assertNonEmpty } from '../../utils/validation';
 import { xlmToStroops } from '../../utils/formatting';
