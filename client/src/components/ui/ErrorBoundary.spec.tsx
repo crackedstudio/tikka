@@ -1,13 +1,40 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ErrorBoundary, { ErrorFallbackProps } from "./ErrorBoundary";
 import { logger } from "../../utils/logger";
+import { initClientSentry } from "../../sentry";
+
+const sentryMock = vi.hoisted(() => {
+    const scope = {
+        setTag: vi.fn(),
+        setContext: vi.fn(),
+        setUser: vi.fn(),
+        setLevel: vi.fn(),
+    };
+
+    return {
+        scope,
+        captureException: vi.fn(),
+        init: vi.fn(),
+        withScope: vi.fn((callback: (activeScope: typeof scope) => void) =>
+            callback(scope),
+        ),
+    };
+});
 
 vi.mock("@sentry/react", () => ({
-    captureException: vi.fn(),
+    init: sentryMock.init,
+    captureException: sentryMock.captureException,
+    withScope: sentryMock.withScope,
 }));
+
+// The boundary reports through the shared client sink, which is inert until it
+// has been initialised with a DSN.
+beforeAll(async () => {
+    await initClientSentry({ VITE_SENTRY_DSN: "https://example.ingest.sentry.io/1" });
+});
 
 const Boom = ({ shouldThrow }: { shouldThrow: boolean }) => {
     if (shouldThrow) {
@@ -158,5 +185,25 @@ describe("ErrorBoundary", () => {
         );
 
         loggerSpy.mockRestore();
+    });
+
+    it("reports the caught error to the client error sink", async () => {
+        const Child = () => <Boom shouldThrow />;
+
+        renderWithRouter(
+            <ErrorBoundary>
+                <Child />
+            </ErrorBoundary>,
+        );
+
+        await vi.waitFor(() => {
+            expect(sentryMock.captureException).toHaveBeenCalledTimes(1);
+        });
+
+        expect(sentryMock.scope.setTag).toHaveBeenCalledWith(
+            "source",
+            "error-boundary",
+        );
+        expect(sentryMock.scope.setLevel).toHaveBeenCalledWith("error");
     });
 });
