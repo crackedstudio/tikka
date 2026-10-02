@@ -67,4 +67,36 @@ describe('Health (e2e)', () => {
         expect(res.body.indexer).toBe('error');
       });
   });
+
+  it('GET /health/live stays healthy without checking dependencies', () => {
+    return request(app.getHttpServer())
+      .get('/health/live')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.status).toBe('ok');
+        expect(res.body.timestamp).toBeDefined();
+        expect(mockHealthService.getHealth).not.toHaveBeenCalled();
+      });
+  });
+
+  it('GET /health/ready returns 503 and names Redis when degraded', () => {
+    mockHealthService.getHealth.mockResolvedValueOnce({
+      status: 'degraded',
+      indexer: 'ok',
+      database: 'ok',
+      redis: 'error',
+      supabase: 'ok',
+      emailProvider: 'not_configured',
+      unhealthy: ['redis'],
+      timestamp: new Date().toISOString(),
+    });
+
+    return request(app.getHttpServer())
+      .get('/health/ready')
+      .expect(503)
+      .expect((res) => {
+        expect(res.body.redis).toBe('error');
+        expect(res.body.unhealthy).toContain('redis');
+      });
+  });
 });

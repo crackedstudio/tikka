@@ -1,0 +1,7 @@
+{
+  "dashboard": {
+    "title": "Panel de Administración del Oráculo",
+    "signOut": "Cerrar Sesión",
+    "loading": "Cargando..."
+  }
+}
