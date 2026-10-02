@@ -4,6 +4,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "install:all": "pnpm install",
+    "dev": "turbo run dev --filter=tikka...",
     "build": "turbo run build",
     "build:client": "turbo run build --filter=tikka",
     "build:sdk": "turbo run build --filter=@tikka/sdk",
