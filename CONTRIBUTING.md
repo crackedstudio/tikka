@@ -12,7 +12,7 @@ This repository is split into several runnable workspaces. The fastest way to ge
 - Node.js and pnpm
 
   Node and pnpm versions are pinned repo-wide. The single source of truth for
-the Node major is `.nvmrc` (and its mirror `.node-version`):
+  the Node major is `.nvmrc` (and its mirror `.node-version`):
 
   - **Node.js 22** — read by CI (`node-version-file: .nvmrc`), the Docker
     base images, and local version managers (`nvm`, `fnm`, `mise`, ...).
@@ -54,6 +54,14 @@ pnpm install
 
 No package-level dev server exists at the root; use the package-specific commands below.
 
+## Turbo cache inputs
+
+If a Turbo task reads a file outside its package directory, add that file to
+`globalDependencies` in the root `turbo.json` so changes invalidate cached
+results. Add output-affecting environment variables to the task's `env` list,
+or to `globalEnv` when they affect tasks repo-wide. Client build settings
+prefixed with `VITE_` and `ANALYZE` are hashed for the build task.
+
 ### Backend
 
 ```bash
@@ -92,6 +100,10 @@ Use pnpm for every package root in this repository so each package has a single 
 - Oracle workspace: pnpm
 
 Use the package manager that matches the package root you are working in. Do not add or commit npm lockfiles such as package-lock.json in these directories.
+
+### Adding a new package
+
+Register new packages in `pnpm-workspace.yaml` only. The root `package.json` does **not** carry a `workspaces` field — `pnpm-workspace.yaml` is the single source of truth for workspace membership. Do not add a `workspaces` array to `package.json`; pnpm ignores it in favour of the YAML file, and the redundant entry will disagree with it.
 
 - The client uses Vite and expects the backend at `http://localhost:3001` by default.
 - Run tests with:
@@ -190,6 +202,9 @@ All three are wired into the husky `pre-push` hook, so they run automatically
 before every `git push`. You can also run them per-workspace if you want faster
 feedback while working on a single package:
 
+See the [TypeScript strict-mode migration guide](docs/contributing/typescript-strict-migration.md)
+for current status and per-package compiler counts.
+
 ```bash
 # From the repository root
 pnpm --dir backend test
@@ -264,6 +279,70 @@ File: `sdk/src/test/rpc-integration.spec.ts`
 These are currently mock-based and run as part of the normal unit test suite.
 A future issue will convert them to use a real Soroban testnet endpoint.
 
+### Fee estimate accuracy tests
+
+File: `sdk/src/test/integration/fee-estimate-accuracy.spec.ts`
+
+Measures how close a fee estimate is to what the network actually charges. For
+each measured write the suite quotes a fee with `FeeEstimatorService`, submits
+that same call with the quoted fee, reads the charged fee back out of the
+confirmed transaction, and compares the two.
+
+The comparison lives in the shared `@tikka/fee-accuracy` workspace package, so
+the SDK and the oracle cost estimator are validated by the same tolerance, the
+same surge classification and the same report format.
+
+```bash
+# Requires TIKKA_TESTNET_SECRET_KEY (or TIKKA_SECRET_KEY) and TIKKA_CONTRACT_TESTNET
+pnpm --dir sdk run test:fee-accuracy
+```
+
+Gate an already-written report without re-running the suite:
+
+```bash
+pnpm --filter @tikka/fee-accuracy run gate -- --path sdk/fee-accuracy-report.json
+```
+
+| Variable                                     | Default                    | Description                                                                    |
+| -------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------ |
+| `TIKKA_TESTNET_TESTS`                        | `false`                    | Set to `1` to enable the live testnet suites.                                  |
+| `TIKKA_FEE_ACCURACY_TESTS`                   | `false`                    | Set to `1` to enable the fee accuracy suite (implies testnet tests).           |
+| `TIKKA_FEE_ACCURACY_TOLERANCE_PERCENT`       | `15`                       | Allowed deviation from the quote on a normal network.                          |
+| `TIKKA_FEE_ACCURACY_TOLERANCE_STROOPS`       | `2000`                     | Floor for the allowed deviation, so cheap calls are not judged on ratio alone. |
+| `TIKKA_FEE_ACCURACY_SURGE_TOLERANCE_PERCENT` | `100`                      | Allowed deviation while the network is surged.                                 |
+| `TIKKA_FEE_ACCURACY_SURGE_TOLERANCE_STROOPS` | `10000`                    | Floor for the surged allowed deviation.                                        |
+| `TIKKA_FEE_ACCURACY_SURGE_THRESHOLD_STROOPS` | `1000`                     | Inclusion fee at or above which the network counts as surged.                  |
+| `TIKKA_FEE_REPORT_PATH`                      | `fee-accuracy-report.json` | Where the JSON (and sibling `.md`) report is written.                          |
+
+A run is surged when the ledger's typical Soroban inclusion fee reaches the
+threshold. Testnet congestion cannot be forced, so the live suite reads
+`getFeeStats` per submission: a surged observation is judged against the wider
+surge band, and the quote is additionally asserted to cover the inclusion fee
+the network demanded (below it, the transaction is rejected with
+`tx_insufficient_fee` rather than charged). The deterministic surge behaviour of
+the estimator is covered by `sdk/src/fee-estimator/fee-accuracy.spec.ts`.
+
+Reports are written even when a transaction fails, and the nightly
+[SDK Testnet Integration workflow](./.github/workflows/testnet-integration.yml)
+publishes them as an artifact and in the job summary. The workflow fails the run
+when any observation leaves the tolerance band — or when no observation was
+recorded at all.
+
+### Oracle cost accounting
+
+File: `oracle/test/fee-accuracy.spec.ts`
+
+Locks the contract that makes the oracle's books auditable: the fee booked for
+a reveal must match the fee the network charged, a `feePaid` of `0` is rejected
+as `invalid` rather than passing as a free transaction, and a stale quote is
+flagged when inclusion fees surge.
+
+`SubmissionService` reads the real charge from the confirmed transaction
+(`SubmissionService.extractFeePaid`, backed by `extractFeeChargedStroops`);
+`TxSubmitterService` falls back to the fee it quoted for that submission rather
+than a flat base fee, so a missing RPC fee cannot make a reveal look ~500x
+cheaper than it was.
+
 ## SDK bundle size
 
 The SDK enforces gzip size budgets on the read-only and light entry points via
@@ -276,6 +355,45 @@ pnpm --filter sdk run build:read
 pnpm --filter sdk run build:light
 pnpm --filter sdk run size-check
 ```
+
+## Documentation policy
+
+Documentation must be kept separate from source code to maintain clear boundaries and make it easier to find and maintain.
+
+### Source directories
+
+Source directories (`*/src/`) hold **code only** with one exception:
+
+- ✅ **Allowed**: `README.md` files that explain the module/component they sit next to
+- ❌ **Not allowed**: Guides, design docs, verification notes, or any other markdown files
+
+### Where documentation belongs
+
+| Type of documentation | Location |
+|----------------------|----------|
+| Package-level guides | `<package>/docs/` (e.g., `oracle/docs/`, `indexer/docs/`) |
+| Cross-package docs | `docs/` at repository root |
+| Historical notes | `docs/archive/` with date prefix (e.g., `2026-08-28-backend-*`) |
+| API documentation | `docs/api/` |
+| Architecture decisions | `docs/adr/` |
+| Database schemas | `docs/database/` |
+
+### Examples
+
+**✅ Good**:
+- `backend/src/middleware/README.md` — explains the middleware module
+- `oracle/docs/TX_SUBMITTER_GUIDE.md` — comprehensive guide for transaction submission
+- `docs/backend/ENV_VARS.md` — environment variable reference
+- `docs/archive/2026-08-28-backend-raffles-VERIFICATION.md` — historical cleanup note
+
+**❌ Bad**:
+- `backend/src/config/ENV_VARS.md` — should be in `docs/backend/`
+- `oracle/src/submitter/TX_SUBMITTER_GUIDE.md` — should be in `oracle/docs/`
+- `indexer/src/database/entities/ENTITY_OWNERSHIP.md` — should be in `docs/database/`
+
+### Enforcement
+
+CI automatically rejects PRs that add non-README markdown files under any `src/` directory. See `.github/workflows/ci.yml` for the implementation.
 
 ## Code formatting
 

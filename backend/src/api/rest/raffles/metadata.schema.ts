@@ -11,7 +11,7 @@ import {
   METADATA_CID_MAX,
   METADATA_IMAGE_URL_MAX,
   METADATA_IMAGE_URLS_MAX_COUNT,
-} from "@tikka/sdk/dist/schemas/raffle-metadata.schema";
+} from "../../../../../sdk/src/schemas/raffle-metadata.schema";
 
 // Re-export constants for backward compatibility
 export {
@@ -34,10 +34,10 @@ export const AssetSchema = BaseAssetSchema.extend({
     .min(1)
     .max(12)
     .refine(
-      (code) => isAllowedTicketAsset(code),
-      (code) => ({
-        message: `Asset "${code}" is not allowed. Accepted: ${resolveAllowedTicketAssets().join(", ")}`,
-      }),
+      (code: string) => isAllowedTicketAsset(code),
+      {
+        message: `Asset is not allowed. Accepted: ${resolveAllowedTicketAssets().join(", ")}`,
+      },
     ),
 });
 

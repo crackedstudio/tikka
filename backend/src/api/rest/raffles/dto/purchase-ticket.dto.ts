@@ -5,7 +5,7 @@ export const MAX_TICKET_QUANTITY = 100;
 
 export const PurchaseTicketSchema = z.object({
   quantity: z.coerce
-    .number({ invalid_type_error: 'quantity must be a number' })
+    .number({ message: 'quantity must be a number' })
     .int('quantity must be an integer')
     .min(1, 'quantity must be at least 1')
     .max(MAX_TICKET_QUANTITY, `quantity must not exceed ${MAX_TICKET_QUANTITY}`),

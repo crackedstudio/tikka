@@ -37,7 +37,7 @@ The multi-stage Dockerfile supports three build targets:
 - **Default for `docker compose --profile client up`**
 
 ```dockerfile
-FROM node:20-alpine AS development
+FROM node:22-alpine AS development
 # Installs all dependencies
 # Runs: pnpm run dev --host 0.0.0.0
 ```

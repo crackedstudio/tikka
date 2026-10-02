@@ -6,11 +6,11 @@ import { logger } from '../utils/logger';
  * Thin wrapper over useAuthStore.
  */
 
-import { useCallback, useRef } from "react";
-import { getNonce, verify } from "../services/authService";
-import { setToken, clearToken } from "../services/apiClient";
-import { getKit } from "../services/walletService";
-import { useAuthStore } from "../store/useAuthStore";
+import { useCallback, useRef } from 'react';
+import { getNonce, verify } from '../services/authService';
+import { setToken, clearToken } from '../services/apiClient';
+import { getKit } from '../services/walletService';
+import { useAuthStore } from '../store/useAuthStore';
 
 // ── Session status ───────────────────────────────────────────────────────────
 
@@ -25,12 +25,12 @@ import { useAuthStore } from "../store/useAuthStore";
  * - `failed`        — sign-in attempt threw; error message is populated
  */
 export type SessionStatus =
-  | "anonymous"
-  | "connecting"
-  | "authenticated"
-  | "refreshing"
-  | "expired"
-  | "failed";
+  | 'anonymous'
+  | 'connecting'
+  | 'authenticated'
+  | 'refreshing'
+  | 'expired'
+  | 'failed';
 
 // ── State shape ────────────────────────────────────────────────────────────
 
@@ -95,57 +95,60 @@ export function useAuth(): UseAuthReturn {
    * Sign in with Stellar wallet.
    * Full SIWS flow: get nonce → sign message → verify signature.
    */
-  const login = useCallback(async (walletAddress: string) => {
-    store.setAuthState({ status: "connecting" });
+  const login = useCallback(
+    async (walletAddress: string) => {
+      store.setAuthState({ status: 'connecting' });
 
-    try {
-      // Step 1: Get nonce and message from backend
-      const nonceData = await getNonce(walletAddress);
+      try {
+        // Step 1: Get nonce and message from backend
+        const nonceData = await getNonce(walletAddress);
 
-      // Step 2: Sign the message with the wallet
-      let signatureBase64: string;
-      if (import.meta.env.VITE_TEST_MODE === "true") {
-        signatureBase64 = "TEST_SIGNATURE_BASE64";
-      } else {
-        const kit = getKit();
-        const { signedMessage } = await kit.signMessage(nonceData.message, {
+        // Step 2: Sign the message with the wallet
+        let signatureBase64: string;
+        if (import.meta.env.VITE_TEST_MODE === 'true') {
+          signatureBase64 = 'TEST_SIGNATURE_BASE64';
+        } else {
+          const kit = await getKit();
+          const { signedMessage } = await kit.signMessage(nonceData.message, {
+            address: walletAddress,
+          });
+
+          // Convert signed message to base64 if it's not already a string.
+          signatureBase64 =
+            typeof signedMessage === 'string'
+              ? signedMessage
+              : btoa(
+                  String.fromCharCode.apply(
+                    null,
+                    Array.from(new Uint8Array(signedMessage as ArrayBuffer)),
+                  ),
+                );
+        }
+
+        // Step 3: Verify signature with backend and get JWT
+        const { accessToken } = await verify({
           address: walletAddress,
+          signature: signatureBase64,
+          nonce: nonceData.nonce,
+          issuedAt: nonceData.issuedAt,
         });
 
-        // Convert signed message to base64 if it's not already a string.
-        signatureBase64 =
-          typeof signedMessage === "string"
-            ? signedMessage
-            : btoa(
-                String.fromCharCode.apply(
-                  null,
-                  Array.from(new Uint8Array(signedMessage)),
-                ),
-              );
+        // Store token and update store
+        store.login(walletAddress, accessToken);
+      } catch (error) {
+        logger.error('Authentication error:', error);
+        store.setAuthState({
+          status: 'failed',
+          isAuthenticated: false,
+        });
+        // We don't have a direct way to set error in setAuthState currently without adding it to the store interface
+        // But we can use setAuthState if we update the interface or just use setWalletState for error.
+        // Actually let's just stick to what store has.
+        throw error;
       }
-
-      // Step 3: Verify signature with backend and get JWT
-      const { accessToken } = await verify({
-        address: walletAddress,
-        signature: signatureBase64,
-        nonce: nonceData.nonce,
-        issuedAt: nonceData.issuedAt,
-      });
-
-      // Store token and update store
-      store.login(walletAddress, accessToken);
-    } catch (error) {
-      logger.error("Authentication error:", error);
-      store.setAuthState({
-        status: "failed",
-        isAuthenticated: false,
-      });
-      // We don't have a direct way to set error in setAuthState currently without adding it to the store interface
-      // But we can use setAuthState if we update the interface or just use setWalletState for error.
-      // Actually let's just stick to what store has.
-      throw error;
-    }
-  }, [store.login, store.setAuthState]);
+    },
+    [store.login, store.setAuthState],
+  );
 
   /**
    * Sign out: clear token, abort any pending authenticated requests, reset state.
@@ -169,7 +172,7 @@ export function useAuth(): UseAuthReturn {
     token: null, // Token is encapsulated in store/sessionStorage
     error: null,
     isAuthenticated: store.isAuthenticated,
-    isAuthenticating: store.status === "connecting",
+    isAuthenticating: store.status === 'connecting',
     login,
     logout,
     markExpired,
