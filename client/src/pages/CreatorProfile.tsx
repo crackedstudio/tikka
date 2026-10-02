@@ -6,8 +6,10 @@ import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import RaffleCard from "../components/cards/RaffleCard";
 import { toRaffleCardViewModel } from "../components/cards/raffleCardViewModel";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import EmptyState from "../components/ui/EmptyState";
 import Skeleton from "../components/ui/Skeleton";
 import { ApiError, ApiErrorCode } from "../services/apiClient";
+import { isValidStellarAddress } from "../utils/stellarAddress";
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 
@@ -259,6 +261,23 @@ const CreatorProfile: React.FC = () => {
             </div>
         </div>
     );
+};
+
+/**
+ * Route component for `/creators/:address` (#1541).
+ *
+ * The address is read straight from the URL, so it is validated before the
+ * body — and therefore before any query — mounts. A malformed address renders
+ * the not-found state without issuing a request.
+ */
+const CreatorProfile: React.FC = () => {
+    const { address } = useParams<{ address: string }>();
+
+    if (!isValidStellarAddress(address)) {
+        return <CreatorNotFound address={address} />;
+    }
+
+    return <CreatorProfileView address={address} />;
 };
 
 export default CreatorProfile;
