@@ -46,6 +46,7 @@ describe('migration smoke test', () => {
       'RelaxTicketsPurchaseTxHashUnique1760000000001',
       'CreateWebhookDeadLetterDeliveries1770000000000',
       'AuditHotPathIndexes1770000000000',
+      'GrantBackendReaderRole1780000000000',
     ]);
   });
 
