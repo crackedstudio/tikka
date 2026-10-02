@@ -47,6 +47,42 @@ import { classifyError, retryOnTxBadSeq } from './sequence.errors';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /**
+ * Transaction lifecycle stages that can be observed by consumers.
+ * Each stage represents a distinct phase in the transaction flow.
+ */
+export enum TransactionStage {
+  /** Building and simulating the transaction */
+  SIMULATING = 'simulating',
+  /** Waiting for user signature from the wallet */
+  AWAITING_SIGNATURE = 'awaiting_signature',
+  /** Submitting the signed transaction to the network */
+  SUBMITTING = 'submitting',
+  /** Polling for transaction confirmation */
+  CONFIRMING = 'confirming',
+  /** Transaction completed successfully */
+  COMPLETED = 'completed',
+  /** Transaction failed at any stage */
+  FAILED = 'failed',
+}
+
+/**
+ * Event emitted when the transaction lifecycle transitions to a new stage.
+ * Includes timing information for latency metrics.
+ */
+export interface StageChangeEvent {
+  /** The current stage */
+  stage: TransactionStage;
+  /** Timestamp when this stage started (milliseconds since epoch) */
+  timestamp: number;
+  /** Time elapsed since the previous stage in milliseconds (0 for first stage) */
+  elapsedMs: number;
+  /** Optional transaction hash (available after submission) */
+  txHash?: string;
+  /** Optional error details (only present for FAILED stage) */
+  error?: Error;
+}
+
+/**
  * Transaction memo — attach tracking data or external references.
  * Mirrors the three Stellar memo types the protocol supports.
  */
@@ -114,6 +150,12 @@ export interface InvokeLifecycleOptions {
   poll?: PollConfig;
   /** Optional memo attached to the transaction envelope. */
   memo?: TxMemo;
+  /**
+   * Optional callback invoked on each stage transition.
+   * Provides real-time observability of transaction progress with timing metrics.
+   * Zero-cost when omitted — no overhead is added to the lifecycle.
+   */
+  onStageChange?: (event: StageChangeEvent) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -247,6 +289,31 @@ export class TransactionLifecycle {
 
   setContractId(id: string): void {
     this.contractId = id;
+  }
+
+  /**
+   * Emits a stage change event if onStageChange callback is provided.
+   * Tracks timing between stages for latency metrics.
+   */
+  private emitStageChange(
+    stage: TransactionStage,
+    onStageChange?: (event: StageChangeEvent) => void,
+    txHash?: string,
+    error?: Error,
+  ): void {
+    if (!onStageChange) return; // Zero-cost when callback not provided
+
+    const now = Date.now();
+    const elapsedMs = this.lastStageTimestamp === 0 ? 0 : now - this.lastStageTimestamp;
+    this.lastStageTimestamp = now;
+
+    onStageChange({
+      stage,
+      timestamp: now,
+      elapsedMs,
+      txHash,
+      error,
+    });
   }
 
   // ── Phase 1: Simulate ──────────────────────────────────────────────────────
