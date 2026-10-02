@@ -14,15 +14,9 @@
  */
 
 import { http, HttpResponse } from 'msw';
-import type {
-  ApiRaffleDetail,
-  ApiRaffleListResponse,
-} from '../../types/raffle';
-import type {
-  ApiUserProfile,
-  ApiUserHistoryResponse,
-} from '../../types/user';
-import { fakeRaffleDetail } from '../fixtures';
+import type { ApiRaffleListResponse } from '../../types/raffle';
+import type { ApiUserProfile, ApiUserHistoryResponse } from '../../types/user';
+import { demoRaffleDetails, getDemoParticipants } from '../../demo/demo-api';
 
 // The origin the app's apiClient sends requests to (see config/api.ts). MSW
 // resolves "/" -relative handler paths against the jsdom location origin, so the
@@ -35,22 +29,9 @@ export { API_BASE_URL };
 
 // ─── Fixture-derived shapes ────────────────────────────────────────────────────
 
-/**
- * The single raffle used by the unit fixtures, completed into a fully-typed
- * `ApiRaffleDetail` so the mock cannot drift from the contract.
- */
-const fixtureRaffle: ApiRaffleDetail = {
-  ...fakeRaffleDetail,
-  winner: null,
-  created_ledger: 1000,
-  finalized_ledger: null,
-  metadata_cid: 'QmTest123',
-  participant_count: 0,
-};
-
 const defaultListResponse: ApiRaffleListResponse = {
-  raffles: [fixtureRaffle],
-  total: 1,
+  raffles: demoRaffleDetails,
+  total: demoRaffleDetails.length,
 };
 
 const defaultProfile: ApiUserProfile = {
@@ -138,9 +119,19 @@ export const routeDefs: RouteDef[] = [
   {
     method: 'get',
     path: '/raffles/:id',
+    resolver: async ({ params }) => {
+      const raffle = demoRaffleDetails.find((item) => item.id === Number(params.id));
+      return raffle
+        ? { status: 200, body: raffle }
+        : { status: 404, body: { message: 'Raffle not found' } };
+    },
+  },
+  {
+    method: 'get',
+    path: '/raffles/:id/participants',
     resolver: async ({ params }) => ({
       status: 200,
-      body: { ...fixtureRaffle, id: Number(params.id) },
+      body: getDemoParticipants(Number(params.id)),
     }),
   },
   {

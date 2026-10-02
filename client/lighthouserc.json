@@ -1,3 +1,3 @@
 {
-  "_comment": "This file is superseded by lighthouserc.desktop.json and lighthouserc.mobile.json (issue #1512). Use `pnpm run lighthouse` to run both profiles, or target a single profile with `pnpm run lighthouse:desktop` / `pnpm run lighthouse:mobile`."
+  "_comment": "This file is a legacy compatibility stub. The active profiles live in lighthouserc.desktop.json and lighthouserc.mobile.json. Use `pnpm run lighthouse` to run both profiles, or target a single profile with `pnpm run lighthouse:desktop` / `pnpm run lighthouse:mobile`. The seeded demo raffle remains `/raffles/9001` when `VITE_DEMO_MODE=true` is enabled."
 }

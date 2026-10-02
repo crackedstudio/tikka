@@ -75,6 +75,16 @@ cp oracle/.env.example oracle/.env.local
 docker compose --profile full up --build
 ```
 
+### Seed local demo data
+
+Populate the indexer database with the deterministic demo raffles, tickets, and users:
+
+```bash
+pnpm seed:demo
+```
+
+The command starts PostgreSQL if needed and seeds raffle IDs 9001–9005: live, ending soon, finalized, cancelled, and many-participant scenarios. Re-running it refreshes only those demo raffle IDs and their related tickets, users, and event records.
+
 ### Individual service + deps
 
 ```bash
