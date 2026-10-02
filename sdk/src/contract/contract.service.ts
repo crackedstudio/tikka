@@ -7,6 +7,7 @@ import {
   Contract,
   nativeToScVal,
   scValToNative,
+  TransactionSource,
   BASE_FEE,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
@@ -81,6 +82,16 @@ export interface UnsignedTxResult<T = unknown> {
  */
 function isExternalSimulationError(errorMsg: string): boolean {
   return /external|token|sep-?41/i.test(errorMsg);
+}
+
+/** Narrows a caught `unknown` to a usable message, including `{ message }` throws. */
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message || String(error);
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const { message } = error as { message?: unknown };
+    if (typeof message === 'string' && message) return message;
+  }
+  return String(error);
 }
 
 /** @deprecated Use SubmitResult from lifecycle instead. Kept for batchBuyTickets compatibility. */
@@ -462,7 +473,7 @@ export class ContractService {
       const resultXdr = (txResp as Record<string, unknown>).resultXdr ?? '';
       const message = 'Batch transaction failed';
       throw (
-        toTypedContractError(message, resultXdr) ??
+        toTypedContractError(message, String(resultXdr ?? '')) ??
         new TikkaSdkError(TikkaSdkErrorCode.ContractError, message, resultXdr)
       );
     }
@@ -486,6 +497,6 @@ export class ContractService {
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
-    return nativeToScVal(val);
+    return nativeToScVal(val as Parameters<typeof nativeToScVal>[0]);
   }
 }

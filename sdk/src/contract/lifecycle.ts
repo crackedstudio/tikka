@@ -22,9 +22,11 @@ import {
   Address,
   nativeToScVal,
   rpc,
+  Transaction,
   xdr,
   scValToNative,
   Memo,
+  TransactionSource,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -115,6 +117,16 @@ export interface InvokeLifecycleOptions {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Narrows a caught `unknown` to a usable message, including `{ message }` throws. */
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message || String(error);
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const { message } = error as { message?: unknown };
+    if (typeof message === 'string' && message) return message;
+  }
+  return String(error);
+}
 
 /** Detects Soroban contract errors in error messages / XDR. */
 function isExternalContractFailure(msg: string): boolean {
@@ -261,8 +273,8 @@ export class TransactionLifecycle {
       const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Simulation failed for "${method}": ${errMsg}`;
       throw (
-        toTypedContractError(message, errMsg) ??
-        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, errMsg)
+        toTypedContractError(message, simResponse.error) ??
+        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, simResponse.error)
       );
     }
 
@@ -407,12 +419,12 @@ export class TransactionLifecycle {
         const resultXdr = (resp as Record<string, unknown>).resultXdr ?? '';
         const message = `Transaction ${txHash} failed on-chain (attempt ${attempts})`;
 
-        if (isExternalContractFailure(String(resultXdr))) {
+        if (isExternalContractFailure(rawResultXdr)) {
           throw new TikkaSdkError(TikkaSdkErrorCode.ExternalContractError, message, resultXdr);
         }
 
         throw (
-          toTypedContractError(message, resultXdr) ??
+          toTypedContractError(message, rawResultXdr) ??
           new TikkaSdkError(TikkaSdkErrorCode.ContractError, message, resultXdr)
         );
       }
@@ -541,7 +553,7 @@ export class TransactionLifecycle {
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
-    return nativeToScVal(val);
+    return nativeToScVal(val as Parameters<typeof nativeToScVal>[0]);
   }
 
   private sleep(ms: number): Promise<void> {
