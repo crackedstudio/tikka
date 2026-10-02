@@ -34,6 +34,17 @@ export type { TxMemo } from './lifecycle';
 export type { SimulateResult, SubmitResult, PollConfig } from './lifecycle';
 
 import { ContractResponse, TxResponse } from './response';
+import type { TikkaLogger } from '../utils/logger';
+import { defaultLogger } from '../utils/logger';
+import {
+  parseNumber,
+  parseNumberArray,
+  parseString,
+  parseBoolean,
+  parseRaffleData,
+  parseUserParticipation,
+  parseVoid,
+} from './parsers';
 
 export interface InvokeOptions {
   sourcePublicKey?: string;
@@ -94,6 +105,7 @@ export interface InvokeResult<T = unknown> {
 export class ContractService {
   private contractId: string;
   private lifecycle: TransactionLifecycle;
+  private logger: TikkaLogger;
 
   constructor(
     private readonly rpc: RpcService,
@@ -101,9 +113,18 @@ export class ContractService {
     @Inject('NETWORK_CONFIG') private readonly networkConfig: NetworkConfig,
     @Optional() @Inject('WALLET_ADAPTER') private wallet?: WalletAdapter,
     contractId?: string,
+    @Optional() @Inject('TIKKA_LOGGER') logger?: TikkaLogger,
   ) {
     this.contractId = contractId ?? getRaffleContractId(networkConfig.network);
-    this.lifecycle = new TransactionLifecycle(rpc, horizon, networkConfig, wallet, this.contractId);
+    this.logger = logger ?? defaultLogger;
+    this.lifecycle = new TransactionLifecycle(
+      rpc,
+      horizon,
+      networkConfig,
+      wallet,
+      this.contractId,
+      this.logger,
+    );
   }
 
   setContractId(id: string): void {
@@ -118,7 +139,7 @@ export class ContractService {
 
   /**
    * Returns the public key of the currently connected wallet.
-   * @throws TikkaSdkError(WalletNotConnected) if no wallet is connected
+   * @throws {TikkaSdkError} code `WalletNotConnected` if no wallet is connected
    */
   async getPublicKey(): Promise<string> {
     if (!this.wallet) {
@@ -133,6 +154,11 @@ export class ContractService {
    * Phase 1 — Build and simulate a transaction.
    * Returns the assembled XDR, decoded return value, fee, and network passphrase.
    * Safe to call without a wallet (uses anonymous fallback key).
+   * @throws {TikkaSdkError} code `SimulationFailed` if the RPC simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   * @throws {TikkaSdkError} code `Timeout` if the simulation times out
    */
   async simulate<T = unknown>(
     method: ContractFnName | string,
@@ -145,6 +171,9 @@ export class ContractService {
   /**
    * Phase 2 — Sign an assembled transaction XDR via the connected wallet.
    * Returns the signed XDR string.
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet adapter is set
+   * @throws {TikkaSdkError} code `UserRejected` if the user rejects the signature request
+   * @throws {TikkaSdkError} code `Unknown` for other wallet signing failures
    */
   async sign(assembledXdr: string, networkPassphrase?: string): Promise<string> {
     return this.lifecycle.sign(assembledXdr, networkPassphrase);
@@ -153,6 +182,9 @@ export class ContractService {
   /**
    * Phase 3 — Submit a signed transaction XDR to the network.
    * Returns the transaction hash.
+   * @throws {TikkaSdkError} code `TransactionRejected` if the RPC rejects the submission
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   * @throws {TikkaSdkError} code `SubmissionFailed` if the submission fails
    */
   async submit(signedXdr: string): Promise<string> {
     return this.lifecycle.submit(signedXdr);
@@ -161,6 +193,10 @@ export class ContractService {
   /**
    * Phase 4 — Poll for transaction confirmation.
    * Returns the on-chain return value, tx hash, and ledger.
+   * @throws {TikkaSdkError} code `Timeout` if the confirmation timeout is exceeded
+   * @throws {TikkaSdkError} code `ContractError` if the transaction failed on-chain
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async poll<T = unknown>(txHash: string, config?: PollConfig): Promise<SubmitResult<T>> {
     return this.lifecycle.poll<T>(txHash, config);
@@ -168,6 +204,13 @@ export class ContractService {
 
   /* ---------------- READ ONLY ---------------- */
 
+  /**
+   * Simulates a contract call without signing or submitting.
+   * @throws {TikkaSdkError} code `SimulationFailed` if the simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   */
   async simulateReadOnly<T>(
     method: ContractFnName | string,
     params: unknown[],
@@ -176,15 +219,9 @@ export class ContractService {
       ? await this.wallet.getPublicKey()
       : 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
-    const fallback: TransactionSource = {
-      accountId: () => sourceKey,
-      sequenceNumber: () => '0',
-      incrementSequenceNumber: () => {},
-    };
-    const account = await this.horizon
-      .loadAccount(sourceKey)
-      .then((loaded) => loaded as unknown as TransactionSource)
-      .catch(() => fallback);
+    const account = await this.horizon.loadAccount(sourceKey).catch(() => {
+      return { accountId: () => sourceKey, sequenceNumber: () => '0' } as unknown as xdr.Account;
+    });
 
     const contract = new Contract(this.contractId);
     const tx = new TransactionBuilder(account, {
@@ -198,7 +235,7 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = simResponse.error;
+      const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Read-only simulation of ${method} failed: ${errMsg}`;
 
       if (isExternalSimulationError(errMsg)) {
@@ -232,6 +269,17 @@ export class ContractService {
 
   /* ---------------- FULL INVOKE ---------------- */
 
+  /**
+   * Full invoke: simulate → sign → submit → poll.
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet and simulateOnly is false
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `UserRejected` if the user rejects the signature
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects submission
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `ContractError` if the transaction fails on-chain
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   */
   async invoke<T = unknown>(
     method: ContractFnName | string,
     params: unknown[],
@@ -262,13 +310,14 @@ export class ContractService {
         transactionHash: polled.txHash,
         ledger: polled.ledger,
       };
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       // Carry both response styles (`success` flag and `status`) so callers
       // written against either convention observe the failure.
       return {
         success: false,
         status: 'ERROR' as const,
-        error: toErrorMessage(error),
+        error: message,
       };
     }
   }
@@ -277,6 +326,10 @@ export class ContractService {
 
   /**
    * Builds a fully-prepared (simulated + auth-populated) unsigned transaction XDR.
+   * @throws {TikkaSdkError} code `InvalidParams` if sourcePublicKey is empty
+   * @throws {TikkaSdkError} code `SimulationFailed` if simulation fails
+   * @throws {TikkaSdkError} code `ContractError` if the contract returns an error
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async buildUnsigned<T = unknown>(
     method: ContractFnName | string,
@@ -305,6 +358,11 @@ export class ContractService {
 
   /**
    * Submits a signed transaction XDR that was previously built with buildUnsigned().
+   * @throws {TikkaSdkError} code `InvalidParams` if signedXdr is empty
+   * @throws {TikkaSdkError} code `TransactionRejected` if the network rejects submission
+   * @throws {TikkaSdkError} code `Timeout` if confirmation times out
+   * @throws {TikkaSdkError} code `ContractError` if the transaction fails on-chain
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
    */
   async submitSigned<T = unknown>(signedXdr: string): Promise<TxResponse<T>> {
     if (!signedXdr) {
@@ -326,6 +384,16 @@ export class ContractService {
 
   /* ---------------- BATCH INVOKE ---------------- */
 
+  /**
+   * Batch purchases tickets for multiple raffles.
+   * @throws {TikkaSdkError} code `WalletNotInstalled` if no wallet and simulateOnly is false
+   * @throws {TikkaSdkError} code `InvalidParams` if source public key is missing
+   * @throws {TikkaSdkError} code `SimulationFailed` if all batch purchases fail simulation
+   * @throws {TikkaSdkError} code `SubmissionFailed` if batch submission fails
+   * @throws {TikkaSdkError} code `ContractError` if the transaction fails on-chain
+   * @throws {TikkaSdkError} code `ExternalContractError` if a cross-contract call failed
+   * @throws {TikkaSdkError} code `NetworkError` if the RPC is unreachable
+   */
   async batchBuyTickets(
     raffleId: number,
     count: number,
@@ -362,7 +430,7 @@ export class ContractService {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = simResponse.error;
+      const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Batch simulation failed${errMsg ? `: ${errMsg}` : ''}`;
       throw (
         toTypedContractError(message, errMsg) ??
@@ -375,13 +443,13 @@ export class ContractService {
 
     // With multiple ops, result is typically an array of results, but for now we just handle it generically.
     const simResult: number[] = successSim.result?.retval
-      ? [scValToNative(successSim.result.retval)]
+      ? parseNumberArray(successSim.result.retval, 'batchBuyTickets.simResult')
       : [];
 
     if (options.simulateOnly) {
       return {
         success: true,
-        value: simResult,
+        value: simResult as number[],
         transactionHash: '',
         ledger: 0,
       };
@@ -402,7 +470,7 @@ export class ContractService {
     const txResp = await this.rpc.getTransaction(sendResp.hash);
 
     if (txResp.status === rpc.Api.GetTransactionStatus.FAILED) {
-      const resultXdr = (txResp as rpc.Api.GetFailedTransactionResponse).resultXdr;
+      const resultXdr = (txResp as Record<string, unknown>).resultXdr ?? '';
       const message = 'Batch transaction failed';
       throw (
         toTypedContractError(message, String(resultXdr ?? '')) ??
@@ -414,7 +482,9 @@ export class ContractService {
 
     return {
       success: true,
-      value: successTx.returnValue ? [scValToNative(successTx.returnValue)] : simResult,
+      value: successTx.returnValue
+        ? parseNumberArray(successTx.returnValue, 'batchBuyTickets.returnValue')
+        : simResult,
       transactionHash: sendResp.hash,
       ledger: successTx.ledger,
     };

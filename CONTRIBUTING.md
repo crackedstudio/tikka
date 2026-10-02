@@ -12,7 +12,7 @@ This repository is split into several runnable workspaces. The fastest way to ge
 - Node.js and pnpm
 
   Node and pnpm versions are pinned repo-wide. The single source of truth for
-the Node major is `.nvmrc` (and its mirror `.node-version`):
+  the Node major is `.nvmrc` (and its mirror `.node-version`):
 
   - **Node.js 22** — read by CI (`node-version-file: .nvmrc`), the Docker
     base images, and local version managers (`nvm`, `fnm`, `mise`, ...).
@@ -54,6 +54,14 @@ pnpm install
 
 No package-level dev server exists at the root; use the package-specific commands below.
 
+## Turbo cache inputs
+
+If a Turbo task reads a file outside its package directory, add that file to
+`globalDependencies` in the root `turbo.json` so changes invalidate cached
+results. Add output-affecting environment variables to the task's `env` list,
+or to `globalEnv` when they affect tasks repo-wide. Client build settings
+prefixed with `VITE_` and `ANALYZE` are hashed for the build task.
+
 ### Backend
 
 ```bash
@@ -92,6 +100,10 @@ Use pnpm for every package root in this repository so each package has a single 
 - Oracle workspace: pnpm
 
 Use the package manager that matches the package root you are working in. Do not add or commit npm lockfiles such as package-lock.json in these directories.
+
+### Adding a new package
+
+Register new packages in `pnpm-workspace.yaml` only. The root `package.json` does **not** carry a `workspaces` field — `pnpm-workspace.yaml` is the single source of truth for workspace membership. Do not add a `workspaces` array to `package.json`; pnpm ignores it in favour of the YAML file, and the redundant entry will disagree with it.
 
 - The client uses Vite and expects the backend at `http://localhost:3001` by default.
 - Run tests with:
@@ -190,6 +202,9 @@ All three are wired into the husky `pre-push` hook, so they run automatically
 before every `git push`. You can also run them per-workspace if you want faster
 feedback while working on a single package:
 
+See the [TypeScript strict-mode migration guide](docs/contributing/typescript-strict-migration.md)
+for current status and per-package compiler counts.
+
 ```bash
 # From the repository root
 pnpm --dir backend test
@@ -276,6 +291,45 @@ pnpm --filter sdk run build:read
 pnpm --filter sdk run build:light
 pnpm --filter sdk run size-check
 ```
+
+## Documentation policy
+
+Documentation must be kept separate from source code to maintain clear boundaries and make it easier to find and maintain.
+
+### Source directories
+
+Source directories (`*/src/`) hold **code only** with one exception:
+
+- ✅ **Allowed**: `README.md` files that explain the module/component they sit next to
+- ❌ **Not allowed**: Guides, design docs, verification notes, or any other markdown files
+
+### Where documentation belongs
+
+| Type of documentation | Location |
+|----------------------|----------|
+| Package-level guides | `<package>/docs/` (e.g., `oracle/docs/`, `indexer/docs/`) |
+| Cross-package docs | `docs/` at repository root |
+| Historical notes | `docs/archive/` with date prefix (e.g., `2026-08-28-backend-*`) |
+| API documentation | `docs/api/` |
+| Architecture decisions | `docs/adr/` |
+| Database schemas | `docs/database/` |
+
+### Examples
+
+**✅ Good**:
+- `backend/src/middleware/README.md` — explains the middleware module
+- `oracle/docs/TX_SUBMITTER_GUIDE.md` — comprehensive guide for transaction submission
+- `docs/backend/ENV_VARS.md` — environment variable reference
+- `docs/archive/2026-08-28-backend-raffles-VERIFICATION.md` — historical cleanup note
+
+**❌ Bad**:
+- `backend/src/config/ENV_VARS.md` — should be in `docs/backend/`
+- `oracle/src/submitter/TX_SUBMITTER_GUIDE.md` — should be in `oracle/docs/`
+- `indexer/src/database/entities/ENTITY_OWNERSHIP.md` — should be in `docs/database/`
+
+### Enforcement
+
+CI automatically rejects PRs that add non-README markdown files under any `src/` directory. See `.github/workflows/ci.yml` for the implementation.
 
 ## Code formatting
 

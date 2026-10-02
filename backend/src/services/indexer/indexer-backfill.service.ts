@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BackfillLock, BackfillLockError } from './backfill-lock';
-import { HorizonClientService } from '../horizon-client.service';
+import { HorizonClientService } from './horizon-client.service';
 import { IndexerService } from './indexer.service';
 import { BackfillSummary } from './indexer-backfill.types';
 
@@ -18,36 +18,25 @@ export class IndexerBackfillService {
 
   private validate(startLedger: number, endLedger: number): void {
     if (!Number.isInteger(startLedger) || startLedger <= 0) {
-      throw new Error(
-        `startLedger must be a positive integer, got: ${startLedger}`,
-      );
+      throw new Error(`startLedger must be a positive integer, got: ${startLedger}`);
     }
 
     if (!Number.isInteger(endLedger) || endLedger <= 0) {
-      throw new Error(
-        `endLedger must be a positive integer, got: ${endLedger}`,
-      );
+      throw new Error(`endLedger must be a positive integer, got: ${endLedger}`);
     }
 
     if (startLedger > endLedger) {
-      throw new Error(
-        `startLedger (${startLedger}) must be <= endLedger (${endLedger})`,
-      );
+      throw new Error(`startLedger (${startLedger}) must be <= endLedger (${endLedger})`);
     }
 
     const maxRange = this.config.get<number>('BACKFILL_MAX_RANGE', 10000);
     const range = endLedger - startLedger + 1;
     if (range > maxRange) {
-      throw new Error(
-        `Range of ${range} ledgers exceeds BACKFILL_MAX_RANGE (${maxRange})`,
-      );
+      throw new Error(`Range of ${range} ledgers exceeds BACKFILL_MAX_RANGE (${maxRange})`);
     }
   }
 
-  async backfill(
-    startLedger: number,
-    endLedger: number,
-  ): Promise<BackfillSummary> {
+  async backfill(startLedger: number, endLedger: number): Promise<BackfillSummary> {
     this.validate(startLedger, endLedger);
 
     if (!this.lock.tryAcquire()) {
@@ -61,10 +50,7 @@ export class IndexerBackfillService {
     }
   }
 
-  private async runBackfill(
-    startLedger: number,
-    endLedger: number,
-  ): Promise<BackfillSummary> {
+  private async runBackfill(startLedger: number, endLedger: number): Promise<BackfillSummary> {
     const totalLedgers = endLedger - startLedger + 1;
     const retryCount = this.config.get<number>('BACKFILL_RETRY_COUNT', 3);
     const retryDelayMs = this.config.get<number>('BACKFILL_RETRY_DELAY_MS', 1000);

@@ -1,6 +1,7 @@
 # Runbook: Indexer Lag
 
 ## Overview
+
 Indexer lag occurs when the Tikka Indexer's `last_ledger` falls significantly behind the Stellar network's latest closed ledger. This can be caused by network congestion, database performance issues, or service interruptions.
 
 ## Dashboard (issue #211)
@@ -13,25 +14,30 @@ Design reference for an indexer lag dashboard:
 Existing Grafana panels already chart `tikka_indexer_lag_ledgers` (see `indexer/grafana/indexer-dashboard.json` and `docs/observability/GRAFANA.md`).
 
 ## Detection
+
 - **Alert**: `indexer_lag_alert` triggers when lag exceeds the threshold (default: 50 ledgers).
 - **Health Endpoint**: `GET /health` returns `lagStatus: 'critical'` or `degraded`.
 - **Dashboard**: Check the "Indexer Lag" panel in the [Indexer Grafana Dashboard](../../indexer/grafana/indexer-dashboard.json).
-- **CLI**: Run the status command:
+- **CLI**: Run the status command from `indexer/`. A one-shot check prints a
+  status report and exits non-zero when a dependency is down or another
+  actionable warning is present:
   ```bash
   cd indexer
-  npm run status
+  pnpm run status
+  pnpm run status -- --json
   ```
 
 ## Diagnosis
+
 1. **Check Lag Size**:
    Identify the number of ledgers behind:
    ```bash
-   npm run status | grep lag_ledgers
+   pnpm run status -- --json | jq '.indexer.lag_ledgers'
    ```
 2. **Check DB Performance**:
    Look for high `waiting` counts in the DB pool:
    ```bash
-   npm run status | grep -A 3 pool
+   pnpm run status -- --json | jq '.db.pool'
    ```
 3. **Check Logs**:
    Look for ingestion errors or connection timeouts:
@@ -46,6 +52,7 @@ Existing Grafana panels already chart `tikka_indexer_lag_ledgers` (see `indexer/
    ```
 
 ## Mitigation
+
 1. **Restart Service**:
    Often, a simple restart can resolve transient SSE connection issues.
    ```bash
@@ -63,12 +70,16 @@ Existing Grafana panels already chart `tikka_indexer_lag_ledgers` (see `indexer/
    ```
 
 ## Verification
+
 1. **Monitor Lag**:
-   Run `npm run status` every minute and ensure `lag_ledgers` is decreasing.
+   Run `pnpm run status -- --json` every minute and ensure
+   `.indexer.lag_ledgers` is decreasing. Keep `pipefail` enabled when piping
+   through `jq` so monitoring preserves the CLI's non-zero unhealthy exit code.
 2. **Check Health**:
    Verify `GET /health` returns `status: "ok"`.
 
 ## Package Mapping
+
 - **Metrics/Detection**: [health.service.ts](../../indexer/src/health/health.service.ts)
 - **Ingestion Logic**: [ledger-poller.service.ts](../../indexer/src/ingestor/ledger-poller.service.ts)
 - **Status CLI**: [status.command.ts](../../indexer/src/cli/status.command.ts)

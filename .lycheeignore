@@ -1,0 +1,6 @@
+# .lychee.toml uses this file for path exclusions, but lychee also honours
+# .lycheeignore (one glob per line).
+docs/archive/**
+sdk/docs/**
+node_modules/**
+dist/**

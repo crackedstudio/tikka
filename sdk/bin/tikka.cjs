@@ -1,8 +1,18 @@
 
 #!/usr/bin/env node
 
-const { Command } = require('commander');
+const { Command, Option } = require('commander');
 const inquirer = require('inquirer');
+
+// Never allow Stellar secret seeds in argv: they are exposed in shell history
+// and process listings. Check before loading the SDK or dispatching commands.
+const secretSeedPattern = /^S[A-Z2-7]{55}$/;
+if (process.argv.slice(2).some((arg) => secretSeedPattern.test(arg))) {
+  console.error(
+    'Secret keys are not accepted as command-line arguments. Use a secure wallet instead.',
+  );
+  process.exit(2);
+}
 
 // Load SDK
 const sdkModule = require('../dist/index');
@@ -50,8 +60,10 @@ const outputResult = (data, json = false) => {
     // payloads varied per command before — an array from `list`, an object
     // from `info`, `{success:false,error}` on failure.
     const envelope =
-      data && typeof data === 'object' && 'error' in data
-        ? { ok: false, error: data.error, data: null }
+      data &&
+      typeof data === 'object' &&
+      ('error' in data || data.success === false)
+        ? { ok: false, error: data.error || data.message, data: null }
         : { ok: true, error: null, data };
     process.stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
   } else {
@@ -71,10 +83,10 @@ program
     'Tikka SDK Developer CLI - interact with Soroban contracts for raffle, ticket, and network operations'
   )
   .version('0.1.0')
-  .option(
-    '-n, --network <type>',
-    'network to use (testnet|mainnet)',
-    'testnet'
+  .addOption(
+    new Option('-n, --network <type>', 'network to use (testnet|mainnet)')
+      .choices(['testnet', 'mainnet'])
+      .default('testnet'),
   )
   .option('-j, --json', 'output results as JSON', false);
 
@@ -238,6 +250,11 @@ program
   .description('List active raffles on the network (read-only)')
   .option('-l, --limit <number>', 'limit results', '10')
   .action(async (options) => {
+    if (!/^\d+$/.test(options.limit) || Number(options.limit) < 1) {
+      console.error('Error: --limit must be a positive integer');
+      process.exitCode = 2;
+      return;
+    }
     const { network, json } = program.opts();
     try {
       const sdk = getSDK(network);
@@ -291,9 +308,17 @@ program
 program
   .command('create')
   .description('Create a new raffle (interactive, requires wallet signing)')
-  .action(async () => {
+  .option('--dry-run', 'show the action without submitting a transaction')
+  .action(async (options) => {
     const { network, json } = program.opts();
     try {
+      if (options.dryRun) {
+        outputResult(
+          { success: true, dryRun: true, message: 'Dry run: raffle was not deployed' },
+          json,
+        );
+        return;
+      }
       const sdk = getSDK(network);
 
       const answers = await inquirer.prompt([
@@ -308,6 +333,7 @@ program
           type: 'confirm',
           name: 'confirm',
           message: 'Ready to deploy to contract?',
+          default: false,
         },
       ]);
 
@@ -319,6 +345,7 @@ program
       } else {
         const result = { success: false, message: 'Deployment cancelled' };
         outputResult(result, json);
+        process.exitCode = 1;
       }
     } catch (err) {
       const error = { success: false, ...formatError(err, json) };
@@ -334,15 +361,39 @@ program
 program
   .command('buy')
   .description('Purchase raffle tickets (interactive, requires wallet signing)')
-  .action(async () => {
+  .option('--dry-run', 'show the action without submitting a transaction')
+  .action(async (options) => {
     const { network, json } = program.opts();
     try {
+      if (options.dryRun) {
+        outputResult(
+          {
+            success: true,
+            dryRun: true,
+            message: 'Dry run: no ticket purchase was submitted',
+          },
+          json,
+        );
+        return;
+      }
       const sdk = getSDK(network);
 
       const answers = await inquirer.prompt([
         { type: 'input', name: 'raffleId', message: 'Enter Raffle ID:' },
         { type: 'number', name: 'quantity', message: 'Number of tickets:' },
+        {
+          type: 'confirm',
+          name: 'confirm',
+          message: 'Ready to purchase these tickets?',
+          default: false,
+        },
       ]);
+
+      if (!answers.confirm) {
+        outputResult({ success: false, message: 'Purchase cancelled' }, json);
+        process.exitCode = 1;
+        return;
+      }
 
       logHuman(
         `🎟️ Purchasing ${answers.quantity} tickets for #${answers.raffleId}`

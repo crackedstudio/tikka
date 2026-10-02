@@ -1,0 +1,60 @@
+{
+  "page": {
+    "title": "الشفافية",
+    "subtitle": "كل كشف من الأوراكل مسجل على الشبكة. تتجدد الإحصاءات كل 30 ثانية. استخدم نموذج التحقق لتأكيد أي نتيجة سحب بشكل مستقل."
+  },
+  "stats": {
+    "totalRaffles": "إجمالي السحوبات",
+    "xlmDistributed": "XLM الموزعة",
+    "platformUptime": "وقت تشغيل المنصة",
+    "mostRecentProof": "أحدث إثبات",
+    "viewOnExplorer": "عرض على Stellar Expert"
+  },
+  "oracleKey": {
+    "label": "المفتاح العام للأوراكل",
+    "notConfigured": "غير مهيأ",
+    "copy": "نسخ",
+    "copied": "تم النسخ!"
+  },
+  "verify": {
+    "heading": "التحقق من سحب",
+    "viewAuditLog": "عرض سجل تدقيق الأوراكل →",
+    "placeholder": "الصق معرّف السحب للتحقق...",
+    "button": "تحقق",
+    "verifying": "جارٍ التحقق…",
+    "valid": "✓ صالح — نتيجة السحب أصيلة",
+    "invalid": "✗ غير صالح — {{reason}}",
+    "invalidDefault": "فشل التحقق",
+    "proofLabel": "الإثبات:"
+  },
+  "filter": {
+    "placeholder": "تصفية حسب معرّف السحب",
+    "clear": "مسح",
+    "totalEntries": "{{count}} إجمالي الإدخالات"
+  },
+  "table": {
+    "timestamp": "الطابع الزمني",
+    "raffle": "السحب",
+    "method": "الطريقة",
+    "requestId": "معرّف الطلب",
+    "txHash": "تجزئة Tx",
+    "details": "التفاصيل",
+    "hide": "إخفاء",
+    "verifyThisDraw": "↑ التحقق من هذا السحب",
+    "loading": "جارٍ التحميل…",
+    "empty": "لم يتم العثور على إدخالات تدقيق.",
+    "oracleId": "معرّف الأوراكل",
+    "requestIdFull": "معرّف الطلب",
+    "seedHex": "البذرة (hex)",
+    "proofHex": "الإثبات (hex)",
+    "txHashFull": "تجزئة Tx"
+  },
+  "pagination": {
+    "previous": "السابق",
+    "next": "التالي",
+    "page": "{{current}} / {{total}}"
+  },
+  "error": {
+    "loadFailed": "فشل تحميل سجل التدقيق"
+  }
+}

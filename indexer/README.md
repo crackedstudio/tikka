@@ -17,36 +17,14 @@ Subscribes to Stellar ledger events, decodes Tikka contract events, and writes s
 
 ### Environment Variables
 
-Create a `.env.local` file in this directory (the file is gitignored):
+See the [central indexer environment reference](../docs/env/indexer.md) for every
+variable read by startup configuration and runtime modules.
 
-```dotenv
-# Option A — single connection string (preferred)
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/tikka_indexer
+Start from the checked-in example, then fill in the required RPC, contract, and
+database settings:
 
-# Option B — individual vars (used if DATABASE_URL is not set)
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-DB_DATABASE=tikka_indexer
-
-# Set to "true" on Supabase / Railway (requires SSL)
-DB_SSL=false
-
-# Slow query logging threshold in milliseconds (default: 200)
-SLOW_QUERY_THRESHOLD_MS=200
-
-# Application port (default: 3002)
-PORT=3002
-
-# Health endpoint: Horizon URL for latest-ledger check (default: https://horizon.stellar.org)
-HORIZON_URL=https://horizon.stellar.org
-
-# Health: lag above this many ledgers is reported as degraded (default: 100)
-LAG_THRESHOLD=100
-
-# Health: lag above this many ledgers triggers critical alerts and notifications (default: 50)
-INDEXER_LAG_ALERT_THRESHOLD_LEDGERS=50
+```bash
+cp .env.example .env.local
 ```
 
 ## Slow query observability
@@ -190,7 +168,7 @@ Full schema specification: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) § 
 
 Each entity includes raw chain state (source-of-truth from Stellar ledger) and derived query state (computed aggregates). Contributors need to understand which fields are safe to recalculate and which are immutable.
 
-**📖 [Entity Ownership Documentation](./src/database/entities/ENTITY_OWNERSHIP.md)**
+**📖 [Entity Ownership Documentation](../docs/database/ENTITY_OWNERSHIP.md)**
 
 This document describes:
 - Field ownership (raw chain state vs derived)

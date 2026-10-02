@@ -1,5 +1,5 @@
 import { OracleLoggerService } from '../logger/oracle-logger';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { RandomnessResult } from '../queue/queue.types';
 import * as crypto from 'crypto';
 
@@ -22,14 +22,39 @@ import * as crypto from 'crypto';
  * to match the existing RandomnessResult interface consumed by RandomnessWorker
  * and TxSubmitterService.
  */
+const PROOF_PREFIX_1 = Buffer.from('PRNG:v1:1:', 'ascii');
+const PROOF_PREFIX_2 = Buffer.from('PRNG:v1:2:', 'ascii');
+
+/** Encodes an unsigned 32-bit integer as 4 bytes big-endian. */
+export function encodeUint32BE(n: number): Buffer {
+  const buf = Buffer.allocUnsafe(4);
+  buf.writeUInt32BE(n >>> 0, 0);
+  return buf;
+}
+
+/**
+ * Pure PRNG derivation. Only requestId and raffleId are inputs.
+ * Nothing the operator controls after the draw request is committed
+ * (clock, environment, log fields) is mixed in.
+ */
+export function derivePrng(requestId: string, raffleId?: number): RandomnessResult {
+  const reqBuf = Buffer.from(requestId, 'utf8');
+  const seedHasher = crypto.createHash('sha256').update(reqBuf);
+  if (raffleId !== undefined) seedHasher.update(encodeUint32BE(raffleId));
+  const seedBuf = seedHasher.digest();
+
+  const proofHalf1 = crypto.createHash('sha256').update(PROOF_PREFIX_1).update(reqBuf).digest();
+  const proofHalf2 = crypto.createHash('sha256').update(PROOF_PREFIX_2).update(reqBuf).digest();
+
+  return {
+    seed: seedBuf.toString('hex'),
+    proof: Buffer.concat([proofHalf1, proofHalf2]).toString('hex'),
+  };
+}
+
 @Injectable()
 export class PrngService {
   constructor(private readonly logger: OracleLoggerService) {}
-
-
-  /** Domain prefix bytes reused for proof halves — avoids allocating on every call */
-  private static readonly PROOF_PREFIX_1 = Buffer.from('PRNG:v1:1:', 'ascii');
-  private static readonly PROOF_PREFIX_2 = Buffer.from('PRNG:v1:2:', 'ascii');
 
   /**
    * Computes a deterministic seed and proof for a low-stakes randomness request.
@@ -44,49 +69,7 @@ export class PrngService {
    *                   proof → 128 hex chars (64 bytes) for contract BytesN<64>
    */
   compute(requestId: string, raffleId?: number): RandomnessResult {
-    const reqBuf = Buffer.from(requestId, 'utf8');
-
-    // ── Seed ───────────────────────────────────────────────────────────────
-    // SHA-256( requestId_bytes [|| raffleId_u32_BE] )
-    const seedHasher = crypto.createHash('sha256').update(reqBuf);
-    if (raffleId !== undefined) {
-      seedHasher.update(this.encodeUint32BE(raffleId));
-    }
-    const seedBuf = seedHasher.digest(); // 32 bytes
-
-    // ── Proof (deterministic 64-byte value) ────────────────────────────────
-    // Two independent SHA-256 invocations with distinct domain prefixes give
-    // 64 bytes without requiring a multi-round hash.  The contract verifies
-    // this proof exists and has the right length; on the PRNG path it does
-    // not run a VRF check (the fixed prefix "PRNG:v1:…" makes path explicit).
-    const proofHalf1 = crypto
-      .createHash('sha256')
-      .update(PrngService.PROOF_PREFIX_1)
-      .update(reqBuf)
-      .digest(); // 32 bytes
-
-    const proofHalf2 = crypto
-      .createHash('sha256')
-      .update(PrngService.PROOF_PREFIX_2)
-      .update(reqBuf)
-      .digest(); // 32 bytes
-
-    const proofBuf = Buffer.concat([proofHalf1, proofHalf2]); // 64 bytes
-
     this.logger.debug(`PRNG seed computed for requestId=${requestId} raffleId=${raffleId}`);
-
-    return {
-      seed: seedBuf.toString('hex'),   // 64 hex chars  → BytesN<32>
-      proof: proofBuf.toString('hex'), // 128 hex chars → BytesN<64>
-    };
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
-  /** Encodes an unsigned 32-bit integer as 4 bytes big-endian. */
-  private encodeUint32BE(n: number): Buffer {
-    const buf = Buffer.allocUnsafe(4);
-    buf.writeUInt32BE(n >>> 0, 0); // >>> 0 coerces to uint32
-    return buf;
+    return derivePrng(requestId, raffleId);
   }
 }
