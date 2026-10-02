@@ -2,7 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { captureIngestionError } from '../../sentry/sentry';
 import { BackfillLock } from './backfill-lock';
-import { getRequestIdHeaders, REQUEST_ID_HEADER } from '../middleware/request-context';
+import { getRequestIdHeaders, REQUEST_ID_HEADER } from '../../middleware/request-context';
 import type {
   IndexerApiLeaderboardResponse,
   IndexerApiParticipantListResponse,
@@ -82,9 +82,7 @@ export class IndexerService {
     private readonly config: ConfigService,
     @Optional() private readonly backfillLock?: BackfillLock,
   ) {
-    this.baseUrl = this.config
-      .getOrThrow<string>('INDEXER_URL')
-      .replace(/\/$/, '');
+    this.baseUrl = this.config.getOrThrow<string>('INDEXER_URL').replace(/\/$/, '');
     this.timeoutMs = this.config.get<number>('INDEXER_TIMEOUT_MS', 5000);
   }
 
@@ -100,10 +98,7 @@ export class IndexerService {
     return false;
   }
 
-  private async fetch<T>(
-    path: string,
-    init?: RequestInit,
-  ): Promise<T> {
+  private async fetch<T>(path: string, init?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -123,10 +118,7 @@ export class IndexerService {
 
       if (!res.ok) {
         const body = await res.text();
-        throw new IndexerError(
-          `Indexer ${res.status}: ${body || res.statusText}`,
-          res.status,
-        );
+        throw new IndexerError(`Indexer ${res.status}: ${body || res.statusText}`, res.status);
       }
 
       const contentType = res.headers.get('content-type');
@@ -139,10 +131,7 @@ export class IndexerService {
       if (err instanceof IndexerError) throw err;
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
-          throw new IndexerError(
-            `Indexer timeout after ${this.timeoutMs}ms`,
-            408,
-          );
+          throw new IndexerError(`Indexer timeout after ${this.timeoutMs}ms`, 408);
         }
         throw new IndexerError(`Indexer request failed: ${err.message}`);
       }
@@ -166,9 +155,7 @@ export class IndexerService {
   }
 
   /** List raffles with optional filters. */
-  async listRaffles(
-    filters: IndexerListRafflesFilters = {},
-  ): Promise<IndexerListRafflesResponse> {
+  async listRaffles(filters: IndexerListRafflesFilters = {}): Promise<IndexerListRafflesResponse> {
     const params = new URLSearchParams();
     if (filters.status) params.set('status', filters.status);
     if (filters.category) params.set('category', filters.category);
@@ -200,9 +187,7 @@ export class IndexerService {
     if (limit != null) params.set('limit', String(limit));
     if (offset != null) params.set('offset', String(offset));
     const query = params.toString();
-    const path = query
-      ? `/users/${encoded}/history?${query}`
-      : `/users/${encoded}/history`;
+    const path = query ? `/users/${encoded}/history?${query}` : `/users/${encoded}/history`;
     const raw = await this.fetch<IndexerApiUserHistoryResponse>(path);
     return mapUserHistory(raw);
   }
