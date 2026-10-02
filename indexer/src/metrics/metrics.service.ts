@@ -37,6 +37,7 @@ export class MetricsService {
   private dlqUnreplayedEventsGauge: Gauge;
   private dlqOldestUnreplayedEventTimestampGauge: Gauge;
   private dlqEventsTotalCounter: Counter;
+  private reconciliationDiscrepanciesGauge: Gauge;
 
   // BullMQ queue metrics
   private queueWaitingGauge: Gauge;
@@ -284,6 +285,10 @@ export class MetricsService {
 
   incrementDlqEventsTotal(reason: DlqReason, eventType: string, amount: number = 1) {
     this.dlqEventsTotalCounter.add(amount, { reason, event_type: eventType });
+  }
+
+  setReconciliationDiscrepancies(kind: 'raffle' | 'aggregate', count: number) {
+    this.reconciliationDiscrepanciesGauge.record(count, { kind });
   }
 
   /**

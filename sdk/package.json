@@ -47,6 +47,16 @@
       "require": "./dist/light/index.light.js",
       "types": "./dist/light/index.light.d.ts"
     },
+    "./read": {
+      "import": {
+        "types": "./dist/read/index.read.d.ts",
+        "default": "./dist/read/index.read.js"
+      },
+      "require": {
+        "types": "./dist/read-cjs/index.read.d.ts",
+        "default": "./dist/read-cjs/index.read.js"
+      }
+    },
     "./network": {
       "import": "./dist/network/circuit-breaker.js",
       "require": "./dist/network/circuit-breaker.js",

@@ -84,6 +84,7 @@
     "@opentelemetry/sdk-trace-node": "^2.10.0",
     "@stellar/stellar-sdk": "^16.3.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@tikka/sdk": "workspace:*",
     "@tikka/types": "workspace:*",
     "bullmq": "^5.81.0",
     "class-transformer": "^0.5.1",
