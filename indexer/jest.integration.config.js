@@ -4,8 +4,16 @@ module.exports = {
   rootDir: 'src',
   testRegex: '.*\\.integration\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.spec.json',
+      },
+    ],
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!.*(uint8array-extras|@noble|@stellar|@scure|base32\\.js)/)',
+  ],
   testEnvironment: 'node',
 
   /**

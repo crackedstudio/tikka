@@ -510,6 +510,10 @@ switch (outcome.status) {
 
 ## References
 
+- [Transaction Submitter Implementation](../src/submitter/tx-submitter.service.ts)
+- [Test Suite](../src/submitter/tx-submitter.service.spec.ts)
+- [Fee Estimator Service](../src/submitter/fee-estimator.service.ts)
+- [Key Management Service](../src/keys/key.service.ts)
 - [Transaction Submitter Implementation](./tx-submitter.service.ts)
 - [Test Suite](./tx-submitter.service.spec.ts)
 - [Fee Estimator Service](./fee-estimator.service.ts)

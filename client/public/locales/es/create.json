@@ -1,0 +1,113 @@
+{
+  "page": {
+    "title": "Crear Nuevo Sorteo",
+    "subtitle": "Configura tu sorteo en unos sencillos pasos"
+  },
+  "steps": {
+    "details": "Detalles",
+    "image": "Imagen",
+    "pricing": "Precio",
+    "duration": "Duración",
+    "review": "Revisión"
+  },
+  "nav": {
+    "back": "Atrás",
+    "continue": "Continuar",
+    "confirmSubmit": "Confirmar y Enviar"
+  },
+  "aria": {
+    "stepLabel": "Paso {{number}}: {{title}}",
+    "stepCompleted": "(completado)",
+    "stepCurrent": "(actual)",
+    "creationSteps": "Pasos de creación del sorteo",
+    "stepRegion": "Paso {{number}}: {{title}}"
+  },
+  "details": {
+    "heading": "Detalles del Sorteo",
+    "subtitle": "Cuéntales a los participantes qué podrían ganar",
+    "titleLabel": "Título del Sorteo",
+    "titlePlaceholder": "Introduce el título del sorteo",
+    "descriptionLabel": "Descripción",
+    "descriptionPlaceholder": "Describe el premio del sorteo en detalle"
+  },
+  "image": {
+    "heading": "Imágenes del Premio",
+    "subtitle": "Sube varias imágenes para mostrar tu premio desde distintos ángulos",
+    "uploadAreaLabel": "Subir imágenes del premio",
+    "dragDrop": "Arrastra y suelta las imágenes del premio aquí",
+    "or": "o",
+    "uploadButton": "Subir imágenes",
+    "imagesUploaded_one": "{{count}} imagen subida — Haz clic para añadir más",
+    "imagesUploaded_other": "{{count}} imágenes subidas — Haz clic para añadir más",
+    "footerHint": "Sube imágenes claras de tu premio. Varios ángulos generan confianza",
+    "primary": "Principal",
+    "setPrimary": "Establecer como principal",
+    "removeImage": "Eliminar imagen {{number}}",
+    "setPrimaryImage": "Establecer imagen {{number}} como principal",
+    "prizeAlt": "Premio {{number}}",
+    "tips": {
+      "lighting": {
+        "title": "Buena Iluminación",
+        "description": "La luz natural funciona mejor"
+      },
+      "angles": {
+        "title": "Múltiples Ángulos",
+        "description": "Muestra diferentes perspectivas"
+      },
+      "background": {
+        "title": "Fondo Despejado",
+        "description": "Evita fondos abarrotados"
+      }
+    }
+  },
+  "pricing": {
+    "heading": "$ Precio de Boleto",
+    "subtitle": "Establece el precio y la cantidad de boletos",
+    "priceLabel": "Precio por Boleto ($)",
+    "pricePlaceholder": "0.0",
+    "ticketsLabel": "Total de Boletos Disponibles",
+    "ticketsPlaceholder": "0",
+    "revenueLabel": "Ingresos Potenciales",
+    "increaseTickets": "Aumentar boletos totales",
+    "decreaseTickets": "Disminuir boletos totales"
+  },
+  "duration": {
+    "heading": "Duración del Sorteo",
+    "subtitle": "¿Cuánto tiempo durará el sorteo?",
+    "daysLabel": "Días",
+    "hoursLabel": "Horas",
+    "endsInLabel": "El sorteo terminará en",
+    "notSet": "No establecido",
+    "increaseDays": "Aumentar días",
+    "decreaseDays": "Disminuir días",
+    "increaseHours": "Aumentar horas",
+    "decreaseHours": "Disminuir horas"
+  },
+  "review": {
+    "heading": "Revisar y Publicar",
+    "subtitle": "Revisa todo antes de publicar",
+    "raffleDetailsSection": "Detalles del Sorteo",
+    "pricingSection": "Precio",
+    "networkFeeSection": "Tarifa de Red",
+    "prizeImageSection": "Imagen del Premio",
+    "prizeImageAlt": "Premio del sorteo",
+    "titleLabel": "Título:",
+    "descriptionLabel": "Descripción:",
+    "ticketPriceLabel": "Precio del Boleto:",
+    "totalTicketsLabel": "Total de Boletos:",
+    "durationLabel": "Duración:",
+    "revenueLabel": "Ingresos:",
+    "estimatedFeeLabel": "Estimado:",
+    "feeCalculating": "Calculando...",
+    "feeHint": "La tarifa se estima simulando la transacción. Se te pedirá que firmes después de confirmar.",
+    "notSet": "No establecido"
+  },
+  "draft": {
+    "restoreTitle": "¿Restaurar borrador guardado?",
+    "restoreBody": "Encontramos un borrador no guardado de {{savedAt}}. ¿Deseas restaurarlo? Las imágenes subidas no se guardan y deberán añadirse nuevamente.",
+    "draftTitle": "Título del borrador:",
+    "startFresh": "Empezar de nuevo",
+    "restore": "Restaurar borrador",
+    "savedRecently": "recientemente"
+  }
+}

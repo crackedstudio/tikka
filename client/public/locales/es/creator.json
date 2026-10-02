@@ -1,0 +1,28 @@
+{
+  "notFound": {
+    "heading": "Creador no encontrado",
+    "unknownAddress": "Dirección desconocida"
+  },
+  "stats": {
+    "rafflesCreated": "Sorteos Creados",
+    "ticketsSold": "Boletos Vendidos",
+    "xlmRaised": "XLM Recaudado",
+    "participantWinRate": "Tasa de Victorias de Participantes"
+  },
+  "follow": "Seguir Creador",
+  "following": "Siguiendo",
+  "rafflesSection": {
+    "heading": "Sorteos de este Creador",
+    "empty": "Este creador aún no ha publicado ningún sorteo."
+  },
+  "error": {
+    "profileFailed": "Error al cargar el perfil del creador",
+    "rafflesFailed": "Error al cargar los sorteos",
+    "retry": "Reintentar"
+  },
+  "pagination": {
+    "previous": "← Anterior",
+    "next": "Siguiente →",
+    "page": "Página {{current}} de {{total}}"
+  }
+}

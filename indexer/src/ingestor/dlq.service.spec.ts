@@ -5,6 +5,7 @@ import { DlqService, MAX_RETRIES, DlqReason } from './dlq.service';
 import { DeadLetterEventEntity } from '../database/entities/dead-letter-event.entity';
 import { IngestionDispatcherService } from './ingestion-dispatcher.service';
 import { DomainEvent } from './event.types';
+import { MetricsService } from '../metrics/metrics.service';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,6 +44,7 @@ describe('DlqService', () => {
       create: jest.fn((e) => e as DeadLetterEventEntity),
       count: jest.fn(),
       find: jest.fn(),
+      findOne: jest.fn(),
       delete: jest.fn(),
     } as any;
 
@@ -118,8 +120,33 @@ describe('DlqService', () => {
 
     it('initialises replayedAt as null', async () => {
       await service.insert(event, rawEvent, new Error('x'));
-      expect(repo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ replayedAt: null }),
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ replayedAt: null }));
+    });
+  });
+
+  describe('snapshot metrics', () => {
+    it('counts only unreplayed DLQ entries', async () => {
+      repo.count.mockResolvedValue(2);
+
+      await expect(service.count()).resolves.toBe(2);
+      expect(repo.count).toHaveBeenCalledWith({ where: { replayedAt: expect.any(Object) } });
+    });
+
+    it('exports active depth and the oldest unreplayed event timestamp at startup', async () => {
+      const oldestCreatedAt = new Date('2026-09-25T12:00:00.000Z');
+      const metrics = {
+        setDlqUnreplayedEvents: jest.fn(),
+        setDlqOldestUnreplayedEventTimestampSeconds: jest.fn(),
+      } as unknown as MetricsService;
+      repo.count.mockResolvedValue(3);
+      repo.findOne.mockResolvedValue({ createdAt: oldestCreatedAt } as DeadLetterEventEntity);
+      service = new DlqService(repo, dispatcher, undefined, metrics);
+
+      await service.onModuleInit();
+
+      expect(metrics.setDlqUnreplayedEvents).toHaveBeenCalledWith(3);
+      expect(metrics.setDlqOldestUnreplayedEventTimestampSeconds).toHaveBeenCalledWith(
+        oldestCreatedAt.getTime() / 1_000,
       );
     });
   });
