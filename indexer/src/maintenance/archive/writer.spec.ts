@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { archiveChecksumPath, verifyArchiveChecksum } from "./checksum";
 import {
   ARCHIVE_CSV_HEADER,
   archiveFilePath,
@@ -58,6 +59,7 @@ describe("archive writer", () => {
       const event = makeEvent("row-1", 40, 42);
       event.ledger = 900;
       event.txHash = "tx-abc";
+      event.contractAddress = "CCONTRACT";
       event.indexedAt = new Date("2026-01-01T00:00:00.000Z");
 
       expect(toCsvLine(event)).toBe(
@@ -70,8 +72,19 @@ describe("archive writer", () => {
           "tx-abc",
           '"{""price"":10,""max_tickets"":100}"',
           "2026-01-01T00:00:00.000Z",
+          "CCONTRACT",
         ].join(","),
       );
+    });
+
+    it("writes an empty contract_address for a row that has none", () => {
+      const event = makeEvent("row-1b", 40);
+      event.contractAddress = undefined as unknown as string;
+
+      const line = toCsvLine(event);
+
+      expect(line.endsWith(",")).toBe(true);
+      expect(line).not.toContain("null");
     });
 
     it("quotes only fields containing a comma and doubles inner quotes", () => {
@@ -151,6 +164,26 @@ describe("archive writer", () => {
       expect(fs.readFileSync(file, "utf8")).toBe(
         ARCHIVE_CSV_HEADER.join(",") + "\n",
       );
+    });
+
+    it("writes a checksum sidecar that verifies, then fails once the file changes", async () => {
+      const file = await writeBatchToCsv([makeEvent("w5", 40)], {
+        outDir: tmpDir,
+        cutoff,
+        batchNumber: 4,
+        dryRun: false,
+      });
+
+      expect(fs.existsSync(archiveChecksumPath(file))).toBe(true);
+      await expect(verifyArchiveChecksum(file)).resolves.toMatchObject({
+        status: "ok",
+      });
+
+      fs.appendFileSync(file, `${ARCHIVE_CSV_HEADER.join(",")}\n`);
+
+      await expect(verifyArchiveChecksum(file)).resolves.toMatchObject({
+        status: "mismatch",
+      });
     });
   });
 });
