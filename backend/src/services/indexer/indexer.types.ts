@@ -51,12 +51,14 @@ export interface IndexerListRafflesFilters {
   asset?: string;
   limit?: number;
   offset?: number;
+  cursor?: string;
 }
 
 /** Response returned by the raffle list endpoint. */
 export interface IndexerListRafflesResponse {
   raffles: IndexerRaffleListItem[];
-  total?: number;
+  total?: number | null;
+  nextCursor?: string | null;
 }
 
 /** Freshness metadata for raffle data integration. */

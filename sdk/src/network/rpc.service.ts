@@ -22,8 +22,12 @@ interface RequestOptions {
 /**
  * RpcService
  * Combines Stellar RPC SDK with configurable transport (timeouts, headers, failover).
+ */ @Injectable()
  */
 export class RpcService {
+  /** Injected logger (defaults to {@link defaultLogger}); exposed for subclasses/tests. */
+  protected logger: TikkaLogger;
+
   private server: rpc.Server;
   private rpcConfig: RpcConfig;
   private logger: TikkaLogger;

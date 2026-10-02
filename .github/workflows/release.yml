@@ -44,6 +44,9 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Build light entry point
+        run: pnpm run build:light
+
       - name: Check bundle size budgets
         run: pnpm size-check
 

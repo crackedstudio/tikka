@@ -23,7 +23,7 @@
 export { ContractFn, RaffleStatus } from './contract/bindings';
 export { TxResponse } from './contract/response';
 export type { TxMemo } from './contract/contract.service';
-export { TransactionLifecycle } from './contract/lifecycle';
+export { TransactionLifecycle, TransactionStage } from './contract/lifecycle';
 export {
   buildUnsignedOfflineTransaction,
   signTransactionOffline,
@@ -34,6 +34,7 @@ export type {
   SubmitResult,
   PollConfig,
   InvokeLifecycleOptions,
+  StageChangeEvent,
 } from './contract/lifecycle';
 export {
   FIRST_RAFFLE_ID,

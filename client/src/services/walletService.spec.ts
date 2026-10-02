@@ -10,7 +10,7 @@ vi.mock('@stellar/freighter-api', () => ({
 // Mock stellar-wallets-kit
 vi.mock('@creit.tech/stellar-wallets-kit', () => ({
   StellarWalletsKit: vi.fn().mockImplementation(() => ({
-    getAddress: vi.fn(),
+    getAddress: vi.fn().mockResolvedValue({ address: 'GAUTO123' }),
     setWallet: vi.fn(),
     disconnect: vi.fn(),
   })),
@@ -44,36 +44,36 @@ describe('walletService - Auto-reconnect', () => {
 
   it('should attempt to reconnect Freighter if it was last connected', async () => {
     localStorage.setItem('tikka_last_connected_wallet', 'freighter');
-    
+
     const mockFreighterApi = await import('@stellar/freighter-api');
     vi.mocked(mockFreighterApi.isConnected).mockResolvedValue(true);
     vi.mocked(mockFreighterApi.getAddress).mockResolvedValue({ address: 'GAUTO123' });
 
     const result = await attemptAutoReconnect();
-    
+
     expect(result.success).toBe(true);
     expect(result.address).toBe('GAUTO123');
   });
 
   it('should return false if Freighter is not connected', async () => {
     localStorage.setItem('tikka_last_connected_wallet', 'freighter');
-    
+
     const mockFreighterApi = await import('@stellar/freighter-api');
     vi.mocked(mockFreighterApi.isConnected).mockResolvedValue(false);
 
     const result = await attemptAutoReconnect();
-    
+
     expect(result.success).toBe(false);
   });
 
   it('should handle errors gracefully', async () => {
     localStorage.setItem('tikka_last_connected_wallet', 'freighter');
-    
+
     const mockFreighterApi = await import('@stellar/freighter-api');
     vi.mocked(mockFreighterApi.isConnected).mockRejectedValue(new Error('Connection failed'));
 
     const result = await attemptAutoReconnect();
-    
+
     expect(result.success).toBe(false);
   });
 
@@ -81,7 +81,7 @@ describe('walletService - Auto-reconnect', () => {
     localStorage.setItem('tikka_last_connected_wallet', 'xbull');
 
     const result = await attemptAutoReconnect();
-    
+
     expect(result.success).toBe(false);
   });
 
@@ -90,7 +90,7 @@ describe('walletService - Auto-reconnect', () => {
     delete (globalThis.window as { freighter?: unknown }).freighter;
 
     const result = await attemptAutoReconnect();
-    
+
     expect(result.success).toBe(false);
   });
 });

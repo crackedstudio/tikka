@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { useWallet, normalizeNetworkName, type UseWalletReturn } from "../hooks/useWallet";
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { useWallet, type UseWalletReturn } from '../hooks/useWallet';
+import { normalizeNetworkName } from '../services/walletService';
 
 interface WalletContextType extends UseWalletReturn {
   networkMismatch: boolean;
@@ -15,7 +16,7 @@ interface WalletProviderProps {
 
 export function WalletProvider({ children }: WalletProviderProps) {
   const wallet = useWallet();
-  const requiredNetwork = normalizeNetworkName(import.meta.env.VITE_STELLAR_NETWORK || "testnet");
+  const requiredNetwork = normalizeNetworkName(import.meta.env.VITE_STELLAR_NETWORK || 'testnet');
   const networkMismatch = useMemo(() => {
     if (!wallet.isConnected || !wallet.network) return false;
     return wallet.network.toLowerCase() !== requiredNetwork.toLowerCase();
@@ -32,7 +33,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
 export function useWalletContext(): WalletContextType {
   const context = useContext(WalletContext);
   if (context === undefined) {
-    throw new Error("useWalletContext must be used within a WalletProvider");
+    throw new Error('useWalletContext must be used within a WalletProvider');
   }
   return context;
 }

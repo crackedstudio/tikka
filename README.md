@@ -68,7 +68,6 @@ cp oracle/.env.example oracle/.env.local
 | `oracle`  | deps + oracle (port 3003)         |
 | `full`    | deps + backend + indexer + oracle |
 | `client`  | full + Vite client (port 5173)    |
-| `seed`    | PostgreSQL + one-shot demo seeder |
 
 ### Full stack (no client)
 
@@ -93,12 +92,14 @@ docker compose --profile backend up --build
 docker compose --profile indexer up --build
 ```
 
-### Frontend dev (Vite locally, backend in Docker)
+### Workspace dev (client locally, backend in Docker)
 
 ```bash
 docker compose --profile backend up -d
-cd client && pnpm install && pnpm dev
+pnpm dev
 ```
+
+`pnpm dev` builds the client's workspace dependencies (`@tikka/types` and `@tikka/sdk`) first, then starts their watchers alongside the Vite client. Use the Compose profiles above to run backend, indexer, or oracle services.
 
 ### Tear down
 

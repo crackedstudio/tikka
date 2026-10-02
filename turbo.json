@@ -10,13 +10,26 @@
       "outputs": ["dist/**"],
       "env": ["ANALYZE", "VITE_*"]
     },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {
       "inputs": ["src/**", "*.config.*", "eslint.config.*", "package.json"],
       "outputs": []
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "test/**", "tests/**", "bin/**", "jest.config.*", "vitest.config.*", "package.json"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tests/**",
+        "bin/**",
+        "jest.config.*",
+        "vitest.config.*",
+        "package.json"
+      ],
       "outputs": ["coverage/**"],
       "env": ["NODE_ENV"]
     },
