@@ -51,15 +51,15 @@ const BackfillRequestSchema = z.object({
 
 class SetMaintenanceModeDto {
   @ApiProperty({ description: "Enable or disable maintenance mode" })
-  enabled: boolean;
+  enabled!: boolean;
 }
 
 class BackfillRequestDto {
   @ApiProperty({ description: "Inclusive starting ledger", minimum: 1 })
-  fromLedger: number;
+  fromLedger!: number;
 
   @ApiProperty({ description: "Inclusive ending ledger", minimum: 1 })
-  toLedger: number;
+  toLedger!: number;
 }
 
 @ApiTags("Monitor")

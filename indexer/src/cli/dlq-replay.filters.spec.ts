@@ -3,6 +3,7 @@ import {
   applyFilters,
   summarise,
   formatSummary,
+  requireFilterOrAll,
   ArgumentError,
   type DlqEntryLike,
 } from './dlq-replay.filters';
@@ -29,8 +30,12 @@ function entry(over: Partial<DlqEntryLike> = {}): DlqEntryLike {
 }
 
 describe('parseArgs', () => {
-  it('defaults to a real run with no filters', () => {
-    expect(parseArgs([])).toEqual({ dryRun: false, filters: {}, unknown: [] });
+  it('defaults to a real run with no filters and all=false', () => {
+    expect(parseArgs([])).toEqual({ dryRun: false, all: false, filters: {}, unknown: [] });
+  });
+
+  it('recognises --all', () => {
+    expect(parseArgs(['--all']).all).toBe(true);
   });
 
   it('recognises --dry-run', () => {
@@ -200,5 +205,45 @@ describe('formatSummary', () => {
     expect(out).toContain('Total matching:  2');
     expect(out).toMatch(/EVENT TYPE\s+COUNT/);
     expect(out).toMatch(/A\s+2/);
+  });
+});
+
+describe('requireFilterOrAll', () => {
+  it('passes when --all is set with no other filters', () => {
+    expect(() => requireFilterOrAll({ all: true, filters: {} })).not.toThrow();
+  });
+
+  it('passes when a type filter is set without --all', () => {
+    expect(() =>
+      requireFilterOrAll({ all: false, filters: { eventTypes: ['TicketPurchased'] } }),
+    ).not.toThrow();
+  });
+
+  it('passes when --since is set without --all', () => {
+    expect(() =>
+      requireFilterOrAll({ all: false, filters: { since: new Date('2026-07-01') } }),
+    ).not.toThrow();
+  });
+
+  it('passes when --until is set without --all', () => {
+    expect(() =>
+      requireFilterOrAll({ all: false, filters: { until: new Date('2026-07-31') } }),
+    ).not.toThrow();
+  });
+
+  it('throws when neither --all nor any filter is provided', () => {
+    expect(() => requireFilterOrAll({ all: false, filters: {} })).toThrow(ArgumentError);
+  });
+
+  it('throws when eventTypes is an empty array (no effective filter) and --all is absent', () => {
+    // An empty type list is treated as "no filter" by applyFilters, so it must
+    // also be treated as "no filter" by the safety guard.
+    expect(() =>
+      requireFilterOrAll({ all: false, filters: { eventTypes: [] } }),
+    ).toThrow(ArgumentError);
+  });
+
+  it('error message names the escape hatch so the operator knows what to do', () => {
+    expect(() => requireFilterOrAll({ all: false, filters: {} })).toThrow(/--all/);
   });
 });

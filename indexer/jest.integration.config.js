@@ -11,6 +11,9 @@ module.exports = {
       },
     ],
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!.*(uint8array-extras|@noble|@stellar|@scure|base32\\.js)/)',
+  ],
   testEnvironment: 'node',
 
   /**

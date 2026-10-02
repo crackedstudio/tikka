@@ -20,6 +20,7 @@ import { SupabaseModule } from "./services/storage/supabase.module";
 import { GeoModule } from "./services/geo/geo.module";
 import { GeoMiddleware } from "./middleware/geo.middleware";
 import { RequestIdMiddleware } from "./middleware/request-id.middleware";
+import { getRequestLogContext } from "./middleware/request-context";
 import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
 import { ErrorResponseInterceptor } from "./middleware/error-response.interceptor";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
@@ -28,6 +29,7 @@ import { IndexerBackfillModule } from "./services/indexer/indexer-backfill.modul
 import { MaintenanceModeGuard } from "./maintenance/maintenance-mode.guard";
 import { MaintenanceModeModule } from "./maintenance/maintenance-mode.module";
 import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
+import { IdempotencyModule } from "./common/idempotency/idempotency.module";
 
 @Module({
   imports: [
@@ -56,6 +58,7 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
               "req.headers.authorization",
               "req.headers.x-admin-token",
             ],
+            mixin: getRequestLogContext,
           },
         };
       },
@@ -118,6 +121,7 @@ import { WebhooksModule } from "./api/rest/webhooks/webhooks.module";
     IndexerBackfillModule,
     MaintenanceModeModule,
     WebhooksModule,
+    IdempotencyModule,
 
     BullModule.forRootAsync({
       imports: [ConfigModule],

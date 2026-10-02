@@ -60,7 +60,7 @@ function isExecute(options: Record<string, string>): boolean {
 
 
 
-function main() {
+async function main() {
   const { command, args, options } = parseArgs(process.argv.slice(2));
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
@@ -80,7 +80,7 @@ function main() {
     await app.close();
     return code;
   } catch (error: any) {
-    console.error('Fatal error:', error?.message || error);
+    RescuePresenter.fail('Fatal error:', error?.message || error);
     await app.close();
     return 1;
   }
@@ -101,39 +101,39 @@ export async function executeRescueCommand(
       const reason = options.reason;
 
       if (!jobId || !operator || !reason) {
-        console.error('Error: Missing required arguments');
-        console.error('Usage: npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason <reason> [--execute]');
+        RescuePresenter.fail('Error: Missing required arguments');
+        RescuePresenter.fail('Usage: npm run oracle:rescue re-enqueue <jobId> --operator <name> --reason <reason> [--execute]');
         return 1;
       }
 
       const preview = await rescueService.previewReEnqueueJob(jobId);
       if (!preview.success) {
-        console.error(`✗ Failed: ${preview.message}`);
+        RescuePresenter.fail(`✗ Failed: ${preview.message}`);
         return 1;
       }
 
-      console.log('DRY RUN: Re-enqueue operation will not be applied unless --execute is provided.');
-      console.log('Action: Re-enqueue job');
-      console.log(`Target Job ID: ${preview.preview!.jobId}`);
-      console.log(`Target Raffle ID: ${preview.preview!.raffleId}`);
-      console.log(`Target Request ID: ${preview.preview!.requestId}`);
-      console.log(`Operator: ${operator}`);
-      console.log(`Reason: ${reason}`);
+      RescuePresenter.write('DRY RUN: Re-enqueue operation will not be applied unless --execute is provided.');
+      RescuePresenter.write('Action: Re-enqueue job');
+      RescuePresenter.write(`Target Job ID: ${preview.preview!.jobId}`);
+      RescuePresenter.write(`Target Raffle ID: ${preview.preview!.raffleId}`);
+      RescuePresenter.write(`Target Request ID: ${preview.preview!.requestId}`);
+      RescuePresenter.write(`Operator: ${operator}`);
+      RescuePresenter.write(`Reason: ${reason}`);
 
       if (!execute) {
-        console.log('\nUse --execute to perform this action.');
+        RescuePresenter.write('\nUse --execute to perform this action.');
         return 0;
       }
 
-      console.log(`\nExecuting re-enqueue for job ${jobId}...`);
+      RescuePresenter.write(`\nExecuting re-enqueue for job ${jobId}...`);
       const result = await rescueService.reEnqueueJob(jobId, operator, reason);
       if (result.success) {
-        console.log(`✓ Success: ${result.message}`);
-        console.log(`  New Job ID: ${result.newJobId}`);
+        RescuePresenter.write(`✓ Success: ${result.message}`);
+        RescuePresenter.write(`  New Job ID: ${result.newJobId}`);
         return 0;
       }
 
-      console.error(`✗ Failed: ${result.message}`);
+      RescuePresenter.fail(`✗ Failed: ${result.message}`);
       return 1;
     }
 
@@ -145,8 +145,8 @@ export async function executeRescueCommand(
       const prizeAmount = options.prize ? parseFloat(options.prize) : undefined;
 
       if (!raffleId || !requestId || !operator || !reason) {
-        console.error('Error: Missing required arguments');
-        console.error('Usage: npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason <reason> [--prize <amount>]');
+        RescuePresenter.fail('Error: Missing required arguments');
+        RescuePresenter.fail('Usage: npm run oracle:rescue force-submit <raffleId> <requestId> --operator <name> --reason <reason> [--prize <amount>]');
         return 1;
       }
 
@@ -156,33 +156,33 @@ export async function executeRescueCommand(
         prizeAmount,
       );
       if (!preview.success) {
-        console.error(`✗ Failed: ${preview.message}`);
+        RescuePresenter.fail(`✗ Failed: ${preview.message}`);
         return 1;
       }
 
-      console.log('DRY RUN: Force-submit operation will not be applied unless --execute is provided.');
-      console.log('Action: Force submit randomness');
-      console.log(`Target Raffle ID: ${preview.preview!.raffleId}`);
-      console.log(`Target Request ID: ${preview.preview!.requestId}`);
-      console.log(`Network: ${RescuePresenter.getNetworkName(preview.preview!.network)}`);
-      console.log(`Source Account: ${preview.preview!.sourceAccount}`);
-      console.log(`Randomness Method: ${preview.preview!.method}`);
-      console.log(
+      RescuePresenter.write('DRY RUN: Force-submit operation will not be applied unless --execute is provided.');
+      RescuePresenter.write('Action: Force submit randomness');
+      RescuePresenter.write(`Target Raffle ID: ${preview.preview!.raffleId}`);
+      RescuePresenter.write(`Target Request ID: ${preview.preview!.requestId}`);
+      RescuePresenter.write(`Network: ${RescuePresenter.getNetworkName(preview.preview!.network)}`);
+      RescuePresenter.write(`Source Account: ${preview.preview!.sourceAccount}`);
+      RescuePresenter.write(`Randomness Method: ${preview.preview!.method}`);
+      RescuePresenter.write(
         `Estimated Fee: ${preview.preview!.feeEstimate.cappedFee} stroops (${RescuePresenter.formatStroopsAsXlm(
           preview.preview!.feeEstimate.cappedFee,
         )})`,
       );
-      console.log(`Prize Amount: ${preview.preview!.prizeAmount} XLM`);
-      console.log(`RPC Endpoint: ${preview.preview!.rpcUrl}`);
-      console.log(`Operator: ${operator}`);
-      console.log(`Reason: ${reason}`);
+      RescuePresenter.write(`Prize Amount: ${preview.preview!.prizeAmount} XLM`);
+      RescuePresenter.write(`RPC Endpoint: ${preview.preview!.rpcUrl}`);
+      RescuePresenter.write(`Operator: ${operator}`);
+      RescuePresenter.write(`Reason: ${reason}`);
 
       if (!execute) {
-        console.log('\nUse --execute to perform this action.');
+        RescuePresenter.write('\nUse --execute to perform this action.');
         return 0;
       }
 
-      console.log(`\nExecuting force submit for raffle ${raffleId}...`);
+      RescuePresenter.write(`\nExecuting force submit for raffle ${raffleId}...`);
       const result = await rescueService.forceSubmit(
         raffleId,
         requestId,
@@ -191,12 +191,12 @@ export async function executeRescueCommand(
         prizeAmount,
       );
       if (result.success) {
-        console.log(`✓ Success: ${result.message}`);
-        console.log(`  Transaction Hash: ${result.txHash}`);
+        RescuePresenter.write(`✓ Success: ${result.message}`);
+        RescuePresenter.write(`  Transaction Hash: ${result.txHash}`);
         return 0;
       }
 
-      console.error(`✗ Failed: ${result.message}`);
+      RescuePresenter.fail(`✗ Failed: ${result.message}`);
       return 1;
     }
 
@@ -206,77 +206,77 @@ export async function executeRescueCommand(
       const reason = options.reason;
 
       if (!jobId || !operator || !reason) {
-        console.error('Error: Missing required arguments');
-        console.error('Usage: npm run oracle:rescue force-fail <jobId> --operator <name> --reason <reason> [--execute]');
+        RescuePresenter.fail('Error: Missing required arguments');
+        RescuePresenter.fail('Usage: npm run oracle:rescue force-fail <jobId> --operator <name> --reason <reason> [--execute]');
         return 1;
       }
 
       const preview = await rescueService.previewForceFailJob(jobId);
       if (!preview.success) {
-        console.error(`✗ Failed: ${preview.message}`);
+        RescuePresenter.fail(`✗ Failed: ${preview.message}`);
         return 1;
       }
 
-      console.log('DRY RUN: Force-fail operation will not be applied unless --execute is provided.');
-      console.log('Action: Force fail job');
-      console.log(`Target Job ID: ${preview.preview!.jobId}`);
-      console.log(`Target Raffle ID: ${preview.preview!.raffleId}`);
-      console.log(`Target Request ID: ${preview.preview!.requestId}`);
-      console.log(`Operator: ${operator}`);
-      console.log(`Reason: ${reason}`);
+      RescuePresenter.write('DRY RUN: Force-fail operation will not be applied unless --execute is provided.');
+      RescuePresenter.write('Action: Force fail job');
+      RescuePresenter.write(`Target Job ID: ${preview.preview!.jobId}`);
+      RescuePresenter.write(`Target Raffle ID: ${preview.preview!.raffleId}`);
+      RescuePresenter.write(`Target Request ID: ${preview.preview!.requestId}`);
+      RescuePresenter.write(`Operator: ${operator}`);
+      RescuePresenter.write(`Reason: ${reason}`);
 
       if (!execute) {
-        console.log('\nUse --execute to perform this action.');
+        RescuePresenter.write('\nUse --execute to perform this action.');
         return 0;
       }
 
-      console.log(`\nExecuting force fail for job ${jobId}...`);
+      RescuePresenter.write(`\nExecuting force fail for job ${jobId}...`);
       const result = await rescueService.forceFail(jobId, operator, reason);
       if (result.success) {
-        console.log(`✓ Success: ${result.message}`);
+        RescuePresenter.write(`✓ Success: ${result.message}`);
         return 0;
       }
 
-      console.error(`✗ Failed: ${result.message}`);
+      RescuePresenter.fail(`✗ Failed: ${result.message}`);
       return 1;
     }
 
     case 'list-failed': {
-      console.log('Fetching failed jobs...\n');
+      RescuePresenter.write('Fetching failed jobs...\n');
       const jobs = await rescueService.getFailedJobs();
 
       if (jobs.length === 0) {
-        console.log('No failed jobs found.');
+        RescuePresenter.write('No failed jobs found.');
       } else {
-        console.log(`Found ${jobs.length} failed job(s):\n`);
+        RescuePresenter.write(`Found ${jobs.length} failed job(s):\n`);
         jobs.forEach((job) => {
-          console.log(`Job ID: ${job.id}`);
-          console.log(`  Raffle ID: ${job.raffleId}`);
-          console.log(`  Request ID: ${job.requestId}`);
-          console.log(`  Attempts: ${job.attempts}`);
-          console.log(`  Failed Reason: ${job.failedReason || 'N/A'}`);
-          console.log(`  Timestamp: ${new Date(job.timestamp).toISOString()}`);
-          console.log('');
+          RescuePresenter.write(`Job ID: ${job.id}`);
+          RescuePresenter.write(`  Raffle ID: ${job.raffleId}`);
+          RescuePresenter.write(`  Request ID: ${job.requestId}`);
+          RescuePresenter.write(`  Attempts: ${job.attempts}`);
+          RescuePresenter.write(`  Failed Reason: ${job.failedReason || 'N/A'}`);
+          RescuePresenter.write(`  Timestamp: ${new Date(job.timestamp).toISOString()}`);
+          RescuePresenter.write('');
         });
       }
       return 0;
     }
 
     case 'list-all': {
-      console.log('Fetching all jobs...\n');
+      RescuePresenter.write('Fetching all jobs...\n');
       const allJobs = await rescueService.getAllJobs();
 
-      console.log(`Waiting: ${allJobs.waiting.length}`);
-      console.log(`Active: ${allJobs.active.length}`);
-      console.log(`Completed: ${allJobs.completed.length}`);
-      console.log(`Failed: ${allJobs.failed.length}`);
-      console.log(`Delayed: ${allJobs.delayed.length}`);
-      console.log('');
+      RescuePresenter.write(`Waiting: ${allJobs.waiting.length}`);
+      RescuePresenter.write(`Active: ${allJobs.active.length}`);
+      RescuePresenter.write(`Completed: ${allJobs.completed.length}`);
+      RescuePresenter.write(`Failed: ${allJobs.failed.length}`);
+      RescuePresenter.write(`Delayed: ${allJobs.delayed.length}`);
+      RescuePresenter.write('');
 
       if (allJobs.failed.length > 0) {
-        console.log('Failed Jobs:');
+        RescuePresenter.write('Failed Jobs:');
         allJobs.failed.forEach((job) => {
-          console.log(`  ${job.id} - Raffle ${job.raffleId} - ${job.failedReason || 'Unknown error'}`);
+          RescuePresenter.write(`  ${job.id} - Raffle ${job.raffleId} - ${job.failedReason || 'Unknown error'}`);
         });
       }
       return 0;
@@ -285,7 +285,7 @@ export async function executeRescueCommand(
     case 'list-stuck': {
       const jsonMode = options.json === 'true';
       if (!jsonMode) {
-        console.log('Building stuck draw report...\n');
+        RescuePresenter.write('Building stuck draw report...\n');
       }
       const report = await rescueService.getStuckDrawReport();
       RescuePresenter.printStuckDrawReport(report, jsonMode);
@@ -299,32 +299,32 @@ export async function executeRescueCommand(
       const raffleId = options.raffle ? parseInt(options.raffle, 10) : null;
       const limit = options.limit ? parseInt(options.limit, 10) : 100;
 
-      console.log('Fetching rescue logs...\n');
+      RescuePresenter.write('Fetching rescue logs...\n');
       const logs = raffleId !== null
         ? rescueService.getRescueLogsByRaffle(raffleId)
         : rescueService.getRescueLogs(limit);
 
       if (logs.length === 0) {
-        console.log('No rescue logs found.');
+        RescuePresenter.write('No rescue logs found.');
       } else {
-        console.log(`Found ${logs.length} rescue operation(s):\n`);
+        RescuePresenter.write(`Found ${logs.length} rescue operation(s):\n`);
         logs.forEach((log) => {
-          console.log(`[${log.timestamp.toISOString()}] ${log.action} - ${log.result}`);
-          console.log(`  Raffle ID: ${log.raffleId}`);
-          console.log(`  Request ID: ${log.requestId}`);
-          console.log(`  Operator: ${log.operator}`);
-          console.log(`  Reason: ${log.reason}`);
-          if (log.jobId) console.log(`  Job ID: ${log.jobId}`);
-          if (log.details) console.log(`  Details: ${JSON.stringify(log.details)}`);
-          console.log('');
+          RescuePresenter.write(`[${log.timestamp.toISOString()}] ${log.action} - ${log.result}`);
+          RescuePresenter.write(`  Raffle ID: ${log.raffleId}`);
+          RescuePresenter.write(`  Request ID: ${log.requestId}`);
+          RescuePresenter.write(`  Operator: ${log.operator}`);
+          RescuePresenter.write(`  Reason: ${log.reason}`);
+          if (log.jobId) RescuePresenter.write(`  Job ID: ${log.jobId}`);
+          if (log.details) RescuePresenter.write(`  Details: ${JSON.stringify(log.details)}`);
+          RescuePresenter.write('');
         });
       }
       return 0;
     }
 
     default:
-      console.error(`Unknown command: ${command}`);
-      console.error('Run "npm run oracle:rescue help" for usage information');
+      RescuePresenter.fail(`Unknown command: ${command}`);
+      RescuePresenter.fail('Run "npm run oracle:rescue help" for usage information');
       return 1;
   }
 }
