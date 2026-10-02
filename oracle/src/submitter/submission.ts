@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as StellarSdk from '@stellar/stellar-sdk';
+import { extractFeeChargedStroops } from '@tikka/fee-accuracy';
 import { OracleLoggerService } from '../logger/oracle-logger';
 import { TelemetryContext, TransactionOutcome, TransactionState } from './tx-submitter.service';
 import { ErrorClassifier } from './error-classifier';
@@ -244,6 +245,20 @@ export class SubmissionService {
       await this.delay(this.POLL_INTERVAL_MS);
     }
     return { status: 'TIMEOUT' };
+  }
+
+  /**
+   * Fee the network actually charged, in stroops.
+   *
+   * Read from the confirmed transaction result (`resultXdr.feeCharged()` for
+   * Soroban RPC, `feeCharged` / `fee_charged` on the JSON shapes) rather than
+   * assumed. A confirmed transaction always pays at least the base fee, so a
+   * `0` here means the value was not reported by the endpoint — callers must
+   * treat it as unknown and fall back to their estimate, never as a free
+   * transaction.
+   */
+  public extractFeePaid(transactionResponse: unknown): number {
+    return extractFeeChargedStroops(transactionResponse) ?? 0;
   }
 
   private async queryExistingTransaction(
