@@ -1,17 +1,42 @@
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { RaffleEventEntity } from "../../database/entities/raffle-event.entity";
+// Type-only: the writer never instantiates an entity, so writing a CSV must not
+// pull TypeORM (or the entity decorators) into the process.
+import type { RaffleEventEntity } from "../../database/entities/raffle-event.entity";
+import { archiveChecksumPath, serializeArchiveChecksum } from "./checksum";
 import { logProgress } from "./logging";
 
 /**
  * CSV archive writer.
  *
  * The on-disk format is an operator contract: archives are restored with
- * `\copy` into a staging table (see `docs/database/raffle-events-retention.md`),
+ * `npm run restore:raffle-events` (see `docs/runbooks/restore-raffle-events.md`),
  * so the header, the column order, and the escaping rules must stay stable.
+ *
+ * Every file is written together with a `<file>.sha256` sidecar of the exact
+ * bytes written, so a restore can prove the file it is about to import is the
+ * file the archiver produced.
  */
 
 export const ARCHIVE_CSV_HEADER = [
+  "id",
+  "raffle_id",
+  "event_type",
+  "schema_version",
+  "ledger",
+  "tx_hash",
+  "payload_json",
+  "indexed_at",
+  "contract_address",
+];
+
+/**
+ * Header written by archivers that predate the `contract_address` column.
+ * `restore` accepts both: an archive must stay importable across an upgrade,
+ * and this is the shape every existing archive on disk has.
+ */
+export const LEGACY_ARCHIVE_CSV_HEADER = [
   "id",
   "raffle_id",
   "event_type",
@@ -68,6 +93,7 @@ export function toCsvLine(row: RaffleEventEntity): string {
     row.txHash,
     JSON.stringify(row.payloadJson).replace(/\n/g, " ").replace(/\r/g, " "),
     row.indexedAt.toISOString(),
+    row.contractAddress ?? "",
   ]
     .map((v) => {
       if (typeof v === "string" && v.includes(",")) {
@@ -79,7 +105,12 @@ export function toCsvLine(row: RaffleEventEntity): string {
 }
 
 /**
- * Write a batch of events to a CSV file and resolve with its path.
+ * Write a batch of events to a CSV file plus its checksum sidecar, and resolve
+ * with the CSV path.
+ *
+ * The digest is computed from the lines as they are written rather than by
+ * re-reading the file, so the sidecar always describes exactly what was
+ * flushed and the writer keeps its single sequential write.
  */
 export async function writeBatchToCsv(
   rows: RaffleEventEntity[],
@@ -98,15 +129,28 @@ export async function writeBatchToCsv(
     totalArchived: 0,
   });
 
+  const hash = crypto.createHash("sha256");
   const stream = fs.createWriteStream(filename, { encoding: "utf8" });
-  stream.write(ARCHIVE_CSV_HEADER.join(",") + "\n");
+
+  const headerLine = ARCHIVE_CSV_HEADER.join(",") + "\n";
+  hash.update(headerLine);
+  stream.write(headerLine);
 
   for (const row of rows) {
-    stream.write(toCsvLine(row) + "\n");
+    const line = toCsvLine(row) + "\n";
+    hash.update(line);
+    stream.write(line);
   }
 
   stream.end();
   await new Promise<void>((resolve) => stream.on("finish", () => resolve()));
+
+  const digest = hash.digest("hex");
+  fs.writeFileSync(
+    archiveChecksumPath(filename),
+    serializeArchiveChecksum(digest, filename),
+    "utf8",
+  );
 
   return filename;
 }

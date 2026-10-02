@@ -29,8 +29,8 @@ round number — purely by luck of the numbers chosen, not by design.
 
 New indexer migrations **must** use a real generated timestamp. Never hand-edit
 or round the timestamp. The lint in `backend/scripts/check-migrations.ts`
-rejects round-number placeholder timestamps in any new file (see
-`migration-conventions.md` §2.3 for the exact rule).
+rejects round-number placeholder timestamps in any new file and **fails the
+build** on any duplicate timestamp (see `migration-conventions.md` §2.3).
 
 ## Why applied migrations were not renumbered
 
@@ -38,6 +38,13 @@ Per the migration task, applied migrations are never renumbered — doing so wou
 desynchronise TypeORM's `migrations` history table on every environment that has
 already run these files. The placeholder files below are therefore kept as-is
 and recorded here as the sanctioned historical exception.
+
+**Exception: `1770000000000-AuditHotPathIndexes.ts`** was renumbered to
+`1770000000001-AuditHotPathIndexes.ts` in #1588 because it was a *new,
+unapplied* migration that shared a timestamp with
+`1770000000000-CreateWebhookDeadLetterDeliveries.ts`. See
+[Resolved duplicate timestamps](#resolved-duplicate-timestamps) below and
+`docs/database/1588-duplicate-timestamp-remediation.md`.
 
 ### Sanctioned legacy placeholder timestamps
 
@@ -52,15 +59,8 @@ passing; any *new* file using a placeholder timestamp (a timestamp divisible by
 | `1730000000000`     | `1730000000000-CreateDeadLetterEvents`, `1730000000001-AddLedgerHashesToCursor` |
 | `1750000000000`     | `1750000000000-AddRaffleEventIndexes`, `1750000000001-BackfillSchemaVersions` |
 | `1760000000000`     | `1760000000000-CreateWebhookDeliveries`, `1760000000001-RelaxTicketsPurchaseTxHashUnique` |
-| `1770000000000`     | `1770000000000-AuditHotPathIndexes`, `1770000000000-CreateWebhookDeadLetterDeliveries` |
-
-### Known duplicate timestamp (also a historical exception)
-
-`1770000000000-AuditHotPathIndexes.ts` and
-`1770000000000-CreateWebhookDeadLetterDeliveries.ts` share the same prefix. This
-is a latent ordering hazard (TypeORM falls back to stable file order for equal
-timestamps). Both migrations are independent of each other and of any later file,
-so it is harmless today. Future migrations must not reuse an existing timestamp.
+| `1770000000000`     | `1770000000000-CreateWebhookDeadLetterDeliveries` (one file — duplicate resolved in #1588) |
+| `1770000000001`     | `1770000000001-AuditHotPathIndexes` (renumbered from `1770000000000` in #1588) |
 
 ## Ordering audit against the dependency graph
 
@@ -81,8 +81,19 @@ it** — the current order is safe to apply from a clean database.
 | `1750000000000-AddRaffleEventIndexes` | `raffle_events` | `1700000000003` | ✅ |
 | `1750000000001-BackfillSchemaVersions` | `raffle_events.schema_version` | `1720000000003` | ✅ |
 | `1760000000001-RelaxTicketsPurchaseTxHashUnique` | `tickets` | `1700000000001` | ✅ |
-| `1770000000000-AuditHotPathIndexes` | `users`, `tickets`, `raffles`, `raffle_events`, `dead_letter_events` | all earlier | ✅ |
 | `1770000000000-CreateWebhookDeadLetterDeliveries` | new table only | — | ✅ |
+| `1770000000001-AuditHotPathIndexes` | `users`, `tickets`, `raffles`, `raffle_events`, `dead_letter_events` | all earlier | ✅ |
 
 The remaining migrations create brand-new tables and have no forward
 dependency.
+
+## Resolved duplicate timestamps
+
+| Duplicate timestamp | Files involved | Resolution | Issue |
+|---------------------|---------------|------------|-------|
+| `1770000000000` | `1770000000000-AuditHotPathIndexes.ts` (old), `1770000000000-CreateWebhookDeadLetterDeliveries.ts` | `AuditHotPathIndexes` renamed to `1770000000001-AuditHotPathIndexes.ts`. `CreateWebhookDeadLetterDeliveries` retained at `1770000000000` (no schema dependency between them; it creates a new table, `AuditHotPathIndexes` only adds indexes). | [#1588](../../) |
+
+Environments where `AuditHotPathIndexes1770000000000` was already recorded in
+the TypeORM `migrations` table must update that row before running new
+migrations. See `docs/database/1588-duplicate-timestamp-remediation.md` for the
+SQL snippet and deployment checklist.

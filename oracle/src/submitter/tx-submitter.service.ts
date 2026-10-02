@@ -27,14 +27,13 @@ export enum TransactionState {
 }
 
 export type TransactionOutcome =
-  | { status: 'SUCCESS'; txHash: string; ledger: number; feePaid: number; retriable: false }
+  | { status: 'SUCCESS'; txHash: string; ledger: number; feePaid: number | null; retriable: false }
   | {
       status: 'DUPLICATE_SUCCESS';
       txHash: string;
       ledger: number;
       message: string;
       retriable: false;
-      feePaid?: number;
     }
   | { status: 'TIMEOUT'; txHash?: string; error: string; retriable: true; pollAttempts: number }
   | {
@@ -191,23 +190,12 @@ export class TxSubmitterService {
               'txHash' in submitResult.outcome ? submitResult.outcome.txHash : undefined;
 
             if (submitResult.outcome.status === 'SUCCESS') {
-              // Prefer the fee the network reported. When the endpoint did not
-              // report one, fall back to what this run actually quoted for the
-              // transaction (not a flat base fee) so the recorded cost stays
-              // within the quoted envelope instead of under-reporting by
-              // orders of magnitude.
-              const reportedFee = (submitResult.outcome as any).feePaid;
-              const feePaid = Number(reportedFee) > 0 ? Number(reportedFee) : baseFee;
-              this.feeStrategy.recordRevealCost(raffleId, 'PRNG', feePaid);
-              submitResult.outcome.feePaid = feePaid;
-              telemetry.feePaid = feePaid;
-            } else if (submitResult.outcome.status === 'DUPLICATE_SUCCESS') {
-              const reportedFee = (submitResult.outcome as any).feePaid;
-              const feePaid = Number(reportedFee) > 0 ? Number(reportedFee) : undefined;
-              if (feePaid !== undefined) {
-                this.feeStrategy.recordRevealCost(raffleId, 'PRNG', feePaid);
-                telemetry.feePaid = feePaid;
-              }
+              const observed = submitResult.outcome.feePaid;
+              const billed =
+                observed != null && observed > 0
+                  ? observed
+                  : Number((StellarSdk as any).BASE_FEE || 100) * feeBump;
+              this.feeStrategy.recordRevealCost(raffleId, 'PRNG', billed);
             } else if (
               submitResult.outcome.status === 'FAILED' ||
               submitResult.outcome.status === 'TIMEOUT'
@@ -386,7 +374,7 @@ export class TxSubmitterService {
     };
   }
 
-  private createExhaustedOutcome(telemetry: TelemetryContext): TransactionOutcome {
+  private createExhaustedOutcome(telemetry: TelemetryContext): Extract<TransactionOutcome, { status: 'FAILED' }> {
     const message = `Exhausted ${this.maxAttempts} retry attempts`;
     this.logTelemetry({ ...telemetry, finalOutcome: TransactionState.FAILED }, message);
     return {

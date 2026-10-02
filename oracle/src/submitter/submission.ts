@@ -5,6 +5,22 @@ import { OracleLoggerService } from '../logger/oracle-logger';
 import { TelemetryContext, TransactionOutcome, TransactionState } from './tx-submitter.service';
 import { ErrorClassifier } from './error-classifier';
 
+/**
+ * Reads the inclusion fee the RPC actually reported.
+ * Returns null when the response has no positive fee so callers do not
+ * persist the historical hardcoded 0.
+ */
+export function readObservedFeeStroops(response: unknown): number | null {
+  if (!response || typeof response !== 'object') return null;
+  const record = response as Record<string, unknown>;
+  for (const candidate of [record.feeCharged, record.fee_charged]) {
+    const value =
+      typeof candidate === 'string' || typeof candidate === 'number' ? Number(candidate) : NaN;
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
+}
+
 @Injectable()
 export class SubmissionService {
   private readonly POLL_TIMEOUT_MS = 30000;
@@ -66,8 +82,17 @@ export class SubmissionService {
           return { shouldRetry: true, bumpFee: true };
         }
         if (errorClassifier.isTimeoutError(responseStr)) {
-          logTelemetry(telemetry, 'Submission timeout, attempting hash recovery');
-          return { shouldRetry: true, bumpFee: true };
+          logTelemetry(telemetry, 'Submission timeout with no hash; not retrying because the transaction may have landed');
+          return {
+            outcome: {
+              status: 'TIMEOUT',
+              error: responseStr,
+              retriable: false,
+              pollAttempts: 0,
+            },
+            shouldRetry: false,
+            bumpFee: false,
+          };
         }
         return { shouldRetry: true, bumpFee: false };
       }
@@ -102,6 +127,19 @@ export class SubmissionService {
           );
           return { outcome: existingResult, shouldRetry: false, bumpFee: false };
         }
+      }
+
+      if (errorClassifier.isTimeoutError(errorMessage)) {
+        return {
+          outcome: {
+            status: 'TIMEOUT',
+            error: errorMessage,
+            retriable: false,
+            pollAttempts: 0,
+          },
+          shouldRetry: false,
+          bumpFee: false,
+        };
       }
 
       if (errorClassifier.isInsufficientFeeError(errorMessage)) {
@@ -139,12 +177,17 @@ export class SubmissionService {
 
         if (status === 'SUCCESS') {
           const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
-          const feePaid = this.extractFeePaid(res);
           logTelemetry(
             { ...telemetry, finalOutcome: TransactionState.SUCCESS },
-            `Transaction confirmed at ledger ${ledger} (fee ${feePaid} stroops)`,
+            `Transaction confirmed at ledger ${ledger}`,
           );
-          return { status: 'SUCCESS', txHash, ledger, feePaid, retriable: false };
+          return {
+            status: 'SUCCESS',
+            txHash,
+            ledger,
+            feePaid: readObservedFeeStroops(res),
+            retriable: false,
+          };
         }
 
         if (status === 'FAILED') {
@@ -240,10 +283,9 @@ export class SubmissionService {
 
       if (status === 'SUCCESS') {
         const ledger = (res.ledger as number) || (res.latestLedger as number) || 0;
-        const feePaid = this.extractFeePaid(res);
         logTelemetry(
           { ...telemetry, finalOutcome: TransactionState.DUPLICATE_SUCCESS },
-          `Duplicate transaction confirmed at ledger ${ledger} (fee ${feePaid} stroops)`,
+          `Duplicate transaction confirmed at ledger ${ledger}`,
         );
         return {
           status: 'DUPLICATE_SUCCESS',
@@ -251,7 +293,6 @@ export class SubmissionService {
           ledger,
           message: 'Transaction was already submitted and confirmed',
           retriable: false,
-          feePaid,
         };
       }
 

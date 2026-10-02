@@ -1,16 +1,20 @@
 import { Helmet } from "react-helmet-async";
+import { API_CONFIG } from "../../config/api";
 
 interface RaffleSeoProps {
+  raffleId: number;
   title: string;
   description: string;
-  image?: string;
 }
 
-const RaffleSeo = ({ title, description, image }: RaffleSeoProps) => {
+const RaffleSeo = ({ raffleId, title, description }: RaffleSeoProps) => {
   const pageTitle = `${title} | Tikka Raffles`;
   const metaDescription =
     description || "Join this raffle on Tikka — Decentralized Raffles on Stellar.";
-  const metaImage = image || `${window.location.origin}/og-image.png`;
+  // Scrapers cache whichever image URL the page advertises. Always emit the
+  // single canonical card — never the raw photo, /og-image.png, or /og/raffles/:id.
+  const apiBase = API_CONFIG.baseUrl.replace(/\/$/, "");
+  const metaImage = `${apiBase}${API_CONFIG.endpoints.raffles.ogImage(raffleId)}`;
   const pageUrl = window.location.href;
 
   return (

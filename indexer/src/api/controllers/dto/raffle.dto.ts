@@ -28,9 +28,10 @@ export class UserRaffleHistoryItemDto extends RaffleListItemDto {
 
 export class RaffleListResponseDto {
   @ApiProperty({ type: [RaffleListItemDto] }) data!: RaffleListItemDto[];
-  @ApiProperty() total!: number;
+  @ApiProperty({ description: 'Total count of matching raffles (null if cursor-paginated for performance)' }) total!: number | null;
   @ApiProperty() limit!: number;
-  @ApiProperty() offset!: number;
+  @ApiPropertyOptional({ nullable: true, description: 'Numeric offset (null if cursor-paginated)' }) offset!: number | null;
+  @ApiPropertyOptional({ nullable: true, description: 'Opaque cursor token for next page (null if no more results)' }) nextCursor?: string | null;
 }
 
 export class UserRaffleHistoryResponseDto {
