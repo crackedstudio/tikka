@@ -1,0 +1,9 @@
+node_modules/
+.env
+
+# Ceremony artifacts — large binaries, distribute out-of-band
+artifacts/*.ptau
+artifacts/*.zkey
+
+# Keep the vkey (it's small and public) but ignore generated test keys
+artifacts/circuit_*.zkey

@@ -1,8 +1,9 @@
-# Redirect bots to the OG renderer
-/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=Twitterbot
-/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=facebookexternalhit
-/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=Discordbot
-/raffles/:id  https://api.tikka.io/og/raffles/:id  200!  User-Agent=TelegramBot
+# Proxy social crawlers to the canonical raffle OG image.
+# /og/raffles/:id is a legacy URL and must not be advertised.
+/raffles/:id  https://api.tikka.io/raffles/:id/og  200!  User-Agent=Twitterbot
+/raffles/:id  https://api.tikka.io/raffles/:id/og  200!  User-Agent=facebookexternalhit
+/raffles/:id  https://api.tikka.io/raffles/:id/og  200!  User-Agent=Discordbot
+/raffles/:id  https://api.tikka.io/raffles/:id/og  200!  User-Agent=TelegramBot
 
 # Standard SPA fallback
 /*  /index.html  200

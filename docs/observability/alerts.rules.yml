@@ -7,16 +7,16 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Indexer is lagging behind the Stellar network"
-          description: "The indexer is currently {{ $value }} ledgers behind the Horizon tip. This has persisted for more than 5 minutes."
+          summary: 'Indexer is lagging behind the Stellar network'
+          description: 'The indexer is currently {{ $value }} ledgers behind the Horizon tip. This has persisted for more than 5 minutes.'
       - alert: IndexerLedgerLagHigh
         expr: indexer_ledger_lag > 100
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "Indexer ledger lag is too high"
-          description: "The indexer is currently {{ $value }} ledgers behind the Stellar network tip. This has persisted for more than 5 minutes."
+          summary: 'Indexer ledger lag is too high'
+          description: 'The indexer is currently {{ $value }} ledgers behind the Stellar network tip. This has persisted for more than 5 minutes.'
 
       - alert: IndexerHighLatency
         expr: rate(tikka_indexer_poll_duration_seconds_sum[5m]) / rate(tikka_indexer_poll_duration_seconds_count[5m]) > 10
@@ -24,8 +24,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High polling latency detected"
-          description: "The average poll duration is {{ $value }}s, which is above the threshold of 10s."
+          summary: 'High polling latency detected'
+          description: 'The average poll duration is {{ $value }}s, which is above the threshold of 10s.'
 
       - alert: IndexerErrors
         expr: rate(tikka_indexer_errors_total[5m]) > 0.1
@@ -33,8 +33,35 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Indexer encountering errors"
-          description: "The indexer is encountering errors at a rate of {{ $value }} per second."
+          summary: 'Indexer encountering errors'
+          description: 'The indexer is encountering errors at a rate of {{ $value }} per second.'
+      - alert: IndexerDlqDepthHigh
+        expr: indexer_dlq_unreplayed_events >= 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Indexer DLQ depth is high'
+          description: '{{ $value }} unreplayed events are in the indexer DLQ. Inspect and classify them before replaying.'
+          runbook_url: 'https://github.com/Kingsilva36/tikka/blob/main/docs/runbooks/indexer-dlq.md'
+      - alert: IndexerDlqGrowthRateHigh
+        expr: deriv(indexer_dlq_unreplayed_events[15m]) > 0.0037
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Indexer DLQ is growing quickly'
+          description: 'The unreplayed DLQ is growing by more than 3 events per 15 minutes. Net growth rate: {{ $value }} events/second.'
+          runbook_url: 'https://github.com/Kingsilva36/tikka/blob/main/docs/runbooks/indexer-dlq.md'
+      - alert: IndexerDlqOldestEventStale
+        expr: (time() - indexer_dlq_oldest_unreplayed_event_timestamp_seconds > 3600) and (indexer_dlq_oldest_unreplayed_event_timestamp_seconds > 0)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Indexer DLQ contains an event older than one hour'
+          description: 'The oldest unreplayed DLQ entry has been waiting for {{ $value | humanizeDuration }}. Inspect its failure and replay only after the cause is resolved.'
+          runbook_url: 'https://github.com/Kingsilva36/tikka/blob/main/docs/runbooks/indexer-dlq.md'
 
   - name: tikka-oracle-alerts
     rules:
@@ -44,9 +71,9 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Oracle has {{ $value }} stuck draws that may need rescue"
-          description: "At least one raffle draw has been stuck for longer than the configured threshold (ledger lag or queue age). Stuck count: {{ $value }}."
-          runbook_url: "https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md"
+          summary: 'Oracle has {{ $value }} stuck draws that may need rescue'
+          description: 'At least one raffle draw has been stuck for longer than the configured threshold (ledger lag or queue age). Stuck count: {{ $value }}.'
+          runbook_url: 'https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md'
 
       - alert: OracleStuckDrawMaxAgeCritical
         expr: tikka_oracle_stuck_draw_max_age_seconds > 600
@@ -54,9 +81,9 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Oldest stuck draw exceeded 10 minutes"
-          description: "The oldest stuck draw is {{ $value | humanizeDuration }} old. Immediate rescue likely required."
-          runbook_url: "https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md"
+          summary: 'Oldest stuck draw exceeded 10 minutes'
+          description: 'The oldest stuck draw is {{ $value | humanizeDuration }} old. Immediate rescue likely required.'
+          runbook_url: 'https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md'
 
       - alert: OracleStuckDrawMaxAgeWarning
         expr: tikka_oracle_stuck_draw_max_age_seconds > 300
@@ -64,6 +91,6 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Oldest stuck draw exceeded 5 minutes"
-          description: "The oldest stuck draw is {{ $value | humanizeDuration }} old. Investigate before the situation escalates."
-          runbook_url: "https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md"
+          summary: 'Oldest stuck draw exceeded 5 minutes'
+          description: 'The oldest stuck draw is {{ $value | humanizeDuration }} old. Investigate before the situation escalates.'
+          runbook_url: 'https://github.com/crackedstudio/tikka/blob/main/docs/runbooks/oracle-stuck-draw.md'

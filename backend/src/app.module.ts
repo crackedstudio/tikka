@@ -20,6 +20,7 @@ import { SupabaseModule } from "./services/storage/supabase.module";
 import { GeoModule } from "./services/geo/geo.module";
 import { GeoMiddleware } from "./middleware/geo.middleware";
 import { RequestIdMiddleware } from "./middleware/request-id.middleware";
+import { getRequestLogContext } from "./middleware/request-context";
 import { RequestLoggingInterceptor } from "./middleware/request-logging.interceptor";
 import { ErrorResponseInterceptor } from "./middleware/error-response.interceptor";
 import { TikkaThrottlerGuard } from "./middleware/throttler.guard";
@@ -57,6 +58,7 @@ import { IdempotencyModule } from "./common/idempotency/idempotency.module";
               "req.headers.authorization",
               "req.headers.x-admin-token",
             ],
+            mixin: getRequestLogContext,
           },
         };
       },
