@@ -4,21 +4,20 @@ import { KeyProvider, KeyProviderHealth } from '../key-provider.interface';
 
 /**
  * Google Cloud KMS KeyProvider.
- * 
+ *
  * Uses Google Cloud Key Management Service to perform signing operations.
  * The private key never leaves the HSM, ensuring maximum security.
- * 
+ *
  * Prerequisites:
  * - Google Cloud SDK installed: npm install @google-cloud/kms
  * - Service account with permissions: cloudkms.cryptoKeyVersions.useToSign, cloudkms.cryptoKeyVersions.viewPublicKey
  * - KMS key must be configured for ASYMMETRIC_SIGN with EC_SIGN_ED25519 algorithm
- * 
+ *
  * Key Resource Name Format:
  * projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key}/cryptoKeyVersions/{version}
  */
 @Injectable()
 export class GcpKmsKeyProvider implements KeyProvider {
-  
   private kmsClient: any;
   private keyVersionName: string;
   private publicKey: Buffer | null = null;
@@ -30,9 +29,7 @@ export class GcpKmsKeyProvider implements KeyProvider {
     keyPath: string,
   ) {
     if (!projectId || !keyPath) {
-      throw new Error(
-        'GCP_KMS_PROJECT and GCP_KMS_KEY_PATH are required for GcpKmsKeyProvider',
-      );
+      throw new Error('GCP_KMS_PROJECT and GCP_KMS_KEY_PATH are required for GcpKmsKeyProvider');
     }
 
     this.keyVersionName = keyPath;
@@ -43,10 +40,10 @@ export class GcpKmsKeyProvider implements KeyProvider {
       this.kmsClient = new KeyManagementServiceClient();
       this.logger.log(`GcpKmsKeyProvider initialized for key: ${this.keyVersionName}`);
     } catch (error) {
-      this.logger.error(`Failed to initialize GCP KMS client: ${error.message}`);
-      throw new Error(
-        'Google Cloud KMS SDK not installed. Run: npm install @google-cloud/kms',
+      this.logger.error(
+        `Failed to initialize GCP KMS client: ${error instanceof Error ? error.message : String(error)}`,
       );
+      throw new Error('Google Cloud KMS SDK not installed. Run: npm install @google-cloud/kms');
     }
   }
 
@@ -76,12 +73,12 @@ export class GcpKmsKeyProvider implements KeyProvider {
 
       // Parse the PEM-encoded public key
       const pem = publicKeyResponse.pem;
-      
+
       // Extract the raw public key from PEM format
       // For Ed25519, the public key is 32 bytes
-      const pemLines = pem.split('\n').filter(
-        (line: string) => !line.includes('BEGIN') && !line.includes('END'),
-      );
+      const pemLines = pem
+        .split('\n')
+        .filter((line: string) => !line.includes('BEGIN') && !line.includes('END'));
       const pemData = pemLines.join('');
       const derBuffer = Buffer.from(pemData, 'base64');
 
@@ -92,7 +89,9 @@ export class GcpKmsKeyProvider implements KeyProvider {
 
       this.logger.log('Public key loaded from GCP KMS');
     } catch (error) {
-      this.logger.error(`Failed to load public key from GCP KMS: ${error.message}`);
+      this.logger.error(
+        `Failed to load public key from GCP KMS: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new Error('Failed to retrieve public key from GCP KMS');
     }
   }
@@ -111,7 +110,9 @@ export class GcpKmsKeyProvider implements KeyProvider {
       this.logger.debug(`Signed ${data.length} bytes using GCP KMS`);
       return signature;
     } catch (error) {
-      this.logger.error(`GCP KMS signing failed: ${error.message}`);
+      this.logger.error(
+        `GCP KMS signing failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new Error('Failed to sign data with GCP KMS');
     }
   }
@@ -165,7 +166,12 @@ export class GcpKmsKeyProvider implements KeyProvider {
     // gRPC status codes are numeric; gRPC-js also sets a `code` property.
     const code: number | string = error?.code ?? error?.status ?? '';
     // gRPC PERMISSION_DENIED = 7, UNAUTHENTICATED = 16
-    if (code === 7 || code === 16 || error?.message?.includes('PERMISSION_DENIED') || error?.message?.includes('UNAUTHENTICATED')) {
+    if (
+      code === 7 ||
+      code === 16 ||
+      error?.message?.includes('PERMISSION_DENIED') ||
+      error?.message?.includes('UNAUTHENTICATED')
+    ) {
       return 'permission_denied';
     }
     // gRPC UNAVAILABLE = 14, DEADLINE_EXCEEDED = 4

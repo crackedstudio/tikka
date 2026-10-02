@@ -16,6 +16,25 @@ permissions:
   contents: read
 
 jobs:
+  # Guard: verify the packageManager field carries a valid 128-char SHA-512 hex
+  # digest so corepack strict mode cannot be silently broken by a hand-edit.
+  # Runs on every push/PR, needs no Node setup beyond the runner's built-in node.
+  check-package-manager-hash:
+    name: Verify packageManager hash length
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Assert SHA-512 digest is 128 hex characters
+        run: |
+          HASH=$(node -e "console.log(require('./package.json').packageManager.split('+sha512.')[1])")
+          LEN=${#HASH}
+          if [ "$LEN" -ne 128 ]; then
+            echo "❌ packageManager hash is $LEN characters — expected 128."
+            echo "   Run: corepack use pnpm@9.15.9   and commit the result."
+            exit 1
+          fi
+          echo "✅ packageManager hash length is $LEN — OK"
+
   # Detect whether any source files changed.
   # Docs-only PRs (changes only inside docs/) skip the turbo job entirely.
   changes:
@@ -29,14 +48,18 @@ jobs:
       indexer: ${{ steps.filter.outputs.indexer }}
       oracle: ${{ steps.filter.outputs.oracle }}
       database: ${{ steps.filter.outputs.database }}
+      migrations: ${{ steps.filter.outputs.migrations }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Check workspace tsconfig inheritance
+        run: node scripts/check-tsconfig-base.js
       - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
             source:
               - 'client/**'
+              - 'packages/types/**'
               - 'backend/openapi.json'
               - 'package.json'
               - 'pnpm-workspace.yaml'
@@ -63,10 +86,10 @@ jobs:
               - 'turbo.json'
               - '.github/workflows/ci.yml'
             oracle:
-            - 'oracle/**'
-            - 'package.json'
-            - 'pnpm-workspace.yaml'
-            - '.github/workflows/ci.yml'
+              - 'oracle/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
             compose:
               - 'docker-compose.yml'
               - 'backend/Dockerfile'
@@ -74,10 +97,18 @@ jobs:
               - 'indexer/Dockerfile'
               - 'oracle/Dockerfile'
               - '.github/workflows/ci.yml'
-          database:
-            - 'indexer/src/database/**'
-            - 'backend/**'
-            - '.github/workflows/ci.yml'
+            database:
+              - 'indexer/src/database/**'
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            migrations:
+              - 'backend/database/migrations/**'
+              - 'oracle/database/migrations/**'
+              - 'indexer/src/database/migrations/**'
+              - 'db/migrations/**'
+              - 'db/baseline-schema.sql'
+              - 'scripts/check-schema-drift.ts'
+              - '.github/workflows/ci.yml'
 
   # Single Turborepo job: lint → test → build (typecheck) across all packages.
   # Turbo's task graph ensures sdk builds before anything that depends on it,
@@ -91,7 +122,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.15.9
 
@@ -103,6 +134,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify Node version consistency
+        run: pnpm run check:node-version
 
       - name: Check colour contrast (WCAG AA)
         run: node scripts/check-contrast.js
@@ -135,6 +169,15 @@ jobs:
 
       - name: Build
         run: pnpm run build
+        continue-on-error: false
+
+      - name: Self-test client entry chunk guard
+        run: pnpm --dir client run test:bundle-check
+        continue-on-error: false
+
+      - name: Report client bundle budgets and check entry graph
+        run: pnpm --dir client run report:bundle-budget
+        if: always()
         continue-on-error: false
 
       - name: Generate OpenAPI and ensure committed spec is up-to-date
@@ -180,7 +223,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.15.9
 
@@ -194,16 +237,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build shared SDK types
+        run: pnpm --filter @tikka/types build
+
       - name: Lint
         run: pnpm run lint
+        continue-on-error: false
+
+      - name: Check any-usage budget
+        run: pnpm run lint:any-budget
         continue-on-error: false
 
       - name: Typecheck
         run: pnpm run typecheck
         continue-on-error: false
 
+      - name: Verify contract bindings are up to date
+        run: |
+          # Ensure generated bindings exist and are non-empty
+          if [ ! -s src/contract/generated/bindings.ts ]; then
+            echo "❌ src/contract/generated/bindings.ts is missing or empty"
+            exit 1
+          fi
+          # Ensure no 'any' types remain in src/contract/
+          if grep -rn '\bany\b' src/contract/ --include='*.ts' | grep -v '.spec.ts'; then
+            echo "❌ Found 'any' types in src/contract/ — remove them or use parsers"
+            exit 1
+          fi
+          echo "✅ Contract bindings verified — no 'any' in src/contract/"
+        continue-on-error: false
+
       - name: Run tests
-        run: pnpm run test -- --coverage
+        run: pnpm run test --coverage
         continue-on-error: false
 
       - name: Upload coverage artifact
@@ -222,6 +287,14 @@ jobs:
         run: pnpm run build:read && pnpm run build:light
         continue-on-error: false
 
+      # `npm pack --dry-run` is the only honest view of the published package:
+      # it applies `files`, the .gitignore fallback (which ignores /dist) and
+      # npm's always-included entries. Fails if anything but dist/, bin/ and the
+      # documented docs would ship — see sdk/scripts/check-pack.mjs.
+      - name: Packaging check (published artifacts)
+        run: pnpm run pack:check
+        continue-on-error: false
+
       - name: API surface report check
         run: |
           pnpm exec api-extractor run --config api-extractor.json
@@ -230,100 +303,38 @@ jobs:
           pnpm exec api-extractor run --config api-extractor.light.json
         continue-on-error: false
 
-      - name: Check bundle size budgets
-        run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
-          node -e '
-            const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
-            summary += "| Bundle | Size | Limit | Status |\n";
-            summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
-            }
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
-          '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
+      - name: Assert light bundle excludes NestJS
+        run: pnpm run analyze:light
         continue-on-error: false
 
       - name: Check bundle size budgets
         run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
+          pnpm exec size-limit --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
           node -e '
             const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
+            const data = JSON.parse(fs.readFileSync("size-summary.json", "utf8"));
+            if (!Array.isArray(data) || data.some((item) => typeof item.size !== "number")) {
+              throw new Error("size-limit returned an invalid JSON summary");
+            }
+            let summary = "### SDK Bundle Size Budgets\n\n";
+            summary += "Minified and gzipped bundle sizes.\n\n";
             summary += "| Bundle | Size | Limit | Status |\n";
             summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
+            for (const item of data) {
+              const limit = item.sizeLimit ?? "N/A";
+              const status = item.passed === false ? "Exceeded" : "Passed";
+              summary += `| ${item.name} | ${item.size.toLocaleString()} B | ${limit.toLocaleString()} B | ${status} |\n`;
+            }
+            const main = data.find((item) => item.name === "@tikka/sdk .");
+            const light = data.find((item) => item.name === "@tikka/sdk ./light");
+            if (!main || !light) throw new Error("Missing main or light SDK size result");
+            if (light.size >= main.size) {
+              summary += "\nThe light entry must remain smaller than the main entry.\n";
+              process.exitCode = 1;
             }
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
           '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
-        continue-on-error: false
-
-      - name: Check bundle size budgets
-        run: |
-          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
-          node -e '
-            const fs = require("fs");
-            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
-            summary += "| Bundle | Size | Limit | Status |\n";
-            summary += "| --- | --- | --- | --- |\n";
-            try {
-              const content = fs.readFileSync("size-summary.json", "utf8");
-              const data = JSON.parse(content);
-              if (Array.isArray(data)) {
-                for (const item of data) {
-                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
-                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
-                  const limitStr = item.limit || "N/A";
-                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
-                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
-                }
-              }
-            } catch (err) {
-              summary += "Unable to parse size-check output.\n";
-            }
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
-          '
-          pnpm size-check || true
-          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ SDK bundle size limit budget exceeded!"
-            exit $SIZE_CHECK_EXIT_CODE
-          fi
+          exit "${SIZE_CHECK_EXIT_CODE:-0}"
         continue-on-error: false
 
       - name: Generate docs
@@ -350,7 +361,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.15.9
 
@@ -413,7 +424,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.15.9
 
@@ -473,7 +484,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.15.9
 
@@ -525,14 +536,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
-          version: 8
+          version: 9.15.9
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Client - install, lint, test, build
         working-directory: ./client
@@ -617,6 +628,35 @@ jobs:
         if: always()
         run: docker compose down -v
 
+  # Postgres hot-path audit - flags sequential scans on the indexer query hotspots
+  postgres-hotpath-audit:
+    name: Postgres Hot-Path Audit
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.database == 'true' || needs.changes.outputs.indexer == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Start Postgres with pg_stat_statements enabled
+        run: docker compose up -d postgres
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run hot-path sequential scan guard
+        run: pnpm --dir indexer run check:hotpath-seqscan
+        env:
+          DATABASE_URL: postgresql://tikka:tikka-pass@127.0.0.1:5432/tikka
+
+      - name: Tear down Postgres
+        if: always()
+        run: docker compose down -v
+
   # Observability assets - dashboard queries must resolve to metrics the code emits
   observability:
     name: Observability - Validate Dashboard Metrics
@@ -627,7 +667,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Validate dashboard and alert queries against METRICS_MAP.md
         run: node scripts/check-dashboard-metrics.js
@@ -643,7 +683,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run TruffleHog secret scan
-        uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11 # main
+        uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85 # main
         with:
           path: ./
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -696,7 +736,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.15.9
 
@@ -802,7 +842,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 9.15.9
 
@@ -822,6 +862,42 @@ jobs:
       - name: Validate last commit on push
         if: github.event_name == 'push'
         run: pnpm exec commitlint --from HEAD~1 --to HEAD
+
+  # Documentation policy enforcement - rejects non-README markdown in src/ directories
+  docs-policy:
+    name: Documentation Policy Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check for non-README markdown files in src/ directories
+        run: |
+          echo "Checking for non-README markdown files in src/ directories..."
+          
+          # Find all markdown files in src/ directories, excluding node_modules
+          FOUND_FILES=$(find . -path '*/src/*.md' \
+            -not -path '*/node_modules/*' \
+            -not -name 'README.md' \
+            -type f || true)
+          
+          if [ -n "$FOUND_FILES" ]; then
+            echo "❌ Error: Found non-README markdown files in src/ directories:"
+            echo ""
+            echo "$FOUND_FILES"
+            echo ""
+            echo "Source directories (*/src/) should only contain code and README.md files."
+            echo "Please move documentation to the appropriate location:"
+            echo "  - Package guides: <package>/docs/ (e.g., oracle/docs/, indexer/docs/)"
+            echo "  - Cross-package docs: docs/ at repository root"
+            echo "  - Historical notes: docs/archive/ with date prefix"
+            echo ""
+            echo "See CONTRIBUTING.md § Documentation policy for details."
+            exit 1
+          fi
+          
+          echo "✅ No non-README markdown files found in src/ directories"
+
   # Format checking - ensures codebase adheres to Prettier config
   format:
     name: Prettier Format Check
@@ -831,14 +907,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 8
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -879,6 +955,58 @@ jobs:
             echo "✅ No changes to sdk/src/. Changeset check skipped."
           fi
 
+  # Schema drift check - verifies db/baseline-schema.sql matches the output of
+  # running all committed migrations (backend, oracle, indexer) against a fresh
+  # PostgreSQL instance.  Runs on every PR that touches any migration path or
+  # the baseline file itself.  Fails if the baseline is stale.
+  schema-drift:
+    name: Schema Drift Check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.migrations == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install indexer dependencies (needed for migration:run)
+        run: pnpm install --frozen-lockfile
+        working-directory: ./indexer
+
+      - name: Run drift-check unit tests (no Docker required)
+        run: pnpm test:scripts
+
+      - name: Run schema drift check
+        run: pnpm db:check-drift
+        # Docker is available on ubuntu-latest; the script spins up its own
+        # postgres:16-alpine container automatically when DATABASE_URL is unset.
+
+      - name: Fail with remediation hint on drift
+        if: failure()
+        run: |
+          echo ""
+          echo "❌ db/baseline-schema.sql is out of date."
+          echo ""
+          echo "   Fix: run the following locally against a fresh database with all"
+          echo "   migrations applied, then commit the updated baseline:"
+          echo ""
+          echo "     pnpm db:check-drift -- --update-baseline"
+          echo ""
+          echo "   Include the updated db/baseline-schema.sql in this PR."
+
   # Summary job - fails if any package fails
   ci-summary:
     name: CI Summary
@@ -886,15 +1014,18 @@ jobs:
     needs:
       [
         commitlint,
+        docs-policy,
         turbo,
         sdk,
         backend,
         indexer,
         oracle,
+        compose-smoke,
         observability,
         security-scan,
         lighthouse,
         coverage-summary,
+        schema-drift,
       ]
     if: always()
     steps:
@@ -975,7 +1106,9 @@ jobs:
             return 0
           }
 
-          if ! check_status "${{ needs.turbo.result }}" || \
+          if ! check_status "${{ needs.commitlint.result }}" || \
+             ! check_status "${{ needs.docs-policy.result }}" || \
+             ! check_status "${{ needs.turbo.result }}" || \
              ! check_status "${{ needs.sdk.result }}" || \
              ! check_status "${{ needs.backend.result }}" || \
              ! check_status "${{ needs.indexer.result }}" || \
@@ -984,7 +1117,8 @@ jobs:
              ! check_status "${{ needs.observability.result }}" || \
              ! check_status "${{ needs.security-scan.result }}" || \
              ! check_status "${{ needs.lighthouse.result }}" || \
-             ! check_status "${{ needs.coverage-summary.result }}"; then
+             ! check_status "${{ needs.coverage-summary.result }}" || \
+             ! check_status "${{ needs.schema-drift.result }}"; then
             echo "❌ One or more packages failed CI checks"
             exit 1
           fi

@@ -1,15 +1,22 @@
-import type {} from "../../../types/file-type";
+import type {} from '../../../types/file-type';
 import {
   BadRequestException,
   Controller,
   PayloadTooLargeException,
   Post,
   Req,
-} from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse } from "@nestjs/swagger";
-import { FastifyRequest } from "fastify";
-import { MultipartFile } from "@fastify/multipart";
-import { CurrentUser } from "../../../auth/decorators/current-user.decorator";
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiConsumes,
+  ApiBody,
+  ApiBearerAuth,
+  ApiResponse,
+} from '@nestjs/swagger';
+import { FastifyRequest } from 'fastify';
+import { MultipartFile } from '@fastify/multipart';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
   AllowedUploadMimeType,
@@ -17,18 +24,18 @@ import {
   MAX_UPLOAD_IMAGE_PIXELS,
   MAX_UPLOAD_IMAGE_WIDTH,
   MAX_UPLOAD_BYTES,
-} from "../../../config/upload.config";
-import { StorageService } from "../../../services/storage.service";
-import { ImageOptimizerService } from "../../../services/image-optimizer.service";
-import * as fileType from "file-type";
-import sharp, { type Metadata } from "sharp";
+} from '../../../config/upload.config';
+import { StorageService } from '../../../services/storage/storage.service';
+import { ImageOptimizerService } from '../../../services/metadata/image-optimizer.service';
+import * as fileType from 'file-type';
+import sharp, { type Metadata } from 'sharp';
 
 interface FastifyRequestWithMultipart extends FastifyRequest {
   file: () => Promise<MultipartFile | undefined>;
 }
 
-@ApiTags("Raffles")
-@Controller("raffles")
+@ApiTags('Raffles')
+@Controller('raffles')
 export class RaffleImagesController {
   constructor(
     private readonly storageService: StorageService,
@@ -42,31 +49,31 @@ export class RaffleImagesController {
    * Requires JWT (SIWS).
    */
   @ApiBearerAuth()
-  @Post("upload-image")
-  @ApiOperation({ summary: "Upload raffle image to storage" })
-  @ApiConsumes("multipart/form-data")
-  @ApiResponse({ status: 201, description: "Image uploaded successfully" })
-  @ApiResponse({ status: 400, description: "Bad Request" })
-  @ApiResponse({ status: 413, description: "Payload Too Large" })
+  @Post('upload-image')
+  @ApiOperation({ summary: 'Upload raffle image to storage' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Image uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 413, description: 'Payload Too Large' })
   @ApiBody({
     schema: {
-      type: "object",
+      type: 'object',
       properties: {
         file: {
-          type: "string",
-          format: "binary",
+          type: 'string',
+          format: 'binary',
         },
         raffleId: {
-          type: "string",
+          type: 'string',
           description: "Optional raffle ID (defaults to 'draft')",
         },
       },
-      required: ["file"],
+      required: ['file'],
     },
   })
   async uploadImage(
     @Req() request: FastifyRequestWithMultipart,
-    @CurrentUser("address") address: string,
+    @CurrentUser('address') address: string,
   ): Promise<{ url: string; variantUrls: string[] }> {
     let file: MultipartFile | undefined;
     try {
@@ -79,7 +86,7 @@ export class RaffleImagesController {
     }
 
     if (!file) {
-      throw new BadRequestException("Image file is required");
+      throw new BadRequestException('Image file is required');
     }
 
     let buffer: Buffer;
@@ -97,7 +104,7 @@ export class RaffleImagesController {
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {
       throw new BadRequestException(
-        `Unsupported file type "${detectedFileType?.mime ?? file.mimetype}". Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(", ")}`,
+        `Unsupported file type "${detectedFileType?.mime ?? file.mimetype}". Allowed: ${ALLOWED_UPLOAD_MIME_TYPES.join(', ')}`,
       );
     }
 
@@ -128,7 +135,7 @@ export class RaffleImagesController {
         limitInputPixels: MAX_UPLOAD_IMAGE_PIXELS + 1,
       }).metadata();
     } catch {
-      throw new BadRequestException("Invalid or unreadable image file");
+      throw new BadRequestException('Invalid or unreadable image file');
     }
 
     const width = metadata.width ?? 0;
@@ -136,7 +143,7 @@ export class RaffleImagesController {
     const pixels = width * height;
 
     if (width <= 0 || height <= 0) {
-      throw new BadRequestException("Image dimensions could not be determined");
+      throw new BadRequestException('Image dimensions could not be determined');
     }
 
     if (
@@ -154,7 +161,7 @@ export class RaffleImagesController {
     if (!(error instanceof Error)) return false;
     const maybeMultipartError = error as Error & { code?: string; statusCode?: number };
     return (
-      maybeMultipartError.code === "FST_REQ_FILE_TOO_LARGE" ||
+      maybeMultipartError.code === 'FST_REQ_FILE_TOO_LARGE' ||
       maybeMultipartError.statusCode === 413 ||
       /file too large/i.test(maybeMultipartError.message)
     );
@@ -169,12 +176,10 @@ export class RaffleImagesController {
   private extractRaffleId(file: MultipartFile): string {
     const rawRaffleId = file.fields?.raffleId;
     const raffleId =
-      rawRaffleId &&
-      "value" in rawRaffleId &&
-      typeof rawRaffleId.value === "string"
+      rawRaffleId && 'value' in rawRaffleId && typeof rawRaffleId.value === 'string'
         ? rawRaffleId.value.trim()
-        : "";
+        : '';
 
-    return raffleId.length > 0 ? raffleId : "draft";
+    return raffleId.length > 0 ? raffleId : 'draft';
   }
 }

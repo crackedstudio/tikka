@@ -1,3 +1,8 @@
+> **⚠ ARCHIVED** — This document is historical and no longer maintained.
+> For current documentation see the [docs/ index](../README.md) or the superseded-by link in [archive/README.md](./README.md).
+
+---
+
 # Open Source Contribution Issues
 
 This document contains well-scoped issues for contributors to work on. Each issue is designed to be completable within a single Wave cycle and includes clear context, implementation guidelines, and expectations.
