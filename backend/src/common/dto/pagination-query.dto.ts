@@ -12,13 +12,13 @@ export const MAX_PAGE_LIMIT = 100;
  */
 export const PaginationQuerySchema = z.object({
   limit: z.coerce
-    .number({ invalid_type_error: 'limit must be a number' })
+    .number({ error: 'limit must be a number' })
     .int('limit must be an integer')
     .min(1, 'limit must be at least 1')
     .max(MAX_PAGE_LIMIT, `limit must not exceed ${MAX_PAGE_LIMIT}`)
     .default(DEFAULT_PAGE_LIMIT),
   offset: z.coerce
-    .number({ invalid_type_error: 'offset must be a number' })
+    .number({ error: 'offset must be a number' })
     .int('offset must be an integer')
     .min(0, 'offset must be at least 0')
     .default(0),

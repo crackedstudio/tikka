@@ -1,0 +1,40 @@
+# Configuration for .github/workflows/labeler.yml (actions/labeler)
+# Maps repository file paths to area labels.
+
+'area:client':
+  - changed-files:
+      - any-glob-to-any-file: 'client/**'
+
+'area:sdk':
+  - changed-files:
+      - any-glob-to-any-file: 'sdk/**'
+
+'area:backend':
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**'
+
+'area:indexer':
+  - changed-files:
+      - any-glob-to-any-file: 'indexer/**'
+
+'area:oracle':
+  - changed-files:
+      - any-glob-to-any-file: 'oracle/**'
+
+'area:repo':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'docs/**'
+          - 'scripts/**'
+          - 'docker-compose*.yml'
+          - 'Dockerfile*'
+          - 'package.json'
+          - 'pnpm-workspace.yaml'
+          - 'pnpm-lock.yaml'
+          - 'turbo.json'
+          - 'tsconfig*.json'
+          - '.nvmrc'
+          - '.editorconfig'
+          - '.gitignore'
+          - '*.md'
