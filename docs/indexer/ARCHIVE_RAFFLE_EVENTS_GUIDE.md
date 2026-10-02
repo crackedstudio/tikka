@@ -10,6 +10,8 @@ The raffle events archiving utility provides a robust, resumable mechanism for a
 ✅ **Dry-Run Mode** - Simulate archiving without modifying the database  
 ✅ **Batch Limits** - Cap processing to prevent resource exhaustion  
 ✅ **Transactional Safety** - Atomic checkpoint updates with deletions  
+✅ **Checksum Sidecars** - SHA-256 per CSV (`.sha256`), verified before any restore  
+✅ **Verified Restore** - `restore:raffle-events` re-imports archives idempotently and refuses tampered files  
 ✅ **Structured Logging** - JSON-formatted progress tracking  
 ✅ **CSV Export** - Human-readable archive format with proper escaping
 
@@ -157,15 +159,22 @@ Archives are written to `./archives/` directory with the following naming:
 
 ```
 raffle_events_2026-05-30_batch0001.csv
+raffle_events_2026-05-30_batch0001.csv.sha256
 raffle_events_2026-05-30_batch0002.csv
+raffle_events_2026-05-30_batch0002.csv.sha256
 raffle_events_2026-05-30_batch0003.csv
+raffle_events_2026-05-30_batch0003.csv.sha256
 ```
+
+Every CSV is paired with a `.sha256` sidecar holding the digest of the file's
+bytes in `sha256sum` format (`<digest>  <basename>`). Restore verifies the
+sidecar before importing; a missing or mismatched sidecar aborts the run.
 
 ### CSV Schema
 
 ```csv
-id,raffle_id,event_type,schema_version,ledger,tx_hash,payload_json,indexed_at
-a1b2c3d4-...,123,RaffleCreated,1,1000000,abc123...,"{"price":10,"max_tickets":100}",2026-01-15T10:30:00.000Z
+id,raffle_id,event_type,schema_version,ledger,tx_hash,payload_json,indexed_at,contract_address
+a1b2c3d4-...,123,RaffleCreated,1,1000000,abc123...,"{"price":10,"max_tickets":100}",2026-01-15T10:30:00.000Z,CABC...
 ```
 
 **Fields:**
@@ -177,6 +186,11 @@ a1b2c3d4-...,123,RaffleCreated,1,1000000,abc123...,"{"price":10,"max_tickets":10
 - `tx_hash` - Transaction hash (idempotency key)
 - `payload_json` - Full event payload (JSON-escaped)
 - `indexed_at` - Timestamp when event was indexed
+- `contract_address` - Contract the event came from (empty when unknown)
+
+Archives written before `contract_address` was recorded have an eight-column
+header without it. Restore accepts both; an eight-column file is imported with
+`contract_address = NULL`.
 
 ### CSV Features
 
@@ -184,6 +198,7 @@ a1b2c3d4-...,123,RaffleCreated,1,1000000,abc123...,"{"price":10,"max_tickets":10
 - **JSON Flattening**: Newlines in JSON removed for single-line records
 - **Header Row**: First row contains column names
 - **UTF-8 Encoding**: Full Unicode support
+- **Checksum Sidecar**: `<file>.csv.sha256` written atomically alongside the CSV
 
 ## Monitoring & Observability
 
@@ -265,9 +280,10 @@ LIMIT 1;
 
 1. **Verify Record Counts**: Compare `totalArchived` with expected count
 2. **Validate CSV Files**: Spot-check CSV content for correctness
-3. **Check Checkpoint Status**: Confirm checkpoint marked as `completed`
-4. **Test Data Restoration**: Verify CSV can be imported if needed
-5. **Backup Archives**: Copy CSV files to long-term storage (S3, etc.)
+3. **Verify Checksums**: Confirm each CSV has a matching `.sha256` sidecar
+4. **Check Checkpoint Status**: Confirm checkpoint marked as `completed`
+5. **Test Data Restoration**: Run `ARCHIVE_FILES=<one-batch> DRY_RUN=false npm run restore:raffle-events` against a scratch database
+6. **Backup Archives**: Copy CSV files **and their `.sha256` sidecars** to long-term storage (S3, etc.)
 
 ### Troubleshooting
 
@@ -389,8 +405,43 @@ cat archives/*.csv | grep -v "^id," | cut -d',' -f1 | sort | uniq -d
 ### Data Integrity
 
 - **No Data Loss**: Records only deleted after successful CSV write
+- **Checksummed**: Every CSV has a `.sha256` sidecar taken over the exact bytes written; restore refuses a file whose digest does not match
 - **Idempotent**: Re-running archiving is safe (skips already processed)
 - **Verifiable**: CSV files can be validated against database before deletion
+
+## Restoring Archived Events
+
+Restores are handled by `npm run restore:raffle-events` (implemented in
+`src/maintenance/restore-raffle-events.ts`).
+
+```bash
+# Preview only (default — nothing is written)
+npm run restore:raffle-events
+
+# Import every archive in ARCHIVE_DIR (default ./archives; checksums verified first)
+DRY_RUN=false npm run restore:raffle-events
+
+# Import a single batch
+ARCHIVE_FILES=archives/raffle_events_2026-05-30_batch0001.csv \
+  DRY_RUN=false npm run restore:raffle-events
+
+# Import from a directory other than ./archives
+ARCHIVE_DIR=/mnt/backups/raffle-events DRY_RUN=false npm run restore:raffle-events
+```
+
+Behaviour:
+
+- **Verifies before importing** — each file's `<file>.sha256` sidecar is read and
+  the digest compared. Missing or mismatched sidecars raise `ArchiveIntegrityError`
+  and the run aborts without inserting.
+- **Strict parsing** — malformed quoting, wrong column counts, or unparseable
+  timestamps are rejected with the offending line number.
+- **Idempotent** — rows are inserted with `ON CONFLICT (tx_hash) DO NOTHING` and
+  reported as inserted vs. skipped, so a re-run never duplicates.
+- **Legacy compatible** — eight-column archives (pre-`contract_address`) import
+  with `contract_address = NULL`.
+
+Full operator procedure: [`docs/runbooks/restore-raffle-events.md`](../../../docs/runbooks/restore-raffle-events.md).
 
 ## Integration with Backup Systems
 
@@ -406,14 +457,14 @@ DRY_RUN=false \
 RAFFLE_EVENTS_RETENTION_DAYS=90 \
 npm run archive:raffle-events
 
-# Upload to S3
+# Upload to S3 (include the .sha256 sidecars — a restore needs them)
 aws s3 sync ./archives/ s3://my-bucket/raffle-events-archives/ \
   --storage-class GLACIER \
   --exclude "*" \
-  --include "*.csv"
+  --include "*.csv*"
 
 # Cleanup local files after successful upload
-rm -f ./archives/*.csv
+rm -f ./archives/*.csv ./archives/*.csv.sha256
 ```
 
 ### Automated Scheduling
@@ -468,20 +519,26 @@ A: The second run will wait for the first to complete (row-level lock on checkpo
 A: Yes, but it will create a new checkpoint and start fresh.
 
 **Q: How do I restore archived data?**  
-A: Follow the step-by-step restore in [`docs/database/raffle-events-retention.md`](../../../docs/database/raffle-events-retention.md) (locate CSVs → staging `\copy` → `INSERT … ON CONFLICT (tx_hash) DO NOTHING`).
+A: `DRY_RUN=false npm run restore:raffle-events` — the CLI verifies each `.sha256` sidecar, parses strictly, and inserts with `ON CONFLICT (tx_hash) DO NOTHING`. Full procedure in [`docs/runbooks/restore-raffle-events.md`](../../../docs/runbooks/restore-raffle-events.md).
+
+**Q: A restore reported a checksum mismatch. Can I just re-generate the sidecar?**  
+A: No. The sidecar is how we know the bytes are the ones we archived. Re-download the CSV **and** its sidecar from durable storage (or restore both from backup) and investigate why the file changed before re-running.
 
 **Q: What if I need to archive other tables?**  
 A: The checkpoint system supports multiple job types. Extend the archiver for new tables.
 
 **Q: Can I archive to S3 directly instead of local CSV?**  
-A: Not currently, but you can pipe CSV output to S3 upload in a wrapper script.
+A: Not currently, but you can pipe CSV output to S3 upload in a wrapper script — remember to include the `.sha256` sidecars.
 
 ## References
 
 - [Production Runbook](../../../docs/runbooks/archive-raffle-events.md)
+- [Restore Runbook](../../../docs/runbooks/restore-raffle-events.md)
+- [Retention Policy & Restore Notes](../../../docs/database/raffle-events-retention.md)
 - [Archive Checkpoint Entity](../database/entities/archive-checkpoint.entity.ts)
 - [Raffle Event Entity](../database/entities/raffle-event.entity.ts)
 - [CLI Entry Point](./archive-raffle-events.ts)
+- [Restore CLI Entry Point](./restore-raffle-events.ts)
 - [Archiver Modules](./archive)
 - [Entry-Point Contract Test](./archive-raffle-events.spec.ts)
 

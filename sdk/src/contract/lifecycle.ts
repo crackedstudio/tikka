@@ -22,9 +22,11 @@ import {
   Address,
   nativeToScVal,
   rpc,
+  Transaction,
   xdr,
   scValToNative,
   Memo,
+  TransactionSource,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -43,6 +45,42 @@ import { SequenceManager } from './sequence.manager';
 import { classifyError, retryOnTxBadSeq } from './sequence.errors';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+/**
+ * Transaction lifecycle stages that can be observed by consumers.
+ * Each stage represents a distinct phase in the transaction flow.
+ */
+export enum TransactionStage {
+  /** Building and simulating the transaction */
+  SIMULATING = 'simulating',
+  /** Waiting for user signature from the wallet */
+  AWAITING_SIGNATURE = 'awaiting_signature',
+  /** Submitting the signed transaction to the network */
+  SUBMITTING = 'submitting',
+  /** Polling for transaction confirmation */
+  CONFIRMING = 'confirming',
+  /** Transaction completed successfully */
+  COMPLETED = 'completed',
+  /** Transaction failed at any stage */
+  FAILED = 'failed',
+}
+
+/**
+ * Event emitted when the transaction lifecycle transitions to a new stage.
+ * Includes timing information for latency metrics.
+ */
+export interface StageChangeEvent {
+  /** The current stage */
+  stage: TransactionStage;
+  /** Timestamp when this stage started (milliseconds since epoch) */
+  timestamp: number;
+  /** Time elapsed since the previous stage in milliseconds (0 for first stage) */
+  elapsedMs: number;
+  /** Optional transaction hash (available after submission) */
+  txHash?: string;
+  /** Optional error details (only present for FAILED stage) */
+  error?: Error;
+}
 
 /**
  * Transaction memo — attach tracking data or external references.
@@ -112,9 +150,25 @@ export interface InvokeLifecycleOptions {
   poll?: PollConfig;
   /** Optional memo attached to the transaction envelope. */
   memo?: TxMemo;
+  /**
+   * Optional callback invoked on each stage transition.
+   * Provides real-time observability of transaction progress with timing metrics.
+   * Zero-cost when omitted — no overhead is added to the lifecycle.
+   */
+  onStageChange?: (event: StageChangeEvent) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Narrows a caught `unknown` to a usable message, including `{ message }` throws. */
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message || String(error);
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const { message } = error as { message?: unknown };
+    if (typeof message === 'string' && message) return message;
+  }
+  return String(error);
+}
 
 /** Detects Soroban contract errors in error messages / XDR. */
 function isExternalContractFailure(msg: string): boolean {
@@ -237,6 +291,31 @@ export class TransactionLifecycle {
     this.contractId = id;
   }
 
+  /**
+   * Emits a stage change event if onStageChange callback is provided.
+   * Tracks timing between stages for latency metrics.
+   */
+  private emitStageChange(
+    stage: TransactionStage,
+    onStageChange?: (event: StageChangeEvent) => void,
+    txHash?: string,
+    error?: Error,
+  ): void {
+    if (!onStageChange) return; // Zero-cost when callback not provided
+
+    const now = Date.now();
+    const elapsedMs = this.lastStageTimestamp === 0 ? 0 : now - this.lastStageTimestamp;
+    this.lastStageTimestamp = now;
+
+    onStageChange({
+      stage,
+      timestamp: now,
+      elapsedMs,
+      txHash,
+      error,
+    });
+  }
+
   // ── Phase 1: Simulate ──────────────────────────────────────────────────────
 
   /**
@@ -261,8 +340,8 @@ export class TransactionLifecycle {
       const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Simulation failed for "${method}": ${errMsg}`;
       throw (
-        toTypedContractError(message, errMsg) ??
-        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, errMsg)
+        toTypedContractError(message, simResponse.error) ??
+        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, simResponse.error)
       );
     }
 
@@ -407,12 +486,12 @@ export class TransactionLifecycle {
         const resultXdr = (resp as Record<string, unknown>).resultXdr ?? '';
         const message = `Transaction ${txHash} failed on-chain (attempt ${attempts})`;
 
-        if (isExternalContractFailure(String(resultXdr))) {
+        if (isExternalContractFailure(rawResultXdr)) {
           throw new TikkaSdkError(TikkaSdkErrorCode.ExternalContractError, message, resultXdr);
         }
 
         throw (
-          toTypedContractError(message, resultXdr) ??
+          toTypedContractError(message, rawResultXdr) ??
           new TikkaSdkError(TikkaSdkErrorCode.ContractError, message, resultXdr)
         );
       }
@@ -541,7 +620,7 @@ export class TransactionLifecycle {
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
-    return nativeToScVal(val);
+    return nativeToScVal(val as Parameters<typeof nativeToScVal>[0]);
   }
 
   private sleep(ms: number): Promise<void> {

@@ -1,6 +1,9 @@
 {
   "name": "@tikka/types",
   "version": "1.0.0",
+  "files": [
+    "dist"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "typesVersions": {
@@ -41,6 +44,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "dev": "tsc --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

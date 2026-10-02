@@ -34,7 +34,7 @@ export function createZodPipe<Output, Input = Output>(schema: ZodType<Output, In
           errors: result.error.issues,
         });
       }
-      return result.data;
+      return result.data as Output;
     }
   };
 }
@@ -51,3 +51,4 @@ export function formatZodError(error: ZodError): string {
     })
     .join('; ');
 }
+

@@ -47,6 +47,16 @@
       "require": "./dist/light/index.light.js",
       "types": "./dist/light/index.light.d.ts"
     },
+    "./read": {
+      "import": {
+        "types": "./dist/read/index.read.d.ts",
+        "default": "./dist/read/index.read.js"
+      },
+      "require": {
+        "types": "./dist/read-cjs/index.read.d.ts",
+        "default": "./dist/read-cjs/index.read.js"
+      }
+    },
     "./network": {
       "import": "./dist/network/circuit-breaker.js",
       "require": "./dist/network/circuit-breaker.js",
@@ -62,6 +72,7 @@
     "tikka": "./bin/tikka.cjs"
   },
   "scripts": {
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "cli": "node bin/tikka.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "nest build",
@@ -90,7 +101,9 @@
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "size-check": "size-limit",
-    "analyze:light": "node scripts/bundle-analysis/analyze.mjs"
+    "analyze:light": "node scripts/bundle-analysis/analyze.mjs",
+    "bundle:report": "node scripts/bundle-analysis/report-size-budgets.mjs",
+    "bundle:assert-light": "node scripts/bundle-analysis/assert-no-nest.mjs"
   },
   "size-limit": [
     {
@@ -125,6 +138,18 @@
         "stream",
         "node:*"
       ]
+    },
+    {
+      "name": "@tikka/sdk/light",
+      "path": "dist/light/index.light.js",
+      "limit": "120000",
+      "gzip": true
+    },
+    {
+      "name": "@tikka/sdk/network",
+      "path": "dist/esm/network/circuit-breaker.js",
+      "limit": "2000",
+      "gzip": true
     }
   ],
   "peerDependencies": {
@@ -180,6 +205,7 @@
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "@microsoft/api-extractor": "7.59.0",
+    "@tikka/fee-accuracy": "workspace:*",
     "typedoc": "^0.28.18",
     "typedoc-plugin-markdown": "4.12",
     "typescript": "^5.6.0"

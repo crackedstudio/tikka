@@ -4,19 +4,19 @@
 
 This project uses [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci) to enforce performance budgets and track Core Web Vitals across pull requests.
 
-Two separate profiles are run — **desktop** and **mobile** — each auditing the five primary routes of the app. Per-route assertion budgets are applied so data-heavy pages (like the raffle detail) are held to realistic thresholds rather than the landing page's tighter numbers.
+Two separate profiles are run — desktop and mobile — each auditing the key app routes. Per-route assertion budgets are applied so data-heavy pages, such as the raffle detail view, are held to realistic thresholds rather than the landing page's tighter numbers.
 
 ## Audited Routes
 
-| Route | Purpose |
-|-------|---------|
-| `/` | Landing page |
-| `/home` | Raffle list (data-heavy) |
-| `/raffles/101` | Raffle detail (heaviest page) |
-| `/leaderboard` | Leaderboard |
-| `/create` | Create raffle form |
+| Route           | Purpose                                         |
+| --------------- | ----------------------------------------------- |
+| `/`             | Landing page                                    |
+| `/home`         | Raffle list                                     |
+| `/raffles/9001` | Seeded raffle detail (deterministic demo route) |
+| `/leaderboard`  | Leaderboard                                     |
+| `/create`       | Create raffle form                              |
 
-The detail page uses the deterministic seed raffle (ID 101 — "Tesla Model 3 Performance") from `src/data/demoRaffles.ts`. The seed script (`scripts/seed-preview-raffle.js`) writes a `.env.lhci` file that forces `VITE_USE_DEMO_DATA=true` so the preview build renders the page without a live backend.
+The seeded demo route is backed by the shared fixture catalog used by the indexer and Playwright test suite, so the app renders the same raffle, ticket counts, and participant data across CI runs. The preview seed can force `VITE_DEMO_MODE=true` before build/start so the detail view does not rely on a live backend.
 
 ## Performance Budgets
 
@@ -24,28 +24,28 @@ The detail page uses the deterministic seed raffle (ID 101 — "Tesla Model 3 Pe
 
 Throttling: 40 ms RTT · 10 Mbps · CPU ×1
 
-| Route | LCP (error) | CLS (error) | FCP (warn) | Perf score (error) |
-|-------|-------------|-------------|------------|-------------------|
-| `/` | 2 200 ms | 0.10 | 1 800 ms | ≥ 0.92 |
-| `/home` | 2 800 ms | 0.10 | 2 000 ms | ≥ 0.88 |
-| `/raffles/101` | 3 200 ms | 0.12 | 2 200 ms | ≥ 0.85 |
-| `/leaderboard` | 2 800 ms | 0.10 | 2 000 ms | ≥ 0.88 |
-| `/create` | 2 800 ms | 0.10 | 2 000 ms | ≥ 0.88 |
+| Route           | LCP (error) | CLS (error) | FCP (warn) | Perf score (error) |
+| --------------- | ----------- | ----------- | ---------- | ------------------ |
+| `/`             | 2 200 ms    | 0.10        | 1 800 ms   | ≥ 0.92             |
+| `/home`         | 2 800 ms    | 0.10        | 2 000 ms   | ≥ 0.88             |
+| `/raffles/9001` | 3 200 ms    | 0.12        | 2 200 ms   | ≥ 0.85             |
+| `/leaderboard`  | 2 800 ms    | 0.10        | 2 000 ms   | ≥ 0.88             |
+| `/create`       | 2 800 ms    | 0.10        | 2 000 ms   | ≥ 0.88             |
 
 ### Mobile (lighthouserc.mobile.json)
 
-Throttling: 150 ms RTT · 1.6 Mbps · CPU ×4 (Moto G Power equivalent)  
+Throttling: 150 ms RTT · 1.6 Mbps · CPU ×4 (Moto G Power equivalent)
 Screen: 412 × 915 px · 2.625 DPR
 
-| Route | LCP (error) | CLS (error) | FCP (warn) | Perf score (error) |
-|-------|-------------|-------------|------------|-------------------|
-| `/` | 4 000 ms | 0.10 | 2 500 ms | ≥ 0.75 |
-| `/home` | 5 000 ms | 0.12 | 3 000 ms | ≥ 0.70 |
-| `/raffles/101` | 6 000 ms | 0.15 | 3 500 ms | ≥ 0.65 |
-| `/leaderboard` | 5 000 ms | 0.12 | 3 000 ms | ≥ 0.70 |
-| `/create` | 5 000 ms | 0.12 | 3 000 ms | ≥ 0.70 |
+| Route           | LCP (error) | CLS (error) | FCP (warn) | Perf score (error) |
+| --------------- | ----------- | ----------- | ---------- | ------------------ |
+| `/`             | 4 000 ms    | 0.10        | 2 500 ms   | ≥ 0.75             |
+| `/home`         | 5 000 ms    | 0.12        | 3 000 ms   | ≥ 0.70             |
+| `/raffles/9001` | 6 000 ms    | 0.15        | 3 500 ms   | ≥ 0.65             |
+| `/leaderboard`  | 5 000 ms    | 0.12        | 3 000 ms   | ≥ 0.70             |
+| `/create`       | 5 000 ms    | 0.12        | 3 000 ms   | ≥ 0.70             |
 
-> Accessibility, Best Practices, and SEO category scores are set to `warn ≥ 0.9` for all routes on both profiles.
+> Accessibility, Best Practices, and SEO category scores are set to warn ≥ 0.9 for both profiles.
 
 ## Scripts
 
@@ -60,7 +60,7 @@ pnpm run lighthouse
 pnpm run lighthouse:desktop
 pnpm run lighthouse:mobile
 
-# Preview server using the LHCI seed env (no backend required)
+# Preview server using the LHCI seed mode (no backend required)
 pnpm run preview:lhci
 ```
 
@@ -68,56 +68,52 @@ pnpm run preview:lhci
 
 The Lighthouse CI job runs on every pull request and push to master:
 
-1. Runs `scripts/seed-preview-raffle.js` to write `.env.lhci`
-2. Builds the client (`tsc -b && vite build`)
-3. Runs the **desktop** audit — starts `vite preview --mode lhci`, audits five routes × 3 runs, asserts per-route budgets, uploads reports
-4. Runs the **mobile** audit — same flow with mobile throttling and screen emulation
+1. Runs `scripts/seed-preview-raffle.js` to write the preview seed env or otherwise enable the demo dataset.
+2. Builds the client (`tsc -b && vite build`).
+3. Runs the desktop audit for the configured routes, asserting the per-route budgets and uploading the report.
+4. Runs the mobile audit with realistic throttling and viewport characteristics.
 
 **Error** assertions fail the build. **Warning** assertions appear in the report but do not block the merge.
 
-### When CI Fails
-
-1. Open the Lighthouse report linked in the PR comment
-2. Identify which route/profile/metric is failing
-3. Optimize (see "Performance Optimization Tips" below)
-4. Verify locally with `pnpm run lighthouse:local`
-
 ## Deterministic Detail Page
 
-The raffle detail page (`/raffles/:id`) fetches live data in production. For CI, we seed it with a static fixture so the audit is stable across runs:
+The raffle detail page (`/raffles/:id`) fetches live data in production. For CI and deterministic client/demo testing, we seed the detail view with a static fixture so the audit is stable across runs:
 
-- `scripts/seed-preview-raffle.js` writes `.env.lhci` with `VITE_USE_DEMO_DATA=true`
-- Vite loads this via `--mode lhci` during the preview server start
-- `src/data/demoRaffles.ts` ID 101 ("Tesla Model 3 Performance") is used
-- `.env.lhci` is git-ignored; it is regenerated each CI run
+- The shared fixture catalog defines the seeded raffle ids (including `9001`).
+- `VITE_DEMO_MODE=true` switches the client to the shared mock/demo data path.
+- The preview/lighthouse seed script ensures the build has stable raffle, ticket, and participant responses without a live backend.
+- The route is validated in CI with the same data used by the indexer seeder and the Playwright smoke/spec fixtures.
 
-If the app adds a new demo raffle or changes ID 101, update both `demoRaffles.ts` and the URL in `lighthouserc.desktop.json` / `lighthouserc.mobile.json`.
+If the app adds a new demo raffle or changes the seed route, update the fixture definition and the route URLs in the Lighthouse configs together.
 
 ## Configuration Files
 
-| File | Purpose |
-|------|---------|
-| `lighthouserc.desktop.json` | Desktop profile — five routes, per-route assertMatrix |
-| `lighthouserc.mobile.json` | Mobile profile — same routes, realistic mobile throttling |
-| `lighthouserc.json` | Legacy stub — points to the new files; no longer used by scripts |
-| `scripts/seed-preview-raffle.js` | Writes `.env.lhci` before the build |
+| File                             | Purpose                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `lighthouserc.desktop.json`      | Desktop profile — five routes, per-route assertMatrix                              |
+| `lighthouserc.mobile.json`       | Mobile profile — same routes, realistic mobile throttling                          |
+| `lighthouserc.json`              | Legacy stub — kept for compatibility; active profiles are the desktop/mobile files |
+| `scripts/seed-preview-raffle.js` | Writes the preview seed env before the build                                       |
 
 ## Performance Optimization Tips
 
 ### Improving LCP
-- Use modern image formats (WebP / AVIF), set explicit `width`/`height`, add `fetchpriority="high"` on the hero image
-- Code-split and defer non-critical JS
-- Preload critical fonts; set `font-display: swap`
+
+- Use modern image formats (WebP / AVIF), set explicit `width`/`height`, and add `fetchpriority="high"` on the hero image.
+- Code-split and defer non-critical JS.
+- Preload critical fonts and set `font-display: swap`.
 
 ### Improving CLS
-- Always set explicit dimensions on images and embeds
-- Reserve space with aspect-ratio boxes for async content
-- Avoid injecting content above the fold after initial render
+
+- Always set explicit dimensions on images and embeds.
+- Reserve space with aspect-ratio boxes for async content.
+- Avoid injecting content above the fold after initial render.
 
 ### Improving TBT / TTI
-- Break up long tasks with code splitting and dynamic imports
-- Move heavy computation off the main thread (web workers)
-- Remove unused code; defer third-party scripts
+
+- Break up long tasks with code splitting and dynamic imports.
+- Move heavy computation off the main thread with web workers.
+- Remove unused code and defer third-party scripts.
 
 ## Resources
 

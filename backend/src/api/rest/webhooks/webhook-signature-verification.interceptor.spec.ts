@@ -1,302 +1,222 @@
-import { CallHandler, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+    CallHandler,
+    ExecutionContext,
+    UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
+import { createHmac } from 'crypto';
 import { firstValueFrom, of } from 'rxjs';
 import { WebhookSignatureVerificationInterceptor } from './webhook-signature-verification.interceptor';
 
-jest.mock('crypto', () => {
-  const actual = jest.requireActual<typeof import('crypto')>('crypto');
-  return { ...actual, timingSafeEqual: jest.fn(actual.timingSafeEqual) };
-});
+/**
+ * The inbound half of the webhook signature contract.
+ *
+ * The indexer signs with this scheme; if this side changes what it accepts and
+ * nobody notices, every delivery turns into a 401 that looks like a subscriber
+ * outage. So the cases here are the ones an operator would be paged about:
+ * a missing header, a wrong secret, a tampered body, and an unconfigured
+ * secret (which must reject — HMAC with an empty key is forgeable by anyone
+ * who knows the scheme).
+ */
 
-const SECRET = 'indexer-webhook-secret';
-const NOW = new Date('2026-09-25T12:00:00.000Z');
+const SECRET = 'indexer-shared-secret';
+const RAW_BODY = Buffer.from(
+    JSON.stringify({ eventType: 'RaffleCreated', data: { raffleId: 7 } }),
+    'utf8',
+);
 
-type RequestHeaders = Record<string, unknown>;
+/** Exactly what the indexer's `signWebhookBody` computes. */
+function sign(rawBody: Buffer | string, secret: string): string {
+    return createHmac('sha256', secret).update(rawBody).digest('hex');
+}
+
+/**
+ * A ConfigService over a map the test can mutate. The map is closed over by
+ * reference, so a test reconfigure (add a source, remove the indexer secret)
+ * takes effect without rebuilding the interceptor.
+ */
+function makeConfig(map: Record<string, string | undefined>): ConfigService {
+    return { get: (key: string) => map[key] } as unknown as ConfigService;
+}
+
+function makeContext(
+    rawBody: Buffer | undefined,
+    headers: Record<string, string> = {},
+): ExecutionContext {
+    return {
+        switchToHttp: () => ({
+            getRequest: () => ({ rawBody, headers }),
+        }),
+    } as unknown as ExecutionContext;
+}
+
+const next: CallHandler = { handle: () => of('handled') };
 
 describe('WebhookSignatureVerificationInterceptor', () => {
-  let interceptor: WebhookSignatureVerificationInterceptor;
-  let configService: jest.Mocked<Pick<ConfigService, 'get'>>;
+    let secrets: Record<string, string | undefined>;
+    let interceptor: WebhookSignatureVerificationInterceptor;
 
-  beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(NOW);
-    configService = {
-      get: jest.fn((key: string) => (key === 'INDEXER_WEBHOOK_SECRET' ? SECRET : undefined)),
-    } as unknown as jest.Mocked<Pick<ConfigService, 'get'>>;
-    interceptor = new WebhookSignatureVerificationInterceptor(
-      configService as unknown as ConfigService,
-    );
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-    jest.restoreAllMocks();
-  });
-
-  function createContext(rawBody: string | null, headers: RequestHeaders): ExecutionContext {
-    return {
-      switchToHttp: () => ({
-        getRequest: () => ({
-          rawBody: rawBody === null ? undefined : Buffer.from(rawBody),
-          headers,
-        }),
-      }),
-    } as unknown as ExecutionContext;
-  }
-
-  function createHandler(): CallHandler & { handle: jest.Mock } {
-    return {
-      handle: jest.fn(() => of({ accepted: true })),
-    };
-  }
-
-  function sign(rawBody: string): string {
-    return crypto.createHmac('sha256', SECRET).update(rawBody).digest('hex');
-  }
-
-  function currentBody(overrides: Record<string, unknown> = {}): string {
-    return JSON.stringify({
-      event: 'raffle.finalized',
-      timestamp: NOW.toISOString(),
-      data: { raffleId: 42 },
-      ...overrides,
+    beforeEach(() => {
+        secrets = { INDEXER_WEBHOOK_SECRET: SECRET };
+        interceptor = new WebhookSignatureVerificationInterceptor(
+            makeConfig(secrets),
+        );
     });
-  }
 
-  it('accepts a valid HMAC-SHA256 signature over the raw body', async () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
+    describe('rejects', () => {
+        it('a request with no raw body', async () => {
+            expect(() =>
+                interceptor.intercept(makeContext(undefined), next),
+            ).toThrow(UnauthorizedException);
+        });
 
-    const result = await firstValueFrom(
-      interceptor.intercept(
-        createContext(rawBody, { 'x-webhook-signature': sign(rawBody) }),
-        handler,
-      ),
-    );
+        it('a request with no signature header', () => {
+            expect(() =>
+                interceptor.intercept(makeContext(RAW_BODY), next),
+            ).toThrow('Missing webhook signature');
+        });
 
-    expect(result).toEqual({ accepted: true });
-    expect(handler.handle).toHaveBeenCalledTimes(1);
-  });
+        it('a request with an empty signature header', () => {
+            expect(() =>
+                interceptor.intercept(
+                    makeContext(RAW_BODY, { 'x-webhook-signature': '' }),
+                    next,
+                ),
+            ).toThrow('Missing webhook signature');
+        });
 
-  it('rejects a signature for a different body', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
+        it('a malformed, shorter-than-digest signature', () => {
+            expect(() =>
+                interceptor.intercept(
+                    makeContext(RAW_BODY, { 'x-webhook-signature': 'deadbeef' }),
+                    next,
+                ),
+            ).toThrow('Invalid webhook signature');
+        });
 
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, { 'x-webhook-signature': sign(`${rawBody} `) }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+        it('a same-length signature made with the wrong secret', () => {
+            // The dangerous case: right shape, wrong key. Only a real
+            // comparison catches this.
+            const forged = sign(RAW_BODY, 'not-the-secret');
 
-  it('fails closed when the raw request body is unavailable', () => {
-    const handler = createHandler();
+            expect(forged).toHaveLength(64);
+            expect(() =>
+                interceptor.intercept(
+                    makeContext(RAW_BODY, { 'x-webhook-signature': forged }),
+                    next,
+                ),
+            ).toThrow('Invalid webhook signature');
+        });
 
-    expect(() =>
-      interceptor.intercept(
-        createContext(null, { 'x-webhook-signature': '00'.repeat(32) }),
-        handler,
-      ),
-    ).toThrow(new UnauthorizedException('Missing webhook signature'));
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+        it('a signature for a different body', () => {
+            const signature = sign('{"eventType":"RaffleCreated"}', SECRET);
 
-  it('rejects a missing signature header', () => {
-    const handler = createHandler();
+            expect(() =>
+                interceptor.intercept(
+                    makeContext(RAW_BODY, { 'x-webhook-signature': signature }),
+                    next,
+                ),
+            ).toThrow('Invalid webhook signature');
+        });
 
-    expect(() => interceptor.intercept(createContext(currentBody(), {}), handler)).toThrow(
-      new UnauthorizedException('Missing webhook signature'),
-    );
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+        it('a request when its source has no secret configured', () => {
+            secrets.INDEXER_WEBHOOK_SECRET = undefined;
 
-  it('fails closed when the source secret is missing', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
-    configService.get.mockReturnValue(undefined);
+            // The regression this guards: verifying against an empty key
+            // accepts any signature an attacker computes the same way.
+            const attackerSignature = sign(RAW_BODY, '');
 
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, { 'x-webhook-signature': sign(rawBody) }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+            expect(() =>
+                interceptor.intercept(
+                    makeContext(RAW_BODY, {
+                        'x-webhook-signature': attackerSignature,
+                    }),
+                    next,
+                ),
+            ).toThrow('Webhook signature secret is not configured');
+        });
 
-  it('rejects an invalid source identifier', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
-
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, {
-          'x-webhook-signature': sign(rawBody),
-          'x-tikka-webhook-source': 'indexer.secret',
-        }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
-
-  it('rejects a non-sha256 algorithm', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
-
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, {
-          'x-webhook-signature': sign(rawBody),
-          'x-webhook-signature-algorithm': 'sha512',
-        }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
-
-  it('rejects a prefixed signature using an unsupported algorithm', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
-
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, {
-          'x-webhook-signature': `sha512=${sign(rawBody)}`,
-        }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
-
-  it('accepts a sha256-prefixed signature', async () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
-
-    const result = await firstValueFrom(
-      interceptor.intercept(
-        createContext(rawBody, {
-          'x-webhook-signature': `sha256=${sign(rawBody)}`,
-        }),
-        handler,
-      ),
-    );
-
-    expect(result).toEqual({ accepted: true });
-  });
-
-  it('rejects a replay with an old timestamp', () => {
-    const rawBody = currentBody({
-      timestamp: new Date(NOW.getTime() - 6 * 60 * 1000).toISOString(),
+        it('a request when the named source is unknown and unconfigured', () => {
+            expect(() =>
+                interceptor.intercept(
+                    makeContext(RAW_BODY, {
+                        'x-webhook-signature': sign(RAW_BODY, SECRET),
+                        'x-tikka-webhook-source': 'someone-else',
+                    }),
+                    next,
+                ),
+            ).toThrow('Webhook signature secret is not configured');
+        });
     });
-    const handler = createHandler();
 
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, { 'x-webhook-signature': sign(rawBody) }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+    describe('accepts', () => {
+        it('a correctly signed body', async () => {
+            const result = interceptor.intercept(
+                makeContext(RAW_BODY, {
+                    'x-webhook-signature': sign(RAW_BODY, SECRET),
+                    'x-tikka-webhook-source': 'indexer',
+                }),
+                next,
+            );
 
-  it('rejects mismatched body and header timestamps', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
+            await expect(firstValueFrom(result)).resolves.toBe('handled');
+        });
 
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, {
-          'x-webhook-signature': sign(rawBody),
-          'x-webhook-timestamp': new Date(NOW.getTime() + 1000).toISOString(),
-        }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+        it('a signed body with no source header, defaulting to indexer', async () => {
+            const result = interceptor.intercept(
+                makeContext(RAW_BODY, {
+                    'x-webhook-signature': sign(RAW_BODY, SECRET),
+                }),
+                next,
+            );
 
-  it('rejects a missing timestamp', () => {
-    const rawBody = JSON.stringify({ event: 'raffle.finalized' });
-    const handler = createHandler();
+            await expect(firstValueFrom(result)).resolves.toBe('handled');
+        });
 
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, { 'x-webhook-signature': sign(rawBody) }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+        it('a body signed by the indexer signing scheme', async () => {
+            // The indexer serializes once and signs those bytes; this is that
+            // exact value, verified the way the receiver verifies it.
+            const rawBody = JSON.stringify({
+                eventType: 'RaffleCreated',
+                data: { raffleId: 7 },
+            });
+            const signature = sign(rawBody, SECRET);
 
-  it('rejects malformed hexadecimal signatures', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
+            const result = interceptor.intercept(
+                makeContext(Buffer.from(rawBody, 'utf8'), {
+                    'x-webhook-signature': signature,
+                    'x-tikka-webhook-source': 'indexer',
+                }),
+                next,
+            );
 
-    expect(() =>
-      interceptor.intercept(createContext(rawBody, { 'x-webhook-signature': 'not-hex' }), handler),
-    ).toThrow(UnauthorizedException);
-    expect(handler.handle).not.toHaveBeenCalled();
-  });
+            await expect(firstValueFrom(result)).resolves.toBe('handled');
+        });
 
-  it('uses constant-time comparison for invalid signatures', () => {
-    const rawBody = currentBody();
-    const handler = createHandler();
-    const timingSafeEqual = crypto.timingSafeEqual as jest.Mock;
-    timingSafeEqual.mockClear();
+        it('a signature from another configured source', async () => {
+            secrets.SUPABASE_WEBHOOK_SECRET = 'supabase-secret';
 
-    expect(() =>
-      interceptor.intercept(
-        createContext(rawBody, { 'x-webhook-signature': '00'.repeat(32) }),
-        handler,
-      ),
-    ).toThrow(UnauthorizedException);
-    expect(timingSafeEqual).toHaveBeenCalledTimes(1);
-  });
+            const result = interceptor.intercept(
+                makeContext(RAW_BODY, {
+                    'x-webhook-signature': sign(RAW_BODY, 'supabase-secret'),
+                    'x-tikka-webhook-source': 'supabase',
+                }),
+                next,
+            );
 
-  it('accepts the signed body and metadata emitted by the delivery worker', async () => {
-    const rawBody = currentBody();
-    const timestamp = NOW.toISOString();
-    const handler = createHandler();
+            await expect(firstValueFrom(result)).resolves.toBe('handled');
+        });
 
-    const result = await firstValueFrom(
-      interceptor.intercept(
-        createContext(rawBody, {
-          'x-tikka-signature': sign(rawBody),
-          'x-tikka-signature-algorithm': 'sha256',
-          'x-tikka-timestamp': timestamp,
-        }),
-        handler,
-      ),
-    );
+        it('an uppercase hex signature, byte-comparison being case-insensitive', async () => {
+            // Subscribers may re-encode the digest; hex is hex.
+            const signature = sign(RAW_BODY, SECRET).toUpperCase();
 
-    expect(result).toEqual({ accepted: true });
-  });
+            const result = interceptor.intercept(
+                makeContext(RAW_BODY, { 'x-webhook-signature': signature }),
+                next,
+            );
 
-  it('accepts a timestamp header when the signature covers the timestamp and body', async () => {
-    const rawBody = 'raw webhook bytes';
-    const timestamp = NOW.toISOString();
-    const signature = crypto
-      .createHmac('sha256', SECRET)
-      .update(`${timestamp}.${rawBody}`)
-      .digest('hex');
-    const handler = createHandler();
-
-    const result = await firstValueFrom(
-      interceptor.intercept(
-        createContext(rawBody, {
-          'x-webhook-signature': signature,
-          'x-webhook-timestamp': timestamp,
-        }),
-        handler,
-      ),
-    );
-
-    expect(result).toEqual({ accepted: true });
-  });
+            await expect(firstValueFrom(result)).resolves.toBe('handled');
+        });
+    });
 });

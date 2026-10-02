@@ -80,3 +80,31 @@ export function raiseIntegrityAlert(
   };
   console.error(JSON.stringify(alert));
 }
+
+export interface RestoreProgressLog {
+  message: string;
+  rowsRead: number;
+  rowsInserted: number;
+  rowsAlreadyPresent?: number;
+  dryRun?: boolean;
+  timestamp?: Date;
+}
+
+/**
+ * Progress line for the restore path, tagged with `event: "archive_restore"` so
+ * it can be filtered independently of the archiver's batch lines.
+ */
+export function logRestoreProgress(entry: RestoreProgressLog): void {
+  const timestamp = entry.timestamp ?? new Date();
+  console.log(
+    JSON.stringify({
+      timestamp: timestamp.toISOString(),
+      event: "archive_restore",
+      message: entry.message,
+      rowsRead: entry.rowsRead,
+      rowsInserted: entry.rowsInserted,
+      rowsAlreadyPresent: entry.rowsAlreadyPresent,
+      dryRun: entry.dryRun ?? false,
+    }),
+  );
+}

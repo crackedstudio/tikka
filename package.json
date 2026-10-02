@@ -4,11 +4,13 @@
   "license": "Apache-2.0",
   "scripts": {
     "install:all": "pnpm install",
+    "dev": "turbo run dev --filter=tikka...",
     "build": "turbo run build",
     "build:client": "turbo run build --filter=tikka",
     "build:sdk": "turbo run build --filter=@tikka/sdk",
     "build:backend": "turbo run build --filter=tikka-backend",
     "build:indexer": "turbo run build --filter=tikka-indexer",
+    "seed:demo": "docker compose --profile seed run --rm demo-seed",
     "build:oracle": "turbo run build --filter=tikka-oracle",
     "lint": "turbo run lint",
     "test": "turbo run test",

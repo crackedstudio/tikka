@@ -7,6 +7,8 @@ metadata:
     app: tikka-indexer
 data:
   NODE_ENV: "production"
+  DB_SSL: "true"
+  DB_MAX_POOL: "5"
   PORT: "3002"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"

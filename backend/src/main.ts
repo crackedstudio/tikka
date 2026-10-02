@@ -13,7 +13,7 @@ import { initSentry } from './sentry/sentry';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { env } from './config/env.config';
 
-async function bootstrap() {
+export async function bootstrap(): Promise<NestFastifyApplication> {
   const logger = new Logger('Bootstrap');
   initSentry(logger);
   // Avoid generic constraints mismatch between Nest Fastify and Cors types
@@ -34,15 +34,17 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app as any, config);
+  const document = SwaggerModule.createDocument(app, config);
 
   if (!isProd || isSwaggerEnabled) {
     SwaggerModule.setup('api/docs', app as any, document);
   }
+
   await configureSecurity(app);
 
-  // Using 'as any' bypasses the type mismatch error between Fastify versions
-  await (app as any).register(multipart as any, {
+  // Register @fastify/multipart via the underlying FastifyInstance so the
+  // plugin type resolves correctly against the Fastify v5 generics.
+  await app.getHttpAdapter().getInstance().register(multipart, {
     limits: {
       fileSize: MAX_UPLOAD_BYTES,
       files: 1,
@@ -52,7 +54,6 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new SentryInterceptor(), new RequestLoggingInterceptor());
   app.useGlobalFilters(new BaseExceptionFilter());
-  app.enableShutdownHooks();
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -67,5 +68,11 @@ async function bootstrap() {
 
   await app.listen(env.server.port, '0.0.0.0');
   logger.log(`Application is running on: ${await app.getUrl()}`);
+
+  return app;
 }
-bootstrap();
+
+/* istanbul ignore next */
+if (require.main === module) {
+  bootstrap();
+}

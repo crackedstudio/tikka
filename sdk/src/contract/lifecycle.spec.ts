@@ -25,7 +25,7 @@ jest.mock('@stellar/stellar-sdk', () => {
   };
 });
 
-import { Networks, rpc, TransactionBuilder } from '@stellar/stellar-sdk';
+import { Networks, rpc, Transaction, TransactionBuilder } from '@stellar/stellar-sdk';
 import { TransactionLifecycle } from './lifecycle';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -60,11 +60,11 @@ const mockAccount = () => ({
 function makeSimSuccess(
   overrides: Partial<{
     minResourceFee: string;
-    retval: any;
+    retval: unknown;
     readOnly: number;
     readWrite: number;
   }> = {},
-) {
+): rpc.Api.SimulateTransactionSuccessResponse {
   return {
     minResourceFee: overrides.minResourceFee ?? '5000',
     result:
@@ -87,48 +87,70 @@ function makeSimSuccess(
     latestLedger: 100,
     events: [],
     id: '1',
-  };
+  } as unknown as rpc.Api.SimulateTransactionSuccessResponse;
 }
 
 /** Builds a SendTransactionResponse stub. */
-const makeSendSuccess = (hash = TX_HASH) => ({
-  status: 'PENDING',
-  hash,
-  latestLedger: 100,
-  latestLedgerCloseTime: 0,
-});
+const makeSendSuccess = (hash = TX_HASH): rpc.Api.SendTransactionResponse =>
+  ({
+    status: 'PENDING',
+    hash,
+    latestLedger: 100,
+    latestLedgerCloseTime: 0,
+  }) as unknown as rpc.Api.SendTransactionResponse;
 
-const makeSendError = () => ({
-  status: 'ERROR',
-  hash: '',
-  errorResultXdr: 'op_no_account',
-  latestLedger: 100,
-  latestLedgerCloseTime: 0,
-});
+const makeSendError = (): rpc.Api.SendTransactionResponse =>
+  ({
+    status: 'ERROR',
+    hash: '',
+    errorResultXdr: 'op_no_account',
+    latestLedger: 100,
+    latestLedgerCloseTime: 0,
+  }) as unknown as rpc.Api.SendTransactionResponse;
 
 /** Builds a successful GetTransactionResponse stub. */
-const makeGetSuccess = (ledger = 101) => ({
-  status: rpc.Api.GetTransactionStatus.SUCCESS,
-  ledger,
-  returnValue: undefined,
-  createdAt: Date.now(),
-  applicationOrder: 1,
-  txHash: TX_HASH,
-  envelopeXdr: '',
-  resultXdr: '',
-  resultMetaXdr: '',
-});
+const makeGetSuccess = (ledger = 101, txHash = TX_HASH): rpc.Api.GetSuccessfulTransactionResponse =>
+  ({
+    status: rpc.Api.GetTransactionStatus.SUCCESS,
+    ledger,
+    returnValue: undefined,
+    createdAt: Date.now(),
+    applicationOrder: 1,
+    txHash,
+    envelopeXdr: '',
+    resultXdr: '',
+    resultMetaXdr: '',
+  }) as unknown as rpc.Api.GetSuccessfulTransactionResponse;
 
-const makeGetFailed = (resultXdr = '') => ({
-  status: rpc.Api.GetTransactionStatus.FAILED,
-  ledger: 101,
-  resultXdr,
-  txHash: TX_HASH,
-});
+const makeGetFailed = (resultXdr = '', txHash = TX_HASH): rpc.Api.GetFailedTransactionResponse =>
+  ({
+    status: rpc.Api.GetTransactionStatus.FAILED,
+    ledger: 101,
+    resultXdr,
+    txHash,
+  }) as unknown as rpc.Api.GetFailedTransactionResponse;
 
-const makeGetNotFound = () => ({
-  status: rpc.Api.GetTransactionStatus.NOT_FOUND,
-});
+const makeGetNotFound = (): rpc.Api.GetMissingTransactionResponse =>
+  ({
+    status: rpc.Api.GetTransactionStatus.NOT_FOUND,
+  }) as unknown as rpc.Api.GetMissingTransactionResponse;
+
+/** Builds a SimulateTransactionErrorResponse stub. */
+const makeSimError = (error: string): rpc.Api.SimulateTransactionErrorResponse =>
+  ({
+    error,
+    _parsed: true,
+    latestLedger: 100,
+    events: [],
+    id: '1',
+  }) as unknown as rpc.Api.SimulateTransactionErrorResponse;
+
+/** Minimal Transaction stub for TransactionBuilder.fromXDR spies. */
+const makeTxStub = (): Transaction => ({ toXDR: () => '' }) as unknown as Transaction;
+
+/** Reaches the private `sleep` so the poll backoff loop can be made instant. */
+const spyOnSleep = (lc: TransactionLifecycle) =>
+  jest.spyOn(lc as unknown as { sleep: (ms: number) => Promise<void> }, 'sleep');
 
 // ─── Shared mocks ──────────────────────────────────────────────────────────────
 
@@ -181,9 +203,7 @@ afterEach(() => jest.restoreAllMocks());
 
 describe('simulate()', () => {
   it('calls simulateTransaction and returns parsed result', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(
-      makeSimSuccess({ minResourceFee: '7500' }) as any,
-    );
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess({ minResourceFee: '7500' }));
 
     const lc = buildLifecycle();
     const result = await lc.simulate(ContractFn.GET_RAFFLE_DATA, [1], {
@@ -197,7 +217,7 @@ describe('simulate()', () => {
   });
 
   it('uses wallet public key as source when sourcePublicKey is omitted', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
 
     const lc = buildLifecycle();
     await lc.simulate(ContractFn.IS_PAUSED, []);
@@ -208,7 +228,7 @@ describe('simulate()', () => {
 
   it('falls back to anonymous key when wallet.getPublicKey() throws', async () => {
     wallet.getPublicKey.mockRejectedValue(new Error('wallet locked'));
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
 
     const lc = buildLifecycle();
     await lc.simulate(ContractFn.IS_PAUSED, []);
@@ -219,7 +239,7 @@ describe('simulate()', () => {
   });
 
   it('falls back to anonymous key when no wallet is set', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
 
     const lc = buildLifecycle(false);
     await lc.simulate(ContractFn.IS_PAUSED, []);
@@ -230,13 +250,7 @@ describe('simulate()', () => {
   });
 
   it('throws SimulationFailed when RPC returns a simulation error', async () => {
-    rpcService.simulateTransaction.mockResolvedValue({
-      error: 'HostError: contract panicked',
-      _parsed: true,
-      latestLedger: 100,
-      events: [],
-      id: '1',
-    } as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimError('HostError: contract panicked'));
 
     const lc = buildLifecycle();
     await expect(
@@ -245,13 +259,7 @@ describe('simulate()', () => {
   });
 
   it('includes the method name in the SimulationFailed message', async () => {
-    rpcService.simulateTransaction.mockResolvedValue({
-      error: 'bad params',
-      _parsed: true,
-      latestLedger: 100,
-      events: [],
-      id: '1',
-    } as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimError('bad params'));
 
     const lc = buildLifecycle();
     await expect(lc.simulate('create_raffle', [], { sourcePublicKey: SOURCE_KEY })).rejects.toThrow(
@@ -261,7 +269,7 @@ describe('simulate()', () => {
 
   it('gracefully handles Horizon loadAccount failure (uses fallback account)', async () => {
     horizonService.loadAccount.mockRejectedValue(new Error('horizon down'));
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
 
     const lc = buildLifecycle();
     // Should not throw
@@ -337,11 +345,11 @@ describe('sign()', () => {
 describe('submit()', () => {
   beforeEach(() => {
     // TransactionBuilder.fromXDR is a static method — spy directly on the class
-    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue(makeTxStub());
   });
 
   it('returns the transaction hash on a PENDING response', async () => {
-    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess('myhash1234') as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess('myhash1234'));
 
     const lc = buildLifecycle();
     const hash = await lc.submit(SIGNED_XDR);
@@ -350,7 +358,7 @@ describe('submit()', () => {
   });
 
   it('throws SubmissionFailed when sendTransaction returns status ERROR', async () => {
-    rpcService.sendTransaction.mockResolvedValue(makeSendError() as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendError());
 
     const lc = buildLifecycle();
     await expect(lc.submit(SIGNED_XDR)).rejects.toMatchObject({
@@ -359,7 +367,7 @@ describe('submit()', () => {
   });
 
   it('includes the errorResultXdr in the SubmissionFailed message', async () => {
-    rpcService.sendTransaction.mockResolvedValue(makeSendError() as any);
+    rpcService.sendTransaction.mockResolvedValue(makeSendError());
 
     const lc = buildLifecycle();
     await expect(lc.submit(SIGNED_XDR)).rejects.toThrow(/op_no_account/);
@@ -372,7 +380,7 @@ describe('submit()', () => {
 
 describe('poll()', () => {
   it('returns SubmitResult immediately when getTransaction returns SUCCESS', async () => {
-    rpcService.getTransaction.mockResolvedValue(makeGetSuccess(202) as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess(202));
 
     const lc = buildLifecycle();
     const result = await lc.poll(TX_HASH, { timeoutMs: 10_000 });
@@ -382,7 +390,7 @@ describe('poll()', () => {
   });
 
   it('throws ContractError when getTransaction returns FAILED (no HostError in xdr)', async () => {
-    rpcService.getTransaction.mockResolvedValue(makeGetFailed('plain_error') as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetFailed('plain_error'));
 
     const lc = buildLifecycle();
     await expect(lc.poll(TX_HASH)).rejects.toMatchObject({
@@ -391,9 +399,7 @@ describe('poll()', () => {
   });
 
   it('throws ExternalContractError when resultXdr contains "HostError"', async () => {
-    rpcService.getTransaction.mockResolvedValue(
-      makeGetFailed('HostError: cross-contract call') as any,
-    );
+    rpcService.getTransaction.mockResolvedValue(makeGetFailed('HostError: cross-contract call'));
 
     const lc = buildLifecycle();
     await expect(lc.poll(TX_HASH)).rejects.toMatchObject({
@@ -403,9 +409,9 @@ describe('poll()', () => {
 
   it('retries on NOT_FOUND until SUCCESS', async () => {
     rpcService.getTransaction
-      .mockResolvedValueOnce(makeGetNotFound() as any)
-      .mockResolvedValueOnce(makeGetNotFound() as any)
-      .mockResolvedValue(makeGetSuccess(205) as any);
+      .mockResolvedValueOnce(makeGetNotFound())
+      .mockResolvedValueOnce(makeGetNotFound())
+      .mockResolvedValue(makeGetSuccess(205));
 
     const lc = buildLifecycle();
     const result = await lc.poll(TX_HASH, {
@@ -419,7 +425,7 @@ describe('poll()', () => {
   });
 
   it('throws Timeout when deadline is exceeded without a terminal status', async () => {
-    rpcService.getTransaction.mockResolvedValue(makeGetNotFound() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetNotFound());
 
     const lc = buildLifecycle();
     await expect(
@@ -428,7 +434,7 @@ describe('poll()', () => {
   });
 
   it('Timeout message includes the tx hash and attempt count', async () => {
-    rpcService.getTransaction.mockResolvedValue(makeGetNotFound() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetNotFound());
 
     const lc = buildLifecycle();
     await expect(
@@ -440,12 +446,12 @@ describe('poll()', () => {
     let callIndex = 0;
     rpcService.getTransaction.mockImplementation(async () => {
       callIndex++;
-      if (callIndex >= 4) return makeGetSuccess(200) as any;
-      return makeGetNotFound() as any;
+      if (callIndex >= 4) return makeGetSuccess(200);
+      return makeGetNotFound();
     });
 
     const lc = buildLifecycle();
-    const sleepSpy = jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+    const sleepSpy = spyOnSleep(lc).mockResolvedValue(undefined);
 
     await lc.poll(TX_HASH, {
       timeoutMs: 60_000,
@@ -464,12 +470,12 @@ describe('poll()', () => {
     let callIndex = 0;
     rpcService.getTransaction.mockImplementation(async () => {
       callIndex++;
-      if (callIndex >= 5) return makeGetSuccess(200) as any;
-      return makeGetNotFound() as any;
+      if (callIndex >= 5) return makeGetSuccess(200);
+      return makeGetNotFound();
     });
 
     const lc = buildLifecycle();
-    const sleepSpy = jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+    const sleepSpy = spyOnSleep(lc).mockResolvedValue(undefined);
 
     await lc.poll(TX_HASH, {
       timeoutMs: 60_000,
@@ -493,11 +499,11 @@ describe('poll()', () => {
 describe('invoke()', () => {
   /** Set up mocks for the full happy-path. */
   function setupHappyPath() {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
     wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
-    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
-    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
-    rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300) as any);
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue(makeTxStub());
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess());
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300));
   }
 
   it('runs all four phases and returns a SubmitResult', async () => {
@@ -527,13 +533,7 @@ describe('invoke()', () => {
   });
 
   it('propagates SimulationFailed from the simulate phase', async () => {
-    rpcService.simulateTransaction.mockResolvedValue({
-      error: 'bad input',
-      _parsed: true,
-      latestLedger: 100,
-      events: [],
-      id: '1',
-    } as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimError('bad input'));
 
     const lc = buildLifecycle();
     await expect(
@@ -544,7 +544,7 @@ describe('invoke()', () => {
   });
 
   it('propagates UserRejected from the sign phase', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
     wallet.signTransaction.mockRejectedValue(new Error('User rejected the request'));
 
     const lc = buildLifecycle();
@@ -556,10 +556,10 @@ describe('invoke()', () => {
   });
 
   it('propagates SubmissionFailed from the submit phase', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
     wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
-    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
-    rpcService.sendTransaction.mockResolvedValue(makeSendError() as any);
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue(makeTxStub());
+    rpcService.sendTransaction.mockResolvedValue(makeSendError());
 
     const lc = buildLifecycle();
     await expect(
@@ -570,11 +570,11 @@ describe('invoke()', () => {
   });
 
   it('propagates Timeout from the poll phase', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
     wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
-    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
-    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
-    rpcService.getTransaction.mockResolvedValue(makeGetNotFound() as any);
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue(makeTxStub());
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess());
+    rpcService.getTransaction.mockResolvedValue(makeGetNotFound());
 
     const lc = buildLifecycle();
     await expect(
@@ -605,7 +605,7 @@ describe('invoke()', () => {
 
 describe('setWallet() / setContractId()', () => {
   it('setWallet updates the wallet used for signing', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
 
     const lc = buildLifecycle(false); // no wallet initially
     await expect(lc.sign('XDR==')).rejects.toMatchObject({
@@ -621,7 +621,7 @@ describe('setWallet() / setContractId()', () => {
   it('setContractId changes the contract used in buildTx', () => {
     const lc = buildLifecycle();
     lc.setContractId('NEW_CONTRACT_ID');
-    expect((lc as any).contractId).toBe('NEW_CONTRACT_ID');
+    expect((lc as unknown as { contractId: string }).contractId).toBe('NEW_CONTRACT_ID');
   });
 });
 
@@ -631,7 +631,7 @@ describe('setWallet() / setContractId()', () => {
 
 describe('simulate() with memo', () => {
   it('passes a text memo through buildTx without error', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
 
     const lc = buildLifecycle();
     const result = await lc.simulate(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1], {
@@ -644,7 +644,7 @@ describe('simulate() with memo', () => {
   });
 
   it('passes an id memo through buildTx without error', async () => {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
 
     const lc = buildLifecycle();
     const result = await lc.simulate(ContractFn.BUY_TICKET, [1, SOURCE_KEY, 1], {
@@ -679,10 +679,10 @@ describe('poll() — Task 6.1 additional unit tests', () => {
   it('retries on NetworkError then succeeds', async () => {
     rpcService.getTransaction
       .mockRejectedValueOnce(new TikkaSdkError(TikkaSdkErrorCode.NetworkError, 'RPC unreachable'))
-      .mockResolvedValue(makeGetSuccess(210) as any);
+      .mockResolvedValue(makeGetSuccess(210));
 
     const lc = buildLifecycle();
-    jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+    spyOnSleep(lc).mockResolvedValue(undefined);
 
     const result = await lc.poll(TX_HASH, {
       timeoutMs: 60_000,
@@ -695,10 +695,10 @@ describe('poll() — Task 6.1 additional unit tests', () => {
   });
 
   it('throws Timeout after exhausting retries (all NOT_FOUND)', async () => {
-    rpcService.getTransaction.mockResolvedValue(makeGetNotFound() as any);
+    rpcService.getTransaction.mockResolvedValue(makeGetNotFound());
 
     const lc = buildLifecycle();
-    jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+    spyOnSleep(lc).mockResolvedValue(undefined);
 
     await expect(
       lc.poll(TX_HASH, { timeoutMs: 1, intervalMs: 100, backoffFactor: 1.0 }),
@@ -722,20 +722,10 @@ describe('Property 6: Poll SUCCESS path always returns complete SubmitResult', (
         }),
         async ({ txHash, ledger }) => {
           rpcService.getTransaction.mockReset();
-          rpcService.getTransaction.mockResolvedValue({
-            status: rpc.Api.GetTransactionStatus.SUCCESS,
-            ledger,
-            returnValue: undefined,
-            createdAt: Date.now(),
-            applicationOrder: 1,
-            txHash,
-            envelopeXdr: '',
-            resultXdr: '',
-            resultMetaXdr: '',
-          } as any);
+          rpcService.getTransaction.mockResolvedValue(makeGetSuccess(ledger, txHash));
 
           const lc = buildLifecycle();
-          jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+          spyOnSleep(lc).mockResolvedValue(undefined);
 
           const result = await lc.poll(txHash, { timeoutMs: 60_000 });
 
@@ -769,12 +759,7 @@ describe('Property 7: Poll FAILED path always throws ContractError or ExternalCo
         }),
         async ({ txHash, resultXdr }) => {
           rpcService.getTransaction.mockReset();
-          rpcService.getTransaction.mockResolvedValue({
-            status: rpc.Api.GetTransactionStatus.FAILED,
-            ledger: 101,
-            resultXdr,
-            txHash,
-          } as any);
+          rpcService.getTransaction.mockResolvedValue(makeGetFailed(resultXdr, txHash));
 
           const lc = buildLifecycle();
 
@@ -828,12 +813,12 @@ describe('Property 8: Backoff interval grows by factor and is capped', () => {
 
           // Return NOT_FOUND notFoundCount times, then SUCCESS
           for (let i = 0; i < notFoundCount; i++) {
-            rpcService.getTransaction.mockResolvedValueOnce(makeGetNotFound() as any);
+            rpcService.getTransaction.mockResolvedValueOnce(makeGetNotFound());
           }
-          rpcService.getTransaction.mockResolvedValue(makeGetSuccess(200) as any);
+          rpcService.getTransaction.mockResolvedValue(makeGetSuccess(200));
 
           const lc = buildLifecycle();
-          const sleepSpy = jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+          const sleepSpy = spyOnSleep(lc).mockResolvedValue(undefined);
 
           await lc.poll(TX_HASH, {
             timeoutMs: 999_999_999,
@@ -880,10 +865,10 @@ describe('Property 9: Transient RPC errors are retried with backoff', () => {
               new TikkaSdkError(errorCode, `transient error ${i}`),
             );
           }
-          rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300) as any);
+          rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300));
 
           const lc = buildLifecycle();
-          jest.spyOn(lc as any, 'sleep').mockResolvedValue(undefined);
+          spyOnSleep(lc).mockResolvedValue(undefined);
 
           const result = await lc.poll(TX_HASH, {
             timeoutMs: 999_999_999,
@@ -910,11 +895,11 @@ describe('Property 9: Transient RPC errors are retried with backoff', () => {
 
 describe('invoke() — Task 7.1 additional unit tests', () => {
   function setupHappyPathFull() {
-    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+    rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
     wallet.signTransaction.mockResolvedValue({ signedXdr: SIGNED_XDR });
-    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue({ toXDR: () => '' } as any);
-    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess() as any);
-    rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300) as any);
+    jest.spyOn(TransactionBuilder, 'fromXDR').mockReturnValue(makeTxStub());
+    rpcService.sendTransaction.mockResolvedValue(makeSendSuccess());
+    rpcService.getTransaction.mockResolvedValue(makeGetSuccess(300));
   }
 
   it('throws WalletNotInstalled when no wallet adapter is set', async () => {
@@ -988,15 +973,15 @@ describe('Property 10: TikkaSdkError propagates unchanged through invoke', () =>
           if (phase === 'simulate') {
             rpcService.simulateTransaction.mockRejectedValue(thrownError);
           } else if (phase === 'sign') {
-            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
             jest.spyOn(lc, 'sign').mockRejectedValue(thrownError);
           } else if (phase === 'submit') {
-            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
             jest.spyOn(lc, 'sign').mockResolvedValue(SIGNED_XDR);
             jest.spyOn(lc, 'submit').mockRejectedValue(thrownError);
           } else {
             // poll phase — mock poll() directly to avoid transient-retry loop
-            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess() as any);
+            rpcService.simulateTransaction.mockResolvedValue(makeSimSuccess());
             jest.spyOn(lc, 'sign').mockResolvedValue(SIGNED_XDR);
             jest.spyOn(lc, 'submit').mockResolvedValue(TX_HASH);
             jest.spyOn(lc, 'poll').mockRejectedValue(thrownError);
