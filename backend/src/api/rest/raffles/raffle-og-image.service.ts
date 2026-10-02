@@ -1,10 +1,47 @@
 import { Injectable } from "@nestjs/common";
 import sharp from "sharp";
 
+/** Fields required to paint a raffle social card. */
+export interface RaffleOgCardInput {
+  id: number;
+  title?: string | null;
+  prize_amount?: string | null;
+  tickets_sold?: number | null;
+  max_tickets?: number | null;
+  end_time?: string | null;
+  image_url?: string | null;
+  image_urls?: string[] | null;
+}
+
+/**
+ * Canonical path for a raffle Open Graph image.
+ * Client meta tags and the legacy /og/raffles/:id redirect must use this path
+ * so scrapers share a single cache key.
+ */
+export function canonicalRaffleOgPath(id: string | number): string {
+  return `/raffles/${encodeURIComponent(String(id))}/og`;
+}
+
 @Injectable()
 export class RaffleOgImageService {
   async generateDefaultOgImage(): Promise<Buffer> {
     return this.renderOgImage("Tikka Raffles", "Decentralized", 0, 100, "", "");
+  }
+
+  /**
+   * Render the card for a raffle. A missing or unfetchable metadata image
+   * falls back to the ticket placeholder — it does not fail the card.
+   */
+  async renderForRaffle(raffle: RaffleOgCardInput): Promise<Buffer> {
+    const base64Image = await this.loadMetadataImage(this.resolveMetadataImageUrl(raffle));
+    return this.renderOgImage(
+      raffle.title || `Raffle #${raffle.id}`,
+      raffle.prize_amount || "10,000",
+      raffle.tickets_sold || 0,
+      raffle.max_tickets || 100,
+      raffle.end_time || "",
+      base64Image,
+    );
   }
 
   async renderOgImage(
@@ -114,5 +151,43 @@ export class RaffleOgImageService {
 </svg>`;
 
     return await sharp(Buffer.from(svg)).png().toBuffer();
+  }
+
+  private resolveMetadataImageUrl(raffle: RaffleOgCardInput): string {
+    if (raffle.image_url) {
+      return raffle.image_url;
+    }
+    const extra = raffle.image_urls?.find((url) => typeof url === "string" && url.length > 0);
+    return extra ?? "";
+  }
+
+  /**
+   * Best-effort embed of the raffle metadata image. Any failure (missing URL,
+   * non-2xx, network error, non-image payload) yields "" so the card still renders.
+   */
+  private async loadMetadataImage(imageUrl: string): Promise<string> {
+    if (!imageUrl) {
+      return "";
+    }
+
+    try {
+      const res = await fetch(imageUrl, { signal: AbortSignal.timeout(4_000) });
+      if (!res.ok) {
+        return "";
+      }
+      const buffer = await res.arrayBuffer();
+      // A huge or non-image payload cannot be embedded; treat it as unavailable.
+      if (buffer.byteLength === 0 || buffer.byteLength > 2_000_000) {
+        return "";
+      }
+      const rawType = res.headers.get("content-type") || "image/png";
+      const contentType = rawType.split(";")[0]?.trim() || "image/png";
+      if (!/^image\/[a-zA-Z0-9.+-]+$/.test(contentType)) {
+        return "";
+      }
+      return `data:${contentType};base64,${Buffer.from(buffer).toString("base64")}`;
+    } catch {
+      return "";
+    }
   }
 }

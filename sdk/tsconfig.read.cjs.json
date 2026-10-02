@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.read.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "./dist/read-cjs",
+    "declarationDir": "./dist/read-cjs"
+  }
+}

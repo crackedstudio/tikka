@@ -166,10 +166,9 @@ function checkMismatches(collected) {
     if (Object.keys(versions).length > 1) {
       // A framework in `mustMatch` can never drift — it is a hard mismatch
       // regardless of whether it also appears in the `allowed` list.
-      const isMustMatch = Boolean(exceptions.mustMatch && exceptions.mustMatch[framework]);
+      const isMustMatch = Boolean(exceptions.mustMatch && exceptions.mustMatch[framework]) || mustMatchList.includes(framework);
       // Check if the mismatch is allowed
       const isAllowed = exceptions.allowed[framework];
-      const isMustMatch = mustMatchList.includes(framework);
       
       mismatches.push({
         framework,
