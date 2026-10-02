@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
 import { GetUserTicketsParams } from './ticket.types';
@@ -10,7 +9,6 @@ import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
  * Read-only ticket queries — no wallet or signing dependencies required.
  * Suitable for public dashboards, SSR pages, and anywhere tickets need to be queried without a wallet.
  */
-@Injectable()
 export class TicketReadService {
   constructor(private readonly contractService: ContractService) {}
 

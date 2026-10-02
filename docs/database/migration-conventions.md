@@ -99,8 +99,9 @@ timestamp**. Therefore:
 - **Never** reuse an existing timestamp for a new migration.
 
 A lint step in `backend/scripts/check-migrations.ts` rejects any new indexer
-migration whose timestamp is a round number (divisible by `1_000_000_000`). A set
-of legacy placeholder timestamps already committed to this directory is
+migration whose timestamp is a round number (divisible by `1_000_000_000`), and
+fails the build on any duplicate timestamp (two files sharing the same prefix).
+A set of legacy placeholder timestamps already committed to this directory is
 allow-listed there as a recorded historical exception — see
 [migration-timestamp-exceptions.md](migration-timestamp-exceptions.md). Do not
 add new files to that allow-list.

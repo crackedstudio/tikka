@@ -1,6 +1,7 @@
 import { UserService } from './user.service';
 import { ContractService } from '../../contract/contract.service';
 import { ContractFn } from '../../contract/bindings';
+import { TikkaSdkError, TikkaSdkErrorCode } from '../../utils/errors';
 
 describe('UserService', () => {
   let service: UserService;
@@ -22,7 +23,10 @@ describe('UserService', () => {
 
   describe('getParticipation', () => {
     it('should call GET_USER_PARTICIPATION with the address', async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: mockContractData });
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: 'SUCCESS' as const,
+        value: mockContractData,
+      });
 
       await service.getParticipation({ address: VALID_ADDRESS });
 
@@ -33,7 +37,10 @@ describe('UserService', () => {
     });
 
     it('should map contract data to UserParticipation', async () => {
-      contractService.simulateReadOnly.mockResolvedValue({ status: 'SUCCESS' as const, value: mockContractData });
+      contractService.simulateReadOnly.mockResolvedValue({
+        status: 'SUCCESS' as const,
+        value: mockContractData,
+      });
 
       const result = await service.getParticipation({ address: VALID_ADDRESS });
       expect(result.status).toBe('SUCCESS');
@@ -47,23 +54,23 @@ describe('UserService', () => {
     });
 
     it('should throw ValidationError for an invalid address', async () => {
-      await expect(
-        service.getParticipation({ address: 'not-a-stellar-key' }),
-      ).rejects.toThrow('Invalid Stellar public key');
+      await expect(service.getParticipation({ address: 'not-a-stellar-key' })).rejects.toThrow(
+        'Invalid Stellar public key',
+      );
     });
 
     it('should throw ValidationError for an empty address', async () => {
-      await expect(
-        service.getParticipation({ address: '' }),
-      ).rejects.toThrow('Invalid Stellar public key');
+      await expect(service.getParticipation({ address: '' })).rejects.toThrow(
+        'Invalid Stellar public key',
+      );
     });
 
     it('should propagate contract errors', async () => {
       contractService.simulateReadOnly.mockRejectedValue(new Error('RPC error'));
 
-      await expect(
-        service.getParticipation({ address: VALID_ADDRESS }),
-      ).rejects.toThrow('RPC error');
+      await expect(service.getParticipation({ address: VALID_ADDRESS })).rejects.toThrow(
+        'RPC error',
+      );
     });
   });
 });
@@ -175,5 +182,49 @@ describe('UserService.getWinnings', () => {
 
     expect(result.success).toBe(true);
     expect(result.value![0].claimed).toBe(true);
+  });
+});
+
+describe('UserService error types', () => {
+  function buildService() {
+    const contractService = {
+      simulateReadOnly: jest.fn(),
+    } as unknown as jest.Mocked<ContractService>;
+    return { service: new UserService(contractService as any), contractService };
+  }
+
+  it('getParticipation throws ValidationError for an invalid address', async () => {
+    const { service } = buildService();
+    await expect(service.getParticipation({ address: 'not-a-stellar-key' })).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ValidationError,
+    });
+  });
+
+  it('getParticipation throws ValidationError for an empty address', async () => {
+    const { service } = buildService();
+    await expect(service.getParticipation({ address: '' })).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ValidationError,
+    });
+  });
+
+  it('getTickets throws ValidationError for an invalid address', async () => {
+    const { service } = buildService();
+    await expect(service.getTickets('not-a-key')).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ValidationError,
+    });
+  });
+
+  it('getActivitySummary throws ValidationError for an invalid address', async () => {
+    const { service } = buildService();
+    await expect(service.getActivitySummary({ address: 'not-a-key' })).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ValidationError,
+    });
+  });
+
+  it('getWinnings throws ValidationError for an invalid address', async () => {
+    const { service } = buildService();
+    await expect(service.getWinnings('not-a-key')).rejects.toMatchObject({
+      code: TikkaSdkErrorCode.ValidationError,
+    });
   });
 });
