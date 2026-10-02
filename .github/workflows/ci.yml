@@ -220,7 +220,11 @@ jobs:
       run:
         working-directory: ./sdk
     steps:
+      # Full history: the API compatibility gate diffs sdk/etc/*.api.md against
+      # the pull request's base commit, which a shallow clone cannot resolve.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -303,8 +307,50 @@ jobs:
           pnpm exec api-extractor run --config api-extractor.light.json
         continue-on-error: false
 
+# Deprecation policy gate (docs/RELEASE.md § Deprecation Policy):
+      # a public export may only disappear under a major bump, and every
+      # @deprecated export must survive at least one minor release.
+      - name: API compatibility / deprecation check
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-api-compat.mjs "$BASE_SHA"
+        continue-on-error: false
+
       - name: Assert light bundle excludes NestJS
         run: pnpm run analyze:light
+
+      - name: Check bundle size budgets
+        run: |
+          pnpm size-check --json > size-summary.json || SIZE_CHECK_EXIT_CODE=$?
+          node -e '
+            const fs = require("fs");
+            let summary = "### 📦 SDK Bundle Size Budgets\n\n";
+            summary += "| Bundle | Size | Limit | Status |\n";
+            summary += "| --- | --- | --- | --- |\n";
+            try {
+              const content = fs.readFileSync("size-summary.json", "utf8");
+              const data = JSON.parse(content);
+              if (Array.isArray(data)) {
+                for (const item of data) {
+                  const sizeBytes = item.size ?? item.sizeGzip ?? item.total;
+                  const sizeStr = sizeBytes !== undefined ? (sizeBytes >= 1024 ? (sizeBytes / 1024).toFixed(2) + " kB" : sizeBytes + " B") : "N/A";
+                  const limitStr = item.limit || "N/A";
+                  const statusStr = item.passed !== false ? "✅ Passed" : "❌ Exceeded";
+                  summary += `| ${item.name || "Bundle"} | ${sizeStr} | ${limitStr} | ${statusStr} |\n`;
+                }
+              }
+            } catch (err) {
+              summary += "Unable to parse size-check output.\n";
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          '
+          pnpm size-check || true
+          if [ "${SIZE_CHECK_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ SDK bundle size limit budget exceeded!"
+            exit $SIZE_CHECK_EXIT_CODE
+          fi
         continue-on-error: false
 
       - name: Check bundle size budgets
