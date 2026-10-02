@@ -11,6 +11,7 @@ import { DeadLetterEventEntity } from "./database/entities/dead-letter-event.ent
 import { ArchiveCheckpointEntity } from "./database/entities/archive-checkpoint.entity";
 import { WebhookDeliveryEntity } from "./database/entities/webhook-delivery.entity";
 import { WebhookDeadLetterEntity } from "./database/entities/webhook-dead-letter.entity";
+import { databaseSslOptions } from "./config/database-ssl";
 
 /**
  * Standalone DataSource for the TypeORM CLI.
@@ -28,8 +29,7 @@ const options: DataSourceOptions = {
   username: process.env.DB_USERNAME ?? "postgres",
   password: process.env.DB_PASSWORD ?? "postgres",
   database: process.env.DB_DATABASE ?? "tikka_indexer",
-  ssl:
-    process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+  ssl: databaseSslOptions(),
   entities: [
     RaffleEntity,
     TicketEntity,

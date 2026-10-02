@@ -20,10 +20,10 @@ import {
   FeeEstimatorService,
   RaffleService,
   TicketService,
+  TicketReadService,
   ContractFn,
   WalletAdapter,
   WalletName,
-  RaffleStatus,
   stroopsToXlm,
   TikkaSdkError,
   TikkaSdkErrorCode,
@@ -62,6 +62,14 @@ function messageOf(error: unknown): string {
 
 type ContractReadValue = Record<string, unknown>;
 
+/**
+ * Numeric "Open" state the contract returns from `get_raffle_data`
+ * (0 = Open, 1 = Drawing, 2 = Finalized, 3 = Cancelled — see the SDK
+ * `RaffleStatus` enum). Kept as a literal so the client never depends on the
+ * `@tikka/types` string enum being re-exported under the same name.
+ */
+const RAFFLE_STATUS_OPEN = 0;
+
 // ─── Wallet adapter bridge ────────────────────────────────────────────────────
 // Bridges the SDK WalletAdapter contract onto the legacy wallet kit wrapper so
 // the SDK lifecycle can sign without the client re-implementing wallet logic.
@@ -80,10 +88,7 @@ export class ClientWalletAdapter extends WalletAdapter {
   async getPublicKey(): Promise<string> {
     const address = await getAccountAddress();
     if (!address) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.WalletNotConnected,
-        "Wallet not connected",
-      );
+      throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotConnected, 'Wallet not connected');
     }
     return address;
   }
@@ -100,7 +105,7 @@ export class ClientWalletAdapter extends WalletAdapter {
     } catch (err) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.InvalidParams,
-        "Failed to decode transaction XDR",
+        'Failed to decode transaction XDR',
         err,
       );
     }
@@ -109,14 +114,12 @@ export class ClientWalletAdapter extends WalletAdapter {
     if (!result.success || !result.signedTransaction) {
       throw new TikkaSdkError(
         TikkaSdkErrorCode.WalletNotInstalled,
-        result.error ?? "Wallet failed to sign transaction",
+        result.error ?? 'Wallet failed to sign transaction',
       );
     }
 
-    const signed = result.signedTransaction as
-      | string
-      | { toXDR(): string };
-    const signedXdr = typeof signed === "string" ? signed : signed.toXDR();
+    const signed = result.signedTransaction as string | { toXDR(): string };
+    const signedXdr = typeof signed === 'string' ? signed : signed.toXDR();
     return { signedXdr };
   }
 
@@ -135,7 +138,7 @@ export class ClientWalletAdapter extends WalletAdapter {
 export const sdkWalletAdapter = new ClientWalletAdapter();
 
 const networkConfig: SdkNetworkConfig = {
-  network: STELLAR_CONFIG.network as SdkNetworkConfig["network"],
+  network: STELLAR_CONFIG.network as SdkNetworkConfig['network'],
   rpcUrl: STELLAR_CONFIG.rpcUrl,
   horizonUrl: STELLAR_CONFIG.horizonUrl,
   networkPassphrase: STELLAR_CONFIG.networkPassphrase,
@@ -146,9 +149,9 @@ const networkConfig: SdkNetworkConfig = {
 // yet deployed). Construct the SDK with a placeholder in that case so importing
 // this module never throws; the friendly "not configured" error is surfaced at
 // call time by assertConfigured() below.
-const CONTRACT_ID_PLACEHOLDER = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2";
+const CONTRACT_ID_PLACEHOLDER = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2';
 const contractId =
-  CONTRACT_CONFIG.address !== "TBD" ? CONTRACT_CONFIG.address : CONTRACT_ID_PLACEHOLDER;
+  CONTRACT_CONFIG.address !== 'TBD' ? CONTRACT_CONFIG.address : CONTRACT_ID_PLACEHOLDER;
 
 /**
  * Guard matching the legacy `getContract()` behaviour. Contract operations
@@ -156,10 +159,8 @@ const contractId =
  * deployed yet. Call right before any contract interaction.
  */
 function assertConfigured(): void {
-  if (CONTRACT_CONFIG.address === "TBD") {
-    throw new Error(
-      "Contract address not configured. Please deploy the contract first.",
-    );
+  if (CONTRACT_CONFIG.address === 'TBD') {
+    throw new Error('Contract address not configured. Please deploy the contract first.');
   }
 }
 
@@ -190,7 +191,12 @@ export const sdkFeeEstimator = new FeeEstimatorService(
 );
 
 export const raffleService = new RaffleService(sdkContractService, sdkFeeEstimator);
-export const ticketService = new TicketService(sdkContractService);
+export const ticketService = new TicketService(
+  sdkContractService,
+  // TicketService requires its read-side companion; it shares the same contract
+  // transport so read helpers (getUserTickets) hit the same contract config.
+  new TicketReadService(sdkContractService),
+);
 
 // ─── Write operations ─────────────────────────────────────────────────────────
 
@@ -199,12 +205,12 @@ export const ticketService = new TicketService(sdkContractService);
  * Delegates to the SDK `RaffleService.estimateCreate` (simulation-based).
  */
 export async function estimateCreate(
-  params: Omit<CreateRaffleParams, "metadataId"> & { metadataId?: string },
+  params: Omit<CreateRaffleParams, 'metadataId'> & { metadataId?: string },
 ): Promise<ContractResponse<CreateRaffleEstimate>> {
-  if (import.meta.env.VITE_TEST_MODE === "true") {
+  if (import.meta.env.VITE_TEST_MODE === 'true') {
     return {
       success: true,
-      data: { xlm: "0.0000100", stroops: "100" },
+      data: { xlm: '0.0000100', stroops: '100' },
     };
   }
 
@@ -213,11 +219,10 @@ export async function estimateCreate(
     const estimate = await raffleService.estimateCreate({
       ticketPrice: stroopsToXlm(params.ticketPrice),
       maxTickets: params.totalTickets,
-      endTime:
-        Math.floor(Date.now() / 1000) * 1000 + params.durationInSeconds * 1000,
+      endTime: Math.floor(Date.now() / 1000) * 1000 + params.durationInSeconds * 1000,
       allowMultiple: true,
-      asset: "XLM",
-      metadataCid: params.metadataId ?? "",
+      asset: 'XLM',
+      metadataCid: params.metadataId ?? '',
     });
 
     return {
@@ -246,27 +251,27 @@ export async function createRaffle(
     );
     options?.onProgress?.({ stage: "BUILD", status: "done" });
     options?.onProgress?.({
-      stage: "ESTIMATE",
-      status: "done",
-      estimatedFee: "100",
+      stage: 'ESTIMATE',
+      status: 'done',
+      estimatedFee: '100',
     });
-    options?.onProgress?.({ stage: "SIGN", status: "done" });
+    options?.onProgress?.({ stage: 'SIGN', status: 'done' });
     options?.onProgress?.({
-      stage: "SUBMIT",
-      status: "done",
-      txHash: "TEST123",
+      stage: 'SUBMIT',
+      status: 'done',
+      txHash: 'TEST123',
     });
     options?.onProgress?.({
-      stage: "POLL",
-      status: "done",
+      stage: 'POLL',
+      status: 'done',
       confirmations: 1,
     });
     options?.onProgress?.({
-      stage: "DONE",
-      status: "done",
-      txHash: "TEST123",
+      stage: 'DONE',
+      status: 'done',
+      txHash: 'TEST123',
     });
-    return { ok: true, data: { txHash: "TEST123" } };
+    return { ok: true, data: { txHash: 'TEST123' } };
   }
 
   assertConfigured();
@@ -277,8 +282,8 @@ export async function createRaffle(
     maxTickets: params.totalTickets,
     endTime: endTimeSec * 1000, // SDK takes ms, converts to seconds for the contract
     allowMultiple: true,
-    asset: "XLM",
-    metadataCid: params.metadataId ?? "",
+    asset: 'XLM',
+    metadataCid: params.metadataId ?? '',
   });
 
   return runPipeline({
@@ -306,8 +311,7 @@ export async function buyTickets(
       maxPricePerTicket: params.maxPricePerTicket,
     });
 
-    const txHash =
-      result.value?.transactionHash ?? result.transactionHash ?? "";
+    const txHash = result.value?.transactionHash ?? result.transactionHash ?? '';
 
     return { ok: true, data: { txHash } };
   } catch (error) {
@@ -327,15 +331,14 @@ export async function claimPrize(
     assertConfigured();
     const result = await ticketService.claimPrize({ raffleId: params.raffleId });
 
-    const txHash =
-      result.value?.transactionHash ?? result.transactionHash ?? "";
+    const txHash = result.value?.transactionHash ?? result.transactionHash ?? '';
 
     if (!txHash) {
       return {
         ok: false,
         error: {
-          code: "SUBMISSION_FAILED",
-          message: result.error ?? "Prize claim failed",
+          code: 'SUBMISSION_FAILED',
+          message: result.error ?? 'Prize claim failed',
         },
       };
     }
@@ -349,9 +352,7 @@ export async function claimPrize(
 /**
  * @deprecated Use buyTickets() instead.
  */
-export async function buyTicket(
-  params: BuyTicketParams,
-): Promise<ContractResponse<string>> {
+export async function buyTicket(params: BuyTicketParams): Promise<ContractResponse<string>> {
   const result = await buyTickets(params);
   if (result.ok === true) {
     return {
@@ -379,24 +380,22 @@ export async function getRaffleData(
       [raffleId],
     );
 
-    const raw = res.value ?? {};
-    const status = Number(raw.status ?? raw.Status ?? RaffleStatus.Open);
+    const raw = (res.value ?? {}) as ContractReadValue;
+    const status = Number(raw.status ?? raw.Status ?? RAFFLE_STATUS_OPEN);
 
     return {
       success: true,
       data: {
         id: raffleId,
-        creator: raw.creator ?? raw.Creator ?? "",
-        metadataId: raw.metadata_cid ?? raw.metadataId ?? raw.MetadataId ?? "",
-        ticketPrice: String(raw.ticket_price ?? raw.ticketPrice ?? "0"),
+        creator: String(raw.creator ?? raw.Creator ?? ''),
+        metadataId: String(raw.metadata_cid ?? raw.metadataId ?? raw.MetadataId ?? ''),
+        ticketPrice: String(raw.ticket_price ?? raw.ticketPrice ?? '0'),
         totalTickets: Number(raw.max_tickets ?? raw.totalTickets ?? 0),
         ticketsSold: Number(raw.tickets_sold ?? raw.ticketsSold ?? 0),
         endTime: Number(raw.end_time ?? raw.endTime ?? 0),
-        isActive: status === RaffleStatus.Open,
-        winner: raw.winner,
-        prizeDistributed: Boolean(
-          raw.prize_distributed ?? raw.prizeDistributed ?? false,
-        ),
+        isActive: status === RAFFLE_STATUS_OPEN,
+        winner: raw.winner !== undefined && raw.winner !== null ? String(raw.winner) : undefined,
+        prizeDistributed: Boolean(raw.prize_distributed ?? raw.prizeDistributed ?? false),
       },
     };
   } catch (error) {
@@ -451,9 +450,7 @@ export async function getUserParticipation(
     );
 
     const raw = res.value;
-    const ticketsPurchased = Number(
-      raw?.tickets ?? raw?.ticketsPurchased ?? 0,
-    );
+    const ticketsPurchased = Number(raw?.tickets ?? raw?.ticketsPurchased ?? 0);
 
     if (!raw || ticketsPurchased === 0) {
       return { success: true, data: null };
@@ -465,10 +462,8 @@ export async function getUserParticipation(
         raffleId,
         userAddress,
         ticketsPurchased,
-        totalSpent: String(raw.amount_spent ?? raw.totalSpent ?? "0"),
-        participationTime: Number(
-          raw.participation_time ?? raw.participationTime ?? 0,
-        ),
+        totalSpent: String(raw.amount_spent ?? raw.totalSpent ?? '0'),
+        participationTime: Number(raw.participation_time ?? raw.participationTime ?? 0),
       },
     };
   } catch (error) {
@@ -480,7 +475,7 @@ export async function getUserParticipation(
 
 /** Check if the contract is properly configured. */
 export function isConfigured(): boolean {
-  return CONTRACT_CONFIG.address !== "TBD";
+  return CONTRACT_CONFIG.address !== 'TBD';
 }
 
 /** Get the raw contract configuration. */

@@ -1,5 +1,9 @@
 # Oracle Randomness Worker
 
+Environment settings are documented in the [central oracle environment
+reference](../docs/env/oracle.md); copy this workspace's `.env.example` to
+`.env.local` before running locally.
+
 ## Overview
 
 The randomness worker processes pending randomness requests from the queue. It determines whether to use VRF (high-stakes) or PRNG (low-stakes), computes the seed and proof, and submits the result to the Soroban contract.

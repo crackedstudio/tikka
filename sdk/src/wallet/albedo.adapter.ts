@@ -1,11 +1,14 @@
 import {
   WalletAdapter,
   WalletAdapterOptions,
+  WalletAvailability,
+  WalletAvailabilityCode,
   WalletName,
   SignTransactionResult,
   WalletCapabilities,
 } from './wallet.interface';
 import { TikkaSdkError, TikkaSdkErrorCode } from '../utils/errors';
+import { hasGlobalProperty } from '../utils/environment';
 
 /**
  * Albedo wallet adapter.
@@ -24,7 +27,29 @@ export class AlbedoAdapter extends WalletAdapter {
 
   /** Albedo is web-based — always available in a browser environment. */
   isAvailable(): boolean {
-    return typeof globalThis !== 'undefined' && typeof (globalThis as any).document !== 'undefined';
+    return hasGlobalProperty('document');
+  }
+
+  /**
+   * Albedo needs the popup/DOM APIs the intent library uses, so the only
+   * unavailable case is a non-browser runtime (Node, SSR, React Native).
+   * Reported as a value instead of a load-time or call-time throw.
+   */
+  checkAvailability(): WalletAvailability {
+    if (this.isAvailable()) {
+      return {
+        available: true,
+        code: WalletAvailabilityCode.Available,
+        message: 'Albedo is available in this browser environment',
+      };
+    }
+
+    return {
+      available: false,
+      code: WalletAvailabilityCode.UnsupportedEnvironment,
+      message:
+        'Albedo is a web-based wallet and requires a browser environment (document is not defined)',
+    };
   }
 
   async getPublicKey(): Promise<string> {

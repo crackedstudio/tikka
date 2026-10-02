@@ -7,15 +7,66 @@ NestJS library for Soroban contract interaction: transaction building, simulatio
 **Consumers:** Frontend (client), third-party developers.
 
 **Compatibility:** `@tikka/sdk` follows Semantic Versioning. Breaking changes are preceded by a documented deprecation window — see [DEPRECATION.md](./docs/DEPRECATION.md).
+
+## Migrating from direct `@stellar/stellar-sdk`
+
+**Already talking to Soroban with `@stellar/stellar-sdk` yourself?** Start here.
+[`docs/sdk/migration.md`](../docs/sdk/migration.md) maps the direct-SDK approach
+(`new Contract()`, `rpc.Server`, `TransactionBuilder`, `nativeToScVal`,
+`rpc.assembleTransaction`) onto the `@tikka/sdk` equivalents, operation by
+operation, with before/after code for every raffle and ticket call.
+
+It also covers:
+
+- **The `@stellar/stellar-sdk` version constraint.** The SDK depends on
+  `@stellar/stellar-sdk@^16.1.0` (Node 22+). Align your own range or add the
+  `pnpm.overrides` pin so you do not end up with two copies in your tree, and
+  see [what actually breaks coming from v14](../docs/sdk/migration.md#what-breaks-on-v14).
+- **Wallet strategy.** When a built-in `WalletAdapter` is enough, when you want
+  a wallet kit, and how to bridge one behind `WalletAdapter` so the wallet only
+  ever signs XDR — see
+  [Wallet adapters vs. a wallet kit](../docs/sdk/migration.md#8-wallet-adapters-vs-a-wallet-kit).
+- **Unit gotchas.** `RaffleParams.ticketPrice` is XLM, `endTime` is
+  milliseconds, `maxPricePerTicket` is stroops.
+- **A migration checklist** to work through before you cut over.
+
+## Stellar SDK peer dependency
+
+`@tikka/sdk` declares `@stellar/stellar-sdk` as a **peer dependency** with the supported range:
+
+```
+@stellar/stellar-sdk >=14.0.0 <17.0.0
+```
+
+Install it alongside this package:
+
+```bash
+# npm
+npm install @tikka/sdk @stellar/stellar-sdk
+
+# pnpm
+pnpm add @tikka/sdk @stellar/stellar-sdk
+```
+
+| `@stellar/stellar-sdk` | Supported | Notes |
+|---|:---:|---|
+| 14.x (≥ 14.3.0) | ✅ | `rpc` namespace available; ESM-only deps absent — Jest compat pattern still applies |
+| 15.x | ⚠️ | In-range but not explicitly tested in CI |
+| 16.x (≥ 16.1.0) | ✅ | Development baseline; all CI jobs run against this version |
+| < 14 | ❌ | `rpc` namespace absent; not supported |
+| ≥ 17 | ❌ | Untested; update matrix before using |
+
+A weekly CI matrix (`.github/workflows/sdk-compat.yml`) runs the full unit-test suite against v14 and v16 in isolation. For full details, upgrade instructions, and the `transformIgnorePatterns` rationale, see [docs/STELLAR_SDK_COMPATIBILITY.md](../docs/STELLAR_SDK_COMPATIBILITY.md).
+
 ## Light vs full build
 
 Choose the full SDK when you need NestJS modules, dependency injection, wallet services, or the higher-level contract helpers that assume the framework runtime. Choose the light build when you need a browser-friendly entry point for low-level RPC access and lightweight types without the NestJS overhead.
 
-| Build | Import path | Includes | Excludes | Measured size |
-| --- | --- | --- | --- | --- |
-| Full | `@tikka/sdk` | all runtime modules, wallet adapters, contract services, and CLI helpers | — | build output is available from the package entry point |
-| Read-only | `@tikka/sdk/read` | the read-oriented helpers and types used by the CLI and lightweight consumers | write/create helpers | currently measured at 219 bytes gzipped in the workspace build output |
-| Light | `@tikka/sdk/dist/light/index.light` | lightweight RPC client, raffle/network types, and shared helpers | NestJS modules, decorators, DI providers, and high-level services | currently measured at 183 bytes gzipped in the workspace build output |
+| Build     | Import path                         | Includes                                                                      | Excludes                                                          | Measured size                                                         |
+| --------- | ----------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Full      | `@tikka/sdk`                        | all runtime modules, wallet adapters, contract services, and CLI helpers      | —                                                                 | build output is available from the package entry point                |
+| Read-only | `@tikka/sdk/read`                   | the read-oriented helpers and types used by the CLI and lightweight consumers | write/create helpers                                              | currently measured at 219 bytes gzipped in the workspace build output |
+| Light     | `@tikka/sdk/dist/light/index.light` | lightweight RPC client, raffle/network types, and shared helpers              | NestJS modules, decorators, DI providers, and high-level services | currently measured at 183 bytes gzipped in the workspace build output |
 
 The light bundle is intended for browser and mobile integrations where bundle size matters most. Services must be instantiated manually, and NestJS module wiring is not available in this entry point.
 
@@ -45,18 +96,32 @@ Every public entry point and its runtime compatibility. Use this table when choo
 | `FeeEstimatorService` | ✅ | ✅ | RPC simulation only; no wallet or Node APIs. |
 | `FeeEstimatorModule` (NestJS) | ⚠️ | ✅ | NestJS DI wrapper around `FeeEstimatorService`. |
 | `buildChallenge` / `verifyResponse` (SEP-10) | ⚠️ | ✅ | Uses Node `crypto.randomBytes`; provide a `crypto` polyfill in browser or run server-side only. |
-| `FreighterAdapter` | ✅ | ❌ | Requires Freighter extension or `@stellar/freighter-api`. |
-| `XBullAdapter` | ✅ | ❌ | Requires xBull extension. |
-| `AlbedoAdapter` | ✅ | ❌ | Popup-based; requires `@albedo-link/intent`. |
-| `LobstrAdapter` | ✅ | ❌ | Requires LOBSTR extension. |
-| `RabetAdapter` | ✅ | ❌ | Requires Rabet extension (`window.rabet`). |
+| `FreighterAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the Freighter extension or `@stellar/freighter-api`. |
+| `XBullAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the xBull extension. |
+| `AlbedoAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Popup-based; requires `@albedo-link/intent`. |
+| `LobstrAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the LOBSTR extension. |
+| `RabetAdapter` | ✅ | ❌ | Importable anywhere; browser-only at call time. Requires the Rabet extension (`window.rabet`). |
 | `MockWalletAdapter` | ✅ | ✅ | For tests, Storybook, and examples without a real wallet. |
 | Utils (`errors`, `validation`, `formatting`, `retry`, `BigNumber`) | ✅ | ✅ | Pure utilities; no environment-specific APIs. |
 | CLI (`tikka` / `bin/tikka.cjs`) | ❌ | ✅ | Node-only; uses `commander`, `inquirer`, and filesystem. |
 
 **Legend:** ✅ supported · ⚠️ works with bundler/polyfill or is not the primary target · ❌ not supported
 
+**Import-time safety:** importing any entry point — including the ones that ship wallet adapters — never reads `window`/`document` and never evaluates a browser-only wallet package. Those guards run *inside* the wallet methods, so the same module graph can be loaded by an SSR render, a Node service, and the browser bundle. To ask whether a wallet is usable at runtime, use the non-throwing `checkAvailability()` described in [Availability checks (Node / SSR)](#availability-checks-node--ssr).
+
 **Common polyfills for browser bundlers (Vite, Webpack, esbuild):** `buffer`, `crypto` (for SEP-10 and Stellar SDK), and `stream` when your toolchain requires them. React Native consumers should pass an explicit `fetchClient` to `RpcService` (see [React Native Notes](#react-native-notes) below).
+
+### Choosing an entry point by runtime
+
+| Runtime | Import path | Why |
+| --- | --- | --- |
+| Browser app that signs transactions | `@tikka/sdk` or `@tikka/sdk/write` | Needs the wallet adapters; every browser wallet requires a DOM (`window` / `document`). |
+| Browser app that only queries | `@tikka/sdk/read` or `@tikka/sdk/dist/light/index.light` | No wallet or signing code in the bundle. |
+| Node service, CLI, SSR render, edge function | `@tikka/sdk/read` | Evaluates with no DOM. Importing `@tikka/sdk` is *also* safe at load time now, but every wallet call still throws `WalletNotInstalled` there — call `checkAvailability()` and pick a fallback instead of probing globals yourself. |
+
+Server-rendered apps usually import both: `@tikka/sdk/read` in the server render, and
+`@tikka/sdk/write` in the browser bundle (or a dynamic `import()` behind a
+`useEffect`) so wallet code never reaches the server pass.
 
 ## Core Features
 
@@ -72,7 +137,12 @@ Every public entry point and its runtime compatibility. Use this table when choo
 Consumers that only need to **query** raffle data (public dashboards, SSR pages, analytics) can import from the read-only sub-path. This avoids bundling wallet adapters and signing code, producing a significantly smaller bundle.
 
 ```ts
-import { ReadOnlyRaffleService, ReadOnlyUserService, RpcService, resolveNetworkConfig } from '@tikka/sdk/read';
+import {
+  ReadOnlyRaffleService,
+  ReadOnlyUserService,
+  RpcService,
+  resolveNetworkConfig,
+} from '@tikka/sdk/read';
 
 const networkConfig = resolveNetworkConfig('mainnet');
 const rpcService = new RpcService(networkConfig);
@@ -95,21 +165,22 @@ const { value: history } = await userService.getHistory('GBIQ4VH3...');
 
 ### What is included
 
-| Export | Description |
-|--------|-------------|
-| `ReadOnlyRaffleService` | `getAll()` — all raffle IDs; `getById(id)` — single raffle data |
-| `ReadOnlyUserService` | `getProfile(addr)` — participation stats; `getHistory(addr)` — raffle IDs |
-| `RpcService` | Soroban RPC client (simulate, getLedger) |
-| `HorizonService` | Horizon account/fee queries |
-| `resolveNetworkConfig`, `NetworkConfig` | Network configuration helpers |
-| `ContractFn`, `RaffleStatus` | Contract constants |
-| `ContractResponse` | Shared response envelope type |
-| Read-only types | `RaffleData`, `UserParticipation`, `AssetDescriptor`, etc. |
-| Utils | Formatting, validation, errors, retry, BigNumber |
+| Export                                  | Description                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `ReadOnlyRaffleService`                 | `getAll()` — all raffle IDs; `getById(id)` — single raffle data           |
+| `ReadOnlyUserService`                   | `getProfile(addr)` — participation stats; `getHistory(addr)` — raffle IDs |
+| `RpcService`                            | Soroban RPC client (simulate, getLedger)                                  |
+| `HorizonService`                        | Horizon account/fee queries                                               |
+| `resolveNetworkConfig`, `NetworkConfig` | Network configuration helpers                                             |
+| `ContractFn`, `RaffleStatus`            | Contract constants                                                        |
+| `ContractResponse`                      | Shared response envelope type                                             |
+| Read-only types                         | `RaffleData`, `UserParticipation`, `AssetDescriptor`, etc.                |
+| Utils                                   | Formatting, validation, errors, retry, BigNumber                          |
 
 ### What is excluded
 
 The read-only bundle intentionally excludes all signing-related code:
+
 - `ContractService` (requires wallet + TransactionBuilder)
 - `TransactionLifecycle` (requires wallet + signing)
 - All wallet adapters (Freighter, xBull, Albedo, LOBSTR, Rabet)
@@ -137,10 +208,10 @@ Budgets are defined in `sdk/package.json` under the `"size-limit"` key. Sizes ar
 ignored so the check measures first-party SDK code (what consumers pay for on
 top of deps they already ship).
 
-| Entry | Build output | Budget | Typical size (approx.) |
-|-------|--------------|--------|------------------------|
-| `@tikka/sdk/read` | `dist/read/index.read.js` | **50 kB** gzip | ~7 kB |
-| Light SDK (`index.light`) | `dist/light/index.light.js` | **25 kB** gzip | ~3 kB |
+| Entry                     | Build output                | Budget         | Typical size (approx.) |
+| ------------------------- | --------------------------- | -------------- | ---------------------- |
+| `@tikka/sdk/read`         | `dist/read/index.read.js`   | **50 kB** gzip | ~7 kB                  |
+| Light SDK (`index.light`) | `dist/light/index.light.js` | **25 kB** gzip | ~3 kB                  |
 
 The light entry also has a historical soft target of < 50 kB gzip documented in
 [`LIGHT_VERSION.md`](./docs/LIGHT_VERSION.md); the **25 kB** limit above is the
@@ -186,6 +257,60 @@ leave peer-style packages in `"ignore"` unless you intentionally want them
 counted. After changing a limit, run the build + `size-check` commands above and
 document the rationale in the PR.
 
+## `any` usage budget (ratcheting)
+
+`any` disables type checking, so the SDK tracks it as a debt that can only shrink.
+`@typescript-eslint/no-explicit-any` is enabled as a **warning** so existing
+usages stay visible, and `scripts/check-any-budget.mjs` turns that warning into a
+hard CI gate.
+
+Budgets are committed in [`any-budget.json`](./any-budget.json): one cap per
+`src/` area plus a total.
+
+| Area                 | Cap     |
+| -------------------- | ------- |
+| `src/contract/`      | 0       |
+| `src/wallet/`        | 98      |
+| `src/modules/`       | 43      |
+| `src/network/`       | 37      |
+| `src/utils/`         | 24      |
+| `src/light/`         | 16      |
+| `src/test/`          | 15      |
+| `src/fee-estimator/` | 12      |
+| **Total**            | **245** |
+
+### Running the checks
+
+```bash
+cd sdk
+
+# Fails if the total or any area exceeds its cap
+pnpm run lint:any-budget
+
+# Ratchets every cap down to the current count (never up)
+pnpm run lint:any-budget:update
+```
+
+CI runs `pnpm lint:any-budget` in the SDK job right after `pnpm run lint`.
+
+### When the budget check fails
+
+1. Don't widen the cap. Replace the offending `any` with a concrete type, or
+   with `unknown` plus a narrowing guard at the point of use.
+2. For Soroban / Horizon data, prefer the SDK's own response types
+   (`rpc.Api.SimulateTransactionErrorResponse`,
+   `rpc.Api.GetFailedTransactionResponse`, `TransactionSource`, …) over
+   `as any` casts.
+3. If your change _removed_ `any`, run `pnpm run lint:any-budget:update` in the
+   same PR to lock in the lower cap.
+
+### Lowering a budget
+
+Removing `any` is always welcome. Run `pnpm run lint:any-budget:update` and
+commit the regenerated `any-budget.json`. The script refuses to raise any entry,
+so the cap cannot silently regress — a new `any` has to be paid for by removing
+an existing one.
+
 ## Project Structure
 
 - `src/network/` — Customizable Soroban RPC and Horizon services.
@@ -193,6 +318,7 @@ document the rationale in the PR.
 - `src/wallet/` — Multi-wallet adapter system.
 - `src/modules/` — Feature modules (Raffle, Ticket, User).
 - `src/utils/` — Shared utilities for formatting, validation, and error handling.
+- `src/testing/` — Public testing utilities, published as `@tikka/sdk/testing`.
 - `bin/tikka.cjs` — Developer CLI for network testing and contract interaction.
 
 ## CLI Commands
@@ -202,6 +328,7 @@ The Tikka SDK includes a command-line interface for smoke testing, network confi
 ### Installation
 
 After building the SDK:
+
 ```bash
 npm run build
 npm run cli -- --help
@@ -219,7 +346,9 @@ npm run cli -- --help
 These commands don't require wallet signing and are safe for smoke testing:
 
 #### `config-check`
+
 Verify CLI configuration and SDK initialization.
+
 ```bash
 tikka config-check                 # Check on testnet
 tikka -n mainnet config-check      # Check on mainnet
@@ -227,7 +356,9 @@ tikka config-check --json          # Output as JSON
 ```
 
 #### `fee-quote <contractId>`
+
 Get estimated fees for a transaction.
+
 ```bash
 tikka fee-quote CONTRACT_ABC123
 tikka fee-quote CONTRACT_ABC123 --function transfer
@@ -236,7 +367,9 @@ tikka -n mainnet fee-quote CONTRACT_ABC123
 ```
 
 #### `read <contractId>`
+
 Read contract data or state.
+
 ```bash
 tikka read CONTRACT_ABC123
 tikka read CONTRACT_ABC123 --key account_balance
@@ -245,7 +378,9 @@ tikka -n mainnet read CONTRACT_ABC123
 ```
 
 #### `list`
+
 List active raffles on the network.
+
 ```bash
 tikka list                    # List on testnet
 tikka list --limit 20         # Limit results
@@ -254,7 +389,9 @@ tikka -n mainnet list         # List on mainnet
 ```
 
 #### `info`
+
 Get contract status and network information.
+
 ```bash
 tikka info                    # Get info on testnet
 tikka info --json             # Output as JSON
@@ -266,14 +403,18 @@ tikka -n mainnet info         # Get info on mainnet
 These commands require wallet integration for signing transactions:
 
 #### `create`
+
 Create a new raffle (interactive).
+
 ```bash
 tikka create              # Guided setup on testnet
 tikka -n mainnet create   # Guided setup on mainnet
 ```
 
 #### `buy`
+
 Purchase raffle tickets (interactive).
+
 ```bash
 tikka buy                 # Purchase on testnet
 tikka -n mainnet buy      # Purchase on mainnet
@@ -336,7 +477,14 @@ The CLI provides safe error messages that don't leak sensitive information:
 Full TypeDoc reference is auto-generated and hosted on GitHub Pages:
 **[crackedstudio.github.io/tikka](https://crackedstudio.github.io/tikka)**
 
+Coming from direct `@stellar/stellar-sdk`? Start with the
+**[migration guide](../docs/sdk/migration.md)** — it maps each direct-SDK operation
+to its `@tikka/sdk` equivalent, documents the `@stellar/stellar-sdk@^16.1.0`
+constraint and what breaks on v14, and covers wallet adapters versus a wallet
+kit.
+
 To build locally:
+
 ```bash
 npm run docs        # generates sdk/docs/
 npm run docs:watch  # rebuilds on file change
@@ -407,31 +555,31 @@ The docs are organized by module: **Raffle** · **Ticket** · **Wallet** · **Us
 
 All SDK errors extend `TikkaSdkError` and carry a stable `code` property for predictable handling:
 
-| Code | Class | When thrown |
-|------|-------|-------------|
-| `NetworkError` | `NetworkError` | All RPC endpoints unreachable, no fetch implementation |
-| `TIMEOUT` | `RpcTimeoutError` | RPC request exceeded timeout |
-| `RATE_LIMIT` | `RateLimitError` | RPC node returned 429 |
-| `UNAVAILABLE` | `UnavailableError` | RPC node returned 502/503/504 |
-| `INVALID_RESPONSE` | `InvalidResponseError` | Malformed or unparseable RPC response |
-| `TRANSACTION_REJECTED` | `TransactionRejectedError` | Network explicitly rejected submitted transaction |
-| `SUBMISSION_FAILED` | `TikkaSdkError` (generic) | Transaction submission failed (fallback) |
-| `SimulationFailed` | `TikkaSdkError` (generic) | Transaction simulation failed |
-| `CONTRACT_FAILURE` | `ContractFailureError` | Contract execution returned an error |
-| `CONTRACT_ERROR` | `TikkaSdkError` (generic) | General contract error |
-| `AUTH_ERROR` | `AuthError` | Authentication / SEP-10 verification failure |
-| `UNAUTHORIZED` | `UnauthorizedError` | Caller lacks permission for admin-only operation |
-| `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | Caller's balance is too low |
-| `UserRejected` | `TikkaSdkError` (generic) | User cancelled the wallet prompt |
-| `WALLET_NOT_CONNECTED` | `TikkaSdkError` (generic) | Wallet not connected |
-| `WALLET_NOT_INSTALLED` | `TikkaSdkError` (generic) | No wallet extension detected |
-| `INVALID_PARAMS` | `TikkaSdkError` (generic) | Invalid function parameters |
-| `VALIDATION_ERROR` | `TikkaSdkError` (generic) | Input validation failure |
-| `RAFFLE_NOT_FOUND` | `RaffleNotFoundError` | Raffle ID does not exist on-chain |
-| `RAFFLE_ENDED` | `RaffleEndedError` | Raffle is in DRAWING/FINALIZED/CANCELLED state |
-| `RAFFLE_FULL` | `RaffleFullError` | Raffle has sold its maximum tickets |
-| `EXTERNAL_CONTRACT_ERROR` | `TikkaSdkError` (generic) | Cross-contract call failed |
-| `UNKNOWN` | `TikkaSdkError` (generic) | Catch-all for unexpected errors |
+| Code                      | Class                      | When thrown                                            |
+| ------------------------- | -------------------------- | ------------------------------------------------------ |
+| `NetworkError`            | `NetworkError`             | All RPC endpoints unreachable, no fetch implementation |
+| `TIMEOUT`                 | `RpcTimeoutError`          | RPC request exceeded timeout                           |
+| `RATE_LIMIT`              | `RateLimitError`           | RPC node returned 429                                  |
+| `UNAVAILABLE`             | `UnavailableError`         | RPC node returned 502/503/504                          |
+| `INVALID_RESPONSE`        | `InvalidResponseError`     | Malformed or unparseable RPC response                  |
+| `TRANSACTION_REJECTED`    | `TransactionRejectedError` | Network explicitly rejected submitted transaction      |
+| `SUBMISSION_FAILED`       | `TikkaSdkError` (generic)  | Transaction submission failed (fallback)               |
+| `SimulationFailed`        | `TikkaSdkError` (generic)  | Transaction simulation failed                          |
+| `CONTRACT_FAILURE`        | `ContractFailureError`     | Contract execution returned an error                   |
+| `CONTRACT_ERROR`          | `TikkaSdkError` (generic)  | General contract error                                 |
+| `AUTH_ERROR`              | `AuthError`                | Authentication / SEP-10 verification failure           |
+| `UNAUTHORIZED`            | `UnauthorizedError`        | Caller lacks permission for admin-only operation       |
+| `INSUFFICIENT_FUNDS`      | `InsufficientFundsError`   | Caller's balance is too low                            |
+| `UserRejected`            | `TikkaSdkError` (generic)  | User cancelled the wallet prompt                       |
+| `WALLET_NOT_CONNECTED`    | `TikkaSdkError` (generic)  | Wallet not connected                                   |
+| `WALLET_NOT_INSTALLED`    | `TikkaSdkError` (generic)  | No wallet extension detected                           |
+| `INVALID_PARAMS`          | `TikkaSdkError` (generic)  | Invalid function parameters                            |
+| `VALIDATION_ERROR`        | `TikkaSdkError` (generic)  | Input validation failure                               |
+| `RAFFLE_NOT_FOUND`        | `RaffleNotFoundError`      | Raffle ID does not exist on-chain                      |
+| `RAFFLE_ENDED`            | `RaffleEndedError`         | Raffle is in DRAWING/FINALIZED/CANCELLED state         |
+| `RAFFLE_FULL`             | `RaffleFullError`          | Raffle has sold its maximum tickets                    |
+| `EXTERNAL_CONTRACT_ERROR` | `TikkaSdkError` (generic)  | Cross-contract call failed                             |
+| `UNKNOWN`                 | `TikkaSdkError` (generic)  | Catch-all for unexpected errors                        |
 
 ```ts
 try {
@@ -450,11 +598,165 @@ try {
     switch (err.code) {
       case TikkaSdkErrorCode.RateLimit:
       case TikkaSdkErrorCode.Timeout:
-        // Retry with backoff
+      // Retry with backoff
     }
   }
 }
 ```
+
+## Error Taxonomy by Operation
+
+Every public SDK operation declares the error types it can produce. This table enables consumers to handle failures without reading implementation code.
+
+### ContractService
+
+| Method | Error Types |
+| --- | --- |
+| `getPublicKey()` | `WalletNotConnected` |
+| `simulate()` | `SimulationFailed`, `ContractError`, `ExternalContractError`, `NetworkError`, `Timeout` |
+| `sign()` | `WalletNotInstalled`, `UserRejected`, `Unknown` |
+| `submit()` | `TransactionRejected`, `NetworkError`, `SubmissionFailed` |
+| `poll()` | `Timeout`, `ContractError`, `ExternalContractError`, `NetworkError` |
+| `simulateReadOnly()` | `SimulationFailed`, `ContractError`, `ExternalContractError`, `NetworkError` |
+| `invoke()` | `WalletNotInstalled`, `SimulationFailed`, `UserRejected`, `TransactionRejected`, `Timeout`, `ContractError`, `ExternalContractError`, `NetworkError` |
+| `buildUnsigned()` | `InvalidParams`, `SimulationFailed`, `ContractError`, `NetworkError` |
+| `submitSigned()` | `InvalidParams`, `TransactionRejected`, `Timeout`, `ContractError`, `NetworkError` |
+| `batchBuyTickets()` | `WalletNotInstalled`, `InvalidParams`, `SimulationFailed`, `SubmissionFailed`, `ContractError`, `ExternalContractError`, `NetworkError` |
+
+### RaffleService
+
+| Method | Error Types |
+| --- | --- |
+| `estimateCreate()` | `ValidationError`, `SimulationFailed`, `ContractError`, `NetworkError` |
+| `create()` | `ValidationError`, `RaffleEnded`, `InsufficientFunds`, `ContractError`, `ExternalContractError`, `SimulationFailed`, `TransactionRejected`, `Timeout`, `NetworkError`, `Unauthorized` |
+| `get()` | `ValidationError`, `SimulationFailed`, `ContractError`, `RaffleNotFound` |
+| `listActive()` | `SimulationFailed`, `ContractError` |
+| `listAll()` | `SimulationFailed`, `ContractError` |
+| `cancel()` | `ValidationError`, `RaffleEnded`, `Unauthorized`, `ContractError`, `TransactionRejected`, `Timeout` |
+| `triggerDraw()` | `ValidationError`, `RaffleEnded`, `Unauthorized`, `ContractError`, `TransactionRejected`, `Timeout` |
+| `getWinner()` | `ValidationError`, `SimulationFailed`, `ContractError`, `RaffleNotFound` |
+
+### TicketService
+
+| Method | Error Types |
+| --- | --- |
+| `buy()` | `ValidationError`, `RaffleEnded`, `WalletNotInstalled`, `InvalidParams`, `ExternalContractError`, `SimulationFailed`, `TransactionRejected`, `Timeout`, `InsufficientFunds`, `ContractError`, `NetworkError` |
+| `buyTickets()` | `ValidationError`, `RaffleEnded`, `WalletNotInstalled`, `InvalidParams`, `ExternalContractError`, `SimulationFailed`, `TransactionRejected`, `Timeout`, `InsufficientFunds`, `ContractError`, `NetworkError` |
+| `refund()` | `ValidationError`, `ExternalContractError`, `ContractError`, `SimulationFailed`, `TransactionRejected`, `Timeout`, `InsufficientFunds`, `NetworkError` |
+| `claimPrize()` | `ValidationError`, `RaffleEnded`, `ContractError`, `InsufficientFunds`, `TransactionRejected`, `Timeout`, `NetworkError` |
+| `getUserTickets()` | `ValidationError`, `InvalidParams`, `SimulationFailed`, `ContractError` |
+| `buyBatch()` | `ValidationError`, `WalletNotInstalled`, `SimulationFailed`, `InvalidParams`, `ExternalContractError`, `ContractError`, `TransactionRejected`, `Timeout`, `InsufficientFunds`, `NetworkError` |
+
+### UserService
+
+| Method | Error Types |
+| --- | --- |
+| `getParticipation()` | `ValidationError`, `SimulationFailed`, `ContractError`, `NetworkError` |
+| `getTickets()` | `ValidationError`, `SimulationFailed`, `ContractError` |
+| `getActivitySummary()` | `ValidationError`, `SimulationFailed`, `ContractError`, `NetworkError` |
+| `getWinnings()` | `ValidationError`, `SimulationFailed`, `ContractError`, `NetworkError` |
+
+### AdminService
+
+| Method | Error Types |
+| --- | --- |
+| `pause()` | `Unauthorized`, `ContractError`, `TransactionRejected`, `Timeout`, `NetworkError` |
+| `unpause()` | `Unauthorized`, `ContractError`, `TransactionRejected`, `Timeout`, `NetworkError` |
+| `isPaused()` | `SimulationFailed`, `ContractError`, `NetworkError` |
+| `getAdmin()` | `SimulationFailed`, `ContractError`, `NetworkError` |
+| `transferAdmin()` | `ValidationError`, `Unauthorized`, `ContractError`, `TransactionRejected`, `Timeout`, `NetworkError` |
+| `acceptAdmin()` | `Unauthorized`, `ContractError`, `TransactionRejected`, `Timeout`, `NetworkError` |
+| `finalizeRaffle()` | `RaffleEnded`, `ContractError`, `TransactionRejected`, `Timeout`, `NetworkError` |
+| `cancelRaffle()` | `RaffleEnded`, `Unauthorized`, `ContractError`, `TransactionRejected`, `Timeout`, `NetworkError` |
+
+### ReadOnly Services
+
+| Method | Error Types |
+| --- | --- |
+| `ReadOnlyRaffleService.getById()` | `SimulationFailed`, `ContractError` |
+| `ReadOnlyRaffleService.getAll()` | `SimulationFailed`, `ContractError` |
+| `ReadOnlyUserService.getProfile()` | `ValidationError`, `SimulationFailed`, `ContractError`, `NetworkError` |
+| `ReadOnlyUserService.getHistory()` | `ValidationError`, `SimulationFailed`, `ContractError`, `NetworkError` |
+| `TicketReadService.getUserTickets()` | `ValidationError`, `InvalidParams`, `SimulationFailed`, `ContractError` |
+| `TicketReadService.getUserTicketCount()` | `ValidationError`, `SimulationFailed`, `ContractError` |
+
+### Wallet Adapters
+
+| Method | Error Types |
+| --- | --- |
+| `getPublicKey()` | `TikkaSdkError` (generic) — `WALLET_NOT_INSTALLED`, `UserRejected`, `Unknown` |
+| `signTransaction()` | `TikkaSdkError` (generic) — `WALLET_NOT_INSTALLED`, `UserRejected`, `Unknown` |
+
+### SEP-10 Auth
+
+| Method | Error Types |
+| --- | --- |
+| `buildChallenge()` | `AuthError` |
+| `verifyResponse()` | `Sep10VerificationError` |
+
+```ts
+try {
+  await contractService.invoke(ContractFn.BUY_TICKET, [raffleId, address, quantity]);
+} catch (err) {
+  if (err instanceof RaffleEndedError) {
+    // Raffle is not OPEN — check current state
+  } else if (err instanceof InsufficientFundsError) {
+    // Top up before retrying
+  } else if (err instanceof ExternalContractError) {
+    // Token contract (SEP-41) rejected the call
+  } else if (err instanceof TransactionRejectedError) {
+    // Network rejected the submission
+  } else if (err instanceof TikkaSdkError) {
+    switch (err.code) {
+      case TikkaSdkErrorCode.NetworkError:
+      case TikkaSdkErrorCode.Timeout:
+      // Retry with backoff
+      case TikkaSdkErrorCode.RateLimit:
+      // Wait and retry
+    }
+  }
+}
+```
+
+## Testing utilities (`@tikka/sdk/testing`)
+
+Reusable end-to-end flows for consumer test suites, published from
+[`src/testing/`](./src/testing/) under the `@tikka/sdk/testing` sub-path. They
+drive a *configured* service through create → buy → cancel, resolving the
+`TIKKA_*` defaults for you; they perform no network I/O themselves, so point
+them at a mock RPC, a local standalone network, or testnet.
+
+```ts
+import {
+  createRaffleFlow,
+  buyTicketsFlow,
+  cancelRaffleFlow,
+  MockWalletAdapter,
+} from '@tikka/sdk/testing';
+import { RaffleService } from '@tikka/sdk';
+
+const wallet = new MockWalletAdapter();           // no browser wallet needed
+const raffle = new RaffleService(/* rpc, network, wallet */);
+
+const created = await createRaffleFlow(raffle, { ticketPrice: '1' });
+await buyTicketsFlow(ticketService, { raffleId: created.returnValue!, quantity: 2 });
+await cancelRaffleFlow(raffle, { raffleId: created.returnValue! });
+```
+
+Env-var defaults (all optional — pass explicit params to override):
+
+| Env var | Default | Used by |
+|---|---|---|
+| `TIKKA_TICKET_PRICE` | `1` | `createRaffleFlow` |
+| `TIKKA_ASSET_CODE` | `XLM` | `createRaffleFlow` |
+| `TIKKA_ASSET_ISSUER` | `""` (native asset) | `createRaffleFlow` |
+| `TIKKA_MAX_TICKETS` | `50` | `createRaffleFlow` |
+| `TIKKA_DURATION_HOURS` | `24` | `createRaffleFlow` |
+| `TIKKA_METADATA_CID` | `""` | `createRaffleFlow` |
+| `TIKKA_QUANTITY` | `1` | `buyTicketsFlow` |
+
+These helpers are covered by `src/testing/example-flows.spec.ts` and are the
+same helpers the SDK's opt-in testnet suite uses.
 
 ## Architecture
 
@@ -465,12 +767,14 @@ Full ecosystem spec: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) (section
 All runnable examples live in [`examples/`](./examples/). They use `MockWalletAdapter` so they compile and run without a browser wallet — swap it for `FreighterAdapter` or another adapter when you need real signing.
 
 **Setup:**
+
 ```bash
 cp examples/.env.example examples/.env
 # fill in TIKKA_PUBLIC_KEY and any other vars you need
 ```
 
 **Type-check all examples (no network required):**
+
 ```bash
 npm run examples:check
 ```
@@ -479,10 +783,10 @@ npm run examples:check
 
 End-to-end walkthrough: bootstrap → create raffle → buy tickets → read state.
 
-| Env var | Required | Default | Description |
-|---|---|---|---|
-| `TIKKA_NETWORK` | no | `testnet` | `testnet` \| `mainnet` \| `standalone` |
-| `TIKKA_PUBLIC_KEY` | no | mock key | Stellar G… address |
+| Env var            | Required | Default   | Description                            |
+| ------------------ | -------- | --------- | -------------------------------------- |
+| `TIKKA_NETWORK`    | no       | `testnet` | `testnet` \| `mainnet` \| `standalone` |
+| `TIKKA_PUBLIC_KEY` | no       | mock key  | Stellar G… address                     |
 
 ```bash
 TIKKA_NETWORK=testnet npx ts-node examples/quickstart.ts
@@ -492,16 +796,16 @@ TIKKA_NETWORK=testnet npx ts-node examples/quickstart.ts
 
 Create a new raffle on-chain with configurable price, asset, and duration.
 
-| Env var | Required | Default | Description |
-|---|---|---|---|
-| `TIKKA_NETWORK` | no | `testnet` | Network |
-| `TIKKA_PUBLIC_KEY` | **yes** | — | Signer address |
-| `TIKKA_TICKET_PRICE` | no | `1` | Amount per ticket |
-| `TIKKA_ASSET_CODE` | no | `XLM` | Asset code |
-| `TIKKA_ASSET_ISSUER` | no | `""` | Issuer for non-native assets |
-| `TIKKA_MAX_TICKETS` | no | `50` | Max tickets available |
-| `TIKKA_DURATION_HOURS` | no | `24` | Hours until raffle closes |
-| `TIKKA_METADATA_CID` | no | `""` | IPFS CID for metadata |
+| Env var                | Required | Default   | Description                  |
+| ---------------------- | -------- | --------- | ---------------------------- |
+| `TIKKA_NETWORK`        | no       | `testnet` | Network                      |
+| `TIKKA_PUBLIC_KEY`     | **yes**  | —         | Signer address               |
+| `TIKKA_TICKET_PRICE`   | no       | `1`       | Amount per ticket            |
+| `TIKKA_ASSET_CODE`     | no       | `XLM`     | Asset code                   |
+| `TIKKA_ASSET_ISSUER`   | no       | `""`      | Issuer for non-native assets |
+| `TIKKA_MAX_TICKETS`    | no       | `50`      | Max tickets available        |
+| `TIKKA_DURATION_HOURS` | no       | `24`      | Hours until raffle closes    |
+| `TIKKA_METADATA_CID`   | no       | `""`      | IPFS CID for metadata        |
 
 ```bash
 TIKKA_PUBLIC_KEY=G... npx ts-node examples/create-raffle.ts
@@ -514,12 +818,12 @@ TIKKA_ASSET_CODE=USDC TIKKA_ASSET_ISSUER=GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3I
 
 Purchase tickets for an existing raffle, with pre-flight status checks.
 
-| Env var | Required | Default | Description |
-|---|---|---|---|
-| `TIKKA_NETWORK` | no | `testnet` | Network |
-| `TIKKA_PUBLIC_KEY` | **yes** | — | Buyer address |
-| `TIKKA_RAFFLE_ID` | **yes** | — | Numeric raffle ID |
-| `TIKKA_QUANTITY` | no | `1` | Number of tickets |
+| Env var            | Required | Default   | Description       |
+| ------------------ | -------- | --------- | ----------------- |
+| `TIKKA_NETWORK`    | no       | `testnet` | Network           |
+| `TIKKA_PUBLIC_KEY` | **yes**  | —         | Buyer address     |
+| `TIKKA_RAFFLE_ID`  | **yes**  | —         | Numeric raffle ID |
+| `TIKKA_QUANTITY`   | no       | `1`       | Number of tickets |
 
 ```bash
 TIKKA_PUBLIC_KEY=G... TIKKA_RAFFLE_ID=1 npx ts-node examples/buy-tickets.ts
@@ -531,12 +835,12 @@ Poll Soroban contract events (`RaffleCreated`, `TicketPurchased`, `RaffleFinaliz
 
 > **Network required** — connects to the Soroban RPC to stream events.
 
-| Env var | Required | Default | Description |
-|---|---|---|---|
-| `TIKKA_NETWORK` | no | `testnet` | Network |
-| `TIKKA_RAFFLE_ID` | no | all | Filter events for one raffle |
-| `TIKKA_POLL_MS` | no | `5000` | Polling interval (ms) |
-| `TIKKA_CONTRACT_ID` | no | built-in | Override contract address |
+| Env var             | Required | Default   | Description                  |
+| ------------------- | -------- | --------- | ---------------------------- |
+| `TIKKA_NETWORK`     | no       | `testnet` | Network                      |
+| `TIKKA_RAFFLE_ID`   | no       | all       | Filter events for one raffle |
+| `TIKKA_POLL_MS`     | no       | `5000`    | Polling interval (ms)        |
+| `TIKKA_CONTRACT_ID` | no       | built-in  | Override contract address    |
 
 ```bash
 TIKKA_NETWORK=testnet npx ts-node examples/listen-events.ts
@@ -550,11 +854,11 @@ Cold-wallet / air-gapped signing flow. Step 1 builds an unsigned XDR; Step 3 sub
 
 > **Network required** — Step 1 calls `simulateTransaction`; Step 3 submits to the network.
 
-| Env var | Required | Default | Description |
-|---|---|---|---|
-| `TIKKA_NETWORK` | no | `testnet` | Network |
-| `TIKKA_PUBLIC_KEY` | **yes** | — | Source account address |
-| `TIKKA_SIGNED_XDR` | no | — | Provide to skip to Step 3 (submit) |
+| Env var            | Required | Default   | Description                        |
+| ------------------ | -------- | --------- | ---------------------------------- |
+| `TIKKA_NETWORK`    | no       | `testnet` | Network                            |
+| `TIKKA_PUBLIC_KEY` | **yes**  | —         | Source account address             |
+| `TIKKA_SIGNED_XDR` | no       | —         | Provide to skip to Step 3 (submit) |
 
 ```bash
 # Step 1 — build unsigned XDR:
@@ -582,24 +886,25 @@ npm run example:custom-wallet
 
 The SDK provides a unified interface for multiple Stellar wallets. All adapters implement the same `WalletAdapter` interface with `getPublicKey()` and `signTransaction(xdr)` methods.
 
-> **Implementing a custom wallet?** See the full integrator contract — methods, expected errors, and signing flow — in [`WALLET_ADAPTER.md`](./docs/WALLET_ADAPTER.md), plus the runnable [`examples/custom-wallet.ts`](./examples/custom-wallet.ts).
+> **Implementing a custom wallet?** See the full integrator contract — methods, expected errors, and signing flow — in [`WALLET_ADAPTERS.md`](../docs/WALLET_ADAPTERS.md), plus the runnable [`examples/custom-wallet.ts`](./examples/custom-wallet.ts). Choosing between a built-in adapter and a wallet kit? See [Wallet adapters vs. a wallet kit](../docs/sdk/migration.md#8-wallet-adapters-vs-a-wallet-kit).
 
 ### Supported Wallets
 
-| Wallet | Installation | Notes |
-|---|---|---|
-| Freighter | Browser extension | Most popular, requires extension |
-| xBull | Browser extension / PWA | Mobile-friendly |
-| Albedo | Web-based | No extension required, popup-based |
-| LOBSTR | Browser extension | Large user base |
-| Rabet | Browser extension | Lightweight, open-source |
-| Custom | Your bridge / custody / HSM | Extend `WalletAdapter` — see docs above |
+| Wallet    | Installation                | Notes                                   |
+| --------- | --------------------------- | --------------------------------------- |
+| Freighter | Browser extension           | Most popular, requires extension        |
+| xBull     | Browser extension / PWA     | Mobile-friendly                         |
+| Albedo    | Web-based                   | No extension required, popup-based      |
+| LOBSTR    | Browser extension           | Large user base                         |
+| Rabet     | Browser extension           | Lightweight, open-source                |
+| Custom    | Your bridge / custody / HSM | Extend `WalletAdapter` — see docs above |
 
 ### Albedo Wallet
 
 Albedo is a web-based wallet that doesn't require browser extensions. It opens a popup window for authentication and transaction signing, making it ideal for users who prefer not to install extensions.
 
 **Key Features:**
+
 - No browser extension required
 - Works in any modern browser
 - Popup-based authentication
@@ -607,18 +912,20 @@ Albedo is a web-based wallet that doesn't require browser extensions. It opens a
 - Network switching support
 
 **Installation:**
+
 ```bash
 npm install @albedo-link/intent
 ```
 
 **Basic Usage:**
+
 ```typescript
 import { AlbedoAdapter } from '@tikka/sdk';
 import { Networks } from '@stellar/stellar-sdk';
 
 // Create adapter with network configuration
 const adapter = new AlbedoAdapter({
-  networkPassphrase: Networks.TESTNET
+  networkPassphrase: Networks.TESTNET,
 });
 
 // Check availability (always true in browser)
@@ -626,23 +933,24 @@ if (adapter.isAvailable()) {
   // Get public key (opens Albedo popup)
   const publicKey = await adapter.getPublicKey();
   console.log('User public key:', publicKey);
-  
+
   // Sign transaction (opens Albedo popup)
   const { signedXdr } = await adapter.signTransaction(xdr, {
-    networkPassphrase: Networks.TESTNET
+    networkPassphrase: Networks.TESTNET,
   });
-  
+
   // Sign message for authentication
   const signature = await adapter.signMessage('Sign in to MyApp');
 }
 ```
 
 **Advanced Usage:**
+
 ```typescript
 // Specify which account should sign (for multi-account users)
 const { signedXdr } = await adapter.signTransaction(xdr, {
   networkPassphrase: Networks.TESTNET,
-  accountToSign: 'GBQW4KLMRXIMSDWBEWX4AWQKWYW7R3E7SFPSHTUDTFFT22NNUC6COL72'
+  accountToSign: 'GBQW4KLMRXIMSDWBEWX4AWQKWYW7R3E7SFPSHTUDTFFT22NNUC6COL72',
 });
 
 // Get configured network
@@ -651,6 +959,7 @@ console.log('Network:', network);
 ```
 
 **Error Handling:**
+
 ```typescript
 import { TikkaSdkError, TikkaSdkErrorCode } from '@tikka/sdk';
 
@@ -680,6 +989,7 @@ See [examples/albedo-wallet.ts](./examples/albedo-wallet.ts) for a full working 
 Rabet is a lightweight, open-source browser extension wallet for Stellar. It provides a simple and secure way to manage Stellar assets and interact with dApps.
 
 **Key Features:**
+
 - Lightweight browser extension
 - Open-source and community-driven
 - Simple and intuitive interface
@@ -690,13 +1000,14 @@ Rabet is a lightweight, open-source browser extension wallet for Stellar. It pro
 Rabet doesn't require an npm package - it uses the global `window.rabet` object injected by the browser extension.
 
 **Basic Usage:**
+
 ```typescript
 import { RabetAdapter } from '@tikka/sdk';
 import { Networks } from '@stellar/stellar-sdk';
 
 // Create adapter with network configuration
 const adapter = new RabetAdapter({
-  networkPassphrase: Networks.TESTNET
+  networkPassphrase: Networks.TESTNET,
 });
 
 // Check if Rabet extension is installed
@@ -704,19 +1015,20 @@ if (adapter.isAvailable()) {
   // Get public key (prompts user to connect)
   const publicKey = await adapter.getPublicKey();
   console.log('User public key:', publicKey);
-  
+
   // Sign transaction
   const { signedXdr } = await adapter.signTransaction(xdr, {
-    networkPassphrase: Networks.TESTNET
+    networkPassphrase: Networks.TESTNET,
   });
 }
 ```
 
 **Advanced Usage:**
+
 ```typescript
 // Use different network
 const { signedXdr } = await adapter.signTransaction(xdr, {
-  networkPassphrase: Networks.PUBLIC
+  networkPassphrase: Networks.PUBLIC,
 });
 
 // Get configured network
@@ -725,6 +1037,7 @@ console.log('Network:', network);
 ```
 
 **Error Handling:**
+
 ```typescript
 import { TikkaSdkError, TikkaSdkErrorCode } from '@tikka/sdk';
 
@@ -747,6 +1060,7 @@ try {
 ```
 
 **Important Notes:**
+
 - Rabet requires a network passphrase for transaction signing
 - Message signing is not supported by Rabet
 - Users must have the Rabet browser extension installed from [rabet.io](https://rabet.io)
@@ -754,21 +1068,27 @@ try {
 ### General Wallet Usage
 
 ```typescript
-import { FreighterAdapter, XBullAdapter, AlbedoAdapter, LobstrAdapter, RabetAdapter } from '@tikka/sdk';
+import {
+  FreighterAdapter,
+  XBullAdapter,
+  AlbedoAdapter,
+  LobstrAdapter,
+  RabetAdapter,
+} from '@tikka/sdk';
 
 // Create adapter instance
 const adapter = new FreighterAdapter({
-  networkPassphrase: Networks.TESTNET
+  networkPassphrase: Networks.TESTNET,
 });
 
 // Check availability
 if (adapter.isAvailable()) {
   // Get public key
   const publicKey = await adapter.getPublicKey();
-  
+
   // Sign transaction
   const { signedXdr } = await adapter.signTransaction(xdr, {
-    networkPassphrase: Networks.TESTNET
+    networkPassphrase: Networks.TESTNET,
   });
 }
 ```
@@ -796,10 +1116,7 @@ class MyWalletAdapter extends WalletAdapter {
 
   async getPublicKey(): Promise<string> {
     if (!this.isAvailable()) {
-      throw new TikkaSdkError(
-        TikkaSdkErrorCode.WalletNotInstalled,
-        'MyWallet is not installed',
-      );
+      throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'MyWallet is not installed');
     }
     return (globalThis as any).myWallet.getPublicKey();
   }
@@ -808,8 +1125,7 @@ class MyWalletAdapter extends WalletAdapter {
     xdr: string,
     opts?: { networkPassphrase?: string; accountToSign?: string },
   ): Promise<SignTransactionResult> {
-    const networkPassphrase =
-      opts?.networkPassphrase ?? this.options.networkPassphrase;
+    const networkPassphrase = opts?.networkPassphrase ?? this.options.networkPassphrase;
     const signedXdr = await (globalThis as any).myWallet.signTx(xdr, {
       networkPassphrase,
       accountToSign: opts?.accountToSign,
@@ -828,7 +1144,7 @@ class MyWalletAdapter extends WalletAdapter {
 }
 ```
 
-Full contract (methods, error codes, signing flow): [`WALLET_ADAPTER.md`](./docs/WALLET_ADAPTER.md).  
+Full contract (methods, error codes, signing flow): [`WALLET_ADAPTERS.md`](../docs/WALLET_ADAPTERS.md).  
 Runnable demo: [`examples/custom-wallet.ts`](./examples/custom-wallet.ts) (`npm run example:custom-wallet`).
 
 ### Selecting Adapters
@@ -851,6 +1167,40 @@ const availableAdapters = Object.entries(adapters)
 // Auto-select first available
 const selectedAdapter = availableAdapters[0] ? adapters[availableAdapters[0]] : null;
 ```
+
+### Availability checks (Node / SSR)
+
+`isAvailable()` answers a yes/no question for browser UI. When the same code also runs
+during an SSR pass, in a Node service, or in React Native, use `checkAvailability()`
+instead: it never throws and returns the reason as data.
+
+```typescript
+import { FreighterAdapter, WalletAvailabilityCode } from '@tikka/sdk';
+
+const adapter = new FreighterAdapter();
+const availability = adapter.checkAvailability();
+
+if (availability.available) {
+  // Render the wallet button.
+} else if (availability.code === WalletAvailabilityCode.ExtensionNotInstalled) {
+  // Real browser, but the user has not installed the extension yet.
+  showInstallLink('https://freighter.app');
+} else {
+  // 'unsupported-environment': Node, an SSR pass, or React Native.
+  logger.warn(availability.message);
+}
+```
+
+| `code` | Meaning |
+| --- | --- |
+| `available` | The adapter can be used in this runtime. |
+| `unsupported-environment` | Browser-only wallet running in Node, SSR, or React Native. |
+| `extension-not-installed` | Browser runtime, but the extension / injected API is missing. |
+
+`checkAvailability()` is the non-throwing counterpart of `isAvailable()` — the two always
+agree on `available`. Calling a wallet method on an unavailable adapter still throws a
+typed `TikkaSdkError` (`WALLET_NOT_INSTALLED` or `WALLET_NOT_CONNECTED`), so an
+availability check is a way to skip the error path, not a replacement for handling it.
 
 ## React Native Notes
 

@@ -22,9 +22,11 @@ import {
   Address,
   nativeToScVal,
   rpc,
+  Transaction,
   xdr,
   scValToNative,
   Memo,
+  TransactionSource,
 } from '@stellar/stellar-sdk';
 import { RpcService } from '../network/rpc.service';
 import { HorizonService } from '../network/horizon.service';
@@ -37,6 +39,10 @@ import {
   NetworkError,
   toTypedContractError,
 } from '../utils/errors';
+import type { TikkaLogger } from '../utils/logger';
+import { defaultLogger } from '../utils/logger';
+import { SequenceManager } from './sequence.manager';
+import { classifyError, retryOnTxBadSeq } from './sequence.errors';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -81,7 +87,9 @@ export interface StageChangeEvent {
  * Mirrors the three Stellar memo types the protocol supports.
  */
 export type TxMemo =
-  { type: 'text'; value: string } | { type: 'id'; value: string } | { type: 'hash'; value: Buffer };
+  | { type: 'text'; value: string }
+  | { type: 'id'; value: string }
+  | { type: 'hash'; value: Buffer };
 
 /** Successful simulation result — everything needed to decide whether to sign. */
 export interface SimulateResult<T = unknown> {
@@ -151,6 +159,16 @@ export interface InvokeLifecycleOptions {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Narrows a caught `unknown` to a usable message, including `{ message }` throws. */
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message || String(error);
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const { message } = error as { message?: unknown };
+    if (typeof message === 'string' && message) return message;
+  }
+  return String(error);
+}
 
 /** Detects Soroban contract errors in error messages / XDR. */
 function isExternalContractFailure(msg: string): boolean {
@@ -239,9 +257,20 @@ export function validateLifecycleTransition(
  *
  * `invoke()` runs all four phases in sequence and is the most convenient
  * entry point for standard write operations.
+ *
+ * ## Concurrency & Sequencing
+ *
+ * TransactionLifecycle uses SequenceManager to prevent TX_BAD_SEQ collisions
+ * when multiple operations fire concurrently from the same account.
+ *
+ * - Acquires a per-account lock before fetching sequence
+ * - Ensures strict FIFO ordering for operations from the same account
+ * - Allows parallel operations from different accounts
+ * - Automatically retries on TX_BAD_SEQ with refetched sequence
  */
 export class TransactionLifecycle {
-  private lastStageTimestamp: number = 0;
+  private logger: TikkaLogger;
+  private sequenceManager = new SequenceManager();
 
   constructor(
     private readonly rpc: RpcService,
@@ -249,7 +278,10 @@ export class TransactionLifecycle {
     private readonly networkConfig: NetworkConfig,
     private wallet: WalletAdapter | undefined,
     private contractId: string,
-  ) {}
+    logger?: TikkaLogger,
+  ) {
+    this.logger = logger ?? defaultLogger;
+  }
 
   setWallet(adapter: WalletAdapter | undefined): void {
     this.wallet = adapter;
@@ -296,7 +328,7 @@ export class TransactionLifecycle {
    */
   async simulate<T = unknown>(
     method: string,
-    params: any[],
+    params: unknown[],
     options: Pick<InvokeLifecycleOptions, 'sourcePublicKey' | 'fee' | 'memo'> = {},
   ): Promise<SimulateResult<T>> {
     const sourceKey = options.sourcePublicKey ?? (await this.resolveSourceKey());
@@ -305,18 +337,18 @@ export class TransactionLifecycle {
     const simResponse = await this.rpc.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResponse)) {
-      const errMsg = (simResponse as any).error ?? '';
+      const errMsg = (simResponse as Record<string, unknown>).error ?? '';
       const message = `Simulation failed for "${method}": ${errMsg}`;
       throw (
-        toTypedContractError(message, errMsg) ??
-        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, errMsg)
+        toTypedContractError(message, simResponse.error) ??
+        new TikkaSdkError(TikkaSdkErrorCode.SimulationFailed, message, simResponse.error)
       );
     }
 
     const success = simResponse as rpc.Api.SimulateTransactionSuccessResponse;
     const assembled = rpc.assembleTransaction(tx, success).build();
 
-    const returnValue = success.result?.retval ? (scValToNative(success.result.retval) as T) : null;
+    const returnValue = success.result?.retval ? scValToNative(success.result.retval) : null;
 
     return {
       returnValue,
@@ -348,8 +380,8 @@ export class TransactionLifecycle {
         networkPassphrase: networkPassphrase ?? this.networkConfig.networkPassphrase,
       });
       signedXdr = result.signedXdr;
-    } catch (err: any) {
-      const msg: string = err?.message ?? String(err);
+    } catch (err: unknown) {
+      const msg: string = err instanceof Error ? err.message : String(err);
       const isRejection =
         msg.toLowerCase().includes('reject') ||
         msg.toLowerCase().includes('denied') ||
@@ -380,7 +412,7 @@ export class TransactionLifecycle {
     const sendResp = await this.rpc.sendTransaction(signedTx);
 
     if (sendResp.status === 'ERROR') {
-      const detail = (sendResp as any).errorResultXdr ?? '';
+      const detail = (sendResp as Record<string, unknown>).errorResultXdr ?? '';
       throw new TransactionRejectedError(`Transaction submission failed: ${detail}`);
     }
 
@@ -440,7 +472,7 @@ export class TransactionLifecycle {
       if (resp.status === rpc.Api.GetTransactionStatus.SUCCESS) {
         const ok = resp as rpc.Api.GetSuccessfulTransactionResponse;
         return {
-          returnValue: ok.returnValue ? (scValToNative(ok.returnValue) as T) : null,
+          returnValue: ok.returnValue ? scValToNative(ok.returnValue) : null,
           txHash,
           ledger: ok.ledger,
           resultXdr:
@@ -451,15 +483,15 @@ export class TransactionLifecycle {
       }
 
       if (resp.status === rpc.Api.GetTransactionStatus.FAILED) {
-        const resultXdr = (resp as any).resultXdr ?? '';
+        const resultXdr = (resp as Record<string, unknown>).resultXdr ?? '';
         const message = `Transaction ${txHash} failed on-chain (attempt ${attempts})`;
 
-        if (isExternalContractFailure(String(resultXdr))) {
+        if (isExternalContractFailure(rawResultXdr)) {
           throw new TikkaSdkError(TikkaSdkErrorCode.ExternalContractError, message, resultXdr);
         }
 
         throw (
-          toTypedContractError(message, resultXdr) ??
+          toTypedContractError(message, rawResultXdr) ??
           new TikkaSdkError(TikkaSdkErrorCode.ContractError, message, resultXdr)
         );
       }
@@ -482,53 +514,41 @@ export class TransactionLifecycle {
    * Convenience method that runs all four phases in sequence:
    * simulate → sign → submit → poll.
    *
-   * @throws Any of the per-phase errors.
+   * Includes automatic TX_BAD_SEQ retry with sequence refetch.
+   *
+   * @throws Any of the per-phase errors (unless they are TX_BAD_SEQ, which are retried).
    */
   async invoke<T = unknown>(
     method: string,
-    params: any[],
+    params: unknown[],
     options: InvokeLifecycleOptions = {},
   ): Promise<SubmitResult<T>> {
     if (!this.wallet) {
       throw new TikkaSdkError(TikkaSdkErrorCode.WalletNotInstalled, 'Wallet required for invoke()');
     }
 
-    // Reset timing tracker for this invocation
-    this.lastStageTimestamp = 0;
+    const sourceKey = options.sourcePublicKey ?? (await this.wallet.getPublicKey());
 
-    try {
-      // Stage 1: Simulate
-      this.emitStageChange(TransactionStage.SIMULATING, options.onStageChange);
-      const sim = await this.simulate<T>(method, params, options);
+    // Retry on TX_BAD_SEQ: refetch sequence and retry the full invoke pipeline
+    const retryResult = await retryOnTxBadSeq(
+      async () => {
+        const sim = await this.simulate<T>(method, params, options);
+        const signedXdr = await this.sign(sim.assembledXdr, sim.networkPassphrase);
+        const txHash = await this.submit(signedXdr);
+        return this.poll<T>(txHash, options.poll);
+      },
+      async () => this.horizon.loadAccount(sourceKey),
+      { maxAttempts: 2 },
+    );
 
-      // Stage 2: Sign
-      this.emitStageChange(TransactionStage.AWAITING_SIGNATURE, options.onStageChange);
-      const signedXdr = await this.sign(sim.assembledXdr, sim.networkPassphrase);
-
-      // Stage 3: Submit
-      this.emitStageChange(TransactionStage.SUBMITTING, options.onStageChange);
-      const txHash = await this.submit(signedXdr);
-
-      // Stage 4: Poll
-      this.emitStageChange(TransactionStage.CONFIRMING, options.onStageChange, txHash);
-      const result = await this.poll<T>(txHash, options.poll);
-
-      // Stage 5: Completed
-      this.emitStageChange(TransactionStage.COMPLETED, options.onStageChange, txHash);
-      return result;
-    } catch (error) {
-      // Emit failed stage with error details
-      this.emitStageChange(
-        TransactionStage.FAILED,
-        options.onStageChange,
-        undefined,
-        error instanceof Error ? error : new Error(String(error)),
-      );
-      throw error;
+    if (!retryResult.success) {
+      throw retryResult.error;
     }
+
+    return retryResult.value!;
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────________________________________
 
   private async resolveSourceKey(): Promise<string> {
     if (this.wallet) {
@@ -543,37 +563,45 @@ export class TransactionLifecycle {
 
   private async buildTx(
     method: string,
-    params: any[],
+    params: unknown[],
     sourceKey: string,
     fee?: string,
     memo?: TxMemo,
   ) {
-    const account = await this.horizon.loadAccount(sourceKey).catch(
-      () =>
-        ({
-          accountId: () => sourceKey,
-          sequenceNumber: () => '0',
-          incrementSequenceNumber: () => {},
-        }) as any,
-    );
+    // Acquire per-account lock to prevent sequence collisions
+    const release = await this.sequenceManager.lock(sourceKey);
 
-    let finalFee = fee;
-    if (!finalFee) {
-      const { suggestedFee } = await this.rpc.estimateFee();
-      finalFee = String(suggestedFee);
+    try {
+      const account = await this.horizon.loadAccount(sourceKey).catch(
+        () =>
+          ({
+            accountId: () => sourceKey,
+            sequenceNumber: () => '0',
+            incrementSequenceNumber: () => {},
+          }) as xdr.Account,
+      );
+
+      let finalFee = fee;
+      if (!finalFee) {
+        const { suggestedFee } = await this.rpc.estimateFee();
+        finalFee = String(suggestedFee);
+      }
+
+      const contract = new Contract(this.contractId);
+      const builder = new TransactionBuilder(account, {
+        fee: finalFee,
+        networkPassphrase: this.networkConfig.networkPassphrase,
+      }).addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))));
+
+      if (memo) {
+        builder.addMemo(this.buildMemo(memo));
+      }
+
+      return builder.setTimeout(30).build();
+    } finally {
+      // Always release the lock, even if an error occurs
+      release();
     }
-
-    const contract = new Contract(this.contractId);
-    const builder = new TransactionBuilder(account, {
-      fee: finalFee,
-      networkPassphrase: this.networkConfig.networkPassphrase,
-    }).addOperation(contract.call(method, ...params.map((p) => this.toScVal(p))));
-
-    if (memo) {
-      builder.addMemo(this.buildMemo(memo));
-    }
-
-    return builder.setTimeout(30).build();
   }
 
   private buildMemo(memo: TxMemo): Memo {
@@ -587,12 +615,12 @@ export class TransactionLifecycle {
     }
   }
 
-  private toScVal(val: any): xdr.ScVal {
+  private toScVal(val: unknown): xdr.ScVal {
     if (val instanceof xdr.ScVal) return val;
     if (typeof val === 'string' && val.length === 56) {
       return new Address(val).toScVal();
     }
-    return nativeToScVal(val);
+    return nativeToScVal(val as Parameters<typeof nativeToScVal>[0]);
   }
 
   private sleep(ms: number): Promise<void> {

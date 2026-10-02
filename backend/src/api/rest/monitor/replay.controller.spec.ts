@@ -1,9 +1,12 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import request from 'supertest';
 import { ReplayController } from './replay.controller';
 import { ReplayService, ReplayJobConfig } from '../../../services/indexer/replay.service';
 import { AdminGuard } from './admin.guard';
 import { ConfigService } from '@nestjs/config';
 import { MonitorService } from './monitor.service';
-import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { AuditLogInterceptor } from './audit-log.interceptor';
 
 describe('ReplayController & AdminGuard', () => {
   describe('ReplayController', () => {
@@ -194,6 +197,194 @@ describe('ReplayController & AdminGuard', () => {
       );
       expect(() => guard.canActivate(contextForbidden)).toThrow(UnauthorizedException);
       expect(() => guard.canActivate(contextForbidden)).toThrow('IP address not allowed');
+    });
+  });
+
+  describe('End-to-End Replay Path & Audit Logging', () => {
+    let app: INestApplication;
+    let mockReplayService: any;
+    let mockMonitorService: any;
+    let mockConfigService: any;
+
+    beforeEach(async () => {
+      mockReplayService = {
+        startReplay: jest.fn(),
+        getJobStatus: jest.fn(),
+      };
+
+      mockMonitorService = {
+        logAudit: jest.fn().mockResolvedValue(undefined),
+      };
+
+      mockConfigService = {
+        get: jest.fn().mockImplementation((key: string, defaultVal: any) => {
+          if (key === 'ADMIN_TOKEN') return 'secret-admin-token';
+          if (key === 'ADMIN_IP_ALLOWLIST') return '';
+          return defaultVal;
+        }),
+      };
+
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        controllers: [ReplayController],
+        providers: [
+          { provide: ReplayService, useValue: mockReplayService },
+          { provide: MonitorService, useValue: mockMonitorService },
+          { provide: ConfigService, useValue: mockConfigService },
+          AdminGuard,
+          AuditLogInterceptor,
+        ],
+      }).compile();
+
+      app = moduleFixture.createNestApplication();
+      await app.init();
+    });
+
+    afterEach(async () => {
+      await app.close();
+    });
+
+    it('rejects POST /admin/replay without admin token, logs 401 audit, and does NOT call startReplay', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/admin/replay')
+        .send({ fromLedger: 10, toLedger: 20, dryRun: true });
+
+      expect(res.status).toBe(401);
+      expect(mockReplayService.startReplay).not.toHaveBeenCalled();
+      expect(mockMonitorService.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          route: '/admin/replay',
+          method: 'POST',
+          statusCode: 401,
+        }),
+      );
+    });
+
+    it('rejects POST /admin/replay with invalid admin token, logs 401 audit, and does NOT call startReplay', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/admin/replay')
+        .set('x-admin-token', 'wrong-token')
+        .send({ fromLedger: 10, toLedger: 20, dryRun: true });
+
+      expect(res.status).toBe(401);
+      expect(mockReplayService.startReplay).not.toHaveBeenCalled();
+      expect(mockMonitorService.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 401,
+        }),
+      );
+    });
+
+    it('executes POST /admin/replay with valid admin token and records audit log upon completion', async () => {
+      mockReplayService.startReplay.mockReturnValue('job-uuid-e2e-1');
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/replay')
+        .set('x-admin-token', 'secret-admin-token')
+        .set('x-admin-id', 'admin-super')
+        .send({ fromLedger: 10, toLedger: 20, dryRun: true });
+
+      expect(res.status).toBe(202);
+      expect(res.body).toEqual({
+        jobId: 'job-uuid-e2e-1',
+        message: 'Replay job started. Poll /admin/replay/job-uuid-e2e-1 for progress.',
+      });
+      expect(mockReplayService.startReplay).toHaveBeenCalledWith({
+        fromLedger: 10,
+        toLedger: 20,
+        dryRun: true,
+      });
+
+      expect(mockMonitorService.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adminId: 'admin-super',
+          route: '/admin/replay',
+          method: 'POST',
+          statusCode: 202,
+        }),
+      );
+    });
+
+    it('records 400 audit log when startReplay throws validation error', async () => {
+      mockReplayService.startReplay.mockImplementation(() => {
+        throw new Error('fromLedger (20) must be <= toLedger (10)');
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/replay')
+        .set('x-admin-token', 'secret-admin-token')
+        .set('x-admin-id', 'admin-super')
+        .send({ fromLedger: 20, toLedger: 10, dryRun: true });
+
+      expect(res.status).toBe(400);
+      expect(mockMonitorService.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adminId: 'admin-super',
+          route: '/admin/replay',
+          method: 'POST',
+          statusCode: 400,
+        }),
+      );
+    });
+
+    it('rejects GET /admin/replay/:jobId without admin token, logs 401 audit, and does NOT call getJobStatus', async () => {
+      const res = await request(app.getHttpServer()).get('/admin/replay/job-123');
+
+      expect(res.status).toBe(401);
+      expect(mockReplayService.getJobStatus).not.toHaveBeenCalled();
+      expect(mockMonitorService.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          route: '/admin/replay/job-123',
+          method: 'GET',
+          statusCode: 401,
+        }),
+      );
+    });
+
+    it('retrieves GET /admin/replay/:jobId with valid token and records audit log', async () => {
+      const jobStatus = {
+        jobId: 'job-123',
+        status: 'running',
+        config: { fromLedger: 10, toLedger: 20, dryRun: true },
+        progress: { processedCount: 5, skippedCount: 0, totalLedgers: 11 },
+        createdAt: new Date().toISOString(),
+      };
+      mockReplayService.getJobStatus.mockReturnValue(jobStatus);
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/replay/job-123')
+        .set('x-admin-token', 'secret-admin-token')
+        .set('x-admin-id', 'auditor-1');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(jobStatus);
+      expect(mockReplayService.getJobStatus).toHaveBeenCalledWith('job-123');
+      expect(mockMonitorService.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adminId: 'auditor-1',
+          route: '/admin/replay/job-123',
+          method: 'GET',
+          statusCode: 200,
+        }),
+      );
+    });
+
+    it('records 404 audit log when job is not found', async () => {
+      mockReplayService.getJobStatus.mockReturnValue(null);
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/replay/non-existent')
+        .set('x-admin-token', 'secret-admin-token')
+        .set('x-admin-id', 'auditor-1');
+
+      expect(res.status).toBe(404);
+      expect(mockMonitorService.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adminId: 'auditor-1',
+          route: '/admin/replay/non-existent',
+          method: 'GET',
+          statusCode: 404,
+        }),
+      );
     });
   });
 });

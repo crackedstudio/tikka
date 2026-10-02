@@ -1,5 +1,6 @@
 const tsPlugin = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
+const securityPlugin = require('eslint-plugin-security');
 
 module.exports = [
   {
@@ -30,9 +31,11 @@ module.exports = [
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
+      security: securityPlugin,
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
+      ...securityPlugin.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -42,6 +45,8 @@ module.exports = [
       // Pre-existing rot in several modules. Disabled so CI can run; revisit.
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/ban-ts-comment': 'off',
+      // Pre-existing rot: rescue.cli.ts contains a parse error. Ignore to keep
+      // CI green; the build pipeline already excludes this file from emit.
       'no-undef': 'off',
       'no-console': 'error',
     },
