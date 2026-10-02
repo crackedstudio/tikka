@@ -87,6 +87,17 @@ if (env.DATABASE_REPLICA_URL) {
   });
 }
 
+if (env.DATABASE_STATEMENT_TIMEOUT_MS !== undefined) {
+  assert(
+    !isNaN(parseInt(env.DATABASE_STATEMENT_TIMEOUT_MS, 10)),
+    'DATABASE_STATEMENT_TIMEOUT_MS must be a number (milliseconds).',
+  );
+  assert(
+    parseInt(env.DATABASE_STATEMENT_TIMEOUT_MS, 10) > 0,
+    'DATABASE_STATEMENT_TIMEOUT_MS must be greater than 0.',
+  );
+}
+
 // Redis (optional but if set, validate)
 if (env.REDIS_URL) {
   try {
@@ -137,7 +148,14 @@ export default registerAs('database', (): DataSourceOptions => {
     Number.parseInt(process.env.SLOW_QUERY_THRESHOLD_MS ?? '200', 10),
   );
 
-  const base = {
+  // PostgreSQL statement timeout in milliseconds (default: 30 seconds)
+  // This is enforced at the database level and prevents runaway queries
+  const statementTimeoutMs = Number.parseInt(
+    process.env.DATABASE_STATEMENT_TIMEOUT_MS ?? '30000',
+    10,
+  );
+
+  const base: any = {
     entities: [__dirname + '/../database/entities/*.entity.{.ts,.js}'],
     migrations: [__dirname + '/../database/migrations/*.t{.ts.js}'],
     migrationsRun: true,

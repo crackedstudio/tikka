@@ -162,6 +162,7 @@ export class IndexerService {
     if (filters.creator) params.set('creator', filters.creator);
     if (filters.asset) params.set('asset', filters.asset);
     if (filters.limit != null) params.set('limit', String(filters.limit));
+    if (filters.cursor) params.set('cursor', filters.cursor);
     if (filters.offset != null) params.set('offset', String(filters.offset));
     const query = params.toString();
     const path = query ? `/raffles?${query}` : '/raffles';
