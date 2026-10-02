@@ -15,7 +15,9 @@ export class RaffleOgController {
   ) {}
 
   /**
-   * GET /raffles/:id/og — Returns a dynamic Open Graph image (PNG) for the raffle.
+   * GET /raffles/:id/og — dynamic Open Graph image (PNG) for the raffle.
+   * Missing raffles still return a PNG (the shared default card) so scrapers
+   * always cache an image rather than an error page.
    */
   @Public()
   @Get(':id/og')
@@ -33,9 +35,11 @@ export class RaffleOgController {
       }
     }
 
-    let raffle;
+    let pngBuffer: Buffer;
+    let cacheable = true;
     try {
-      raffle = await this.rafflesService.getById(id);
+      const raffle = await this.rafflesService.getById(id);
+      pngBuffer = await this.ogImageService.renderForRaffle(raffle);
     } catch {
       const defaultBuffer = await this.ogImageService.generateDefaultOgImage();
       reply.status(200).send(defaultBuffer);
@@ -76,6 +80,14 @@ export class RaffleOgController {
       await this.metadataRedis.setEx(cacheKey, 60, pngBuffer.toString('base64'));
     }
 
-    reply.status(200).send(pngBuffer);
+    this.sendPng(reply, pngBuffer);
+  }
+
+  private sendPng(reply: FastifyReply, pngBuffer: Buffer): void {
+    reply
+      .status(200)
+      .header("Content-Type", "image/png")
+      .header("Cache-Control", "public, max-age=60")
+      .send(pngBuffer);
   }
 }

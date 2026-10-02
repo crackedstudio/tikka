@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/raffles/:id",
-      "destination": "https://api.tikka.io/og/raffles/:id",
+      "destination": "https://api.tikka.io/raffles/:id/og",
       "has": [
         {
           "type": "header",
