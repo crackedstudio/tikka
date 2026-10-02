@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { StepComponentProps } from "../../types/forms";
 import { X } from "lucide-react";
 
@@ -8,6 +9,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
     onNext,
     onBack,
 }) => {
+    const { t } = useTranslation("create");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragOver, setIsDragOver] = useState(false);
 
@@ -94,10 +96,10 @@ const ImageStep: React.FC<StepComponentProps> = ({
                         clipRule="evenodd"
                     />
                 </svg>
-                <h3 className="text-gray-900 dark:text-white text-xl font-bold">Prize Images</h3>
+                <h3 className="text-gray-900 dark:text-white text-xl font-bold">{t("image.heading")}</h3>
             </div>
             <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
-                Upload multiple images to showcase your prize from different angles
+                {t("image.subtitle")}
             </p>
 
             {/* Upload Area */}
@@ -121,12 +123,12 @@ const ImageStep: React.FC<StepComponentProps> = ({
                         handleUploadClick();
                     }
                 }}
-                aria-label="Upload prize images"
+                aria-label={t("image.uploadAreaLabel")}
             >
                 {formData.images.length > 0 ? (
                     <div className="space-y-4">
                         <p className="text-gray-900 dark:text-white text-sm">
-                            {formData.images.length} image{formData.images.length > 1 ? 's' : ''} uploaded - Click to add more
+                            {t("image.imagesUploaded", { count: formData.images.length })}
                         </p>
                     </div>
                 ) : (
@@ -144,14 +146,14 @@ const ImageStep: React.FC<StepComponentProps> = ({
                         </svg>
                         <div>
                             <p className="text-gray-900 dark:text-white text-lg mb-2">
-                                Drag & Drop your prize images here
+                                {t("image.dragDrop")}
                             </p>
-                            <p className="text-gray-400 mb-4">or</p>
-                            <button 
+                            <p className="text-gray-400 mb-4">{t("image.or")}</p>
+                            <button
                                 onClick={handleUploadClick}
                                 className="bg-[#FF389C] hover:bg-[#FF389C]/90 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
                             >
-                                Upload images
+                                {t("image.uploadButton")}
                             </button>
                         </div>
                     </div>
@@ -175,12 +177,12 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             <div key={index} className="relative group">
                                 <img
                                     src={URL.createObjectURL(img)}
-                                    alt={`Prize ${index + 1}`}
+                                    alt={t("image.prizeAlt", { number: index + 1 })}
                                     className="w-full h-32 object-cover rounded-lg"
                                 />
                                 {formData.image === img && (
                                     <div className="absolute top-2 left-2 bg-[#FF389C] text-white text-xs px-2 py-1 rounded">
-                                        Primary
+                                        {t("image.primary")}
                                     </div>
                                 )}
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
@@ -190,10 +192,10 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                                 e.stopPropagation();
                                                 setPrimaryImage(index);
                                             }}
-                                            aria-label={`Set image ${index + 1} as primary`}
+                                            aria-label={t("image.setPrimaryImage", { number: index + 1 })}
                                             className="bg-white dark:bg-gray-200 text-black hover:bg-gray-100 dark:hover:bg-gray-300 px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#FF389C]"
                                         >
-                                            Set Primary
+                                            {t("image.setPrimary")}
                                         </button>
                                     )}
                                     <button
@@ -201,7 +203,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                                             e.stopPropagation();
                                             removeImage(index);
                                         }}
-                                        aria-label={`Remove image ${index + 1}`}
+                                        aria-label={t("image.removeImage", { number: index + 1 })}
                                         className="bg-red-500 text-white p-2 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-[#FF389C]"
                                     >
                                         <X size={16} />
@@ -214,7 +216,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
             )}
 
             <p className="text-gray-400 text-sm mt-4 text-center">
-                Upload clear pictures of your prize. Multiple angles help build trust
+                {t("image.footerHint")}
             </p>
 
             {/* Image Tips */}
@@ -233,11 +235,11 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             />
                         </svg>
                         <h4 className="text-gray-900 dark:text-white font-medium">
-                            Good Lighting
+                            {t("image.tips.lighting.title")}
                         </h4>
                     </div>
                     <p className="text-gray-400 text-sm">
-                        Natural light works best
+                        {t("image.tips.lighting.description")}
                     </p>
                 </div>
 
@@ -255,11 +257,11 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             />
                         </svg>
                         <h4 className="text-gray-900 dark:text-white font-medium">
-                            Multiple Angles
+                            {t("image.tips.angles.title")}
                         </h4>
                     </div>
                     <p className="text-gray-400 text-sm">
-                        Show different perspectives
+                        {t("image.tips.angles.description")}
                     </p>
                 </div>
 
@@ -277,11 +279,11 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             />
                         </svg>
                         <h4 className="text-gray-900 dark:text-white font-medium">
-                            Clear Background
+                            {t("image.tips.background.title")}
                         </h4>
                     </div>
                     <p className="text-gray-400 text-sm">
-                        Avoid cluttered backdrops
+                        {t("image.tips.background.description")}
                     </p>
                 </div>
             </div>
@@ -292,7 +294,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                     onClick={onBack}
                     className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-[#3A365A] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
                 >
-                    Back
+                    {t("nav.back")}
                 </button>
                 <button
                     onClick={onNext}
@@ -302,7 +304,7 @@ const ImageStep: React.FC<StepComponentProps> = ({
                             : "bg-gray-300 dark:bg-gray-600 text-gray-400 cursor-not-allowed"
                         }`}
                 >
-                    Continue
+                    {t("nav.continue")}
                 </button>
             </div>
         </div>

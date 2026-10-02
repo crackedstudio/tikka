@@ -40,6 +40,9 @@ flowchart TD
 | [**indexer**](./indexer/) | Blockchain event ingestion - horizon -> decode -> postgresQL (+ Redis cache). NestJS. |
 | [**oracle**](./oracle/) | Randomness oracle - listens for draw requests, computes VRF/PRNG, submits to contract. NestJS. |
 
+Service environment variables and examples are cataloged in the [environment
+reference](./docs/env/README.md).
+
 ## Local Development
 
 ### Prerequisites

@@ -7,6 +7,9 @@ module.exports = {
     transform: {
         '^.+\\.(t|j)s$': ['ts-jest', {
             useESM: true,
+            // Pre-existing strict errors in the key-provider import graph otherwise
+            // stop ts-jest from loading the submitter specs.
+            diagnostics: false,
             tsconfig: {
                 esModuleInterop: true,
                 allowSyntheticDefaultImports: true,
@@ -14,7 +17,7 @@ module.exports = {
         }],
     },
     transformIgnorePatterns: [
-        '/node_modules/(?!(@noble|@stellar|@scure|stellar-sdk)/)',
+        '/node_modules/(?!(?:\\.pnpm/[^/]+/node_modules/)?(@noble|@stellar|@scure|stellar-sdk|uint8array-extras)/)',
     ],
     moduleNameMapper: {
         '^src/(.*)$': '<rootDir>/src/$1',

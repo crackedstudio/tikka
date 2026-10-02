@@ -43,9 +43,10 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
     const execute = async (): Promise<void> => {
       const { targetUrl, secret, eventType, payload } = job.data;
 
+      const timestamp = new Date().toISOString();
       const payloadString = JSON.stringify({
         event: eventType,
-        timestamp: new Date().toISOString(),
+        timestamp,
         data: payload,
       });
 
@@ -62,6 +63,8 @@ export class WebhookDeliveryWorker extends WorkerHost implements OnApplicationSh
           headers: {
             'Content-Type': 'application/json',
             'X-Tikka-Signature': signature,
+            'X-Tikka-Signature-Algorithm': 'sha256',
+            'X-Tikka-Timestamp': timestamp,
             'User-Agent': 'Tikka-Webhook-Dispatcher/1.0',
           },
           body: payloadString,
