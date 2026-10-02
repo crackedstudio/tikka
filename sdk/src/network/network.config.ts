@@ -135,8 +135,8 @@ export function classifySorobanRpcError(error: unknown): RetryDecision {
     typeof err?.message === 'string'
       ? err.message
       : typeof error === 'string'
-        ? error
-        : String(error);
+      ? error
+      : String(error);
   const lower = message.toLowerCase();
 
   // Malformed XDR is a request/encoding defect, never transient.
