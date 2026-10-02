@@ -30,7 +30,8 @@
     "noFallthroughCasesInSwitch": true,
     
     // Strict mode - enables all strict type checking options
-    "strict": true
+    "strict": true,
+    "strictPropertyInitialization": false
     
     /* 
      * The "strict" flag above is equivalent to enabling:

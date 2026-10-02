@@ -99,7 +99,7 @@ export class RaffleImagesController {
       throw error;
     }
 
-    const detectedFileType = await fileType.fromBuffer(buffer);
+    const detectedFileType = await detectFileTypeFromBuffer(buffer);
     const mimeType = detectedFileType?.mime as AllowedUploadMimeType | undefined;
 
     if (!mimeType || !ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType)) {

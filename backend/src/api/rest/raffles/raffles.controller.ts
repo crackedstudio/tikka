@@ -52,14 +52,6 @@ import { Throttle } from "@nestjs/throttler";
 import { IdempotencyInterceptor } from "../../../common/idempotency/idempotency.interceptor";
 import { CacheHeadersInterceptor, CACHE_MAX_AGE_KEY } from "./cache-headers.interceptor";
 import { SetMetadata } from "@nestjs/common";
-import sharp, { type Metadata } from "sharp";
-import { detectFileTypeFromBuffer } from "../../../utils/detect-file-type";
-
-interface FastifyRequestWithMultipart extends FastifyRequest {
-  file: () => Promise<MultipartFile | undefined>;
-}
-
-
 const RAFFLE_CREATE_RATE_LIMIT = env.rateLimits.raffleCreateLimit;
 const RAFFLE_CREATE_RATE_WINDOW_SECONDS = env.rateLimits.raffleCreateWindowSeconds;
 

@@ -9,3 +9,4 @@ out/
 *.min.css
 .turbo/
 pnpm-lock.yaml
+client/src/types/api.generated.ts
