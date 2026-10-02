@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { StepComponentProps } from "../../types/forms";
 
 const DetailsStep: React.FC<StepComponentProps> = ({
@@ -7,6 +8,8 @@ const DetailsStep: React.FC<StepComponentProps> = ({
     onNext,
     onBack,
 }) => {
+    const { t } = useTranslation("create");
+
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         updateFormData({ title: e.target.value });
     };
@@ -34,23 +37,23 @@ const DetailsStep: React.FC<StepComponentProps> = ({
                         clipRule="evenodd"
                     />
                 </svg>
-                <h3 className="text-gray-900 dark:text-white text-xl font-bold">Raffle Details</h3>
+                <h3 className="text-gray-900 dark:text-white text-xl font-bold">{t("details.heading")}</h3>
             </div>
             <p className="text-gray-700 dark:text-gray-300 text-sm mb-6">
-                Tell participants what they could win
+                {t("details.subtitle")}
             </p>
 
             <div className="space-y-6">
                 {/* Title Input */}
                 <div>
                     <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                        Raffle Title
+                        {t("details.titleLabel")}
                     </label>
                     <input
                         type="text"
                         value={formData.title}
                         onChange={handleTitleChange}
-                        placeholder="Enter raffle title"
+                        placeholder={t("details.titlePlaceholder")}
                         className="w-full px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent"
                     />
                 </div>
@@ -58,12 +61,12 @@ const DetailsStep: React.FC<StepComponentProps> = ({
                 {/* Description Input */}
                 <div>
                     <label className="block text-gray-900 dark:text-white text-sm font-medium mb-2">
-                        Description
+                        {t("details.descriptionLabel")}
                     </label>
                     <textarea
                         value={formData.description}
                         onChange={handleDescriptionChange}
-                        placeholder="Describe your raffle prize in detail"
+                        placeholder={t("details.descriptionPlaceholder")}
                         rows={4}
                         className="w-full px-4 py-3 bg-gray-200 dark:bg-[#2A264A] border border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:border-transparent resize-none"
                     />
@@ -76,7 +79,7 @@ const DetailsStep: React.FC<StepComponentProps> = ({
                     onClick={onBack}
                     className="px-6 py-3 bg-gray-200 dark:bg-[#2A264A] text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-[#3A365A] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF389C] focus:ring-offset-2 dark:focus:ring-offset-[#0B1220]"
                 >
-                    Back
+                    {t("nav.back")}
                 </button>
                 <button
                     onClick={onNext}
@@ -87,7 +90,7 @@ const DetailsStep: React.FC<StepComponentProps> = ({
                             : "bg-gray-300 dark:bg-gray-600 text-gray-400 cursor-not-allowed"
                     }`}
                 >
-                    Continue
+                    {t("nav.continue")}
                 </button>
             </div>
         </div>

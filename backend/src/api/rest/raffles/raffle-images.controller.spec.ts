@@ -255,4 +255,93 @@ describe('RaffleImagesController — uploadImage', () => {
     );
     expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
   });
+
+  describe('Magic byte content-sniffing (XSS prevention)', () => {
+    it('rejects SVG file disguised as PNG via Content-Type header', async () => {
+      // Attacker uploads SVG with malicious content but claims it's PNG
+      const svgContent = Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert("XSS")</script></svg>',
+      );
+      const file = createMockFile({
+        mimetype: 'image/png', // Attacker-controlled header
+        buffer: svgContent,
+      });
+      const request = createMockRequest(file);
+
+      // file-type library detects SVG magic bytes
+      mockFileTypeFromBuffer.mockResolvedValueOnce({ 
+        mime: 'image/svg+xml', 
+        ext: 'svg' 
+      } as any);
+
+      await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+        /image\/svg\+xml/,
+      );
+      expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
+    });
+
+    it('rejects HTML file disguised as image/jpeg', async () => {
+      const htmlContent = Buffer.from(
+        '<!DOCTYPE html><html><body><script>alert("XSS")</script></body></html>',
+      );
+      const file = createMockFile({
+        mimetype: 'image/jpeg',
+        buffer: htmlContent,
+      });
+      const request = createMockRequest(file);
+
+      // file-type library detects HTML (returns null for HTML)
+      mockFileTypeFromBuffer.mockResolvedValueOnce(null as any);
+
+      await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
+    });
+
+    it('rejects GIF file even if client claims PNG', async () => {
+      const gifMagicBytes = Buffer.from('GIF89a', 'ascii');
+      const file = createMockFile({
+        mimetype: 'image/png',
+        buffer: gifMagicBytes,
+      });
+      const request = createMockRequest(file);
+
+      mockFileTypeFromBuffer.mockResolvedValueOnce({ 
+        mime: 'image/gif', 
+        ext: 'gif' 
+      } as any);
+
+      await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(controller.uploadImage(request, 'GABC123')).rejects.toThrow(
+        /image\/gif/,
+      );
+      expect(storageService.uploadRaffleImage).not.toHaveBeenCalled();
+    });
+
+    it('accepts legitimate PNG even if client claims wrong MIME type', async () => {
+      const file = createMockFile({
+        mimetype: 'application/octet-stream', // Generic/wrong type
+        buffer: Buffer.from('fake-png-data'),
+      });
+      const request = createMockRequest(file);
+
+      // file-type library correctly detects PNG via magic bytes
+      mockFileTypeFromBuffer.mockResolvedValueOnce({ 
+        mime: 'image/png', 
+        ext: 'png' 
+      } as any);
+
+      await controller.uploadImage(request, 'GABC123');
+
+      expect(storageService.uploadRaffleImage).toHaveBeenCalledWith(
+        expect.objectContaining({ mimeType: 'image/png' }),
+      );
+    });
+  });
 });

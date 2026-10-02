@@ -1,13 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 import { WebhookDeliveryWorker } from './webhook-delivery.worker';
 import { SUPABASE_CLIENT } from '../services/storage/supabase.provider';
 import { Job } from 'bullmq';
-import { WebhookDeliveryJobData } from './webhook-delivery.constants';
+import * as crypto from 'crypto';
+import { WEBHOOK_DELIVERY_QUEUE, WebhookDeliveryJobData } from './webhook-delivery.constants';
 
 describe('WebhookDeliveryWorker', () => {
   let worker: WebhookDeliveryWorker;
   let mockSupabaseClient: any;
+  let mockQueue: { pause: jest.Mock };
 
   const mockJobData: WebhookDeliveryJobData = {
     webhookId: 'webhook-test-id',
@@ -18,7 +21,9 @@ describe('WebhookDeliveryWorker', () => {
     ownerAddress: 'GTEST123',
   };
 
-  function createMockJob(overrides?: Partial<Job<WebhookDeliveryJobData>>): Job<WebhookDeliveryJobData> {
+  function createMockJob(
+    overrides?: Partial<Job<WebhookDeliveryJobData>>,
+  ): Job<WebhookDeliveryJobData> {
     return {
       data: mockJobData,
       id: 'job-1',
@@ -36,11 +41,15 @@ describe('WebhookDeliveryWorker', () => {
       from: jest.fn(),
       rpc: jest.fn(),
     };
+    mockQueue = {
+      pause: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebhookDeliveryWorker,
         { provide: SUPABASE_CLIENT, useValue: mockSupabaseClient },
+        { provide: getQueueToken(WEBHOOK_DELIVERY_QUEUE), useValue: mockQueue },
       ],
     }).compile();
 
@@ -52,6 +61,7 @@ describe('WebhookDeliveryWorker', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -76,6 +86,44 @@ describe('WebhookDeliveryWorker', () => {
       expect(mockUpdate).toHaveBeenCalledWith({ failure_count: 0 });
     });
 
+    it('should send a matching signature and verification headers', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-25T12:00:00.000Z'));
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: jest.fn().mockResolvedValue('OK'),
+      } as any);
+
+      const mockUpdate = jest.fn().mockReturnThis();
+      const mockEq = jest.fn().mockResolvedValue({ error: null });
+      mockSupabaseClient.from.mockReturnValue({
+        insert: jest.fn().mockResolvedValue({ error: null }),
+        update: mockUpdate,
+        eq: mockEq,
+      });
+
+      await worker.process(createMockJob());
+
+      const [, request] = (global.fetch as jest.Mock).mock.calls[0];
+      const body = request.body as string;
+      const headers = request.headers as Record<string, string>;
+      const timestamp = headers['X-Tikka-Timestamp'];
+      const expectedSignature = crypto
+        .createHmac('sha256', mockJobData.secret)
+        .update(body)
+        .digest('hex');
+
+      expect(JSON.parse(body)).toEqual({
+        event: mockJobData.eventType,
+        timestamp,
+        data: mockJobData.payload,
+      });
+      expect(headers['X-Tikka-Signature']).toBe(expectedSignature);
+      expect(headers['X-Tikka-Signature-Algorithm']).toBe('sha256');
+      expect(timestamp).toBe('2026-09-25T12:00:00.000Z');
+    });
+
     it('should throw on non-ok response and increment failure count', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
@@ -89,10 +137,10 @@ describe('WebhookDeliveryWorker', () => {
       mockSupabaseClient.rpc.mockResolvedValue({ error: null });
 
       await expect(worker.process(createMockJob())).rejects.toThrow('HTTP 500');
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-        'increment_webhook_failure_count',
-        { p_webhook_id: mockJobData.webhookId, p_max_failures: 5 },
-      );
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('increment_webhook_failure_count', {
+        p_webhook_id: mockJobData.webhookId,
+        p_max_failures: 5,
+      });
     });
 
     it('should throw on network error and increment failure count', async () => {
@@ -104,10 +152,10 @@ describe('WebhookDeliveryWorker', () => {
       mockSupabaseClient.rpc.mockResolvedValue({ error: null });
 
       await expect(worker.process(createMockJob())).rejects.toThrow('ECONNREFUSED');
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-        'increment_webhook_failure_count',
-        { p_webhook_id: mockJobData.webhookId, p_max_failures: 5 },
-      );
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('increment_webhook_failure_count', {
+        p_webhook_id: mockJobData.webhookId,
+        p_max_failures: 5,
+      });
     });
 
     it('should log delivery with correct parameters', async () => {
@@ -187,19 +235,14 @@ describe('WebhookDeliveryWorker', () => {
   });
 
   describe('onApplicationShutdown', () => {
-    it('should call worker.close() to drain in-flight jobs', async () => {
-      const closeMock = jest.fn().mockResolvedValue(undefined);
-      // WorkerHost stores the BullMQ worker on a protected property
-      (worker as any).worker = { close: closeMock };
-
+    it('should pause the queue to drain in-flight jobs', async () => {
       await worker.onApplicationShutdown();
 
-      expect(closeMock).toHaveBeenCalledTimes(1);
+      expect(mockQueue.pause).toHaveBeenCalledTimes(1);
     });
 
-    it('should not throw if worker is not yet initialised', async () => {
-      // Simulate shutdown before the worker property is assigned
-      (worker as any).worker = undefined;
+    it('should not throw if the queue cannot be paused', async () => {
+      mockQueue.pause.mockRejectedValueOnce(new Error('not initialized'));
 
       await expect(worker.onApplicationShutdown()).resolves.toBeUndefined();
     });
