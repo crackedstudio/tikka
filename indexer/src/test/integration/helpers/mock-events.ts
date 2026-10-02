@@ -10,20 +10,18 @@
  */
 
 import { DomainEvent } from '../../../ingestor/event.types';
+import { createDemoRaffleScenarios } from '@tikka/types';
 
 // ─── Stellar address fixtures ────────────────────────────────────────────────
 
 /** A 56-character Stellar G-address used as a default creator across fixtures. */
-export const CREATOR_ADDRESS =
-  'GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGCHWQ12WKLOEQBSRQOZKRN';
+export const CREATOR_ADDRESS = 'GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGCHWQ12WKLOEQBSRQOZKRN';
 
 /** A 56-character Stellar G-address used as a default buyer across fixtures. */
-export const BUYER_ADDRESS =
-  'GBRAND7QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQBRAND';
+export const BUYER_ADDRESS = 'GBRAND7QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQBRAND';
 
 /** A second buyer address used in multi-user scenarios. */
-export const BUYER2_ADDRESS =
-  'GCREATOR2QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQCREATOR';
+export const BUYER2_ADDRESS = 'GCREATOR2QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQCREATOR';
 
 // ─── TX hash helpers ─────────────────────────────────────────────────────────
 
@@ -135,8 +133,7 @@ export function makeRawIngestionEvent(
     paging_token: overrides.paging_token ?? `${ledger}-${id}`,
     ledger,
     contract_id:
-      overrides.contract_id ??
-      'CCONTRACT00000000000000000000000000000000000000000000000000',
+      overrides.contract_id ?? 'CCONTRACT00000000000000000000000000000000000000000000000000',
     topic: overrides.topic ?? ['contract', eventType],
     topics: overrides.topics ?? ['contract', eventType],
     value: overrides.value ?? {},
@@ -267,4 +264,75 @@ export function makeRaffleCancelled(
     txHash: mockTxHash(20),
     ...overrides,
   };
+}
+
+export type DemoSeedEvent =
+  | { kind: 'raffle-created'; payload: RaffleCreatedPayload }
+  | { kind: 'ticket-purchased'; payload: TicketPurchasedPayload }
+  | { kind: 'raffle-finalized'; payload: RaffleFinalizedPayload; ledger: number; txHash: string }
+  | { kind: 'raffle-cancelled'; payload: RaffleCancelledPayload };
+
+/** Builds the stable local demo event stream from the shared scenario catalog. */
+export function makeDemoSeedEvents(nowSeconds = Math.floor(Date.now() / 1_000)): DemoSeedEvent[] {
+  const events: DemoSeedEvent[] = [];
+
+  for (const scenario of createDemoRaffleScenarios(nowSeconds)) {
+    events.push({
+      kind: 'raffle-created',
+      payload: makeRaffleCreated({
+        raffleId: scenario.raffleId,
+        creator: scenario.creator,
+        ticketPrice: scenario.ticketPriceStroops,
+        maxTickets: scenario.maxTickets,
+        asset: scenario.asset,
+        endTime: String(scenario.endTimeSeconds),
+        metadataCid: `demo-${scenario.raffleId}`,
+        createdLedger: scenario.createdLedger,
+        txHash: mockTxHash(scenario.raffleId * 100),
+      }),
+    });
+
+    scenario.purchases.forEach((purchase) => {
+      events.push({
+        kind: 'ticket-purchased',
+        payload: makeTicketPurchased({
+          raffleId: scenario.raffleId,
+          buyer: purchase.buyer,
+          ticketIds: purchase.ticketIds,
+          totalCost: (
+            BigInt(scenario.ticketPriceStroops) * BigInt(purchase.ticketIds.length)
+          ).toString(),
+          ledger: purchase.ledger,
+          txHash: mockTxHash(purchase.txHashSeed),
+        }),
+      });
+    });
+
+    if (scenario.status === 'finalized') {
+      events.push({
+        kind: 'raffle-finalized',
+        payload: makeRaffleFinalized({
+          raffleId: scenario.raffleId,
+          winner: scenario.winner!,
+          prizeAmount: scenario.prizeAmountStroops,
+        }),
+        ledger: scenario.finalizedLedger!,
+        txHash: mockTxHash(scenario.raffleId * 100 + 99),
+      });
+    }
+
+    if (scenario.status === 'cancelled') {
+      events.push({
+        kind: 'raffle-cancelled',
+        payload: makeRaffleCancelled({
+          raffleId: scenario.raffleId,
+          reason: scenario.cancelledReason!,
+          ledger: scenario.finalizedLedger!,
+          txHash: mockTxHash(scenario.raffleId * 100 + 99),
+        }),
+      });
+    }
+  }
+
+  return events;
 }

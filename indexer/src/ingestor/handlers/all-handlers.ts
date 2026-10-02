@@ -1,6 +1,10 @@
 /**
- * Complete set of default event handlers
- * These handlers match the original EventParserService functionality
+ * Complete set of default event handlers: exactly one handler per contract
+ * event topic in `CONTRACT_EVENT_TOPICS`.
+ *
+ * Ordering is irrelevant — the registry keys handlers by `eventName` — but the
+ * set must stay exhaustive: `all-handlers.spec.ts` asserts it matches
+ * `CONTRACT_EVENT_TOPICS` exactly (no topic unhandled, none claimed twice).
  */
 
 import { Injectable } from "@nestjs/common";
@@ -19,6 +23,9 @@ import {
 } from "../event.types";
 import { RawSorobanEvent } from "../event-parser.interface";
 import { RaffleCancelledHandler } from "./raffle-cancelled.handler";
+import { RaffleCreatedHandler } from "./raffle-created.handler";
+import { RaffleFinalizedHandler } from "./raffle-finalized.handler";
+import { TicketPurchasedHandler } from "./ticket-purchased.handler";
 import { asNumber, asString } from "./decode-utils";
 
 export { RaffleCancelledHandler };
@@ -201,8 +208,11 @@ export class AdminTransferAcceptedHandler extends BaseEventHandler<AdminTransfer
   }
 }
 
-// Export all handlers
+// Export all handlers — one per contract event topic.
 export const ALL_DEFAULT_HANDLERS = [
+  RaffleCreatedHandler,
+  TicketPurchasedHandler,
+  RaffleFinalizedHandler,
   DrawTriggeredHandler,
   RandomnessRequestedHandler,
   RandomnessReceivedHandler,

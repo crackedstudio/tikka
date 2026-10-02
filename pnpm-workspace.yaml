@@ -1,5 +1,6 @@
 packages:
   - 'packages/types'
+  - 'packages/fee-accuracy'
   - 'client'
   - 'sdk'
   - 'backend'

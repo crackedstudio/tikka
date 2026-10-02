@@ -1,4 +1,5 @@
 import { RequestIdMiddleware, REQUEST_ID_HEADER } from './request-id.middleware';
+import { getRequestId, getRequestLogContext } from './request-context';
 
 type MockRequest = { headers: Record<string, string | string[] | undefined> };
 type MockResponse = { setHeader: jest.Mock };
@@ -41,6 +42,19 @@ describe('RequestIdMiddleware', () => {
     expect(mockRequest.headers![REQUEST_ID_HEADER]).toBe(existingId);
     expect(mockResponse.setHeader).toHaveBeenCalledWith(REQUEST_ID_HEADER, existingId);
     expect(nextFunction).toHaveBeenCalled();
+  });
+
+  it('binds the response request ID into log context for downstream work', () => {
+    const existingId = 'request-log-context-123';
+    mockRequest.headers[REQUEST_ID_HEADER] = existingId;
+    nextFunction.mockImplementation(() => {
+      expect(getRequestId()).toBe(existingId);
+      expect(getRequestLogContext()).toEqual({ requestId: existingId });
+    });
+
+    middleware.use(mockRequest, mockResponse, nextFunction);
+
+    expect(mockResponse.setHeader).toHaveBeenCalledWith(REQUEST_ID_HEADER, existingId);
   });
 
   it('should generate UUID format for new request IDs', () => {

@@ -18,8 +18,9 @@ export async function configureSecurity(
     }
   }
 
-  // Using 'as any' bypasses the type mismatch error between Fastify versions
-  await app.register(helmet as any);
+  // Register via the underlying FastifyInstance so the plugin type resolves
+  // correctly against the Fastify v5 generics.
+  await app.getHttpAdapter().getInstance().register(helmet);
 
   app.enableCors({
     origin(origin, callback) {

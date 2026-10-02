@@ -3,3 +3,4 @@ export * from './ticket';
 export * from './contract';
 export * from './events';
 export * from './user';
+export * from './demo-fixtures';

@@ -2,6 +2,10 @@
 
 **In this repo:** This is the Tikka frontend (tikka-frontend). It reads data from **tikka-backend** and performs onchain writes via **@tikka/sdk**. For the full ecosystem (SDK, backend, indexer, oracle, data flows), see [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md). For a complete index of all documentation, see [../docs/README.md](../docs/README.md).
 
+Client build-time variables are listed in the [central client environment
+reference](../docs/env/client.md). Copy `.env.example` to `.env.local` to
+configure a local build.
+
 ---
 
 <div align="center">
