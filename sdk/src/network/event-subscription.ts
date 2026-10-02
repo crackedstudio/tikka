@@ -99,7 +99,8 @@ export function subscribeToEvents(options: EventSubscriptionOptions): EventSubsc
   let reconnectAttempt = 0;
   let gapWarnedForCursor: string | undefined;
 
-  const sleep = options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
   const pollIntervalMs = options.pollIntervalMs ?? 5000;
   const limit = options.limit ?? 100;
 
@@ -111,15 +112,17 @@ export function subscribeToEvents(options: EventSubscriptionOptions): EventSubsc
           : {
               filters: options.filters,
               startLedger: options.startLedger ?? 1,
+              // endLedger is required by stellar-sdk v14 when startLedger is
+              // used.  v16 made it optional.  0 is falsy so the SDK serialises
+              // it as "omit" on the wire (latest ledger), which is the desired
+              // behaviour on both versions.
+              endLedger: 0,
               limit,
             };
 
         const response = await options.getEvents(request);
 
-        if (
-          shouldWarnGap(cursor, response, lastProcessedLedger) &&
-          gapWarnedForCursor !== cursor
-        ) {
+        if (shouldWarnGap(cursor, response, lastProcessedLedger) && gapWarnedForCursor !== cursor) {
           gapWarnedForCursor = cursor;
           options.onGapWarning?.(buildGapWarning(cursor, response, lastProcessedLedger));
         }

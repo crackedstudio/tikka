@@ -14,12 +14,7 @@ export class RpcError extends Error {
     Object.setPrototypeOf(this, RpcError.prototype);
   }
 
-  static fromResponse(
-    endpoint: string,
-    method: string,
-    response: any,
-    payload?: any,
-  ): RpcError {
+  static fromResponse(endpoint: string, method: string, response: any, payload?: any): RpcError {
     return new RpcError(
       `RPC request failed: ${response.statusText || 'Unknown Error'}`,
       endpoint,
@@ -34,7 +29,7 @@ export class RpcError extends Error {
  * SDK-wide error codes exactly as required by Issue #154
  */
 export enum TikkaSdkErrorCode {
- /** Wallet extension installed but not connected/authorized */
+  /** Wallet extension installed but not connected/authorized */
   WalletNotConnected = 'WALLET_NOT_CONNECTED',
   /** No compatible wallet extension is installed in the browser */
   WalletNotInstalled = 'WALLET_NOT_INSTALLED',
@@ -82,6 +77,12 @@ export enum TikkaSdkErrorCode {
   RaffleFull = 'RAFFLE_FULL',
   /** Caller does not have sufficient balance to complete the operation */
   InsufficientFunds = 'INSUFFICIENT_FUNDS',
+  /**
+   * The raffle ID space is exhausted — the contract cannot allocate another
+   * `u32` raffle ID and will not wrap or reuse a previously issued one.
+   * See `docs/contracts/INTEGRATION_BOUNDARY.md` ("Raffle ID Allocation").
+   */
+  RaffleIdExhausted = 'RAFFLE_ID_EXHAUSTED',
 }
 
 /**
@@ -104,7 +105,10 @@ export class TikkaSdkError extends Error {
    * Static helper to wrap unknown errors into TikkaSdkError.
    * Useful in service-level catch blocks.
    */
-  static wrap(error: unknown, defaultCode: TikkaSdkErrorCode = TikkaSdkErrorCode.Unknown): TikkaSdkError {
+  static wrap(
+    error: unknown,
+    defaultCode: TikkaSdkErrorCode = TikkaSdkErrorCode.Unknown,
+  ): TikkaSdkError {
     if (error instanceof TikkaSdkError) return error;
 
     const message = error instanceof Error ? error.message : String(error);
@@ -218,6 +222,7 @@ export const ContractErrorType = {
   RAFFLE_FULL: TikkaSdkErrorCode.RaffleFull,
   INSUFFICIENT_FUNDS: TikkaSdkErrorCode.InsufficientFunds,
   UNAUTHORIZED: TikkaSdkErrorCode.Unauthorized,
+  RAFFLE_ID_EXHAUSTED: TikkaSdkErrorCode.RaffleIdExhausted,
 } as const;
 
 /** Thrown when a referenced raffle ID does not exist on-chain. */
@@ -266,15 +271,57 @@ export class UnauthorizedError extends TikkaSdkError {
 }
 
 /**
+ * Thrown when the `u32` raffle ID space is exhausted.
+ *
+ * The contract allocates raffle IDs from a monotonically increasing counter and
+ * never reuses an issued ID — not after a raffle reaches a terminal state
+ * (`FINALIZED` / `CANCELLED`) and not after an upgrade. Once the counter has
+ * issued `u32::MAX` the space is spent: `create_raffle` fails with this error
+ * rather than wrapping around and handing out a live ID a second time.
+ *
+ * Integrators should treat this as terminal for ID creation and surface it as
+ * an explicit, non-retryable failure rather than a generic contract error.
+ */
+export class RaffleIdExhaustedError extends TikkaSdkError {
+  constructor(message: string, cause?: unknown) {
+    super(TikkaSdkErrorCode.RaffleIdExhausted, message, cause);
+    this.name = 'RaffleIdExhaustedError';
+    Object.setPrototypeOf(this, RaffleIdExhaustedError.prototype);
+  }
+}
+
+/**
+ * Soroban contract error codes (panic codes) surfaced by the `tikka-raffle`
+ * contract, keyed by their `ContractErrorType` alias.
+ *
+ * These must match the contract's `Error` enum discriminant exactly. A contract
+ * upgrade that renumbers a variant is a breaking ABI change — see
+ * `docs/contracts/CONTRACT_UPGRADE_CHECKLIST.md`.
+ */
+export const CONTRACT_ERROR_CODE = {
+  RAFFLE_NOT_FOUND: 1,
+  RAFFLE_FULL: 3,
+  INSUFFICIENT_FUNDS: 4,
+  UNAUTHORIZED: 5,
+  /** `create_raffle` refused because the monotonic `u32` ID counter is spent. */
+  RAFFLE_ID_EXHAUSTED: 6,
+  RAFFLE_ENDED: 35,
+} as const;
+
+/**
  * Maps a known Soroban contract panic code to its typed error class.
  * Extend this table as new contract error codes are added.
  */
-const CONTRACT_ERROR_CODE_MAP: Record<number, new (message: string, cause?: unknown) => TikkaSdkError> = {
-  1: RaffleNotFoundError,
-  3: RaffleFullError,
-  4: InsufficientFundsError,
-  5: UnauthorizedError,
-  35: RaffleEndedError,
+const CONTRACT_ERROR_CODE_MAP: Record<
+  number,
+  new (message: string, cause?: unknown) => TikkaSdkError
+> = {
+  [CONTRACT_ERROR_CODE.RAFFLE_NOT_FOUND]: RaffleNotFoundError,
+  [CONTRACT_ERROR_CODE.RAFFLE_FULL]: RaffleFullError,
+  [CONTRACT_ERROR_CODE.INSUFFICIENT_FUNDS]: InsufficientFundsError,
+  [CONTRACT_ERROR_CODE.UNAUTHORIZED]: UnauthorizedError,
+  [CONTRACT_ERROR_CODE.RAFFLE_ID_EXHAUSTED]: RaffleIdExhaustedError,
+  [CONTRACT_ERROR_CODE.RAFFLE_ENDED]: RaffleEndedError,
 };
 
 /**

@@ -180,6 +180,7 @@ export interface LeaderboardEntry {
 /** Response envelope for GET /leaderboard */
 export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
+  nextCursor?: string | null;
 }
 
 // ── /monitor ──────────────────────────────────────────────────────────────────
